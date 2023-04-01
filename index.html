@@ -1,26 +1,129 @@
-<!DOCTYPE html>
-<html>
+PE html>
+<html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dr. Susumu Hirakawa | Researcher</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
-
-平川侑　（ひらかわすすむ）<br>
-国土交通省国土技術政策総合研究所<br>
-建築研究部　設備基準研究室　主任研究官
-<br>
-<br>
-305-0802
-茨城県つくば市立原1
-<br>
-<or>
-  <li type="sqare"><a href="mailto:hirakawa-s92ta@mlit.go.jp">hirakawa-s92ta@mlit.go.jp</a></li>
-  <li type="sqare"><a href="tel:029-864-4356">0298644356</a></li>
-  <li type="sqare"><a href="https://www.linkedin.com/in/susumuhirakawa/">Linkedin</a></li>
-  <li type="sqare"><a href="https://www.researchgate.net/profile/Susumu-Hirakawa">Research Gate</a></li>
-  <li type="sqare"><a href="https://researchmap.jp/sh_liv?lang=en">Research Map</a></li>
-  <li type="sqare"><a href="https://nrid.nii.ac.jp/ja/nrid/1000070848978/">Kakenhi</a></li>
-</ol>
+  <header>
+    <h1>平川侑（Susumu HIRAKAWA）</h1>
+    <h2>国土交通省国土技術政策総合研究所 (National Institute for Land and Infrastructure Management)</h2>
+    <h3>建築研究部 設備基準研究室 主任研究官(Department of Building, Senior Researcher)</h3>
+  </header>
+  <section class="contact-info">
+    <address>
+      <p>〒305-0802</p>
+      <p>茨城県つくば市立原1</p>
+    </address>
+    <ul>
+      <li><a href="mailto:hirakawa-s92ta@mlit.go.jp">hirakawa-s92ta@mlit.go.jp</a></li>
+      <li><a href="tel:029-864-4356">029-864-4356</a></li>
+    </ul>
+  </section>
+  <section class="social-links">
+    <h4>Find me on:</h4>
+    <ul>
+      <li><a href="https://www.linkedin.com/in/susumuhirakawa/" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
+      <li><a href="https://www.researchgate.net/profile/Susumu-Hirakawa" target="_blank" rel="noopener noreferrer">ResearchGate</a></li>
+      <li><a href="https://researchmap.jp/sh_liv?lang=en" target="_blank" rel="noopener noreferrer">Research Map</a></li>
+      <li><a href="https://nrid.nii.ac.jp/ja/nrid/1000070848978/" target="_blank" rel="noopener noreferrer">Kakenhi</a></li>
+    </ul>
+  </section>
+  <footer>
+    <p>&copy; 2023 Dr. Susumu Hirakawa. All rights reserved.</p>
+  </footer>
 </body>
 </html>
+Create a separate "styles.css" file for styling:
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+header {
+  padding: 1rem 0;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+header h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+header h3 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.contact-info {
+  text-align: center;
+}
+
+.contact-info address {
+  font-style: normal;
+}
+
+.social-links {
+  text-align: center;
+}
+
+.social-links ul {
+  list-style: none;
+  padding: 0;
+}
+.social-links li {
+display: inline;
+margin: 0 10px;
+}
+
+.social-links a {
+text-decoration: none;
+color: #333;
+}
+
+.social-links a:hover {
+color: #555;
+}
+
+footer {
+padding: 1rem 0;
+text-align: center;
+font-size: 0.875rem;
+}
+
+footer a {
+color: #333;
+text-decoration: none;
+}
+
+footer a:hover {
+color: #555;
+}
+
+@media screen and (max-width: 768px) {
+header h1 {
+font-size: 1.75rem;
+}
+
+header h2 {
+font-size: 1.25rem;
+}
+
+header h3 {
+font-size: 1.125rem;
+}
+}
+
+
+
+
+
