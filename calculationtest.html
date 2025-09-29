@@ -39,4 +39,12 @@
                 else:
                     result_text = "面密度と周波数に正の値を入力してください。"
             except ValueError:
-                result
+                result_text = "有効な数値を入力してください。"
+            
+            Element("result-output").write(result_text)
+        
+        # 初期計算を実行
+        calculate()
+    </py-script>
+</body>
+</html>
