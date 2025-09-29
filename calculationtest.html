@@ -5,7 +5,11 @@
     <title>質量則 計算ツール</title>
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-</head>
+
+    <py-config>
+        packages = ["numpy"]
+    </py-config>
+    </head>
 <body>
     <h1>質量則 透過損失計算</h1>
 
@@ -25,22 +29,14 @@
         from pyscript import Element
 
         def calculate(*args, **kwargs):
-            # HTMLの入力欄(id)から値を取得
-            m_prime = float(Element("mass-input").value)
-            freq = float(Element("freq-input").value)
+            try:
+                m_prime = float(Element("mass-input").value)
+                freq = float(Element("freq-input").value)
 
-            # 計算を実行
-            if m_prime > 0 and freq > 0:
-                tl_random = 20 * np.log10(m_prime * freq) - 47.5
-                result_text = f"{freq} Hz における透過損失: {tl_random:.1f} dB"
-            else:
-                result_text = "面密度と周波数に正の値を入力してください。"
-
-            # HTMLの結果表示エリア(id)に結果を書き出す
-            Element("result-output").write(result_text)
-        
-        # 初期計算を実行
-        calculate()
-    </py-script>
-</body>
-</html>
+                if m_prime > 0 and freq > 0:
+                    tl_random = 20 * np.log10(m_prime * freq) - 47.5
+                    result_text = f"{freq} Hz における透過損失: {tl_random:.1f} dB"
+                else:
+                    result_text = "面密度と周波数に正の値を入力してください。"
+            except ValueError:
+                result
