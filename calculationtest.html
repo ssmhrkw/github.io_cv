@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>質量則 計算ツール</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+</head>
+<body>
+    <h1>質量則 透過損失計算</h1>
+
+    <label for="mass-input">面密度 (kg/m²):</label>
+    <input type="number" id="mass-input" value="10">
+
+    <label for="freq-input">周波数 (Hz):</label>
+    <input type="number" id="freq-input" value="500">
+
+    <button py-click="calculate">計算実行</button>
+
+    <h2>計算結果</h2>
+    <div id="result-output">ここに結果が表示されます</div>
+
+    <py-script>
+        import numpy as np
+        from pyscript import Element
+
+        def calculate(*args, **kwargs):
+            # HTMLの入力欄(id)から値を取得
+            m_prime = float(Element("mass-input").value)
+            freq = float(Element("freq-input").value)
+
+            # 計算を実行
+            if m_prime > 0 and freq > 0:
+                tl_random = 20 * np.log10(m_prime * freq) - 47.5
+                result_text = f"{freq} Hz における透過損失: {tl_random:.1f} dB"
+            else:
+                result_text = "面密度と周波数に正の値を入力してください。"
+
+            # HTMLの結果表示エリア(id)に結果を書き出す
+            Element("result-output").write(result_text)
+        
+        # 初期計算を実行
+        calculate()
+    </py-script>
+</body>
+</html>
