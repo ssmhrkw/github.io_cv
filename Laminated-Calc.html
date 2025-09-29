@@ -2,9 +2,8 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>積層パネルシミュレーター (Web版)</title>
+    <title>統合版 二重壁・積層パネル 音響シミュレーター (Web版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         body { font-family: 'Meiryo', sans-serif; display: flex; gap: 15px; padding: 10px; font-size: 14px; background-color: #f4f4f4; }
         .column { display: flex; flex-direction: column; gap: 10px; }
@@ -14,50 +13,74 @@
         legend { font-weight: bold; padding: 0 5px; }
         button { padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 5px; border: 1px solid #aaa; background-color: #f0f0f0; }
         .button-group { display: flex; gap: 5px; }
-        .layer-tree, .summary-tree { font-size: 12px; }
-        .prop-label { font-size: 12px; white-space: pre; line-height: 1.6; background-color: #fafafa; padding: 5px; border-radius: 3px; }
+        .prop-label { font-size: 12px; white-space: pre; line-height: 1.6; background-color: #fafafa; padding: 5px; border-radius: 3px; border: 1px solid #eee; }
         .result-summary-grid { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 5px 15px;}
         #f0-value { font-size: 1.2em; font-weight: bold; color: #d9534f; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: right; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 12px; }
         th { background-color: #f2f2f2; text-align: center; }
+        .layer-table tbody tr { cursor: pointer; }
+        .layer-table tbody tr:hover { background-color: #f5f5f5; }
+        .layer-table tbody tr.selected { background-color: #d9edf7; }
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; }
+        .modal-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 8px; z-index: 101; width: 400px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-grid { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; }
+        .modal-buttons { text-align: right; margin-top: 20px; }
     </style>
 </head>
 <body>
 
+    <div id="layer-modal" class="modal-backdrop">
+        <div class="modal-dialog">
+            <h3 id="modal-title">レイヤー編集</h3>
+            <div class="modal-grid">
+                <label>材料:</label>
+                <select id="modal-mat-select"></select>
+                <label>厚さ (mm):</label>
+                <input type="number" id="modal-thick-input" value="12.5">
+                <label>密度 (kg/m³):</label>
+                <input type="text" id="modal-rho-input">
+                <label>ヤング率 (Pa):</label>
+                <input type="text" id="modal-e-input">
+                <label>ポアソン比:</label>
+                <input type="text" id="modal-nu-input">
+            </div>
+            <div class="modal-buttons">
+                <button id="modal-ok-btn">OK</button>
+                <button id="modal-cancel-btn">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
     <div class="column input-column">
-        <fieldset id="panel-a-fieldset">
+        <fieldset>
             <legend>パネルA (躯体側)</legend>
-            <div id="panel-a-tree"></div>
+            <div id="panel-a-container"></div>
             <div class="button-group">
-                <button onclick="addLayer('A')">レイヤー追加</button>
+                <button onclick="openLayerModal('A')">レイヤー追加</button>
                 <button onclick="removeLayer('A')">選択レイヤー削除</button>
             </div>
             <pre id="prop-a-label" class="prop-label">N/A</pre>
         </fieldset>
-
         <fieldset>
             <legend>中間層</legend>
-            <label>空気層の厚さ (mm): <input type="number" id="air-gap-input" value="100" style="width: 100%;"></label>
+            <label>空気層の厚さ (mm): <input type="number" id="air-gap-input" value="0" style="width: 100%;"></label>
             <label>吸音材: <select id="absorbent-select" style="width: 100%;"></select></label>
             <label>流動抵抗 (Pa·s/m²): <input type="number" id="flow-resist-input"></label>
         </fieldset>
-
-        <fieldset id="panel-b-fieldset">
+        <fieldset>
             <legend>パネルB (内装側)</legend>
-            <div id="panel-b-tree"></div>
+            <div id="panel-b-container"></div>
              <div class="button-group">
-                <button onclick="addLayer('B')">レイヤー追加</button>
+                <button onclick="openLayerModal('B')">レイヤー追加</button>
                 <button onclick="removeLayer('B')">選択レイヤー削除</button>
             </div>
             <pre id="prop-b-label" class="prop-label">N/A</pre>
         </fieldset>
-        
         <div class="button-group" style="margin-top: 10px;">
             <button id="calc-button" style="flex-grow: 1; padding: 12px; background-color: #5cb85c; color: white;">計算実行</button>
             <button id="export-csv-button" style="flex-grow: 1; background-color: #337ab7; color: white;">CSVエクスポート</button>
         </div>
-
         <fieldset>
             <legend>結果サマリー</legend>
             <div class="result-summary-grid">
@@ -73,7 +96,7 @@
     </div>
 
 <script>
-    // --- データと定数 ---
+    // ★★★ 変更点: 物性値データを更新 ★★★
     const MATERIAL_PROPERTIES = {
         "手動入力": { "rho": 0, "E": 0, "nu": 0 },
         "コンクリート": { "rho": 2.3e3, "E": 2.1e10, "nu": 0.005 },
@@ -99,8 +122,8 @@
     let layer_data_a = [], layer_data_b = [];
     let results_df = null;
     let stlChart;
+    let modalContext = { panel: null, index: -1 };
 
-    // --- UI要素 ---
     const ui = {
         airGapInput: document.getElementById('air-gap-input'),
         absorbentSelect: document.getElementById('absorbent-select'),
@@ -112,11 +135,20 @@
         f0Value: document.getElementById('f0-value'),
         summaryTableContainer: document.getElementById('summary-table-container'),
         stlChart: document.getElementById('stl-chart'),
-        panelATree: document.getElementById('panel-a-tree'),
-        panelBTree: document.getElementById('panel-b-tree'),
+        panelAContainer: document.getElementById('panel-a-container'),
+        panelBContainer: document.getElementById('panel-b-container'),
+        modal: document.getElementById('layer-modal'),
+        modalTitle: document.getElementById('modal-title'),
+        modalMatSelect: document.getElementById('modal-mat-select'),
+        modalThickInput: document.getElementById('modal-thick-input'),
+        modalRhoInput: document.getElementById('modal-rho-input'),
+        modalEInput: document.getElementById('modal-e-input'),
+        modalNuInput: document.getElementById('modal-nu-input'),
+        modalOkBtn: document.getElementById('modal-ok-btn'),
+        modalCancelBtn: document.getElementById('modal-cancel-btn')
     };
     
-    // --- 計算ロジック ---
+    // --- (計算ロジックやUI操作関数は前回と同様) ---
     const calculatePanelProperties = (layers) => {
         if (!layers || layers.length === 0) return { thick: 0, m_prime: 0, stiff: 0, fc: Infinity };
         const total_thickness = layers.reduce((sum, l) => sum + l.h, 0);
@@ -145,32 +177,26 @@
             alert("計算するレイヤーがありません。");
             return;
         }
-
         try {
             const propsA = calculatePanelProperties(layer_data_a);
             const propsB = calculatePanelProperties(layer_data_b);
             ui.propALabel.textContent = layer_data_a.length > 0 ? `総厚: ${(propsA.thick*1000).toFixed(1)} mm\n総面密度: ${propsA.m_prime.toFixed(1)} kg/m²\n全体臨界Fc: ${propsA.fc.toFixed(0)} Hz` : "N/A";
             ui.propBLabel.textContent = layer_data_b.length > 0 ? `総厚: ${(propsB.thick*1000).toFixed(1)} mm\n総面密度: ${propsB.m_prime.toFixed(1)} kg/m²\n全体臨界Fc: ${propsB.fc.toFixed(0)} Hz` : "N/A";
-            
             const is_double_wall = layer_data_a.length > 0 && layer_data_b.length > 0;
             
             if (is_double_wall) {
                 const d = parseFloat(ui.airGapInput.value) / 1000;
                 const absorbent_name = ui.absorbentSelect.value;
                 const flow_resistivity = (absorbent_name === "手動入力") ? parseFloat(ui.flowResistInput.value) : ABSORBENT_PROPERTIES[absorbent_name].resistivity;
-
                 const c0 = 343.0, rho0 = 1.2;
                 const f0 = (d > 0) ? (1/(2*Math.PI)) * Math.sqrt((rho0*Math.pow(c0,2) * (propsA.m_prime + propsB.m_prime)) / (d * propsA.m_prime * propsB.m_prime)) : Infinity;
-                
                 const { random: stl_a } = calculateRandomIncidenceTL(propsA.m_prime, FREQS);
                 const { random: stl_b } = calculateRandomIncidenceTL(propsB.m_prime, FREQS);
                 const { random: stl_total_mass } = calculateRandomIncidenceTL(propsA.m_prime + propsB.m_prime, FREQS);
-
                 let stl_double = FREQS.map((f, i) => {
                     if (f < f0) return stl_total_mass[i];
                     return (d > 0) ? stl_a[i] + stl_b[i] + 20*Math.log10(f*d) - 29 : stl_a[i] + stl_b[i];
                 });
-                
                 if (flow_resistivity > 0) {
                     const dip_depth_reduction = Math.min(10, flow_resistivity / 2000);
                     const performance_gain = 5 * (1 - Math.exp(-flow_resistivity / 10000));
@@ -178,7 +204,6 @@
                     const f0_index = FREQS.reduce((i, f, idx, arr) => Math.abs(f - f0) < Math.abs(arr[i] - f0) ? idx : i, 0);
                     if (d > 0) stl_double[f0_index] -= (12 - dip_depth_reduction);
                 }
-
                 ui.f0Value.textContent = (d > 0) ? `${f0.toFixed(1)} Hz` : "N/A (密着)";
                 updatePlot(ui.stlChart, 'stl-chart', FREQS, 
                     [{label: 'パネルA 全体', data: stl_a}, {label: 'パネルB 全体', data: stl_b}, {label: '二重壁 合成', data: stl_double}], 
@@ -186,10 +211,9 @@
                 updateSummaryTable(FREQS, stl_double);
                 results_df = { 'Frequency (Hz)': FREQS, 'STL_Panel_A_Random (dB)': stl_a, 'STL_Panel_B_Random (dB)': stl_b, 'STL_Double_Wall (dB)': stl_double };
             } else {
-                const m_prime_single = layer_data_a.length > 0 ? propsA.m_prime : propsB.m_prime;
+                const props_single = layer_data_a.length > 0 ? propsA : propsB;
                 const panel_name = layer_data_a.length > 0 ? "パネルA" : "パネルB";
-                const { normal: stl_normal, random: stl_random } = calculateRandomIncidenceTL(m_prime_single, FREQS);
-
+                const { normal: stl_normal, random: stl_random } = calculateRandomIncidenceTL(props_single.m_prime, FREQS);
                 ui.f0Value.textContent = "N/A (単層)";
                 updatePlot(ui.stlChart, 'stl-chart', FREQS, 
                     [{label: `${panel_name} (垂直入射)`, data: stl_normal}, {label: `${panel_name} (ランダム入射)`, data: stl_random}],
@@ -202,30 +226,37 @@
         }
     };
     
-    // --- UI更新ヘルパー ---
-    const createTableHTML = (headers, data) => `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-    
-    const updateSummaryTable = (freqs, stl_values) => {
+    function createTableHTML(headers, data) {
+        let table = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+        table += data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('');
+        table += `</tbody></table>`;
+        return table;
+    }
+
+    function updateSummaryTable(freqs, stl_values) {
         const target_freqs = [125, 250, 500, 1000, 2000];
+        if (!stl_values) {
+            ui.summaryTableContainer.innerHTML = createTableHTML(['周波数', '透過損失'], target_freqs.map(f => [f + " Hz", "N/A"]));
+            return;
+        }
         const target_stls = target_freqs.map(f_target => {
             const idx = freqs.reduce((i, f, idx, arr) => Math.abs(f - f_target) < Math.abs(arr[i] - f_target) ? idx : i, 0);
             return stl_values[idx];
         });
         const avg_stl = target_stls.reduce((sum, val) => sum + val, 0) / target_stls.length;
-        
         const tableData = target_freqs.map((f, i) => [`${f} Hz`, `${target_stls[i].toFixed(1)} dB`]);
         tableData.push(["5帯域平均", `${avg_stl.toFixed(1)} dB`]);
         ui.summaryTableContainer.innerHTML = createTableHTML(['周波数', '透過損失'], tableData);
     };
 
-    const updatePlot = (canvasElement, chartId, labels, datasets, title) => {
+    function updatePlot(canvasElement, chartId, labels, datasets, title) {
         const ctx = canvasElement.getContext('2d');
         if (chartId === 'stl-chart' && stlChart) stlChart.destroy();
 
         stlChart = new Chart(ctx, {
             type: 'line',
             data: { labels, datasets: datasets.map((ds, i) => ({
-                label: ds.label, data: ds.data, fill: false, borderWidth: (i === 2 || datasets.length === 1) ? 2.5 : 1.5,
+                label: ds.label, data: ds.data, fill: false, borderWidth: (i === 2 || datasets.length < 3) ? 2.5 : 1.5,
                 borderColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 159, 64, 1)', 'rgba(40, 167, 69, 1)'][i],
                 pointRadius: 3, pointBackgroundColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 159, 64, 1)', 'rgba(40, 167, 69, 1)'][i],
                 borderDash: (i < 2 && datasets.length === 3) ? [5, 5] : [],
@@ -239,18 +270,24 @@
         });
     };
     
-    // --- レイヤー操作UI ---
-    const createLayerUI = (container, panel_type) => {
+    function createLayerTable(container, panel_type) {
         const table = document.createElement('table');
-        table.className = 'layer-tree';
-        table.innerHTML = `<thead><tr><th>#</th><th>材料</th><th>厚さ(mm)</th></tr></thead><tbody></tbody>`;
+        table.className = 'layer-table';
+        table.innerHTML = `<thead><tr><th style="width:20px;">#</th><th>材料</th><th>厚さ(mm)</th></tr></thead><tbody></tbody>`;
+        container.innerHTML = '';
         container.appendChild(table);
-        return table.getElementsByTagName('tbody')[0];
-    };
-    const panelATreeBody = createLayerUI(ui.panelATree, 'A');
-    const panelBTreeBody = createLayerUI(ui.panelBTree, 'B');
+        table.querySelector('tbody').addEventListener('dblclick', (evt) => {
+            const row = evt.target.closest('tr');
+            if (row) {
+                openLayerModal(panel_type, row.rowIndex - 1);
+            }
+        });
+        return table.querySelector('tbody');
+    }
+    const panelATreeBody = createLayerTable(ui.panelAContainer, 'A');
+    const panelBTreeBody = createLayerTable(ui.panelBContainer, 'B');
 
-    const updateLayerTree = (panel_type) => {
+    function updateLayerTree(panel_type) {
         const treeBody = (panel_type === 'A') ? panelATreeBody : panelBTreeBody;
         const data = (panel_type === 'A') ? layer_data_a : layer_data_b;
         treeBody.innerHTML = '';
@@ -263,15 +300,13 @@
                 row.classList.add('selected');
             });
         });
-    };
+    }
 
-    const addLayer = (panel_type) => {
-        const newLayer = { mat: '石こうボード', h: 0.0125, rho: 800, E: 1.8e9, nu: 0.005 };
-        (panel_type === 'A' ? layer_data_a : layer_data_b).push(newLayer);
-        updateLayerTree(panel_type);
-    };
+    function addLayer(panel_type) {
+        openLayerModal(panel_type);
+    }
 
-    const removeLayer = (panel_type) => {
+    function removeLayer(panel_type) {
         const treeBody = (panel_type === 'A') ? panelATreeBody : panelBTreeBody;
         const data = (panel_type === 'A') ? layer_data_a : layer_data_b;
         const selectedRow = treeBody.querySelector('.selected');
@@ -281,27 +316,101 @@
         } else {
             alert('削除するレイヤーを選択してください。');
         }
-    };
+    }
     
-    const onAbsorbentSelect = () => {
+    function openLayerModal(panel_type, index = -1) {
+        modalContext = { panel: panel_type, index };
+        const data = (panel_type === 'A') ? layer_data_a : layer_data_b;
+        const isEditing = index !== -1;
+
+        ui.modalTitle.textContent = isEditing ? "レイヤー編集" : "レイヤー追加";
+        const layer = isEditing ? data[index] : { mat: '石こうボード', h: 0.0125, rho: 0.8e3, E: 0.18e10, nu: 0.005 };
+        
+        ui.modalMatSelect.value = layer.mat;
+        ui.modalThickInput.value = layer.h * 1000;
+        
+        onModalMatChange();
+        
+        if (isEditing) {
+             ui.modalRhoInput.value = layer.rho;
+             ui.modalEInput.value = layer.E.toExponential(2);
+             ui.modalNuInput.value = layer.nu;
+        }
+        ui.modal.style.display = 'block';
+    }
+
+    function saveLayer() {
+        try {
+            const newLayer = {
+                mat: ui.modalMatSelect.value,
+                h: parseFloat(ui.modalThickInput.value) / 1000,
+                rho: parseFloat(ui.modalRhoInput.value),
+                E: parseFloat(ui.modalEInput.value),
+                nu: parseFloat(ui.modalNuInput.value)
+            };
+            const data = (modalContext.panel === 'A' ? layer_data_a : layer_data_b);
+            if (modalContext.index === -1) data.push(newLayer);
+            else data[modalContext.index] = newLayer;
+            updateLayerTree(modalContext.panel);
+            closeModal();
+        } catch (e) {
+            alert('有効な数値を入力してください。');
+        }
+    }
+
+    function closeModal() { ui.modal.style.display = 'none'; }
+
+    function onModalMatChange() {
+        const selectedName = ui.modalMatSelect.value;
+        const props = MATERIAL_PROPERTIES[selectedName];
+        const isManual = selectedName === "手動入力";
+        [ui.modalEInput, ui.modalRhoInput, ui.modalNuInput].forEach(input => input.readOnly = !isManual);
+        if (!isManual) {
+            ui.modalEInput.value = props.E.toExponential(2);
+            ui.modalRhoInput.value = props.rho;
+            ui.modalNuInput.value = props.nu;
+        } else {
+             ui.modalEInput.value = ""; ui.modalRhoInput.value = ""; ui.modalNuInput.value = "";
+        }
+    }
+    
+    function onAbsorbentSelect() {
         const selected = ui.absorbentSelect.value;
         const isManual = selected === "手動入力";
         ui.flowResistInput.readOnly = !isManual;
         ui.flowResistInput.value = isManual ? "" : ABSORBENT_PROPERTIES[selected].resistivity;
-    };
+    }
 
-    // --- 初期化 ---
+    function exportToCsv() {
+        if (!results_df) { alert("エクスポートする計算結果がありません。"); return; }
+        const headers = Object.keys(results_df);
+        let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+        const numRows = results_df[headers[0]].length;
+        for (let i = 0; i < numRows; i++) {
+            csvContent += headers.map(h => results_df[h][i].toFixed(2)).join(",") + "\n";
+        }
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "acoustic_simulation_results.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
     document.addEventListener('DOMContentLoaded', () => {
-        Object.keys(MATERIAL_PROPERTIES).forEach(name => ui.panelATree.appendChild(new Option(name, name))); // This is wrong, should be in dialog. For now, it's a placeholder.
+        Object.keys(MATERIAL_PROPERTIES).forEach(name => ui.modalMatSelect.add(new Option(name, name)));
         Object.keys(ABSORBENT_PROPERTIES).forEach(name => ui.absorbentSelect.add(new Option(name, name)));
-        ui.absorbentSelect.value = "グラスウール (24k)";
+        ui.absorbentSelect.value = "なし";
+        
+        ui.calcButton.addEventListener('click', calculateAll);
+        ui.exportCsvButton.addEventListener('click', exportToCsv);
         ui.absorbentSelect.addEventListener('change', onAbsorbentSelect);
+        ui.modalOkBtn.addEventListener('click', saveLayer);
+        ui.modalCancelBtn.addEventListener('click', closeModal);
         
-        document.getElementById('calc-button').addEventListener('click', calculateAll);
-        document.getElementById('export-csv-button').addEventListener('click', () => alert('CSVエクスポート機能は実装中です。'));
-        
-        layer_data_a.push({mat: 'コンクリート', h: 0.150, rho: 2.3e3, E: 2.1e10, nu: 0.005});
-        layer_data_b.push({mat: '石こうボード', h: 0.0125, rho: 0.8e3, E: 0.18e10, nu: 0.005});
+        layer_data_a.push({mat: 'コンクリート', h: 0.150, rho: 2300, E: 2.1e10, nu: 0.005});
+        layer_data_b.push({mat: '石こうボード', h: 0.0125, rho: 800, E: 0.18e10, nu: 0.005});
         updateLayerTree('A');
         updateLayerTree('B');
         onAbsorbentSelect();
