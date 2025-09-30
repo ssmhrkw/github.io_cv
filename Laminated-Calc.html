@@ -115,20 +115,17 @@
             return;
         }
 
-        // ★★★ 変更点 1: 注意喚起ポップアップ機能を追加 ★★★
         const isSingleHomogeneous = (layer_data_a.length === 1 && layer_data_b.length === 0) || (layer_data_a.length === 0 && layer_data_b.length === 1);
         if (!isSingleHomogeneous) {
             const confirmation = confirm(
                 "【注意】\n1枚の均質単板以外の計算（積層、二重壁）の計算値は、学術的に確立された手法ではなく、あくまで参考値です。\n\nこれは「こんなのあったらいいな」という機能で、計算結果の正確性は保証されません。\n\n計算を続行しますか？"
             );
             if (!confirmation) {
-                return; // ユーザーがキャンセルしたら処理を中断
+                return;
             }
         }
-        // ★★★ 変更点 1 ここまで ★★★
 
         try {
-            // ★★★ 変更点 2: 物性値の表示更新を calculateAll 実行時にも行うように修正 ★★★
             updatePanelPropertiesDisplay('A');
             updatePanelPropertiesDisplay('B');
             
@@ -174,7 +171,6 @@
         }
     };
 
-    // ★★★ 追加: パネル物性値の表示を更新する専用関数 ★★★
     function updatePanelPropertiesDisplay(panel_type) {
         const layers = (panel_type === 'A') ? layer_data_a : layer_data_b;
         const labelElement = (panel_type === 'A') ? ui.propALabel : ui.propBLabel;
@@ -197,9 +193,11 @@
         const data = (panel_type === 'A') ? layer_data_a : layer_data_b;
         const selectedRow = treeBody.querySelector('.selected');
         if (selectedRow) {
-            data.splice(selectedRow.rowIndex, 1); // インデックスの取得方法を修正
+            // ★★★★★★★★★★★★★★★★★★★★★★★★
+            // ★★★ 修正点: インデックスの指定を修正 ★★★
+            // ★★★★★★★★★★★★★★★★★★★★★★★★
+            data.splice(selectedRow.rowIndex - 1, 1);
             updateLayerTree(panel_type);
-            // ★★★ 変更点 3: 削除後、物性値を自動更新 ★★★
             updatePanelPropertiesDisplay(panel_type);
         } else {
             alert('削除するレイヤーを選択してください。');
@@ -216,10 +214,8 @@
         ui.modalMatSelect.value = layer.mat;
         ui.modalThickInput.value = layer.h * 1000;
         
-        // 先に材料選択の変更イベントを発火させてデフォルト値をセット
         onModalMatChange();
 
-        // 編集の場合、保存されている具体的な値で上書きする
         if (isEditing) {
             ui.modalRhoInput.value = layer.rho;
             ui.modalEInput.value = layer.E.toExponential(2);
@@ -248,7 +244,6 @@
                 data[modalContext.index] = newLayer;
             }
             updateLayerTree(modalContext.panel);
-            // ★★★ 変更点 4: 保存後、物性値を自動更新 ★★★
             updatePanelPropertiesDisplay(modalContext.panel);
             closeModal();
         } catch (e) {
@@ -263,7 +258,6 @@
         const props = MATERIAL_PROPERTIES[selectedName];
         const isManual = selectedName === "手動入力";
 
-        // ★★★ 変更点 5: 常に編集可能にするため、readonlyの切り替えを削除 ★★★
         [ui.modalEInput, ui.modalRhoInput, ui.modalNuInput].forEach(input => input.readOnly = false);
 
         if (!isManual) {
@@ -271,7 +265,6 @@
             ui.modalRhoInput.value = props.rho;
             ui.modalNuInput.value = props.nu;
         } else {
-            // 新規追加で「手動入力」を選んだ時だけクリアする
             if (modalContext.index === -1) {
                 ui.modalEInput.value = "";
                 ui.modalRhoInput.value = "";
@@ -290,7 +283,7 @@
         ui.calcButton.addEventListener('click', calculateAll);
         ui.exportCsvButton.addEventListener('click', exportToCsv);
         ui.absorbentSelect.addEventListener('change', onAbsorbentSelect);
-        ui.modalMatSelect.addEventListener('change', onModalMatChange); // 材料選択のイベントリスナーを追加
+        ui.modalMatSelect.addEventListener('change', onModalMatChange);
         ui.modalOkBtn.addEventListener('click', saveLayer);
         ui.modalCancelBtn.addEventListener('click', closeModal);
         
@@ -300,7 +293,6 @@
         updateLayerTree('A');
         updateLayerTree('B');
         
-        // ★★★ 変更点 6: 初期読み込み時に物性値を表示 ★★★
         updatePanelPropertiesDisplay('A');
         updatePanelPropertiesDisplay('B');
         
