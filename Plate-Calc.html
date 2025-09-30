@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>板材の音響・振動特性 計算ツール (Web版)</title>
+    <title>板材の音響・振動特性 計算ツール (Web版) - 修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         body { 
             font-family: 'Meiryo', sans-serif; 
@@ -37,7 +39,27 @@
         th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
         th { background-color: #f2f2f2; text-align: center; }
 
-        /* Responsive Design for wider screens */
+        /* ★★★ 修正点2: グラフと計算式表示エリアのスタイルを追加 ★★★ */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .formula-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+        .formula-container h5 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
         @media (min-width: 900px) {
             body {
                 flex-direction: row;
@@ -49,6 +71,10 @@
             }
             .output-column {
                 flex-grow: 1;
+            }
+            /* ★★★ 修正点3: グラフが伸びる問題の対策 ★★★ */
+            .chart-wrapper {
+                height: 400px; /* グラフの高さを固定 */
             }
         }
     </style>
@@ -94,15 +120,27 @@
             <button class="tab-button" onclick="openTab(event, 'stl-tab')">透過損失(STL)</button>
             <button class="tab-button" onclick="openTab(event, 'rad-tab')">音響放射効率(σ)</button>
         </div>
-        <div id="basic-tab" class="tab-content active"><table id="basic-results-table"></table></div>
-        <div id="natural-freq-tab" class="tab-content"><table id="natural-freq-table"></table></div>
+        <div id="basic-tab" class="tab-content active">
+            <table id="basic-results-table"></table>
+            <div id="basic-formula" class="formula-container"></div>
+        </div>
+        <div id="natural-freq-tab" class="tab-content">
+            <table id="natural-freq-table"></table>
+            <div id="natural-freq-formula" class="formula-container"></div>
+        </div>
         <div id="stl-tab" class="tab-content">
-            <canvas id="stl-chart"></canvas>
+            <div class="chart-wrapper">
+                <canvas id="stl-chart"></canvas>
+            </div>
             <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="stl-table"></table></div>
+            <div id="stl-formula" class="formula-container"></div>
         </div>
         <div id="rad-tab" class="tab-content">
-            <canvas id="rad-chart"></canvas>
+            <div class="chart-wrapper">
+                <canvas id="rad-chart"></canvas>
+            </div>
             <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="rad-table"></table></div>
+            <div id="rad-formula" class="formula-container"></div>
         </div>
     </div>
 
@@ -156,6 +194,10 @@
             updateBasicPropertiesTab(Z_inf, fc, h, E, rho, nu);
             updateNaturalFrequencyTab(D, rho, h);
             updateFrequencyDependentTabs(h, rho, eta, fc);
+
+            // ★★★ 修正点6: 計算式表示関数を呼び出す ★★★
+            updateFormulas({ D, fc, h, rho, nu, E });
+
         } catch (error) { alert(`計算エラー: ${error.message}`); }
     }
     
@@ -201,6 +243,49 @@
         createTable(ui.stlTable, ['周波数(Hz)', '質量則(dB)', 'コインシデンス(dB)'], FREQS.map((f, i) => [f, R_mass[i].toFixed(1), R_coincidence[i].toFixed(1)]));
         createPlot(ui.radChart, 'rad-chart', FREQS, [{label: '放射効率', data: sigma_db}], '音響放射効率 周波数特性');
         createTable(ui.radTable, ['周波数(Hz)', 'σ', '10log(σ)(dB)'], FREQS.map((f, i) => [f, sigma[i].toFixed(3), sigma_db[i].toFixed(1)]));
+    }
+    
+    // ★★★ 修正点7: 計算式を生成して表示する関数を追加 ★★★
+    function updateFormulas(params) {
+        const { D, fc, h, rho, nu, E } = params;
+
+        // Basic Tab
+        const basicFormulaHTML = `
+            <h5>基本特性の計算式</h5>
+            <p><b>曲げ剛性 (D):</b> $$ D = \\frac{E h^3}{12(1-\\nu^2)} $$</p>
+            <p><b>臨界周波数 (f<sub>c</sub>):</b> $$ f_c = \\frac{c_0^2}{2\\pi h} \\sqrt{\\frac{12\\rho(1-\\nu^2)}{E}} $$</p>
+        `;
+        document.getElementById('basic-formula').innerHTML = basicFormulaHTML;
+
+        // Natural Frequency Tab
+        const naturalFreqFormulaHTML = `
+            <h5>固有振動数の計算式 (四辺単純支持)</h5>
+            <p><b>曲げ剛性 (D):</b> $$ D = \\frac{E h^3}{12(1-\\nu^2)} $$</p>
+            <p><b>固有振動数 (f<sub>m,n</sub>):</b> $$ f_{m,n} = \\frac{\\pi}{2} \\sqrt{\\frac{D}{\\rho h}} \\left( \\left(\\frac{m}{L_x}\\right)^2 + \\left(\\frac{n}{L_y}\\right)^2 \\right) $$</p>
+        `;
+        document.getElementById('natural-freq-formula').innerHTML = naturalFreqFormulaHTML;
+
+        // STL Tab
+        const stlFormulaHTML = `
+            <h5>透過損失の計算式</h5>
+            <p><b>面密度 (m''):</b> $$ m'' = \\rho h $$</p>
+            <p><b>質量則 (垂直入射, TL<sub>0</sub>):</b> $$ TL_0 = 20 \\log_{10}(m'' f) - 42.5 \\; (dB) $$</p>
+            <p>コインシデンス効果は、臨界周波数($f_c$)付近での性能低下を考慮した補正値です。</p>
+        `;
+        document.getElementById('stl-formula').innerHTML = stlFormulaHTML;
+
+        // Radiation Efficiency Tab
+        const radFormulaHTML = `
+            <h5>音響放射効率(σ)の計算式</h5>
+            <p><b>周波数が臨界周波数未満 (f < f<sub>c</sub>):</b> $$ \\sigma \\approx \\frac{2(L_x+L_y) \\lambda_c}{\\pi L_x L_y} \\left(\\frac{f}{f_c}\\right)^2 $$</p>
+            <p><b>周波数が臨界周波数以上 (f > f<sub>c</sub>):</b> $$ \\sigma \\approx \\left(1 - \\frac{f_c}{f}\\right)^{-0.5} $$</p>
+            <p>ここで、\\(\\lambda_c\\)は臨界周波数における音波の波長です。</p>
+        `;
+        document.getElementById('rad-formula').innerHTML = radFormulaHTML;
+        
+        if (window.MathJax && window.MathJax.typeset) {
+            window.MathJax.typeset();
+        }
     }
     
     function createTable(tableElement, headers, data) { tableElement.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>`; }
