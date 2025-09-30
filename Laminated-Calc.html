@@ -3,14 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>統合版 音響シミュレーター (Web版) - バグ修正版</title>
+    <title>統合版 音響シミュレーター (Web版) - レイアウト修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        /* CSSスタイル部分は変更ありません */
-        body { font-family: 'Meiryo', sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
+        /* ★★★★★★★★★★★★★★★★★★★★★★ */
+        /* ★★★ 修正点 1: 全体の高さの基準を設定 ★★★ */
+        /* ★★★★★★★★★★★★★★★★★★★★★★ */
+        html {
+            height: 100%;
+        }
+        body {
+            font-family: 'Meiryo', sans-serif;
+            margin: 0;
+            padding: 10px;
+            font-size: 14px;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 100%; /* 高さがビューポートに満たない場合でも100%にする */
+            box-sizing: border-box; /* paddingとborderを高さに含める */
+        }
         .column { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+        /* ★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+        /* ★★★ 修正点 2: グラフコンテナに相対位置を指定 ★★★ */
+        /* ★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+        .graph-column {
+            position: relative;
+        }
         fieldset { border: 1px solid #ccc; border-radius: 5px; padding: 10px 15px; background-color: #fff; margin: 0; }
         legend { font-weight: bold; padding: 0 5px; }
         button { padding: 10px 15px; font-weight: bold; cursor: pointer; border-radius: 5px; border: 1px solid #aaa; background-color: #f0f0f0; }
@@ -32,10 +54,24 @@
         .modal-buttons button { flex-grow: 1; }
         #formula-container { margin-top: 20px; padding: 15px; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; }
         #formula-container h5 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; }
+
+        /* ★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+        /* ★★★ 修正点 3: PC表示時のレイアウトを調整 ★★★ */
+        /* ★★★★★★★★★★★★★★★★★★★★★★★★★★ */
         @media (min-width: 768px) {
-            body { flex-direction: row; align-items: flex-start; }
-            .input-column { min-width: 420px; width: 420px; }
-            .graph-column { flex-grow: 1; }
+            body {
+                flex-direction: row;
+                align-items: stretch; /* flex-start から変更し、アイテムの高さをコンテナに合わせる */
+            }
+            .input-column {
+                min-width: 420px;
+                width: 420px;
+                flex-shrink: 0; /* 画面が狭くなってもこのカラムは縮まないようにする */
+                overflow-y: auto; /* 内容が多い場合はスクロールバーを表示 */
+            }
+            .graph-column {
+                flex-grow: 1;
+            }
         }
     </style>
 </head>
@@ -105,18 +141,15 @@
     </div>
 
 <script>
-    // 定数定義
+    // (JavaScript部分に変更はありません)
     const MATERIAL_PROPERTIES = { "手動入力": { "rho": 0, "E": 0, "nu": 0 }, "コンクリート": { "rho": 2.3e3, "E": 2.1e10, "nu": 0.005 }, "軽量コンクリート": { "rho": 1.5e3, "E": 0.5e10, "nu": 0.005 }, "発泡コンクリート": { "rho": 0.6e3, "E": 0.16e10, "nu": 0.005 }, "石こうボード": { "rho": 0.8e3, "E": 0.18e10, "nu": 0.005 }, "特殊石こうボード": { "rho": 1.1e3, "E": 0.2e10, "nu": 0.005 }, "フレキシブル板": { "rho": 1.9e3, "E": 0.2e10, "nu": 0.005 }, "ハードボード": { "rho": 0.9e3, "E": 0.6e10, "nu": 0.005 }, "合板": { "rho": 0.6e3, "E": 0.5e10, "nu": 0.30 }, "コルク": { "rho": 0.25e3, "E": 6e7, "nu": 0.30 }, "ガラス": { "rho": 2500, "E": 70.0e9, "nu": 0.23 }, "硬質塩ビ": { "rho": 1.4e3, "E": 0.35e10, "nu": 0.012 }, "ゴム(硬度50)": { "rho": 1.11e3, "E": 0.46e7, "nu": 0.1 } };
     const ABSORBENT_PROPERTIES = { "なし": { "resistivity": 0 }, "グラスウール (24k)": { "resistivity": 8000 }, "グラスウール (32k)": { "resistivity": 12000 }, "手動入力": { "resistivity": -1 } };
     const FREQS = [50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000];
     let layer_data_a = [], layer_data_b = [];
     let results_df = null; let stlChart; let modalContext = { panel: null, index: -1 };
     const ui = { airGapInput: document.getElementById('air-gap-input'), absorbentSelect: document.getElementById('absorbent-select'), flowResistInput: document.getElementById('flow-resist-input'), calcButton: document.getElementById('calc-button'), exportCsvButton: document.getElementById('export-csv-button'), propALabel: document.getElementById('prop-a-label'), propBLabel: document.getElementById('prop-b-label'), f0Value: document.getElementById('f0-value'), summaryTableContainer: document.getElementById('summary-table-container'), stlChart: document.getElementById('stl-chart'), panelAContainer: document.getElementById('panel-a-container'), panelBContainer: document.getElementById('panel-b-container'), modal: document.getElementById('layer-modal'), modalTitle: document.getElementById('modal-title'), modalMatSelect: document.getElementById('modal-mat-select'), modalThickInput: document.getElementById('modal-thick-input'), modalRhoInput: document.getElementById('modal-rho-input'), modalEInput: document.getElementById('modal-e-input'), modalNuInput: document.getElementById('modal-nu-input'), modalOkBtn: document.getElementById('modal-ok-btn'), modalCancelBtn: document.getElementById('modal-cancel-btn'), formulaDisplay: document.getElementById('formula-display') };
-    
-    // 計算ロジック
     const calculatePanelProperties = (layers) => { if (!layers || layers.length === 0) return { thick: 0, m_prime: 0, stiff: 0, fc: Infinity }; const total_thickness = layers.reduce((sum, l) => sum + l.h, 0); const total_surface_density = layers.reduce((sum, l) => sum + l.rho * l.h, 0); const total_bending_stiffness = layers.reduce((sum, l) => { if (l.mat === '空気層') return sum; return sum + (l.E * Math.pow(l.h, 3)) / (12 * (1 - Math.pow(l.nu, 2))); }, 0); const c0 = 343.0; const fc_total = (total_bending_stiffness > 0) ? (Math.pow(c0, 2) / (2 * Math.PI)) * Math.sqrt(total_surface_density / total_bending_stiffness) : Infinity; return { thick: total_thickness, m_prime: total_surface_density, stiff: total_bending_stiffness, fc: fc_total }; };
     const calculateRandomIncidenceTL = (m_prime, freqs) => { const tl_normal = freqs.map(f => 20 * Math.log10(m_prime * f) - 42.5); const tl_random = tl_normal.map(tl0 => { if (tl0 <= 0) return tl0; const log_arg = 0.23 * tl0; return tl0 - 10 * Math.log10(log_arg); }); return { normal: tl_normal, random: tl_random }; };
-    
     function updateFormulaDisplay(type, props) {
         let html = '';
         switch (type) {
@@ -136,7 +169,6 @@
         ui.formulaDisplay.innerHTML = html;
         if (window.MathJax && window.MathJax.typeset) { window.MathJax.typeset(); }
     }
-
     const calculateAll = () => {
         if (layer_data_a.length === 0 && layer_data_b.length === 0) { alert("計算するレイヤーがありません。"); updateFormulaDisplay('default'); return; }
         const isSingleHomogeneous = (layer_data_a.length === 1 && layer_data_b.length === 0) || (layer_data_a.length === 0 && layer_data_b.length === 1);
@@ -158,16 +190,12 @@
             }
         } catch (e) { alert(`計算エラー: ${e.message}`); }
     };
-    
-    // ★★★★★★★ 修正点: 削除されていたこの関数を元に戻しました ★★★★★★★
     function updatePanelPropertiesDisplay(panel_type) {
         const layers = (panel_type === 'A') ? layer_data_a : layer_data_b;
         const labelElement = (panel_type === 'A') ? ui.propALabel : ui.propBLabel;
         const props = calculatePanelProperties(layers);
         labelElement.textContent = layers.length > 0 ? `総厚: ${(props.thick * 1000).toFixed(1)} mm\n総面密度: ${props.m_prime.toFixed(1)} kg/m²\n全体臨界Fc: ${props.fc === Infinity ? 'N/A' : props.fc.toFixed(0) + ' Hz'}` : "N/A";
     }
-    
-    // UI操作系の関数
     function createTableHTML(headers, data) { let table = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`; table += data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join(''); table += `</tbody></table>`; return table; }
     function updateSummaryTable(freqs, stl_values) { const target_freqs = [125, 250, 500, 1000, 2000]; if (!stl_values) { ui.summaryTableContainer.innerHTML = createTableHTML(['周波数', '透過損失'], target_freqs.map(f => [f + " Hz", "N/A"])); return; } const target_stls = target_freqs.map(f_target => { const idx = freqs.reduce((i, f, idx, arr) => Math.abs(f - f_target) < Math.abs(arr[i] - f_target) ? idx : i, 0); return stl_values[idx]; }); const avg_stl = target_stls.reduce((sum, val) => sum + val, 0) / target_stls.length; const tableData = target_freqs.map((f, i) => [`${f} Hz`, `${target_stls[i].toFixed(1)} dB`]); tableData.push(["5帯域平均", `${avg_stl.toFixed(1)} dB`]); ui.summaryTableContainer.innerHTML = createTableHTML(['周波数', '透過損失'], tableData); };
     function updatePlot(canvasElement, chartId, labels, datasets, title) { const ctx = canvasElement.getContext('2d'); if (chartId === 'stl-chart' && stlChart) stlChart.destroy(); stlChart = new Chart(ctx, { type: 'line', data: { labels, datasets: datasets.map((ds, i) => ({ label: ds.label, data: ds.data, fill: false, borderWidth: (i === 2 || datasets.length < 3) ? 2.5 : 1.5, borderColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 159, 64, 1)', 'rgba(40, 167, 69, 1)'][i], pointRadius: 3, pointBackgroundColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 159, 64, 1)', 'rgba(40, 167, 69, 1)'][i], borderDash: (i < 2 && datasets.length === 3) ? [5, 5] : [], }))}, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, font: { size: 16 } } }, scales: { x: { type: 'logarithmic', title: { display: true, text: '周波数 (Hz)' }, ticks: { callback: (value) => [63, 125, 250, 500, 1000, 2000, 4000].includes(value) ? value : null } }, y: { title: { display: true, text: '透過損失 (dB)' }, min: 0, max: 120 } } } }); };
