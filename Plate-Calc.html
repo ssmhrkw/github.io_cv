@@ -87,7 +87,7 @@
         infImpedanceTable: document.getElementById('inf-impedance-table'), impedanceTable: document.getElementById('impedance-table'),
         stlTable: document.getElementById('stl-table'), radTable: document.getElementById('rad-table'),
     };
-    class Complex { constructor(re=0, im=0) { this.re=re; this.im=im; } add(z) { return new Complex(this.re+z.re, this.im+z.im); } sub(z) { return new Complex(this.re-z.re, this.im-z.im); } mul(z) { return new Complex(this.re*z.re - this.im*z.im, this.re*z.im + this.im*z.re); } div(z) { const d=z.re*z.re+z.im*z.im; if(d===0) return new Complex(0,0); return new Complex((this.re*z.re+this.im*z.im)/d, (this.im*z.re-this.re*z.im)/d); } get magnitude() { return Math.sqrt(this.re*this.re+this.im*this.im); } static i() { return new Complex(0, 1); } }
+    class Complex { constructor(re=0, im=0) { this.re=re; this.im=im; } add(z) { return new Complex(this.re+z.re, this.im+z.im); } sub(z) { return new Complex(this.re-z.re, this.im-z.im); } mul(z) { return new Complex(this.re*z.re - this.im*z.im, this.re*z.im + this.im*z.re); } div(z) { const d=z.re*z.re+z.im*z.im; if(d===0) return new Complex(0,0); return new Complex((this.re*z.re+this.im*z.im)/d, (this.im*z.re-this.re*z.im)/d); } get magnitude() { return Math.sqrt(this.re*this.re+this.im*this.im); } get phase() { return Math.atan2(this.im, this.re); } static i() { return new Complex(0, 1); } }
 
     document.addEventListener('DOMContentLoaded', () => {
         for (const name in MATERIAL_PROPERTIES) { ui.materialSelect.add(new Option(name, name)); }
@@ -105,33 +105,7 @@
         return { h, E, rho, nu, eta, Lx, Ly, c0, D, fc };
     }
     
-    // ★★★ 修正箇所 ★★★
-    function calculateBasic() {
-        try {
-            const { h, E, rho, nu, D, fc, Lx, Ly } = getCommonInputs();
-            const C_L_p = Math.sqrt(E / (rho * (1 - nu**2)));
-            const S = Lx * Ly;
-            const mode_density = (S > 0) ? (S * Math.sqrt(3)) / (h * C_L_p) : 0;
-            
-            createTable(ui.basicTable, ["物理量", "計算値", "単位"], [
-                ["曲げ剛性 (D)", D.toExponential(2), "N·m"],
-                ["臨界周波数 (Fc)", fc.toFixed(2), "Hz"],
-                ["縦波板速度 (C_L_p)", C_L_p.toFixed(2), "m/s"],
-                ["モード密度 (n(f))", mode_density.toFixed(3), "modes/Hz"]
-            ]);
-            
-            document.getElementById('basic-formula').innerHTML = `
-                <h5>基本特性の計算式</h5>
-                <p><b>曲げ剛性 (D):</b> $$ D = \\frac{E h^3}{12(1-\\nu^2)} $$</p>
-                <p><b>縦波板速度 (c<sub>L,p</sub>):</b> $$ c_{L,p} = \\sqrt{\\frac{E}{\\rho(1-\\nu^2)}} $$</p>
-                <p><b>臨界周波数 (f<sub>c</sub>):</b> $$ f_c = \\frac{c_0^2 \\sqrt{3}}{\\pi h c_{L,p}} $$</p>
-                <p><b>モード密度 (n(f)):</b> $$ n(f) = \\frac{S \\sqrt{3}}{h c_{L,p}} $$</p>
-            `;
-            if(window.MathJax) MathJax.typeset();
-        } catch (e) {
-            alert(e.message);
-        }
-    }
+    function calculateBasic() { try { const { h, E, rho, nu, D, fc, Lx, Ly } = getCommonInputs(); const C_L_p = Math.sqrt(E / (rho * (1 - nu**2))); const S = Lx * Ly; const mode_density = (S > 0 && h > 0 && C_L_p > 0) ? (S * Math.sqrt(3)) / (h * C_L_p) : 0; createTable(ui.basicTable, ["物理量", "計算値", "単位"], [["曲げ剛性 (D)", D.toExponential(2), "N·m"],["臨界周波数 (Fc)", fc.toFixed(2), "Hz"],["縦波板速度 (C_L_p)", C_L_p.toFixed(2), "m/s"],["モード密度 (n(f))", mode_density.toFixed(3), "modes/Hz"]]); document.getElementById('basic-formula').innerHTML = `<h5>基本特性の計算式</h5><p><b>曲げ剛性 (D):</b> $$ D = \\frac{E h^3}{12(1-\\nu^2)} $$</p><p><b>縦波板速度 (c<sub>L,p</sub>):</b> $$ c_{L,p} = \\sqrt{\\frac{E}{\\rho(1-\\nu^2)}} $$</p><p><b>臨界周波数 (f<sub>c</sub>):</b> $$ f_c = \\frac{c_0^2 \\sqrt{3}}{\\pi h c_{L,p}} $$</p><p><b>モード密度 (n(f)):</b> $$ n(f) = \\frac{S \\sqrt{3}}{h c_{L,p}} $$</p>`; if(window.MathJax) MathJax.typeset(); } catch (e) { alert(e.message); } }
     
     function calculateNaturalFreq() {
         try {
@@ -148,7 +122,7 @@
                     }}
                 }
             } else { // Clamped
-                document.getElementById('natural-freq-formula').innerHTML = `<h5>固有振動数 (四辺固定支持)</h5><p>正方形板の理論値に基づく近似式を利用しています。$$ f_{m,n} \\approx \\frac{\\lambda_{m,n}}{2\\pi L_{eff}^2} \\sqrt{\\frac{D}{\\rho h}} $$</p><p>ここで \\(L_{eff} = \\sqrt{L_x L_y}\\) であり、\\(\\lambda_{m,n}\\) はモード次数に応じた無次元パラメータです。(例: \\(\\lambda_{1,1} \\approx 35.99\\))</p>`;
+                document.getElementById('natural-freq-formula').innerHTML = `<h5>固有振動数 (四辺固定支持)</h5><p>正方形板の理論値を用いた近似計算です。$$ f_{m,n} \\approx \\frac{\\lambda_{m,n}}{2\\pi L_{eff}^2} \\sqrt{\\frac{D}{\\rho h}} $$</p><p>ここで \\(L_{eff} = \\sqrt{L_x L_y}\\) であり、\\(\\lambda_{m,n}\\) はモード次数に応じた無次元パラメータです。(例: \\(\\lambda_{1,1} \\approx 35.99\\))</p>`;
                 const lambda_clamped = { '1,1':35.99, '1,2':73.40, '2,1':73.40, '2,2':108.23, '1,3':127.1, '3,1':127.1, '2,3':153.3, '3,2':153.3, '3,3':196.2 };
                 if (Lx > 0 && Ly > 0) {
                      const L_eff = Math.sqrt(Lx * Ly);
@@ -166,14 +140,32 @@
         } catch (e) { alert(e.message); }
     }
 
-    function calculateImpedance() { try { const {rho,h,D,Lx,Ly,eta}=getCommonInputs(); const posX=parseFloat(ui.posX.value)/1000, posY=parseFloat(ui.posY.value)/1000; const S=Lx*Ly, rho_s=rho*h; const Z_inf=8*Math.sqrt(D*rho_s); createTable(ui.infImpedanceTable, [["無限長板インピーダンス (Z_inf)", `${Z_inf.toExponential(2)} Ns/m³`]]); let results={abs:[],real:[],imag:[]}, tableData=[]; for(const f of FREQS){const omega=2*Math.PI*f; let Y_sum=new Complex(); for(let p=1;p<=5;p++){ for(let q=1;q<=5;q++){ const f_pq = (Math.PI/2)*Math.sqrt(D/rho_s) * ((p/Lx)**2 + (q/Ly)**2); const omega_pq = 2*Math.PI*f_pq; const psi_pq = Math.sin(p*Math.PI*posX/Lx)*Math.sin(q*Math.PI*posY/Ly); const denominator = (new Complex(omega_pq**2, omega_pq**2*eta)).sub(new Complex(omega**2,0)); Y_sum=Y_sum.add((new Complex(psi_pq**2,0)).div(denominator));}} const Y_dp=(Complex.i().mul(new Complex(4*omega/rho_s,0))).div(new Complex(S,0)).mul(Y_sum); const Z_dp=(new Complex(1,0)).div(Y_dp); results.abs.push(Z_dp.magnitude);results.real.push(Z_dp.re);results.imag.push(Z_dp.im); tableData.push([f, Z_dp.magnitude.toExponential(2), Z_dp.re.toExponential(2), Z_dp.im.toExponential(2)]); } createPlot('impedance-chart', FREQS, [{label:'絶対値',data:results.abs,borderColor:'rgba(255,99,132,1)'},{label:'実部',data:results.real,borderColor:'rgba(54,162,235,1)'},{label:'虚部',data:results.imag,borderColor:'rgba(75,192,192,1)'}],'駆動点インピーダンス','インピーダンス (Ns/m³)', {type:'linear'}); createTable(ui.impedanceTable,['f(Hz)','|Z|','Re(Z)','Im(Z)'],tableData); document.getElementById('impedance-formula').innerHTML = `<h5>駆動点インピーダンスの計算式</h5><p>$$ Z_{dp}(x,y) = 1 / Y_{dp}(x,y) $$</p><p>$$ Y_{dp} = \\frac{i4\\omega}{\\rho_s S} \\sum_{p=1}^{5}\\sum_{q=1}^{5} \\frac{\\psi_{p,q}^2(x,y)}{\\omega_{p,q}^2(1+i\\eta) - \\omega^2} $$</p><p>$$ \\psi_{p,q}(x,y) = \\sin(\\frac{p\\pi x}{L_x})\\sin(\\frac{q\\pi y}{L_y}) $$</p>`; if(window.MathJax)MathJax.typeset(); } catch (e){alert(e.message);}}
+    function calculateImpedance() { try { const {rho,h,D,Lx,Ly,eta}=getCommonInputs(); const posX=parseFloat(ui.posX.value)/1000, posY=parseFloat(ui.posY.value)/1000; const S=Lx*Ly, rho_s=rho*h; const Z_inf=8*Math.sqrt(D*rho_s); createTable(ui.infImpedanceTable, [["無限長板インピーダンス (Z_inf)", `${Z_inf.toExponential(2)} Ns/m³`]]); let results={abs:[],real:[],phase:[]}, tableData=[]; for(const f of FREQS){const omega=2*Math.PI*f; let Y_sum=new Complex(); for(let p=1;p<=5;p++){ for(let q=1;q<=5;q++){ const f_pq = (Math.PI/2)*Math.sqrt(D/rho_s) * ((p/Lx)**2 + (q/Ly)**2); const omega_pq = 2*Math.PI*f_pq; const psi_pq = Math.sin(p*Math.PI*posX/Lx)*Math.sin(q*Math.PI*posY/Ly); const denominator = (new Complex(omega_pq**2, omega_pq**2*eta)).sub(new Complex(omega**2,0)); Y_sum=Y_sum.add((new Complex(psi_pq**2,0)).div(denominator));}} const Y_dp=(Complex.i().mul(new Complex(4*omega/rho_s,0))).div(new Complex(S,0)).mul(Y_sum); const Z_dp=(new Complex(1,0)).div(Y_dp); results.abs.push(Z_dp.magnitude); results.real.push(Z_dp.re); const phase_deg = Z_dp.phase * 180 / Math.PI; results.phase.push(phase_deg); tableData.push([f, Z_dp.magnitude.toExponential(2), Z_dp.re.toExponential(2), phase_deg.toFixed(1)]); } createPlot('impedance-chart', FREQS, [{label:'絶対値',data:results.abs,borderColor:'rgba(255,99,132,1)',yAxisID:'y'},{label:'実部',data:results.real,borderColor:'rgba(54,162,235,1)',yAxisID:'y'},{label:'位相',data:results.phase,borderColor:'rgba(75,192,192,1)',yAxisID:'y1'}],'駆動点インピーダンス','インピーダンス (Ns/m³)', true); createTable(ui.impedanceTable,['f(Hz)','|Z|','Re(Z)','Phase (deg)'],tableData); document.getElementById('impedance-formula').innerHTML = `<h5>駆動点インピーダンスの計算式</h5><p>$$ Z_{dp}(x,y) = 1 / Y_{dp}(x,y) $$</p><p>$$ Y_{dp} = \\frac{i4\\omega}{\\rho_s S} \\sum_{p=1}^{5}\\sum_{q=1}^{5} \\frac{\\psi_{p,q}^2(x,y)}{\\omega_{p,q}^2(1+i\\eta) - \\omega^2} $$</p><p>$$ \\psi_{p,q}(x,y) = \\sin(\\frac{p\\pi x}{L_x})\\sin(\\frac{q\\pi y}{L_y}) $$</p>`; if(window.MathJax)MathJax.typeset(); } catch (e){alert(e.message);}}
     function calculateSTL() { try { const {rho,h,eta,fc}=getCommonInputs(); const m_dp=rho*h; const R_mass=FREQS.map(f=>20*Math.log10(m_dp*f)-42.5); const R_coincidence=R_mass.map((r,i)=>{const f=FREQS[i],fr=f/fc;if(Math.abs(fr-1)<1e-6)return r;const c=(2*eta)/(Math.PI*fr)*(1/(1-fr**2)**2);return r-10*Math.log10(Math.abs(c)+1);}); createPlot('stl-chart',FREQS,[{label:'質量則(垂直入射)',data:R_mass},{label:'コインシデンス考慮',data:R_coincidence}],'透過損失(STL)','dB'); createTable(ui.stlTable,['f(Hz)','質量則(dB)','コインシデンス(dB)'],FREQS.map((f,i)=>[f,R_mass[i].toFixed(1),R_coincidence[i].toFixed(1)])); document.getElementById('stl-formula').innerHTML=`<h5>透過損失の計算式</h5><p><b>面密度 (m''):</b> $$ m'' = \\rho h $$</p><p><b>質量則 (垂直入射, TL<sub>0</sub>):</b> $$ TL_0 = 20 \\log_{10}(m'' f) - 42.5 \\; (dB) $$</p><p>コインシデンス効果は、臨界周波数($f_c$)付近での性能低下を考慮した補正値です。</p>`; if(window.MathJax)MathJax.typeset(); } catch(e){alert(e.message);}}
-    function calculateRadiation() { try { const {rho,h,Lx,Ly,c0,fc}=getCommonInputs(); const C_BC=parseFloat(ui.boundaryCond.value), C_OB=parseFloat(ui.baffleCond.value); const l=2*(Lx+Ly), S=Lx*Ly, lambda_c=c0/fc, L1=Math.min(Lx,Ly), L2=Math.max(Lx,Ly), k_fc=2*Math.PI*fc/c0; const sigma_simple=FREQS.map(f=>{let s;if(f>fc){s=1.0;}else if(Math.abs(f-fc)<1e-6){s=0.45*Math.sqrt(l/lambda_c);}else{s=(l*lambda_c/(Math.PI**2*S))*Math.sqrt(f/fc);} return Math.max(1e-4,Math.min(s,1.0));}); const sigma_leppington=FREQS.map(f=>{let s;const mu=Math.sqrt(fc/f);if(f>fc){s=1/Math.sqrt(1-fc/f);}else if(Math.abs(f-fc)<1e-6){s=(0.5-0.15*L1/L2)*Math.sqrt(k_fc*Math.sqrt(L1));}else{const k=2*Math.PI*f/c0;const mu2_1=mu**2-1;if(mu2_1<=0)return 1e-4;const term1=l/(2*Math.PI*k*S*Math.sqrt(mu2_1));const term2=2*Math.atanh(1/mu);const term3=2*mu/mu2_1;const term4=C_BC*C_OB-Math.pow(mu,-8)*(C_BC*C_OB-1);s=term1*(term2+term3)*term4;} return Math.max(1e-4,Math.min(s,1.0));}); createPlot('rad-chart',FREQS,[{label:'簡易モデル',data:sigma_simple},{label:'Leppingtonモデル',data:sigma_leppington}],'音響放射効率(σ)','係数(σ)',{min:0,max:1.1,type:'linear'}); createTable(ui.radTable,['f(Hz)','σ(簡易)','σ(Leppington)'],FREQS.map((f,i)=>[f,sigma_simple[i].toFixed(3),sigma_leppington[i].toFixed(3)])); document.getElementById('rad-formula').innerHTML=`<h5>音響放射効率(σ)の計算式</h5><p><b>簡易モデル:</b><br><b>f < f<sub>c</sub>:</b> $$\\sigma \\approx \\frac{l \\lambda_c}{\\pi^2 S} \\sqrt{\\frac{f}{f_c}}$$</p><p><b>f = f<sub>c</sub>:</b> $$\\sigma = 0.45 \\sqrt{\\frac{l}{\\lambda_c}}$$</p><p><b>f > f<sub>c</sub>:</b> $$\\sigma = 1$$</p><hr><p><b>Leppingtonモデル:</b><br><b>f < f<sub>c</sub>:</b> $$\\sigma = \\frac{l}{2\\pi k S \\sqrt{\\mu^2-1}} [2\\tanh^{-1}(\\frac{1}{\\mu}) + \\frac{2\\mu}{\\mu^2-1}] \\cdot [C_{BC}C_{OB} - \\mu^{-8}(C_{BC}C_{OB}-1)]$$</p><p><b>f = f<sub>c</sub>:</b> $$\\sigma \\approx (0.5 - \\frac{0.15L_1}{L_2}) \\sqrt{k_{fc}\\sqrt{L_1}}$$</p><p><b>f > f<sub>c</sub>:</b> $$\\sigma = (1 - \\mu^2)^{-0.5}$$</p><p>ここで、$\\mu=\\sqrt{f_c/f}$</p>`; if(window.MathJax)MathJax.typeset(); } catch(e){alert(e.message);}}
+    function calculateRadiation() { try { const {rho,h,Lx,Ly,c0,fc}=getCommonInputs(); const C_BC=parseFloat(ui.boundaryCond.value), C_OB=parseFloat(ui.baffleCond.value); const l=2*(Lx+Ly), S=Lx*Ly, lambda_c=c0/fc, L1=Math.min(Lx,Ly), L2=Math.max(Lx,Ly), k_fc=2*Math.PI*fc/c0; const sigma_simple=FREQS.map(f=>{let s;if(f>fc){s=1.0;}else if(Math.abs(f-fc)<1e-6){s=0.45*Math.sqrt(l/lambda_c);}else{s=(l*lambda_c/(Math.PI**2*S))*Math.sqrt(f/fc);} return Math.max(1e-4,Math.min(s,1.0));}); const sigma_leppington=FREQS.map(f=>{let s;const mu=Math.sqrt(fc/f);if(f>fc){s=1/Math.sqrt(1-fc/f);}else if(Math.abs(f-fc)<1e-6){s=(0.5-0.15*L1/L2)*Math.sqrt(k_fc*Math.sqrt(L1));}else{const k=2*Math.PI*f/c0;const mu2_1=mu**2-1;if(mu2_1<=0)return 1e-4;const term1=l/(2*Math.PI*k*S*Math.sqrt(mu2_1));const term2=2*Math.atanh(1/mu);const term3=2*mu/mu2_1;const term4=C_BC*C_OB-Math.pow(mu,-8)*(C_BC*C_OB-1);s=term1*(term2+term3)*term4;} return Math.max(1e-4,Math.min(s,1.0));}); const sigma_wallace=FREQS.map(f=>{const k=2*Math.PI*f/c0;let s=0;for(let p=1;p<=5;p++){for(let q=1;q<=5;q++){let s_pq;const p_odd=p%2!==0,q_odd=q%2!==0;if(p_odd&&q_odd){const t1=32*k**2*Lx*Ly/(Math.PI**5*p**2*q**2);const t2=1-(k**2*Lx*Ly/12)*((1-8/(p*Math.PI)**2)*Lx/Ly+(1-8/(q*Math.PI)**2)*Ly/Lx);s_pq=t1*t2;}else if(p_odd!==q_odd){const t1=8*k**4*Lx**3*Ly**3/(3*Math.PI**5*p**2*q**2);const t2=1-(k**2*Lx*Ly/20)*((1-8/(p*Math.PI)**2)*Lx/Ly+(1-24/(q*Math.PI)**2)*Ly/Lx);s_pq=t1*t2;}else{const t1=(2*k**6*Lx**3*Ly**3)/(15*Math.PI**5*p**2*q**2);const t2=1-(5*k**2*Lx**2/64)*((1-24/(p*Math.PI)**2)*Lx/Ly+(1-24/(q*Math.PI)**2)*Ly/Lx);s_pq=t1*t2;}s+=s_pq;}} return Math.max(1e-4,Math.min(s,1.0));}); createPlot('rad-chart',FREQS,[{label:'簡易モデル',data:sigma_simple},{label:'Leppington',data:sigma_leppington},{label:'Wallace(モード合計)',data:sigma_wallace}],'音響放射効率(σ)','係数(σ)',false,{min:0,max:1.1,type:'linear'}); createTable(ui.radTable,['f(Hz)','σ(簡易)','σ(Leppington)','σ(Wallace)'],FREQS.map((f,i)=>[f,sigma_simple[i].toFixed(3),sigma_leppington[i].toFixed(3),sigma_wallace[i].toFixed(3)])); document.getElementById('rad-formula').innerHTML=`<h5>音響放射効率(σ)の計算式</h5><p><b>簡易モデル: </b>(f>fcでσ=1, f=fcでピーク値, f<fcで√fに比例)</p><p><b>Leppingtonモデル: </b>(μ=√(fc/f)を用いた詳細式)</p><p><b>Wallaceモデル: </b>(モード毎の放射効率σ_pqの総和として計算)</p><p>σ_pq (p,q:奇数): $$ \\approx \\frac{32k^2L_xL_y}{\\pi^5p^2q^2}[1-\\frac{k^2L_xL_y}{12}[...]] $$</p><p>σ_pq (p:奇,q:偶): $$ \\approx \\frac{8k^4L_x^3L_y^3}{3\\pi^5p^2q^2}[1-\\frac{k^2L_xL_y}{20}[...]] $$</p><p>σ_pq (p,q:偶数): $$ \\approx \\frac{2k^6L_x^3L_y^3}{15\\pi^5p^2q^2}[1-\\frac{5k^2L_x^2}{64}[...]] $$</p>`; if(window.MathJax)MathJax.typeset(); } catch(e){alert(e.message);}}
 
     function onMaterialSelect() { const selectedName = ui.materialSelect.value; const props = MATERIAL_PROPERTIES[selectedName]; const isManual = selectedName === "手動入力"; ui.eInput.value = isManual ? "" : props.E.toExponential(2); ui.rhoInput.value = isManual ? "" : props.rho; ui.nuInput.value = isManual ? "" : props.nu;[ui.eInput, ui.rhoInput, ui.nuInput].forEach(input => input.readOnly = false); }
     function openTab(evt, tabName) { document.querySelectorAll('.tab-content').forEach(tab=>tab.classList.remove('active')); document.querySelectorAll('.tab-button').forEach(btn=>btn.classList.remove('active')); document.getElementById(tabName).classList.add('active'); evt.currentTarget.classList.add('active'); }
     function createTable(tableElement, headers, data) { tableElement.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>`; }
-    function createPlot(chartId, labels, datasets, title, yAxisLabel = 'dB', yAxisOptions = {}) { const canvasElement = document.getElementById(chartId); const ctx = canvasElement.getContext('2d'); if(charts[chartId])charts[chartId].destroy(); const chart=new Chart(ctx,{type:'line',data:{labels,datasets:datasets.map((ds,i)=>({...ds,fill:false,borderWidth:2,pointRadius:2}))},options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:title,font:{size:16}}},scales:{x:{type:'logarithmic',title:{display:true,text:'周波数(Hz)'},ticks:{callback:v=>[63,125,250,500,1000,2000,4000,8000].includes(v)?v:null}},y:{title:{display:true,text:yAxisLabel},...yAxisOptions}}}}); charts[chartId] = chart; }
+    function createPlot(chartId, labels, datasets, title, yAxisLabel = 'dB', isMultiAxis = false, yAxisOptions = {}) {
+        const canvasElement = document.getElementById(chartId);
+        const ctx = canvasElement.getContext('2d');
+        if(charts[chartId]) charts[chartId].destroy();
+        
+        let scales = {
+            x: { type: 'logarithmic', title: { display: true, text: '周波数(Hz)' }, ticks: { callback: v => [63, 125, 250, 500, 1000, 2000, 4000, 8000].includes(v) ? v : null } },
+            y: { type: 'linear', position: 'left', title: { display: true, text: yAxisLabel }, ...yAxisOptions }
+        };
+
+        if (isMultiAxis) {
+            scales.y1 = { type: 'linear', position: 'right', title: { display: true, text: '位相 (deg)' }, grid: { drawOnChartArea: false } };
+        }
+
+        const chart = new Chart(ctx, { type: 'line', data: { labels, datasets: datasets.map((ds) => ({ ...ds, fill: false, borderWidth: 2, pointRadius: 2 })) },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, font: { size: 16 } } }, scales: scales }
+        });
+        charts[chartId] = chart;
+    }
 </script>
 </body>
 </html>
