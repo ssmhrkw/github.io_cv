@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>統合版 音響シミュレーター (Web版) - 修正版v2</title>
+    <title>統合版 音響シミュレーター (Web版) - 計算式表示機能付き</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         /* CSSスタイル部分は変更ありません */
         body { font-family: 'Meiryo', sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
@@ -28,6 +30,8 @@
         .modal-grid { display: grid; grid-template-columns: 100px 1fr; gap: 10px; align-items: center; }
         .modal-buttons { text-align: right; margin-top: 20px; display: flex; gap: 10px; }
         .modal-buttons button { flex-grow: 1; }
+        #formula-container { margin-top: 20px; padding: 15px; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; }
+        #formula-container h5 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; }
         @media (min-width: 768px) {
             body { flex-direction: row; align-items: flex-start; }
             .input-column { min-width: 420px; width: 420px; }
@@ -94,6 +98,12 @@
 
     <div class="column graph-column">
         <canvas id="stl-chart"></canvas>
+        <div id="formula-container">
+            <h5 style="margin-top:0;">計算式</h5>
+            <div id="formula-display">
+                <p>計算を実行すると、ここに適用された計算式が表示されます。</p>
+            </div>
+        </div>
     </div>
 
 <script>
@@ -103,15 +113,73 @@
     const FREQS = [50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000];
     let layer_data_a = [], layer_data_b = [];
     let results_df = null; let stlChart; let modalContext = { panel: null, index: -1 };
-    const ui = { airGapInput: document.getElementById('air-gap-input'), absorbentSelect: document.getElementById('absorbent-select'), flowResistInput: document.getElementById('flow-resist-input'), calcButton: document.getElementById('calc-button'), exportCsvButton: document.getElementById('export-csv-button'), propALabel: document.getElementById('prop-a-label'), propBLabel: document.getElementById('prop-b-label'), f0Value: document.getElementById('f0-value'), summaryTableContainer: document.getElementById('summary-table-container'), stlChart: document.getElementById('stl-chart'), panelAContainer: document.getElementById('panel-a-container'), panelBContainer: document.getElementById('panel-b-container'), modal: document.getElementById('layer-modal'), modalTitle: document.getElementById('modal-title'), modalMatSelect: document.getElementById('modal-mat-select'), modalThickInput: document.getElementById('modal-thick-input'), modalRhoInput: document.getElementById('modal-rho-input'), modalEInput: document.getElementById('modal-e-input'), modalNuInput: document.getElementById('modal-nu-input'), modalOkBtn: document.getElementById('modal-ok-btn'), modalCancelBtn: document.getElementById('modal-cancel-btn') };
     
-    // 計算ロジック (変更なし)
+    // ★★★ 変更点 3: UIオブジェクトに計算式表示エリアを追加 ★★★
+    const ui = { airGapInput: document.getElementById('air-gap-input'), absorbentSelect: document.getElementById('absorbent-select'), flowResistInput: document.getElementById('flow-resist-input'), calcButton: document.getElementById('calc-button'), exportCsvButton: document.getElementById('export-csv-button'), propALabel: document.getElementById('prop-a-label'), propBLabel: document.getElementById('prop-b-label'), f0Value: document.getElementById('f0-value'), summaryTableContainer: document.getElementById('summary-table-container'), stlChart: document.getElementById('stl-chart'), panelAContainer: document.getElementById('panel-a-container'), panelBContainer: document.getElementById('panel-b-container'), modal: document.getElementById('layer-modal'), modalTitle: document.getElementById('modal-title'), modalMatSelect: document.getElementById('modal-mat-select'), modalThickInput: document.getElementById('modal-thick-input'), modalRhoInput: document.getElementById('modal-rho-input'), modalEInput: document.getElementById('modal-e-input'), modalNuInput: document.getElementById('modal-nu-input'), modalOkBtn: document.getElementById('modal-ok-btn'), modalCancelBtn: document.getElementById('modal-cancel-btn'), formulaDisplay: document.getElementById('formula-display') };
+    
+    // (計算ロジック、UI更新関数などは前回の修正版から変更なし)
     const calculatePanelProperties = (layers) => { if (!layers || layers.length === 0) return { thick: 0, m_prime: 0, stiff: 0, fc: Infinity }; const total_thickness = layers.reduce((sum, l) => sum + l.h, 0); const total_surface_density = layers.reduce((sum, l) => sum + l.rho * l.h, 0); const total_bending_stiffness = layers.reduce((sum, l) => { if (l.mat === '空気層') return sum; return sum + (l.E * Math.pow(l.h, 3)) / (12 * (1 - Math.pow(l.nu, 2))); }, 0); const c0 = 343.0; const fc_total = (total_bending_stiffness > 0) ? (Math.pow(c0, 2) / (2 * Math.PI)) * Math.sqrt(total_surface_density / total_bending_stiffness) : Infinity; return { thick: total_thickness, m_prime: total_surface_density, stiff: total_bending_stiffness, fc: fc_total }; };
     const calculateRandomIncidenceTL = (m_prime, freqs) => { const tl_normal = freqs.map(f => 20 * Math.log10(m_prime * f) - 42.5); const tl_random = tl_normal.map(tl0 => { if (tl0 <= 0) return tl0; const log_arg = 0.23 * tl0; return tl0 - 10 * Math.log10(log_arg); }); return { normal: tl_normal, random: tl_random }; };
     
+    // ★★★ 変更点 4: 計算式を表示するための新しい関数 ★★★
+    function updateFormulaDisplay(type, props) {
+        let html = '';
+        switch (type) {
+            case 'single':
+                html = `
+                    <h5>単層パネル（質量則）</h5>
+                    <p>以下の質量則の近似式（ランダム入射）を用いて計算しています。</p>
+                    <p><b>垂直入射:</b> $$ TL_0 \\approx 20 \\log_{10}(m'f) - 42.5 \\; (dB) $$</p>
+                    <p><b>ランダム入射:</b> $$ TL_R \\approx TL_0 - 10 \\log_{10}(0.23 \\cdot TL_0) \\; (dB) $$</p>
+                    <p>ここで、<br>
+                    \\(m'\\): パネルの面密度 (${props.m_prime.toFixed(1)} kg/m²)<br>
+                    \\(f\\): 周波数 (Hz)
+                    </p>
+                `;
+                break;
+            case 'laminated':
+                html = `
+                    <h5>積層パネル（等価単層モデル）</h5>
+                    <p>積層パネルを、物性値が等価な一枚のパネルと見なして計算しています。<b>この計算は簡略化されたモデルであり、あくまで参考値です。</b></p>
+                    <p><b>等価面密度 (\\(m'_{eq}\\)):</b> $$ m'_{eq} = \\sum_{i=1}^{n} \\rho_i h_i = ${props.m_prime.toFixed(1)} \\; (kg/m^2) $$</p>
+                    <p><b>等価曲げ剛性 (\\(B_{eq}\\)):</b> $$ B_{eq} \\approx \\sum_{i=1}^{n} \\frac{E_i h_i^3}{12(1-\\nu_i^2)} $$</p>
+                    <p>これらの等価物性値を用いて、単層パネルの質量則および臨界周波数を計算しています。</p>
+                `;
+                break;
+            case 'double':
+                html = `
+                    <h5>二重壁</h5>
+                    <p>周波数帯域に応じて、以下の式を用いて計算しています。</p>
+                    <p><b>共鳴周波数 (\\(f_0\\)):</b> $$ f_0 = \\frac{1}{2\\pi} \\sqrt{\\frac{\\rho_0 c_0^2 (m'_1 + m'_2)}{d \\cdot m'_1 m'_2}} = ${props.f0.toFixed(1)} \\; (Hz) $$</p>
+                    <p><b>低周波域 (\\(f < f_0\\)):</b><br>
+                    パネル全体を一つの質量と見なす質量則で計算します。
+                    $$ TL_R \\approx 20 \\log_{10}((m'_1 + m'_2)f) - 47.5 $$</p>
+                    <p><b>中高周波域 (\\(f > f_0\\)):</b><br>
+                    各パネルの透過損失と空気層の効果を考慮して計算します。
+                    $$ TL_R \\approx TL_{R1} + TL_{R2} + 20 \\log_{10}(fd) - 29 $$</p>
+                    <p>ここで、<br>
+                    \\(m'_1\\): パネルAの面密度 (${props.m1.toFixed(1)} kg/m²)<br>
+                    \\(m'_2\\): パネルBの面密度 (${props.m2.toFixed(1)} kg/m²)<br>
+                    \\(d\\): 空気層の厚さ (${(props.d * 1000).toFixed(1)} mm)<br>
+                    \\(TL_{R1}, TL_{R2}\\): 各単層パネルの透過損失
+                    </p>
+                `;
+                break;
+            default:
+                html = '<p>計算を実行すると、ここに適用された計算式が表示されます。</p>';
+                break;
+        }
+        ui.formulaDisplay.innerHTML = html;
+        // MathJaxに新しいコンテンツを数式として処理させる
+        if (window.MathJax && window.MathJax.typeset) {
+            window.MathJax.typeset();
+        }
+    }
+
     const calculateAll = () => {
         if (layer_data_a.length === 0 && layer_data_b.length === 0) {
             alert("計算するレイヤーがありません。");
+            updateFormulaDisplay('default'); // ★★★ 計算式表示をリセット
             return;
         }
         const isSingleHomogeneous = (layer_data_a.length === 1 && layer_data_b.length === 0) || (layer_data_a.length === 0 && layer_data_b.length === 1);
@@ -127,92 +195,53 @@
                 let stl_double = FREQS.map((f, i) => { if (f < f0) return stl_total_mass[i]; return (d > 0) ? stl_a[i] + stl_b[i] + 20*Math.log10(f*d) - 29 : stl_a[i] + stl_b[i]; });
                 if (flow_resistivity > 0) { const dip_depth_reduction = Math.min(10, flow_resistivity / 2000); const performance_gain = 5 * (1 - Math.exp(-flow_resistivity / 10000)); stl_double = stl_double.map(val => val + performance_gain); const f0_index = FREQS.reduce((i, f, idx, arr) => Math.abs(f - f0) < Math.abs(arr[i] - f0) ? idx : i, 0); if (d > 0) stl_double[f0_index] -= (12 - dip_depth_reduction); }
                 ui.f0Value.textContent = (d > 0) ? `${f0.toFixed(1)} Hz` : "N/A (密着)"; updatePlot(ui.stlChart, 'stl-chart', FREQS, [{label: 'パネルA 全体', data: stl_a}, {label: 'パネルB 全体', data: stl_b}, {label: '二重壁 合成', data: stl_double}], '二重壁の透過損失'); updateSummaryTable(FREQS, stl_double); results_df = { 'Frequency (Hz)': FREQS, 'STL_Panel_A_Random (dB)': stl_a, 'STL_Panel_B_Random (dB)': stl_b, 'STL_Double_Wall (dB)': stl_double };
+                // ★★★ 変更点 5: 二重壁の計算式を表示 ★★★
+                updateFormulaDisplay('double', { m1: propsA.m_prime, m2: propsB.m_prime, d: d, f0: f0 });
             } else {
                 const props_single = layer_data_a.length > 0 ? propsA : propsB; const panel_name = layer_data_a.length > 0 ? "パネルA" : "パネルB"; const { normal: stl_normal, random: stl_random } = calculateRandomIncidenceTL(props_single.m_prime, FREQS);
                 ui.f0Value.textContent = "N/A (単層)"; updatePlot(ui.stlChart, 'stl-chart', FREQS, [{label: `${panel_name} (垂直入射)`, data: stl_normal}, {label: `${panel_name} (ランダム入射)`, data: stl_random}], '単層パネルの透過損失'); updateSummaryTable(FREQS, stl_random); results_df = { 'Frequency (Hz)': FREQS, [`STL_${panel_name}_Normal (dB)`]: stl_normal, [`STL_${panel_name}_Random (dB)`]: stl_random };
+                
+                // ★★★ 変更点 6: 単層か積層かを判定して計算式を表示 ★★★
+                const is_laminated = (layer_data_a.length > 1) || (layer_data_b.length > 1);
+                if (is_laminated) {
+                    updateFormulaDisplay('laminated', { m_prime: props_single.m_prime });
+                } else {
+                    updateFormulaDisplay('single', { m_prime: props_single.m_prime });
+                }
             }
         } catch (e) { alert(`計算エラー: ${e.message}`); }
     };
-
-    function updatePanelPropertiesDisplay(panel_type) { const layers = (panel_type === 'A') ? layer_data_a : layer_data_b; const labelElement = (panel_type === 'A') ? ui.propALabel : ui.propBLabel; const props = calculatePanelProperties(layers); labelElement.textContent = layers.length > 0 ? `総厚: ${(props.thick * 1000).toFixed(1)} mm\n総面密度: ${props.m_prime.toFixed(1)} kg/m²\n全体臨界Fc: ${props.fc === Infinity ? 'N/A' : props.fc.toFixed(0) + ' Hz'}` : "N/A"; }
-    function createTableHTML(headers, data) { let table = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`; table += data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join(''); table += `</tbody></table>`; return table; }
-    function updateSummaryTable(freqs, stl_values) { const target_freqs = [125, 250, 500, 1000, 2000]; if (!stl_values) { ui.summaryTableContainer.innerHTML = createTableHTML(['周波数', '透過損失'], target_freqs.map(f => [f + " Hz", "N/A"])); return; } const target_stls = target_freqs.map(f_target => { const idx = freqs.reduce((i, f, idx, arr) => Math.abs(f - f_target) < Math.abs(arr[i] - f_target) ? idx : i, 0); return stl_values[idx]; }); const avg_stl = target_stls.reduce((sum, val) => sum + val, 0) / target_stls.length; const tableData = target_freqs.map((f, i) => [`${f} Hz`, `${target_stls[i].toFixed(1)} dB`]); tableData.push(["5帯域平均", `${avg_stl.toFixed(1)} dB`]); ui.summaryTableContainer.innerHTML = createTableHTML(['周波数', '透過損失'], tableData); };
-    function updatePlot(canvasElement, chartId, labels, datasets, title) { const ctx = canvasElement.getContext('2d'); if (chartId === 'stl-chart' && stlChart) stlChart.destroy(); stlChart = new Chart(ctx, { type: 'line', data: { labels, datasets: datasets.map((ds, i) => ({ label: ds.label, data: ds.data, fill: false, borderWidth: (i === 2 || datasets.length < 3) ? 2.5 : 1.5, borderColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 159, 64, 1)', 'rgba(40, 167, 69, 1)'][i], pointRadius: 3, pointBackgroundColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 159, 64, 1)', 'rgba(40, 167, 69, 1)'][i], borderDash: (i < 2 && datasets.length === 3) ? [5, 5] : [], }))}, options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, font: { size: 16 } } }, scales: { x: { type: 'logarithmic', title: { display: true, text: '周波数 (Hz)' }, ticks: { callback: (value) => [63, 125, 250, 500, 1000, 2000, 4000].includes(value) ? value : null } }, y: { title: { display: true, text: '透過損失 (dB)' }, min: 0, max: 120 } } } }); };
     
-    // ★★★ 修正点 1: レイヤー識別の方法をより安定なものに変更 ★★★
+    // (createLayerTable, updateLayerTree, removeLayer などの関数は前回の修正版から変更ありません)
     function createLayerTable(container, panel_type) {
-        const table = document.createElement('table');
-        table.className = 'layer-table';
-        table.innerHTML = `<thead><tr><th style="width:20px;">#</th><th>材料</th><th>厚さ(mm)</th></tr></thead><tbody></tbody>`;
-        container.innerHTML = '';
-        container.appendChild(table);
+        const table = document.createElement('table'); table.className = 'layer-table'; table.innerHTML = `<thead><tr><th style="width:20px;">#</th><th>材料</th><th>厚さ(mm)</th></tr></thead><tbody></tbody>`; container.innerHTML = ''; container.appendChild(table);
         table.querySelector('tbody').addEventListener('dblclick', (evt) => {
             const row = evt.target.closest('tr');
-            if (row && row.dataset.index) {
-                const indexToEdit = parseInt(row.dataset.index, 10);
-                openLayerModal(panel_type, indexToEdit);
-            }
+            if (row && row.dataset.index) { const indexToEdit = parseInt(row.dataset.index, 10); openLayerModal(panel_type, indexToEdit); }
         });
         return table.querySelector('tbody');
     }
-    const panelATreeBody = createLayerTable(ui.panelAContainer, 'A');
-    const panelBTreeBody = createLayerTable(ui.panelBContainer, 'B');
-
-    // ★★★ 修正点 2: レイヤー識別の方法をより安定なものに変更 ★★★
+    const panelATreeBody = createLayerTable(ui.panelAContainer, 'A'); const panelBTreeBody = createLayerTable(ui.panelBContainer, 'B');
     function updateLayerTree(panel_type) {
-        const treeBody = (panel_type === 'A') ? panelATreeBody : panelBTreeBody;
-        const data = (panel_type === 'A') ? layer_data_a : layer_data_b;
-        treeBody.innerHTML = '';
+        const treeBody = (panel_type === 'A') ? panelATreeBody : panelBTreeBody; const data = (panel_type === 'A') ? layer_data_a : layer_data_b; treeBody.innerHTML = '';
         data.forEach((layer, i) => {
-            const row = treeBody.insertRow();
-            row.dataset.index = i; // 内部的な識別番号を付与
-            row.innerHTML = `<td>${i + 1}</td><td>${layer.mat}</td><td>${(layer.h * 1000).toFixed(1)}</td>`;
-            row.addEventListener('click', () => {
-                const current = treeBody.querySelector('.selected');
-                if (current) current.classList.remove('selected');
-                row.classList.add('selected');
-            });
+            const row = treeBody.insertRow(); row.dataset.index = i; row.innerHTML = `<td>${i + 1}</td><td>${layer.mat}</td><td>${(layer.h * 1000).toFixed(1)}</td>`;
+            row.addEventListener('click', () => { const current = treeBody.querySelector('.selected'); if (current) current.classList.remove('selected'); row.classList.add('selected'); });
         });
     }
-    
-    // ★★★ 修正点 3: レイヤー識別の方法をより安定なものに変更 ★★★
     function removeLayer(panel_type) {
-        const treeBody = (panel_type === 'A') ? panelATreeBody : panelBTreeBody;
-        const data = (panel_type === 'A') ? layer_data_a : layer_data_b;
-        const selectedRow = treeBody.querySelector('.selected');
+        const treeBody = (panel_type === 'A') ? panelATreeBody : panelBTreeBody; const data = (panel_type === 'A') ? layer_data_a : layer_data_b; const selectedRow = treeBody.querySelector('.selected');
         if (selectedRow && selectedRow.dataset.index) {
             const indexToRemove = parseInt(selectedRow.dataset.index, 10);
-            if (!isNaN(indexToRemove)) {
-                data.splice(indexToRemove, 1);
-                updateLayerTree(panel_type);
-                updatePanelPropertiesDisplay(panel_type);
-            }
-        } else {
-            alert('削除するレイヤーを選択してください。');
-        }
+            if (!isNaN(indexToRemove)) { data.splice(indexToRemove, 1); updateLayerTree(panel_type); updatePanelPropertiesDisplay(panel_type); }
+        } else { alert('削除するレイヤーを選択してください。'); }
     }
-
-    function openLayerModal(panel_type, index = -1) {
-        modalContext = { panel: panel_type, index }; const data = (panel_type === 'A') ? layer_data_a : layer_data_b; const isEditing = index !== -1; ui.modalTitle.textContent = isEditing ? "レイヤー編集" : "レイヤー追加"; const layer = isEditing ? data[index] : { mat: '石こうボード', h: 0.0125 }; ui.modalMatSelect.value = layer.mat; ui.modalThickInput.value = layer.h * 1000; onModalMatChange(); if (isEditing) { ui.modalRhoInput.value = layer.rho; ui.modalEInput.value = layer.E.toExponential(2); ui.modalNuInput.value = layer.nu; } ui.modal.style.display = 'block';
-    }
-    function saveLayer() {
-        try {
-            const newLayer = { mat: ui.modalMatSelect.value, h: parseFloat(ui.modalThickInput.value) / 1000, rho: parseFloat(ui.modalRhoInput.value), E: parseFloat(ui.modalEInput.value), nu: parseFloat(ui.modalNuInput.value) };
-            if (isNaN(newLayer.h) || isNaN(newLayer.rho) || isNaN(newLayer.E) || isNaN(newLayer.nu)) { throw new Error("数値が無効です。"); }
-            const data = (modalContext.panel === 'A' ? layer_data_a : layer_data_b);
-            if (modalContext.index === -1) { data.push(newLayer); } else { data[modalContext.index] = newLayer; }
-            updateLayerTree(modalContext.panel); updatePanelPropertiesDisplay(modalContext.panel); closeModal();
-        } catch (e) { alert('有効な数値を入力してください。\n' + e.message); }
-    }
+    function openLayerModal(panel_type, index = -1) { modalContext = { panel: panel_type, index }; const data = (panel_type === 'A') ? layer_data_a : layer_data_b; const isEditing = index !== -1; ui.modalTitle.textContent = isEditing ? "レイヤー編集" : "レイヤー追加"; const layer = isEditing ? data[index] : { mat: '石こうボード', h: 0.0125 }; ui.modalMatSelect.value = layer.mat; ui.modalThickInput.value = layer.h * 1000; onModalMatChange(); if (isEditing) { ui.modalRhoInput.value = layer.rho; ui.modalEInput.value = layer.E.toExponential(2); ui.modalNuInput.value = layer.nu; } ui.modal.style.display = 'block'; }
+    function saveLayer() { try { const newLayer = { mat: ui.modalMatSelect.value, h: parseFloat(ui.modalThickInput.value) / 1000, rho: parseFloat(ui.modalRhoInput.value), E: parseFloat(ui.modalEInput.value), nu: parseFloat(ui.modalNuInput.value) }; if (isNaN(newLayer.h) || isNaN(newLayer.rho) || isNaN(newLayer.E) || isNaN(newLayer.nu)) { throw new Error("数値が無効です。"); } const data = (modalContext.panel === 'A' ? layer_data_a : layer_data_b); if (modalContext.index === -1) { data.push(newLayer); } else { data[modalContext.index] = newLayer; } updateLayerTree(modalContext.panel); updatePanelPropertiesDisplay(modalContext.panel); closeModal(); } catch (e) { alert('有効な数値を入力してください。\n' + e.message); } }
     function closeModal() { ui.modal.style.display = 'none'; }
-    function onModalMatChange() {
-        const selectedName = ui.modalMatSelect.value; const props = MATERIAL_PROPERTIES[selectedName]; const isManual = selectedName === "手動入力";
-        [ui.modalEInput, ui.modalRhoInput, ui.modalNuInput].forEach(input => input.readOnly = false);
-        if (!isManual) { ui.modalEInput.value = props.E.toExponential(2); ui.modalRhoInput.value = props.rho; ui.modalNuInput.value = props.nu; } else { if (modalContext.index === -1) { ui.modalEInput.value = ""; ui.modalRhoInput.value = ""; ui.modalNuInput.value = ""; } }
-    }
+    function onModalMatChange() { const selectedName = ui.modalMatSelect.value; const props = MATERIAL_PROPERTIES[selectedName]; const isManual = selectedName === "手動入力"; [ui.modalEInput, ui.modalRhoInput, ui.modalNuInput].forEach(input => input.readOnly = false); if (!isManual) { ui.modalEInput.value = props.E.toExponential(2); ui.modalRhoInput.value = props.rho; ui.modalNuInput.value = props.nu; } else { if (modalContext.index === -1) { ui.modalEInput.value = ""; ui.modalRhoInput.value = ""; ui.modalNuInput.value = ""; } } }
     function onAbsorbentSelect() { const selected = ui.absorbentSelect.value; const isManual = selected === "手動入力"; ui.flowResistInput.readOnly = !isManual; ui.flowResistInput.value = isManual ? "" : ABSORBENT_PROPERTIES[selected].resistivity; }
     function exportToCsv() { if (!results_df) { alert("エクスポートする計算結果がありません。"); return; } const headers = Object.keys(results_df); let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"; const numRows = results_df[headers[0]].length; for (let i = 0; i < numRows; i++) { csvContent += headers.map(h => results_df[h][i].toFixed(2)).join(",") + "\n"; } const encodedUri = encodeURI(csvContent); const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", "acoustic_simulation_results.csv"); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
-    
     document.addEventListener('DOMContentLoaded', () => {
         Object.keys(MATERIAL_PROPERTIES).forEach(name => ui.modalMatSelect.add(new Option(name, name))); Object.keys(ABSORBENT_PROPERTIES).forEach(name => ui.absorbentSelect.add(new Option(name, name))); ui.absorbentSelect.value = "なし"; ui.calcButton.addEventListener('click', calculateAll); ui.exportCsvButton.addEventListener('click', exportToCsv); ui.absorbentSelect.addEventListener('change', onAbsorbentSelect); ui.modalMatSelect.addEventListener('change', onModalMatChange); ui.modalOkBtn.addEventListener('click', saveLayer); ui.modalCancelBtn.addEventListener('click', closeModal);
         layer_data_a.push({mat: 'コンクリート', h: 0.150, rho: 2300, E: 2.1e10, nu: 0.005}); layer_data_b.push({mat: '石こうボード', h: 0.0125, rho: 800, E: 0.18e10, nu: 0.005});
