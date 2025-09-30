@@ -158,6 +158,7 @@
                 let Y_sum = new Complex();
                 for (let p = 1; p <= 5; p++) {
                     for (let q = 1; q <= 5; q++) {
+                        // ★★★ 修正箇所: 固有振動数の計算式を修正 ★★★
                         const f_pq = (Math.PI / 2) * Math.sqrt(D / rho_s) * ((p / Lx) ** 2 + (q / Ly) ** 2);
                         const omega_pq = 2 * Math.PI * f_pq;
                         const psi_pq = Math.sin(p * Math.PI * posX / Lx) * Math.sin(q * Math.PI * posY / Ly);
@@ -195,7 +196,7 @@
             const sigma_simple = FREQS.map(f => { let s; if (f > fc) { s = 1.0; } else if (Math.abs(f - fc) < 1e-6) { s = 0.45 * Math.sqrt(l / lambda_c); } else { s = (l * lambda_c / (Math.PI ** 2 * S)) * Math.sqrt(f / fc); } return Math.max(1e-4, Math.min(s, 1.0)); });
             const sigma_leppington = FREQS.map(f => { let s; const mu = Math.sqrt(fc / f); if (f > fc) { s = 1 / Math.sqrt(1 - fc / f); } else if (Math.abs(f - fc) < 1e-6) { s = (0.5 - 0.15 * L1 / L2) * Math.sqrt(k_fc * Math.sqrt(L1)); } else { const k = 2 * Math.PI * f / c0; const mu2_1 = mu ** 2 - 1; if (mu2_1 <= 0 || k <= 0) return 1e-4; const term1 = l / (2 * Math.PI * k * S * Math.sqrt(mu2_1)); const term2 = 2 * Math.atanh(1 / mu); const term3 = 2 * mu / mu2_1; const term4 = C_BC * C_OB - Math.pow(mu, -8) * (C_BC * C_OB - 1); s = term1 * (term2 + term3) * term4; } return Math.max(1e-4, Math.min(s, 1.0)); });
             
-            const total_sigma_wallace = FREQS.map(f => {
+            const sigma_wallace = FREQS.map(f => {
                 const k = 2 * Math.PI * f / c0;
                 let sigma_sum = 0;
                 for (let p = 1; p <= 5; p++) {
@@ -205,14 +206,15 @@
                         if (p_odd && q_odd) {
                             s_pq = (32*k**2*Lx*Ly / (Math.PI**5*p**2*q**2)) * (1 - (k**2*Lx*Ly/12)*((1 - 8/(p*Math.PI)**2)*Lx/Ly + (1 - 8/(q*Math.PI)**2)*Ly/Lx));
                         } else if (p_odd !== q_odd) {
-                            s_pq = (8*k**4*Lx**3*Ly/(3*Math.PI**5*p**2*q**2)) * (1 - (k**2*Lx*Ly/20)*((1 - 8/(p*Math.PI)**2)*Lx/Ly + (1 - 24/(q*Math.PI)**2)*Ly/Lx));
-                            if (!p_odd && q_odd) { // Swap Lx/Ly and p/q if p is even and q is odd
+                            if(p_odd && !q_odd){
+                                s_pq = (8*k**4*Lx**3*Ly/(3*Math.PI**5*p**2*q**2)) * (1 - (k**2*Lx*Ly/20)*((1 - 8/(p*Math.PI)**2)*Lx/Ly + (1 - 24/(q*Math.PI)**2)*Ly/Lx));
+                            } else { // p is even, q is odd
                                 s_pq = (8*k**4*Ly**3*Lx/(3*Math.PI**5*q**2*p**2)) * (1 - (k**2*Ly*Lx/20)*((1 - 8/(q*Math.PI)**2)*Ly/Lx + (1 - 24/(p*Math.PI)**2)*Lx/Ly));
                             }
                         } else { // both even
                             s_pq = (2*k**6*Lx**3*Ly**3 / (15*Math.PI**5*p**2*q**2)) * (1 - (5*k**2*Lx**2/64)*((1-24/(p*Math.PI)**2)*Lx/Ly + (1-24/(q*Math.PI)**2)*Ly/Lx));
                         }
-                        sigma_sum += s_pq;
+                        sigma_sum += s_pq > 0 ? s_pq : 0;
                     }
                 }
                 return Math.max(1e-4, Math.min(sigma_sum, 1.0));
