@@ -37,6 +37,47 @@
       .input-column{width:460px;min-width:460px}
       .output-column{flex-grow:1}
     }
+    /* Positions / Averaging の整形 */
+    .avg-grid{
+      display:grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px 12px;
+      align-items:center;
+    }
+    .span2{ grid-column: 1 / span 2; }
+    
+    .pos-block .row{
+      display:grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px 12px;
+      align-items:center;
+      margin-bottom:6px;
+    }
+    
+    .chk-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    
+    .num-with-unit{
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    
+    .num-with-unit input[type="number"]{
+      width: 120px;           /* 数字が見やすい固定幅 */
+    }
+    
+    input[type="number"].disabled,
+    .pos-block input:disabled{
+      opacity: .6;
+    }
+    
+    .hint{ color:#777; font-size:12px; }
+    .unit{ color:#555; font-size:12px; }
+
   </style>
 </head>
 <body>
@@ -63,28 +104,41 @@
       <div id="basic-inline"></div>
     </fieldset>
 
-    <fieldset>
-      <legend>Positions / Averaging</legend>
-
-      <div id="pos-block" class="form-grid-condensed">
-        <label>Position X (mm):</label><input type="number" id="pos-x" value="1500">
-        <label>Position Y (mm):</label><input type="number" id="pos-y" value="2000">
+    <fieldset><legend>Positions / Averaging</legend>
+    <div class="avg-grid">
+      <!-- Position X/Y をひとまとめに（グレイアウト制御用に #pos-block を保持） -->
+      <div id="pos-block" class="span2 pos-block">
+        <div class="row">
+          <label for="pos-x">Position X (mm):</label>
+          <input type="number" id="pos-x" value="1500" min="0" step="1">
+        </div>
+        <div class="row">
+          <label for="pos-y">Position Y (mm):</label>
+          <input type="number" id="pos-y" value="2000" min="0" step="1">
+        </div>
       </div>
-
-      <div class="row" style="margin-top:8px">
-        <label for="use-mesh">Use grid average:</label>
-        <div><input type="checkbox" id="use-mesh"></div>
-
-        <label>Nx/Ny (cells):</label>
-          <div class="slider-wrap">
-            <label for="nx-input">Nx (cells):</label>
-            <input type="number" id="nx-input" min="1" max="200" step="1" value="5" />
-          
-            <label for="ny-input">Ny (cells):</label>
-            <input type="number" id="ny-input" min="1" max="200" step="1" value="6" />
-          </div>
+  
+      <!-- Grid average のチェック行（2列ぶち抜き） -->
+      <label class="chk-row span2">
+        <input type="checkbox" id="use-mesh" checked>
+        <span>Use grid average</span>
+        <span class="hint">(Nx/Ny を指定)</span>
+      </label>
+  
+      <!-- Nx / Ny（上下の△で増減できる number 入力） -->
+      <label for="nx-input">Nx (cells):</label>
+      <div class="num-with-unit">
+        <input type="number" id="nx-input" min="1" max="200" step="1" value="5">
+        <span class="unit">cells</span>
       </div>
-    </fieldset>
+  
+      <label for="ny-input">Ny (cells):</label>
+      <div class="num-with-unit">
+        <input type="number" id="ny-input" min="1" max="200" step="1" value="6">
+        <span class="unit">cells</span>
+      </div>
+    </div>
+  </fieldset>
 
     <fieldset>
       <legend>Advanced</legend>
