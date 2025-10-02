@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acoustic & Vibration Properties of Plates - Final Version</title>
+    <title>Acoustic & Vibration Properties of Plates - Stable Version</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -70,7 +70,7 @@
 
         <div id="basic-tab" class="tab-content active"><table id="basic-results-table"></table><div id="basic-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateBasic()">Calculate</button></div>
         <div id="natural-freq-tab" class="tab-content"><table id="natural-freq-table"></table><div id="natural-freq-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateNaturalFreq()">Calculate</button></div>
-        <div id="impedance-tab" class="tab-content"><div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div><div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="impedance-table"></table></div><hr><table id="inf-impedance-table"></table><div id="impedance-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateImpedance()">Calculate</button></div>
+        <div id="impedance-tab" class="tab-content"><table id="impedance-table"></table><hr><table id="inf-impedance-table"></table><div id="impedance-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateImpedance()">Calculate</button></div>
         <div id="stl-tab" class="tab-content"><div class="chart-wrapper"><canvas id="stl-chart"></canvas></div><div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="stl-table"></table></div><div id="stl-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateSTL()">Calculate</button></div>
         <div id="rad-tab" class="tab-content"><div class="chart-wrapper"><canvas id="rad-chart"></canvas></div><div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="rad-table"></table></div><div id="rad-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateRadiation()">Calculate</button></div>
     </div>
@@ -145,9 +145,7 @@
             const Z_inf = 8 * Math.sqrt(D * rho_s);
             createTable(ui.infImpedanceTable, [["Infinite Plate Impedance (Z_inf)", `${Z_inf.toExponential(2)} Ns/m³`]]);
             
-            let results = { abs: [] };
             let tableData = [];
-
             for (const f of FREQS) {
                 const omega = 2 * Math.PI * f;
                 let Y_sum = new Complex();
@@ -163,14 +161,16 @@
                 const Y_dp = (Complex.i().mul(new Complex(4 * omega / rho_s, 0))).div(new Complex(S, 0)).mul(Y_sum);
                 const Z_dp = (new Complex(1, 0)).div(Y_dp);
                 
-                const magnitude = isFinite(Z_dp.magnitude) ? Z_dp.magnitude : null;
-                results.abs.push(magnitude);
-                tableData.push([f, magnitude !== null ? magnitude.toExponential(2) : 'Infinity']);
+                tableData.push([
+                    f,
+                    isFinite(Z_dp.magnitude) ? Z_dp.magnitude.toExponential(2) : 'Infinity',
+                    isFinite(Z_dp.re) ? Z_dp.re.toExponential(2) : 'Infinity',
+                    isFinite(Z_dp.im) ? Z_dp.im.toExponential(2) : 'Infinity'
+                ]);
             }
-            createPlot('impedance-chart', FREQS, [
-                { label: 'Magnitude', data: results.abs, borderColor: 'rgba(255, 99, 132, 1)'}
-            ], 'Driving-Point Impedance', 'Impedance Magnitude |Z| (Ns/m³)', {type: 'logarithmic'});
-            createTable(ui.impedanceTable,['Frequency (Hz)','|Z|'],tableData);
+            
+            if (charts['impedance-chart']) { charts['impedance-chart'].destroy(); }
+            createTable(ui.impedanceTable,['Frequency (Hz)','|Z| (Magnitude)','Re(Z) (Real)','Im(Z) (Imaginary)'],tableData);
             document.getElementById('impedance-formula').innerHTML = `<h5>Driving-Point Impedance Equations</h5><p>$$ Z_{dp}(x,y) = 1 / Y_{dp}(x,y) $$</p><p>$$ Y_{dp} = \\frac{i4\\omega}{\\rho_s S} \\sum_{p=1}^{5}\\sum_{q=1}^{5} \\frac{\\psi_{p,q}^2(x,y)}{\\omega_{p,q}^2(1+i\\eta) - \\omega^2} $$</p><p>$$ \\psi_{p,q}(x,y) = \\sin(\\frac{p\\pi x}{L_x})\\sin(\\frac{q\\pi y}{L_y}) $$</p>`;
             if (window.MathJax) MathJax.typeset();
         } catch (e) { alert(e.message); }
