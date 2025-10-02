@@ -91,6 +91,7 @@ function bandPlugin(centers){
 
 /* ===== DOM Ready ===== */
 document.addEventListener('DOMContentLoaded', () => {
+  // --- UI 要素を取得 ---
   ui = {
     materialSelect: document.getElementById('material-select'),
     thickInput: document.getElementById('thick-input'),
@@ -101,12 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     nuInput: document.getElementById('nu-input'),
     posX: document.getElementById('pos-x'),
     posY: document.getElementById('pos-y'),
-    posBlock: document.getElementById('pos-block'),
     useMesh: document.getElementById('use-mesh'),
     nxInput: document.getElementById('nx-input'),
     nyInput: document.getElementById('ny-input'),
-    nxBadge: document.getElementById('nx-badge'), // あれば使う（無くてもOK）
-    nyBadge: document.getElementById('ny-badge'),
     baffleCond: document.getElementById('baffle-cond'),
     basicInline: document.getElementById('basic-inline'),
     impChart: document.getElementById('impedance-chart'),
@@ -124,33 +122,35 @@ document.addEventListener('DOMContentLoaded', () => {
     showPh: document.getElementById('show-ph')
   };
 
+  // --- 材料リストを初期化 ---
   for (const name in MATERIAL_PROPERTIES) {
-      ui.materialSelect.add(new Option(name, name));
-    }
-    ui.materialSelect.value = "Concrete";   // default
-    ui.thickInput.value = 180;              // default mm
-    ui.lxInput.value = 3000;                // default mm
-    ui.lyInput.value = 4000;                // default mm
-    onMaterialSelect();
-  
-    // --- 初期描画 ---
-    calculateAllTabs();
-  
-    // --- すべての入力にリスナーを追加して自動更新 ---
-    const inputs = [
-      ui.materialSelect, ui.thickInput, ui.lxInput, ui.lyInput,
-      ui.eInput, ui.rhoInput, ui.nuInput,
-      ui.posX, ui.posY,
-      ui.useMesh, ui.nxInput, ui.nyInput,
-      ui.baffleCond, ui.showMag, ui.showRe, ui.showPh
-    ];
-  
-    inputs.forEach(el => {
-      if (!el) return;
-      el.addEventListener('input', calculateAllTabs);
-      el.addEventListener('change', calculateAllTabs);
-    });
+    ui.materialSelect.add(new Option(name, name));
+  }
+
+  // --- デフォルト値をセット ---
+  ui.materialSelect.value = "Concrete";
+  ui.thickInput.value = 180;     // mm
+  ui.lxInput.value = 3000;       // mm
+  ui.lyInput.value = 4000;       // mm
+  onMaterialSelect();            // ここで E,ρ,ν をセット
+
+  // --- 初期計算を実行 ---
+  calculateAllTabs();
+
+  // --- すべての入力変更で再計算 ---
+  const inputs = [
+    ui.materialSelect, ui.thickInput, ui.lxInput, ui.lyInput,
+    ui.eInput, ui.rhoInput, ui.nuInput,
+    ui.posX, ui.posY,
+    ui.useMesh, ui.nxInput, ui.nyInput,
+    ui.baffleCond, ui.showMag, ui.showRe, ui.showPh
+  ];
+  inputs.forEach(el => {
+    if (!el) return;
+    el.addEventListener('input', calculateAllTabs);
+    el.addEventListener('change', calculateAllTabs);
   });
+});
 
 
 function setAveragingUIState(){
