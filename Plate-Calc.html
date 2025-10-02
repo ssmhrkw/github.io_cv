@@ -190,17 +190,22 @@
                 ]);
             }
     
+            // 無限板インピーダンスを dB に変換
+            const Z_inf_ref_dB = 20 * Math.log10(Z_inf_ref);
+    
             // === Plot ===
             createPlot('impedance-chart', FREQS, [
                 { label: '|Z| [dB re 1 Ns/m³]', data: results.mag_dB, borderColor: 'rgba(255, 99, 132, 1)', yAxisID: 'y' },
                 { label: 'Re(Z)', data: results.real, borderColor: 'rgba(54, 162, 235, 1)', yAxisID: 'y1' },
-                { label: 'Phase(Z) [deg]', data: results.phase, borderColor: 'rgba(255, 206, 86, 1)', yAxisID: 'y2' }
+                { label: 'Phase(Z) [deg]', data: results.phase, borderColor: 'rgba(255, 206, 86, 1)', yAxisID: 'y2' },
+                // ★ 追加：無限板インピーダンス (水平線)
+                { label: 'Z_inf_ref [dB]', data: FREQS.map(() => Z_inf_ref_dB), 
+                  borderColor: 'rgba(0, 200, 0, 0.8)', borderDash: [6,3], yAxisID: 'y' }
             ], 'Driving-Point Impedance',
             'Magnitude [dB]', {
                 type: 'logarithmic',
                 ticks: {
-                    callback: function(value, index, values) {
-                        // === 1/3 octave label全部表示 ===
+                    callback: function(value) {
                         if (FREQS.includes(value)) return value;
                         return '';
                     },
@@ -208,7 +213,6 @@
                     max: 8000
                 }
             },
-            // 追加y軸設定
             {
                 y: { type: 'linear', position: 'left', title: { display: true, text: '|Z| dB' } },
                 y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Re(Z)' } },
