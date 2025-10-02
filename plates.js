@@ -7,7 +7,6 @@ const MATERIAL_PROPERTIES = {
   "Glass": { rho: 2500, E: 70.0e9, nu: 0.23 }
 };
 const FREQS = [16,20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000];
-const THIRD_TICKS = FREQS.slice(); // 全表示
 let charts = {};
 let ui = {};
 
@@ -33,11 +32,7 @@ function createTable(el, headers, rows){
   el.innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
   <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
 }
-function nthOctBandEdges(fc){
-  const a = Math.pow(2, 1/6);
-  return [fc/a, fc*a];
-}
-function createPlot(chartId, labels, datasets, title, yTitle, extra={}){
+function createPlot(chartId, datasets, title, yTitle, extra={}){
   const canvas = document.getElementById(chartId);
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -53,8 +48,8 @@ function createPlot(chartId, labels, datasets, title, yTitle, extra={}){
 
       // 1/3-octave shaded
       const pow6 = Math.pow(2,1/6);
-      for (let i=0;i<labels.length;i++){
-        const fc = Number(labels[i]);
+      for (let i=0;i<FREQS.length;i++){
+        const fc = Number(FREQS[i]);
         const x0 = x.getPixelForValue(fc/pow6);
         const x1 = x.getPixelForValue(fc*pow6);
         const left = Math.max(x0, chartArea.left), right = Math.min(x1, chartArea.right);
@@ -68,23 +63,21 @@ function createPlot(chartId, labels, datasets, title, yTitle, extra={}){
       ctx.save();
       ctx.font = '11px Arial'; ctx.fillStyle='#222'; ctx.textAlign='center';
       const yText = chartArea.bottom + 14;
-      labels.forEach(fc=>{
+      FREQS.forEach(fc=>{
         const xp = x.getPixelForValue(fc);
         if (xp>=chartArea.left && xp<=chartArea.right) ctx.fillText(String(fc), xp, yText);
       });
       ctx.restore();
 
-      // Z_inf horizontal line (drawn via dataset too), and modal dots provided in extra.modalDots
+      // modal dots provided in extra.modalDots
       if (extra.modalDots && Array.isArray(extra.modalDots) && typeof extra.zInfDb==='number'){
         ctx.save();
-        ctx.fillStyle = '#222'; ctx.strokeStyle='#333'; ctx.textAlign='center';
+        ctx.fillStyle = '#222'; ctx.textAlign='center';
         extra.modalDots.forEach(md=>{
           const xp = x.getPixelForValue(md.f);
           const yp = y.getPixelForValue(extra.zInfDb);
           if (xp>=chartArea.left && xp<=chartArea.right && yp>=chartArea.top && yp<=chartArea.bottom){
-            // dot
             ctx.beginPath(); ctx.arc(xp, yp, 3, 0, Math.PI*2); ctx.fill();
-            // label f_nm (nm as subscript-like)
             ctx.font = '11px Arial';
             ctx.fillText(`f${md.n}${md.m}`, xp, yp-8);
           }
@@ -97,13 +90,13 @@ function createPlot(chartId, labels, datasets, title, yTitle, extra={}){
   const chart = new Chart(ctx, {
     type:'line',
     data:{
-      labels: labels,
       datasets: datasets.map(ds=>({
         ...ds,
         borderWidth: 2,
         pointRadius: 0,
         spanGaps: true,
-        data: ds.data.map(v => (v==null || isNaN(v)) ? null : +v)
+        parsing: false,              // we provide {x,y}
+        data: ds.data
       }))
     },
     options:{
@@ -195,6 +188,8 @@ function mobilityY_at(f, inputs, x, y){
   return Complex.i().mul(new Complex(4*omega/(rho_s*inputs.S),0)).mul(sum);
 }
 
+function toXY(freqs, arr){ return freqs.map((f,i)=>({x:f, y: arr[i]})); }
+
 function calcImpedance(){
   const ins = getInputs();
 
@@ -264,13 +259,13 @@ function calcImpedance(){
 
   // datasets build (Infinite only by default; checkboxes add more)
   const sets = [
-    {label:'Z_inf_ref [dB]', data:FREQS.map(()=>Z_inf_ref_dB), borderColor:'rgba(0,160,0,0.9)', borderDash:[6,3]}
+    {label:'Z_inf_ref [dB]', data: toXY(FREQS, FREQS.map(()=>Z_inf_ref_dB)), borderColor:'rgba(0,160,0,0.9)', borderDash:[6,3]}
   ];
-  if (ui.showMag.checked) sets.push({label:'|Z| [dB]', data:mag_dB, borderColor:'rgba(220,40,80,1)'});
-  if (ui.showRe .checked) sets.push({label:'Re(Z) [dB]', data:re_dB,  borderColor:'rgba(40,120,220,1)', yAxisID:'y'});
-  if (ui.showPh .checked) sets.push({label:'Phase [deg]', data:ph_deg, borderColor:'rgba(240,180,40,1)', yAxisID:'yR'});
+  if (ui.showMag.checked) sets.push({label:'|Z| [dB]', data: toXY(FREQS, mag_dB), borderColor:'rgba(220,40,80,1)'});
+  if (ui.showRe .checked) sets.push({label:'Re(Z) [dB]', data: toXY(FREQS, re_dB),  borderColor:'rgba(40,120,220,1)', yAxisID:'y'});
+  if (ui.showPh .checked) sets.push({label:'Phase [deg]', data: toXY(FREQS, ph_deg), borderColor:'rgba(240,180,40,1)', yAxisID:'yR'});
 
-  const chart = createPlot('impedance-chart', FREQS, sets, 'Driving-Point Impedance (SS, 16–1000 Hz)', 'Level / dB', {
+  createPlot('impedance-chart', sets, 'Driving-Point Impedance (SS, 16–1000 Hz)', 'Level / dB', {
     zInfDb: Z_inf_ref_dB,
     modalDots: dots
   });
@@ -291,9 +286,9 @@ function calcSTL(){
     return r - 10*Math.log10(Math.abs(c)+1);
   });
 
-  createPlot('stl-chart', FREQS, [
-    {label:'Mass law', data:R_mass, borderColor:'rgba(60,140,220,1)'},
-    {label:'With coincidence', data:R_coin, borderColor:'rgba(220,90,120,1)'}
+  createPlot('stl-chart', [
+    {label:'Mass law', data: toXY(FREQS, R_mass), borderColor:'rgba(60,140,220,1)'},
+    {label:'With coincidence', data: toXY(FREQS, R_coin), borderColor:'rgba(220,90,120,1)'}
   ], 'STL (16–1000 Hz)', 'STL [dB]');
   createTable(ui.stlTable, ['f [Hz]','Mass law','With coincidence'],
     FREQS.map((f,i)=>[f, R_mass[i].toFixed(1), R_coin[i].toFixed(1)]));
@@ -309,8 +304,8 @@ function calcRadiation(){
     return Math.min(1, (l*lambda_c/(Math.PI**2*S))*Math.sqrt(f/fc));
   });
 
-  createPlot('rad-chart', FREQS, [
-    {label:'σ (simple)', data:sigma_simple, borderColor:'rgba(20,160,120,1)'}
+  createPlot('rad-chart', [
+    {label:'σ (simple)', data: toXY(FREQS, sigma_simple), borderColor:'rgba(20,160,120,1)'}
   ], 'Radiation Efficiency (16–1000 Hz)', 'σ [-]');
   createTable(ui.radTable, ['f [Hz]','σ (simple)'],
     FREQS.map((f,i)=>[f, sigma_simple[i].toFixed(3)]));
@@ -341,7 +336,6 @@ function calculateAll(){
 }
 
 function toggleImpedanceDataset(kind){
-  // just re-run calcImpedance to rebuild datasets
   calcImpedance();
 }
 
@@ -392,15 +386,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showPh: document.getElementById('show-ph')
   };
 
-  // 1) Materialの選択肢は毎回「必ず再生成」する
   function buildMaterialOptions() {
     if (!ui.materialSelect) return;
     const opts = Object.keys(MATERIAL_PROPERTIES)
       .map(name => `<option value="${name}">${name}</option>`).join('');
-    ui.materialSelect.innerHTML = opts; // ← length チェックに頼らない
+    ui.materialSelect.innerHTML = opts;
   }
 
-  // 2) 既定値を先にセット（ご指定の Concrete/180/3000/4000）
   function setDefaults() {
     ui.materialSelect.value = 'Concrete';
     ui.thickInput.value = 180;
@@ -413,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ui.nyInput) ui.nyInput.value = 6;
   }
 
-  // 3) Material → E/ρ/ν を注入
   function applyMaterialToFields() {
     const props = MATERIAL_PROPERTIES[ui.materialSelect.value];
     if (!props) return;
@@ -422,20 +413,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.nuInput.value  = props.nu;
   }
 
-  // 4) Averaging UI の有効/無効
   function setAveragingUIStateLocal() {
     const use = ui.useMesh?.checked;
     if (ui.posX) ui.posX.disabled = !!use;
     if (ui.posY) ui.posY.disabled = !!use;
   }
 
-  // 5) 初期化の正しい順序
   buildMaterialOptions();
   setDefaults();
   applyMaterialToFields();
   setAveragingUIStateLocal();
+  wireTabs();                 // FIX 2: tabs actually work
 
-  // 6) 初回計算（ここで例外が出ないことが重要）
+  // 初回計算
   calculateAll();
 
   // ====== イベント束ね ======
@@ -468,4 +458,3 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.showRe ?.addEventListener('change', () => calculateImpedance());
   ui.showPh ?.addEventListener('change', () => calculateImpedance());
 });
-
