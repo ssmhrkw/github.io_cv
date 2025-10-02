@@ -75,13 +75,14 @@
         <label for="use-mesh">Use grid average:</label>
         <div><input type="checkbox" id="use-mesh"></div>
 
-        <label>Nx / Ny (cells):</label>
-        <div class="slider-wrap">
-          <input type="range" id="nx-input" min="1" max="20" step="1" value="5" />
-          <span id="nx-badge" class="badge">5</span>
-          <input type="range" id="ny-input" min="1" max="20" step="1" value="6" />
-          <span id="ny-badge" class="badge">6</span>
-        </div>
+        <label>Nx/Ny (cells):</label>
+          <div class="slider-wrap">
+            <label for="nx-input">Nx (cells):</label>
+            <input type="number" id="nx-input" min="1" max="200" step="1" value="5" />
+          
+            <label for="ny-input">Ny (cells):</label>
+            <input type="number" id="ny-input" min="1" max="200" step="1" value="6" />
+          </div>
       </div>
     </fieldset>
 
