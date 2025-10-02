@@ -135,6 +135,7 @@
             if(window.MathJax) MathJax.typeset();
         } catch (e) { alert(e.message); }
     }
+    
     function calculateImpedance() {
         try {
             const { E, rho, h, D, Lx, Ly, nu } = getCommonInputs();
@@ -144,14 +145,14 @@
     
             const Z_inf_ref = 2.3 * rho * C_L * h**2;
     
-            // ✅ 修正済み
+            // 無限板インピーダンス（基準値）
             createTable(
                 ui.infImpedanceTable,
                 ["Property", "Value"],
                 [["Infinite Plate Impedance (Z_inf, ref)", `${Z_inf_ref.toExponential(2)} Ns/m³`]]
             );
     
-            let results = { abs: [] };
+            let results = { mag_dB: [], real: [], phase: [] };
             let tableData = [];
     
             for (const f of FREQS) {
@@ -172,24 +173,61 @@
                 const Y_dp = (Complex.i().mul(new Complex(4 * omega / rho_s, 0))).div(new Complex(S, 0)).mul(Y_sum);
                 const Z_dp = (new Complex(1, 0)).div(Y_dp);
     
-                const magnitude = isFinite(Z_dp.magnitude) ? Z_dp.magnitude : null;
-                results.abs.push(magnitude);
-                tableData.push([f, magnitude !== null ? magnitude.toExponential(2) : 'Infinity']);
+                // magnitude in dB, real part, phase
+                const mag = isFinite(Z_dp.magnitude) ? 20 * Math.log10(Z_dp.magnitude) : null;
+                const re = isFinite(Z_dp.real) ? Z_dp.real : null;
+                const phase = isFinite(Z_dp.phase) ? (Z_dp.phase * 180 / Math.PI) : null; // [deg]
+    
+                results.mag_dB.push(mag);
+                results.real.push(re);
+                results.phase.push(phase);
+    
+                tableData.push([
+                    f,
+                    mag !== null ? mag.toFixed(2) : 'NaN',
+                    re !== null ? re.toExponential(2) : 'NaN',
+                    phase !== null ? phase.toFixed(1) : 'NaN'
+                ]);
             }
     
+            // === Plot ===
             createPlot('impedance-chart', FREQS, [
-                { label: 'Magnitude', data: results.abs, borderColor: 'rgba(255, 99, 132, 1)' }
-            ], 'Driving-Point Impedance', 'Impedance Magnitude |Z| (Ns/m³)', {type: 'logarithmic'});
+                { label: '|Z| [dB re 1 Ns/m³]', data: results.mag_dB, borderColor: 'rgba(255, 99, 132, 1)', yAxisID: 'y' },
+                { label: 'Re(Z)', data: results.real, borderColor: 'rgba(54, 162, 235, 1)', yAxisID: 'y1' },
+                { label: 'Phase(Z) [deg]', data: results.phase, borderColor: 'rgba(255, 206, 86, 1)', yAxisID: 'y2' }
+            ], 'Driving-Point Impedance',
+            'Magnitude [dB]', {
+                type: 'logarithmic',
+                ticks: {
+                    callback: function(value, index, values) {
+                        // === 1/3 octave label全部表示 ===
+                        if (FREQS.includes(value)) return value;
+                        return '';
+                    },
+                    min: 16,
+                    max: 8000
+                }
+            },
+            // 追加y軸設定
+            {
+                y: { type: 'linear', position: 'left', title: { display: true, text: '|Z| dB' } },
+                y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Re(Z)' } },
+                y2: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Phase (deg)' } }
+            });
     
-            createTable(ui.impedanceTable, ['Frequency (Hz)', '|Z|'], tableData);
+            // === Table ===
+            createTable(ui.impedanceTable, ['Frequency (Hz)', '|Z| dB', 'Re(Z)', 'Phase (deg)'], tableData);
+    
+            // === Formula表示 ===
             document.getElementById('impedance-formula').innerHTML = `<h5>Driving-Point Impedance Equations</h5>
-                <p>Based on your reference code, using a frequency-dependent loss factor.</p>
-                <p><b>Loss Factor (η):</b> $$ \\eta(f) = 0.005 + \\frac{0.3}{\\sqrt{f}} $$</p>
-                <p><b>Impedance (Z<sub>dp</sub>):</b> $$ Z_{dp}(x,y) = 1 / Y_{dp}(x,y) $$</p>
-                <p><b>Mobility (Y<sub>dp</sub>):</b> $$ Y_{dp} = \\frac{i4\\omega}{\\rho_s S} \\sum_{p=1}^{5}\\sum_{q=1}^{5} \\frac{\\psi_{p,q}^2(x,y)}{\\omega_{p,q}^2(1+i\\eta) - \\omega^2} $$</p>`;
+                <p><b>Magnitude:</b> $$ 20 \\log_{10}|Z_{dp}| $$</p>
+                <p><b>Real Part:</b> $$ \\Re\\{Z_{dp}\\} $$</p>
+                <p><b>Phase:</b> $$ \\angle Z_{dp} $$ (degrees)</p>`;
             if (window.MathJax) MathJax.typeset();
+    
         } catch (e) { alert(e.message); }
     }
+
    
 
     function calculateSTL() {
