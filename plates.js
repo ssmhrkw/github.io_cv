@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     useMesh: document.getElementById('use-mesh'),
     nxInput: document.getElementById('nx-input'),
     nyInput: document.getElementById('ny-input'),
-    nxBadge: document.getElementById('nx-badge'),
+    nxBadge: document.getElementById('nx-badge'), // あれば使う（無くてもOK）
     nyBadge: document.getElementById('ny-badge'),
     baffleCond: document.getElementById('baffle-cond'),
     basicInline: document.getElementById('basic-inline'),
@@ -124,42 +124,83 @@ document.addEventListener('DOMContentLoaded', () => {
     showPh: document.getElementById('show-ph')
   };
 
-  // populate materials
-  ui.materialSelect.innerHTML = '';
-  Object.keys(MATERIAL_PROPERTIES).forEach(name=>{
-    const o=document.createElement('option'); o.value=name; o.textContent=name; ui.materialSelect.appendChild(o);
-  });
+  // --- Material 選択肢の投入（未投入の場合に備えて常に再生成） ---
+  if (ui.materialSelect && ui.materialSelect.options.length === 0) {
+    Object.keys(MATERIAL_PROPERTIES).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      ui.materialSelect.appendChild(opt);
+    });
+  }
 
-  // === FIX: material change should update E/ρ/ν then recalc ===
-  ui.materialSelect.addEventListener('change', () => { onMaterialSelect(); calculateAll(); });
+  // 既定値（ご要望：Concrete, h=180mm, Lx=3000, Ly=4000）
+  if (ui.materialSelect) ui.materialSelect.value = 'Concrete';
 
-  // defaults
-  ui.materialSelect.value = 'Concrete';
-  onMaterialSelect(); // sets E, rho, nu
+  // Material変更 → プロパティ反映 → 全再計算
+  if (ui.materialSelect) {
+    ui.materialSelect.addEventListener('change', () => {
+      onMaterialSelect();
+      calculateAll();
+    });
+  }
+  // 初期反映
+  onMaterialSelect?.();
 
-  // listeners -> recalc (both input & change)
-  const recalcKeys = ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput',
-                      'posX','posY','useMesh','nxInput','nyInput','baffleCond',
-                      'showMag','showRe','showPh'];
-  recalcKeys.forEach(k=>{
+  // 数値バッジを使っている場合は同期（無ければスキップ）
+  const syncBadges = () => {
+    if (ui.nxBadge && ui.nxInput) ui.nxBadge.textContent = ui.nxInput.value;
+    if (ui.nyBadge && ui.nyInput) ui.nyBadge.textContent = ui.nyInput.value;
+  };
+
+  // Grid average チェックで UI 切替 & 再描画
+  if (ui.useMesh) {
+    ui.useMesh.addEventListener('change', () => {
+      setAveragingUIState?.();
+      // 座標→平均/格子へ切替時に直ちに反映
+      calculateImpedance();
+    });
+  }
+
+  // Nx/Ny：上下△で変えた瞬間にインピーダンス再描画
+  if (ui.nxInput) {
+    ui.nxInput.addEventListener('input', () => { syncBadges(); calculateImpedance(); });
+    ui.nxInput.addEventListener('change', () => { syncBadges(); calculateImpedance(); });
+  }
+  if (ui.nyInput) {
+    ui.nyInput.addEventListener('input', () => { syncBadges(); calculateImpedance(); });
+    ui.nyInput.addEventListener('change', () => { syncBadges(); calculateImpedance(); });
+  }
+
+  // Position X/Y：Grid average OFF のときだけ即時反映
+  if (ui.posX) {
+    ui.posX.addEventListener('input', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
+    ui.posX.addEventListener('change', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
+  }
+  if (ui.posY) {
+    ui.posY.addEventListener('input', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
+    ui.posY.addEventListener('change', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
+  }
+
+  // 主要入力の変更で全再計算
+  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','baffleCond'].forEach(k => {
+    if (!ui[k]) return;
     ui[k].addEventListener('input', calculateAll);
     ui[k].addEventListener('change', calculateAll);
   });
 
-  // slider badges & enabling
-  const syncBadges = ()=>{
-    ui.nxBadge.textContent = ui.nxInput.value;
-    ui.nyBadge.textContent = ui.nyInput.value;
-  };
-  ui.nxInput.addEventListener('input', syncBadges);
-  ui.nyInput.addEventListener('input', syncBadges);
+  // インピーダンス表示トグル
+  if (ui.showMag) ui.showMag.addEventListener('change', () => toggleImpedanceDataset?.('mag'));
+  if (ui.showRe)  ui.showRe.addEventListener('change', () => toggleImpedanceDataset?.('re'));
+  if (ui.showPh)  ui.showPh.addEventListener('change', () => toggleImpedanceDataset?.('ph'));
+
+  // 初期 UI 状態（位置入力の有効/無効など）
+  setAveragingUIState?.();
   syncBadges();
 
-  ui.useMesh.addEventListener('change', setAveragingUIState);
-  setAveragingUIState();
-
+  // 最初の計算
   calculateAll();
 });
+
 
 function setAveragingUIState(){
   const use = ui.useMesh.checked;
