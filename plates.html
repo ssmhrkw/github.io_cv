@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Plate Acoustics (SS) – Impedance/STL/σ</title>
+  <title>Plate Acoustics (SS) – Impedance / STL / σ</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -24,12 +24,13 @@
     table{width:100%;border-collapse:collapse;margin-top:10px}
     th,td{border:1px solid #ddd;padding:6px 8px;text-align:right}
     th{text-align:center;background:#f2f2f2}
-    .chart-wrapper{position:relative;width:100%;height:420px}
+    .chart-wrapper{position:relative;width:100%;height:430px}
     .ctrl-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 2px 0}
     .muted{color:#666;font-size:12px}
+    .row{display:grid;grid-template-columns:140px 1fr 140px 1fr;gap:8px;align-items:center}
     @media(min-width:900px){
       body{flex-direction:row;align-items:flex-start}
-      .input-column{width:420px;min-width:420px}
+      .input-column{width:460px;min-width:460px}
       .output-column{flex-grow:1}
     }
   </style>
@@ -42,9 +43,9 @@
       <div class="form-grid">
         <label for="material-select">Material:</label>
         <select id="material-select"></select><span></span>
-        <label for="thick-input">Thickness (h):</label><input type="number" id="thick-input" value="12.0"><span>mm</span>
-        <label for="lx-input">Length (Lx):</label><input type="number" id="lx-input" value="1000"><span>mm</span>
-        <label for="ly-input">Width (Ly):</label><input type="number" id="ly-input" value="1000"><span>mm</span>
+        <label for="thick-input">Thickness (h):</label><input type="number" id="thick-input" value="180"><span>mm</span>
+        <label for="lx-input">Length (Lx):</label><input type="number" id="lx-input" value="3000"><span>mm</span>
+        <label for="ly-input">Width (Ly):</label><input type="number" id="ly-input" value="4000"><span>mm</span>
       </div>
     </fieldset>
 
@@ -55,17 +56,31 @@
         <label for="rho-input">Density (ρ):</label><input type="text" id="rho-input"><span>kg/m³</span>
         <label for="nu-input">Poisson's Ratio (ν):</label><input type="text" id="nu-input"><span></span>
       </div>
-      <!-- Basic auto table -->
       <div id="basic-inline"></div>
     </fieldset>
 
     <fieldset>
-      <legend>Advanced / Positions</legend>
+      <legend>Positions / Averaging</legend>
+      <div class="form-grid-condensed">
+        <label>Position X (mm):</label><input type="number" id="pos-x" value="1500">
+        <label>Position Y (mm):</label><input type="number" id="pos-y" value="2000">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label for="use-mesh">Use grid average:</label>
+        <div><input type="checkbox" id="use-mesh"> <span class="muted">Arithmetic mean on linear (complex Z averaged)</span></div>
+        <label for="nx-input">Nx / Ny (cells):</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" id="nx-input" min="1" value="5">
+          <input type="number" id="ny-input" min="1" value="6">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Advanced</legend>
       <div class="form-grid-condensed">
         <label for="baffle-cond">Baffle Condition:</label>
         <select id="baffle-cond"><option value="1">In-plane</option><option value="2">Rigid</option></select>
-        <label>Position X (mm):</label><input type="number" id="pos-x" value="500">
-        <label>Position Y (mm):</label><input type="number" id="pos-y" value="500">
       </div>
     </fieldset>
   </div>
@@ -79,15 +94,13 @@
 
     <div id="impedance-tab" class="tab-content active">
       <div class="ctrl-row">
-        <label><input type="checkbox" id="show-mag"> |Z| dB</label>
-        <label><input type="checkbox" id="show-re"> Re(Z) dB</label>
+        <label><input type="checkbox" id="show-mag"> |Z|</label>
+        <label><input type="checkbox" id="show-re"> Re(Z)</label>
         <label><input type="checkbox" id="show-ph"> Phase</label>
-        <span class="muted">※ 初期状態は無限板 Z_inf_ref のみ表示</span>
+        <span class="muted">初期は Z_inf_ref と fₙₘのみ表示（凡例は単位なし／軸に記載）</span>
       </div>
       <div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div>
-      <div style="max-height:200px;overflow-y:auto;margin-top:10px;">
-        <table id="impedance-table"></table>
-      </div>
+      <div style="max-height:210px;overflow-y:auto;margin-top:10px;"><table id="impedance-table"></table></div>
       <hr>
       <table id="inf-impedance-table"></table>
       <div id="impedance-formula" class="muted"></div>
