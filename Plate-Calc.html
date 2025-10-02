@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acoustic & Vibration Properties of Plates - High-Function Version</title>
+    <title>Acoustic & Vibration Properties of Plates - Final Version</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -78,6 +78,7 @@
 <script>
     const MATERIAL_PROPERTIES = { "Custom": { "rho": 0, "E": 0, "nu": 0 }, "Concrete": { "rho": 2.3e3, "E": 2.1e10, "nu": 0.005 }, "Lightweight Concrete": { "rho": 1.5e3, "E": 0.5e10, "nu": 0.005 }, "Aerated Concrete": { "rho": 0.6e3, "E": 0.16e10, "nu": 0.005 }, "Gypsum Board": { "rho": 0.8e3, "E": 0.18e10, "nu": 0.005 }, "Reinforced Gypsum Board": { "rho": 1.1e3, "E": 0.2e10, "nu": 0.005 }, "Flexible Board": { "rho": 1.9e3, "E": 0.2e10, "nu": 0.005 }, "Hardboard": { "rho": 0.9e3, "E": 0.6e10, "nu": 0.005 }, "Plywood": { "rho": 0.6e3, "E": 0.5e10, "nu": 0.30 }, "Cork": { "rho": 0.25e3, "E": 6e7, "nu": 0.30 }, "Glass": { "rho": 2500, "E": 70.0e9, "nu": 0.23 }, "Hard PVC": { "rho": 1.4e3, "E": 0.35e10, "nu": 0.012 }, "Rubber (Hardness 50)": { "rho": 1.11e3, "E": 0.46e7, "nu": 0.1 } };
     const FREQS = [16, 20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000];
+    const THIRD_OCTAVE_TICKS = [16, 31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000];
     let charts = {};
     const ui = {
         materialSelect: document.getElementById('material-select'), thickInput: document.getElementById('thick-input'), lxInput: document.getElementById('lx-input'), lyInput: document.getElementById('ly-input'), etaInput: document.getElementById('eta-input'), eInput: document.getElementById('e-input'), rhoInput: document.getElementById('rho-input'), nuInput: document.getElementById('nu-input'),
@@ -180,7 +181,7 @@
     function calculateRadiation() {
         try {
             const { h, Lx, Ly, c0, fc } = getCommonInputs();
-            const C_BC = 1; // Hard-coded to Simply Supported
+            const C_BC = 1; // Simply Supported
             const C_OB = parseFloat(ui.baffleCond.value);
             const l = 2 * (Lx + Ly), S = Lx * Ly, lambda_c = c0 / fc, L1 = Math.min(Lx, Ly), L2 = Math.max(Lx, Ly), k_fc = 2 * Math.PI * fc / c0;
             
@@ -205,11 +206,11 @@
             createTable(ui.radTable,['Frequency (Hz)','σ (Simple)','σ (Leppington)','σ (Wallace)'],FREQS.map((f,i)=>[f,sigma_simple[i].toFixed(3),sigma_leppington[i].toFixed(3), sigma_wallace[i].toExponential(2)]));
             document.getElementById('rad-formula').innerHTML = `<h5>Radiation Efficiency (σ) Equations</h5>
                 <p><b>Simple Model (Maidanik Approx.):</b><br><b>f < f<sub>c</sub>:</b> $$\\sigma \\approx \\frac{l \\lambda_c}{\\pi^2 S} \\sqrt{\\frac{f}{f_c}}$$</p><p><b>f = f<sub>c</sub>:</b> $$\\sigma = 0.45 \\sqrt{\\frac{l}{\\lambda_c}}$$</p><p><b>f > f<sub>c</sub>:</b> $$\\sigma = 1$$</p><hr>
-                <p><b>Leppington Model:</b> (Detailed model using μ=√(fc/f))<br><b>f > f<sub>c</sub>:</b> $$\\sigma = (1 - \\mu^2)^{-0.5}$$</p><hr>
+                <p><b>Leppington Model:</b><br><b>f < f<sub>c</sub>:</b> $$\\sigma = \\frac{l}{2\\pi k S \\sqrt{\\mu^2-1}} [2\\tanh^{-1}(\\frac{1}{\\mu}) + \\frac{2\\mu}{\\mu^2-1}] \\cdot [C_{BC}C_{OB} - \\mu^{-8}(C_{BC}C_{OB}-1)]$$</p><p><b>f = f<sub>c</sub>:</b> $$\\sigma \\approx (0.5 - \\frac{0.15L_1}{L_2}) \\sqrt{k_{fc}\\sqrt{L_1}}$$</p><p><b>f > f<sub>c</sub>:</b> $$\\sigma = (1 - \\mu^2)^{-0.5}$$</p><hr>
                 <p><b>Wallace Model (Sum of Modes):</b><br>$$ \\sigma(f) = \\sum_{p,q} \\sigma_{p,q}(f) $$</p>
                 <p><b>Odd-Odd (p,q):</b> $$ \\sigma_{p,q} \\approx \\frac{32k^2L_xL_y}{\\pi^5p^2q^2} \\left\\{1 - \\frac{k^2L_xL_y}{12} \\left[ \\left(1-\\frac{8}{(p\\pi)^2}\\right)\\frac{L_x}{L_y} + \\left(1-\\frac{8}{(q\\pi)^2}\\right)\\frac{L_y}{L_x} \\right] \\right\\} $$</p>
-                <p><b>Odd-Even (p,q):</b> $$ \\sigma_{p,q} \\approx \\frac{8k^4L_x^3L_y}{3\\pi^5p^2q^2} \\left\\{ ... \\right\\} $$</p>
-                <p><b>Even-Even (p,q):</b> $$ \\sigma_{p,q} \\approx \\frac{2k^6L_x^3L_y^3}{15\\pi^5p^2q^2} \\left\\{ ... \\right\\} $$</p>`; 
+                <p><b>Odd-Even (p,q):</b> $$ \\sigma_{p,q} \\approx \\frac{8k^4L_x^3L_y}{3\\pi^5p^2q^2} \\left\\{1 - \\frac{k^2L_xL_y}{20} \\left[ \\left(1-\\frac{8}{(p\\pi)^2}\\right)\\frac{L_x}{L_y} + \\left(1-\\frac{24}{(q\\pi)^2}\\right)\\frac{L_y}{L_x} \\right] \\right\\} $$</p>
+                <p><b>Even-Even (p,q):</b> $$ \\sigma_{p,q} \\approx \\frac{2k^6L_x^3L_y^3}{15\\pi^5p^2q^2} \\left\\{1 - \\frac{5k^2L_x^2}{64} \\left[ \\left(1-\\frac{24}{(p\\pi)^2}\\right)\\frac{L_x}{L_y} + \\left(1-\\frac{24}{(q\\pi)^2}\\right)\\frac{L_y}{L_x} \\right] \\right\\} $$</p>`; 
             if(window.MathJax)MathJax.typeset(); 
         } catch(e){alert(e.message);}
     }
@@ -224,13 +225,13 @@
         if(charts[chartId]) charts[chartId].destroy();
         
         let scales = {
-            x: { type: 'logarithmic', title: { display: true, text: 'Frequency (Hz)' } },
+            x: { type: 'logarithmic', title: { display: true, text: 'Frequency (Hz)' }, ticks: { callback: v => THIRD_OCTAVE_TICKS.includes(v) ? v : null } },
             y: { type: 'linear', position: 'left', title: { display: true, text: yAxisLabel }, ...yAxisOptions }
         };
 
-        if (chartId === 'impedance-chart') {
+        if (chartId === 'impedance-chart') { // Use isMultiAxis flag instead
+             // This is a special case for the dual-axis impedance chart
             scales.y1 = { type: 'linear', position: 'right', title: { display: true, text: 'Phase (deg)' }, grid: { drawOnChartArea: false } };
-            // The yAxisOptions for impedance (log) will be applied to the 'y' axis here.
         }
 
         const chart = new Chart(ctx, { type: 'line', data: { labels, datasets: datasets.map((ds) => ({ ...ds, fill: false, borderWidth: 2, pointRadius: 2 })) },
