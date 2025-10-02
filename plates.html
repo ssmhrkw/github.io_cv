@@ -1,188 +1,149 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Plate Acoustics (SS) – Impedance / STL / σ</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Plate Acoustics – Impedance/STL/Radiation</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
-    body{font-family:'Segoe UI',Meiryo,sans-serif;margin:0;padding:10px;font-size:14px;background:#f4f4f4;display:flex;gap:15px;flex-direction:column}
-    .input-column,.output-column{display:flex;flex-direction:column;gap:15px;width:100%}
-    fieldset{border:1px solid #ccc;border-radius:6px;background:#fff;padding:14px;margin:0}
-    legend{font-weight:bold;padding:0 6px}
-    .form-grid{display:grid;grid-template-columns:140px 1fr 40px;align-items:center;gap:8px}
-    .form-grid-condensed{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:8px}
-    .row{display:grid;grid-template-columns:140px 1fr 140px 1fr;gap:8px;align-items:center}
-    label{font-size:14px}
-    input,select{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
-    input[type="range"]{padding:0}
-    .slider-wrap{display:flex;align-items:center;gap:10px}
-    .badge{min-width:34px;text-align:center;padding:3px 6px;border-radius:10px;background:#eef;border:1px solid #ccd}
-    .tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid #ccc}
-    .tab-button{padding:10px 14px;cursor:pointer;background:#f1f1f1;border:1px solid #ccc;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px}
-    .tab-button.active{background:#fff;border-bottom:1px solid #fff}
-    .tab-content{display:none;padding:14px;border:1px solid #ccc;border-top:none;background:#fff}
-    .tab-content.active{display:block}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{border:1px solid #ddd;padding:6px 8px;text-align:right}
-    th{text-align:center;background:#f2f2f2}
-    .chart-wrapper{position:relative;width:100%;height:430px}
-    .ctrl-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 2px}
-    .muted{color:#666;font-size:12px}
-    .disabled{opacity:.55}
-    @media(min-width:900px){
-      body{flex-direction:row;align-items:flex-start}
-      .input-column{width:460px;min-width:460px}
-      .output-column{flex-grow:1}
-    }
-    /* Positions / Averaging の整形 */
-    .avg-grid{
-      display:grid;
-      grid-template-columns: 140px 1fr;
-      gap: 8px 12px;
-      align-items:center;
-    }
-    .span2{ grid-column: 1 / span 2; }
-    
-    .pos-block .row{
-      display:grid;
-      grid-template-columns: 140px 1fr;
-      gap: 8px 12px;
-      align-items:center;
-      margin-bottom:6px;
-    }
-    
-    .chk-row{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    
-    .num-with-unit{
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    
-    .num-with-unit input[type="number"]{
-      width: 120px;           /* 数字が見やすい固定幅 */
-    }
-    
-    input[type="number"].disabled,
-    .pos-block input:disabled{
-      opacity: .6;
-    }
-    
-    .hint{ color:#777; font-size:12px; }
-    .unit{ color:#555; font-size:12px; }
-
+    body{font-family:'Segoe UI', Meiryo, sans-serif; margin:0; padding:12px; background:#f4f4f4; font-size:14px; display:flex; flex-direction:row; gap:16px;}
+    fieldset{border:1px solid #ccc; border-radius:6px; background:#fff; padding:12px; margin:0;}
+    legend{font-weight:600; padding:0 6px;}
+    .left{width:420px; min-width:420px; display:flex; flex-direction:column; gap:12px;}
+    .right{flex:1; display:flex; flex-direction:column; gap:12px;}
+    .grid{display:grid; grid-template-columns:140px 1fr 40px; gap:8px; align-items:center;}
+    .grid-2{display:grid; grid-template-columns:140px 1fr; gap:8px; align-items:center;}
+    label{font-size:14px;}
+    input,select{width:100%; box-sizing:border-box; padding:8px; border:1px solid #ccc; border-radius:4px;}
+    input[disabled]{opacity:.6}
+    .tabs{display:flex; gap:6px; border-bottom:1px solid #ccc;}
+    .tab-btn{background:#f1f1f1; border:1px solid #ccc; border-bottom:none; border-radius:6px 6px 0 0; padding:8px 12px; cursor:pointer;}
+    .tab-btn.active{background:#fff;}
+    .tab{display:none; border:1px solid #ccc; border-top:none; background:#fff; padding:12px;}
+    .tab.active{display:block;}
+    table{width:100%; border-collapse:collapse; margin-top:8px; background:#fff;}
+    th,td{border:1px solid #ddd; padding:6px 8px; text-align:right;}
+    th{text-align:center; background:#f7f7f7;}
+    .chart-wrap{position:relative; width:100%; height:420px;}
+    .badge{background:#eee; border-radius:10px; padding:2px 8px; margin-left:6px;}
+    .inline-table th{background:#fafafa;}
+    .controls-row{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px;}
+    .hint{color:#777; font-size:12px;}
+    .unit{color:#555; font-size:12px;}
+    .avg-grid{display:grid; grid-template-columns:140px 1fr; gap:8px 12px; align-items:center;}
+    .span2{grid-column:1 / span 2;}
+    .pos-block .row{display:grid; grid-template-columns:140px 1fr; gap:8px 12px; align-items:center; margin-bottom:6px;}
   </style>
 </head>
 <body>
-
-  <div class="input-column">
+  <div class="left">
     <fieldset>
       <legend>Common Input Conditions</legend>
-      <div class="form-grid">
+      <div class="grid">
         <label for="material-select">Material:</label>
         <select id="material-select"></select><span></span>
-        <label for="thick-input">Thickness (h):</label><input type="number" id="thick-input" value="180"><span>mm</span>
-        <label for="lx-input">Length (Lx):</label><input type="number" id="lx-input" value="3000"><span>mm</span>
-        <label for="ly-input">Width (Ly):</label><input type="number" id="ly-input" value="4000"><span>mm</span>
+        <label for="thick-input">Thickness (h):</label>
+        <input id="thick-input" type="number" value="180"><span>mm</span>
+        <label for="lx-input">Length (Lx):</label>
+        <input id="lx-input" type="number" value="3000"><span>mm</span>
+        <label for="ly-input">Width (Ly):</label>
+        <input id="ly-input" type="number" value="4000"><span>mm</span>
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Material Properties (Editable) & Basic Properties (Auto)</legend>
-      <div class="form-grid">
-        <label for="e-input">Young's Modulus (E):</label><input type="text" id="e-input"><span>Pa</span>
-        <label for="rho-input">Density (ρ):</label><input type="text" id="rho-input"><span>kg/m³</span>
-        <label for="nu-input">Poisson's Ratio (ν):</label><input type="text" id="nu-input"><span></span>
+      <div class="grid">
+        <label for="e-input">Young's Modulus (E):</label>
+        <input id="e-input" type="text"><span>Pa</span>
+        <label for="rho-input">Density (ρ):</label>
+        <input id="rho-input" type="text"><span>kg/m³</span>
+        <label for="nu-input">Poisson's (ν):</label>
+        <input id="nu-input" type="text"><span></span>
       </div>
-      <div id="basic-inline"></div>
+      <!-- auto basic properties -->
+      <table class="inline-table" id="basic-inline"></table>
     </fieldset>
-
-    <fieldset><legend>Positions / Averaging</legend>
-    <div class="avg-grid">
-      <!-- Position X/Y をひとまとめに（グレイアウト制御用に #pos-block を保持） -->
-      <div id="pos-block" class="span2 pos-block">
-        <div class="row">
-          <label for="pos-x">Position X (mm):</label>
-          <input type="number" id="pos-x" value="1500" min="0" step="1">
-        </div>
-        <div class="row">
-          <label for="pos-y">Position Y (mm):</label>
-          <input type="number" id="pos-y" value="2000" min="0" step="1">
-        </div>
-      </div>
-  
-      <!-- Grid average のチェック行（2列ぶち抜き） -->
-      <label class="chk-row span2">
-        <input type="checkbox" id="use-mesh" checked>
-        <span>Use grid average</span>
-        <span class="hint">(Nx/Ny を指定)</span>
-      </label>
-  
-      <!-- Nx / Ny（上下の△で増減できる number 入力） -->
-      <label for="nx-input">Nx (cells):</label>
-      <div class="num-with-unit">
-        <input type="number" id="nx-input" min="1" max="200" step="1" value="5">
-        <span class="unit">cells</span>
-      </div>
-  
-      <label for="ny-input">Ny (cells):</label>
-      <div class="num-with-unit">
-        <input type="number" id="ny-input" min="1" max="200" step="1" value="6">
-        <span class="unit">cells</span>
-      </div>
-    </div>
-  </fieldset>
 
     <fieldset>
-      <legend>Advanced</legend>
-      <div class="form-grid-condensed">
+      <legend>Positions / Averaging</legend>
+      <div class="avg-grid">
+        <div id="pos-block" class="span2 pos-block">
+          <div class="row">
+            <label for="pos-x">Position X:</label>
+            <input id="pos-x" type="number" value="1500"><span class="unit">mm</span>
+          </div>
+          <div class="row">
+            <label for="pos-y">Position Y:</label>
+            <input id="pos-y" type="number" value="2000"><span class="unit">mm</span>
+          </div>
+        </div>
+
+        <label class="span2">
+          <input id="use-mesh" type="checkbox" checked> Use grid average
+          <span class="hint">(Nx/Ny cells, arithmetic mean on linear complex Z)</span>
+        </label>
+
+        <label for="nx-input">Nx (cells):</label>
+        <div>
+          <input id="nx-input" type="number" min="1" max="200" step="1" value="5">
+        </div>
+
+        <label for="ny-input">Ny (cells):</label>
+        <div>
+          <input id="ny-input" type="number" min="1" max="200" step="1" value="6">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <div class="grid-2">
+        <label>Show datasets:</label>
+        <div class="controls-row">
+          <label><input type="checkbox" id="show-mag"> |Z| [dB]</label>
+          <label><input type="checkbox" id="show-re"> Re(Z) [dB]</label>
+          <label><input type="checkbox" id="show-ph"> Phase [deg]</label>
+        </div>
         <label for="baffle-cond">Baffle Condition:</label>
-        <select id="baffle-cond"><option value="1">In-plane</option><option value="2">Rigid</option></select>
+        <select id="baffle-cond">
+          <option value="1">In-plane</option>
+          <option value="2">Rigid</option>
+        </select>
       </div>
     </fieldset>
   </div>
 
-  <div class="output-column">
+  <div class="right">
     <div class="tabs">
-      <button class="tab-button active" onclick="openTab(event,'impedance-tab')">Impedance</button>
-      <button class="tab-button" onclick="openTab(event,'stl-tab')">Sound Transmission Loss (STL)</button>
-      <button class="tab-button" onclick="openTab(event,'rad-tab')">Radiation Efficiency (σ)</button>
+      <button class="tab-btn active" data-tab="imp">Impedance</button>
+      <button class="tab-btn" data-tab="stl">Sound Transmission Loss</button>
+      <button class="tab-btn" data-tab="rad">Radiation Efficiency</button>
     </div>
 
-    <div id="impedance-tab" class="tab-content active">
-      <div class="ctrl-row">
-        <label><input type="checkbox" id="show-mag"> |Z|</label>
-        <label><input type="checkbox" id="show-re"> Re(Z)</label>
-        <label><input type="checkbox" id="show-ph"> Phase</label>
-        <span class="muted">初期は Z_inf_ref と fₙₘのみ表示</span>
-      </div>
-      <div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div>
-      <div style="max-height:210px;overflow-y:auto;margin-top:10px;"><table id="impedance-table"></table></div>
+    <div id="tab-imp" class="tab active">
+      <div class="chart-wrap"><canvas id="impedance-chart"></canvas></div>
+      <table id="impedance-table"></table>
       <hr>
       <table id="inf-impedance-table"></table>
-      <div id="impedance-formula" class="muted"></div>
+      <div id="impedance-formula"></div>
     </div>
 
-    <div id="stl-tab" class="tab-content">
-      <div class="chart-wrapper"><canvas id="stl-chart"></canvas></div>
-      <div style="max-height:200px;overflow-y:auto;margin-top:10px;"><table id="stl-table"></table></div>
-      <div id="stl-formula" class="muted"></div>
+    <div id="tab-stl" class="tab">
+      <div class="chart-wrap"><canvas id="stl-chart"></canvas></div>
+      <table id="stl-table"></table>
+      <div id="stl-formula"></div>
     </div>
 
-    <div id="rad-tab" class="tab-content">
-      <div class="chart-wrapper"><canvas id="rad-chart"></canvas></div>
-      <div style="max-height:200px;overflow-y:auto;margin-top:10px;"><table id="rad-table"></table></div>
-      <div id="rad-formula" class="muted"></div>
+    <div id="tab-rad" class="tab">
+      <div class="chart-wrap"><canvas id="rad-chart"></canvas></div>
+      <table id="rad-table"></table>
+      <div id="rad-formula"></div>
     </div>
   </div>
 
-  <script src="plates.js"></script>
+  <script src="./plate_impedance.js"></script>
 </body>
 </html>
