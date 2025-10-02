@@ -99,8 +99,9 @@
 
     function getCommonInputs() {
         const h=parseFloat(ui.thickInput.value)/1000, E=parseFloat(ui.eInput.value), rho=parseFloat(ui.rhoInput.value), nu=parseFloat(ui.nuInput.value), eta=parseFloat(ui.etaInput.value);
-        if (h<=0||E<=0||rho<=0||eta<0) { throw new Error("厚さ、ヤング率、密度は正の値、損失係数は0以上の値を入力してください。"); }
+        if (h<=0||E<=0||rho<=0||eta<0) { throw new Error("厚さ、ヤング率、密度は正の値を入力してください。"); }
         const Lx=parseFloat(ui.lxInput.value)/1000, Ly=parseFloat(ui.lyInput.value)/1000;
+        if (Lx <= 0 || Ly <= 0) { throw new Error("板の長さと幅は正の値を入力してください。");}
         const c0=343.0, D=(E*h**3)/(12*(1-nu**2)), fc=(c0**2/(2*Math.PI*h))*Math.sqrt(12*rho*(1-nu**2)/E);
         return { h, E, rho, nu, eta, Lx, Ly, c0, D, fc };
     }
@@ -113,7 +114,7 @@
             const boundaryCond = ui.boundaryCond.value;
             let results = [];
             
-            if (boundaryCond === '1') { // Simply Supported
+            if (boundaryCond === '1') {
                 document.getElementById('natural-freq-formula').innerHTML = `<h5>固有振動数 (四辺単純支持)</h5><p>$$ f_{m,n} = \\frac{\\pi}{2} \\sqrt{\\frac{D}{\\rho h}} \\left( \\left(\\frac{m}{L_x}\\right)^2 + \\left(\\frac{n}{L_y}\\right)^2 \\right) $$</p>`;
                 if (Lx > 0 && Ly > 0) {
                     for (let m = 1; m <= 5; m++) { for (let n = 1; n <= 5; n++) {
@@ -121,7 +122,7 @@
                         results.push([`f(${m},${n})`, f_mn.toFixed(2)]);
                     }}
                 }
-            } else { // Clamped
+            } else {
                 document.getElementById('natural-freq-formula').innerHTML = `<h5>固有振動数 (四辺固定支持)</h5><p>正方形板の理論値を用いた近似計算です。$$ f_{m,n} \\approx \\frac{\\lambda_{m,n}}{2\\pi L_{eff}^2} \\sqrt{\\frac{D}{\\rho h}} $$</p><p>ここで \\(L_{eff} = \\sqrt{L_x L_y}\\) であり、\\(\\lambda_{m,n}\\) はモード次数に応じた無次元パラメータです。(例: \\(\\lambda_{1,1} \\approx 35.99\\))</p>`;
                 const lambda_clamped = { '1,1':35.99, '1,2':73.40, '2,1':73.40, '2,2':108.23, '1,3':127.1, '3,1':127.1, '2,3':153.3, '3,2':153.3, '3,3':196.2 };
                 if (Lx > 0 && Ly > 0) {
@@ -145,7 +146,6 @@
             const { rho, h, D, Lx, Ly, eta } = getCommonInputs();
             const posX = parseFloat(ui.posX.value) / 1000, posY = parseFloat(ui.posY.value) / 1000;
             const S = Lx * Ly, rho_s = rho * h;
-            if (S <= 0) return;
 
             const Z_inf = 8 * Math.sqrt(D * rho_s);
             createTable(ui.infImpedanceTable, [["無限長板インピーダンス (Z_inf)", `${Z_inf.toExponential(2)} Ns/m³`]]);
@@ -158,7 +158,6 @@
                 let Y_sum = new Complex();
                 for (let p = 1; p <= 5; p++) {
                     for (let q = 1; q <= 5; q++) {
-                        // ★★★ 修正箇所: 固有振動数の計算式を修正 ★★★
                         const f_pq = (Math.PI / 2) * Math.sqrt(D / rho_s) * ((p / Lx) ** 2 + (q / Ly) ** 2);
                         const omega_pq = 2 * Math.PI * f_pq;
                         const psi_pq = Math.sin(p * Math.PI * posX / Lx) * Math.sin(q * Math.PI * posY / Ly);
@@ -168,11 +167,12 @@
                 }
                 const Y_dp = (Complex.i().mul(new Complex(4 * omega / rho_s, 0))).div(new Complex(S, 0)).mul(Y_sum);
                 const Z_dp = (new Complex(1, 0)).div(Y_dp);
-                results.abs.push(Z_dp.magnitude);
-                results.real.push(Z_dp.re);
-                const phase_deg = Z_dp.phase * 180 / Math.PI;
+                
+                results.abs.push(isFinite(Z_dp.magnitude) ? Z_dp.magnitude : null);
+                results.real.push(isFinite(Z_dp.re) ? Z_dp.re : null);
+                const phase_deg = isFinite(Z_dp.phase) ? Z_dp.phase * 180 / Math.PI : null;
                 results.phase.push(phase_deg);
-                tableData.push([f, Z_dp.magnitude.toExponential(2), Z_dp.re.toExponential(2), phase_deg.toFixed(1)]);
+                tableData.push([f, isFinite(Z_dp.magnitude) ? Z_dp.magnitude.toExponential(2) : 'Infinity', isFinite(Z_dp.re) ? Z_dp.re.toExponential(2) : 'Infinity', phase_deg !== null ? phase_deg.toFixed(1) : 'N/A']);
             }
             createPlot('impedance-chart', FREQS, [
                 { label: '絶対値', data: results.abs, borderColor: 'rgba(255, 99, 132, 1)', yAxisID: 'y' },
@@ -189,40 +189,29 @@
     
     function calculateRadiation() {
         try {
-            const { rho, h, Lx, Ly, c0, fc } = getCommonInputs();
+            const { h, Lx, Ly, c0, fc } = getCommonInputs();
             const C_BC = parseFloat(ui.boundaryCond.value), C_OB = parseFloat(ui.baffleCond.value);
             const l = 2 * (Lx + Ly), S = Lx * Ly, lambda_c = c0 / fc, L1 = Math.min(Lx, Ly), L2 = Math.max(Lx, Ly), k_fc = 2 * Math.PI * fc / c0;
             
             const sigma_simple = FREQS.map(f => { let s; if (f > fc) { s = 1.0; } else if (Math.abs(f - fc) < 1e-6) { s = 0.45 * Math.sqrt(l / lambda_c); } else { s = (l * lambda_c / (Math.PI ** 2 * S)) * Math.sqrt(f / fc); } return Math.max(1e-4, Math.min(s, 1.0)); });
             const sigma_leppington = FREQS.map(f => { let s; const mu = Math.sqrt(fc / f); if (f > fc) { s = 1 / Math.sqrt(1 - fc / f); } else if (Math.abs(f - fc) < 1e-6) { s = (0.5 - 0.15 * L1 / L2) * Math.sqrt(k_fc * Math.sqrt(L1)); } else { const k = 2 * Math.PI * f / c0; const mu2_1 = mu ** 2 - 1; if (mu2_1 <= 0 || k <= 0) return 1e-4; const term1 = l / (2 * Math.PI * k * S * Math.sqrt(mu2_1)); const term2 = 2 * Math.atanh(1 / mu); const term3 = 2 * mu / mu2_1; const term4 = C_BC * C_OB - Math.pow(mu, -8) * (C_BC * C_OB - 1); s = term1 * (term2 + term3) * term4; } return Math.max(1e-4, Math.min(s, 1.0)); });
-            
             const sigma_wallace = FREQS.map(f => {
-                const k = 2 * Math.PI * f / c0;
-                let sigma_sum = 0;
-                for (let p = 1; p <= 5; p++) {
-                    for (let q = 1; q <= 5; q++) {
-                        let s_pq;
-                        const p_odd = p % 2 !== 0, q_odd = q % 2 !== 0;
-                        if (p_odd && q_odd) {
-                            s_pq = (32*k**2*Lx*Ly / (Math.PI**5*p**2*q**2)) * (1 - (k**2*Lx*Ly/12)*((1 - 8/(p*Math.PI)**2)*Lx/Ly + (1 - 8/(q*Math.PI)**2)*Ly/Lx));
-                        } else if (p_odd !== q_odd) {
-                            if(p_odd && !q_odd){
-                                s_pq = (8*k**4*Lx**3*Ly/(3*Math.PI**5*p**2*q**2)) * (1 - (k**2*Lx*Ly/20)*((1 - 8/(p*Math.PI)**2)*Lx/Ly + (1 - 24/(q*Math.PI)**2)*Ly/Lx));
-                            } else { // p is even, q is odd
-                                s_pq = (8*k**4*Ly**3*Lx/(3*Math.PI**5*q**2*p**2)) * (1 - (k**2*Ly*Lx/20)*((1 - 8/(q*Math.PI)**2)*Ly/Lx + (1 - 24/(p*Math.PI)**2)*Lx/Ly));
-                            }
-                        } else { // both even
-                            s_pq = (2*k**6*Lx**3*Ly**3 / (15*Math.PI**5*p**2*q**2)) * (1 - (5*k**2*Lx**2/64)*((1-24/(p*Math.PI)**2)*Lx/Ly + (1-24/(q*Math.PI)**2)*Ly/Lx));
-                        }
-                        sigma_sum += s_pq > 0 ? s_pq : 0;
-                    }
-                }
+                const k = 2 * Math.PI * f / c0; let sigma_sum = 0;
+                for (let p = 1; p <= 5; p++) { for (let q = 1; q <= 5; q++) {
+                    let s_pq; const p_odd = p % 2 !== 0, q_odd = q % 2 !== 0;
+                    if (p_odd && q_odd) { s_pq = (32*k**2*Lx*Ly/(Math.PI**5*p**2*q**2))*(1-(k**2*Lx*Ly/12)*((1-8/(p*Math.PI)**2)*Lx/Ly+(1-8/(q*Math.PI)**2)*Ly/Lx));
+                    } else if (p_odd !== q_odd) {
+                        if(p_odd && !q_odd){ s_pq = (8*k**4*Lx**3*Ly/(3*Math.PI**5*p**2*q**2))*(1-(k**2*Lx*Ly/20)*((1-8/(p*Math.PI)**2)*Lx/Ly+(1-24/(q*Math.PI)**2)*Ly/Lx));
+                        } else { s_pq = (8*k**4*Ly**3*Lx/(3*Math.PI**5*q**2*p**2))*(1-(k**2*Ly*Lx/20)*((1-8/(q*Math.PI)**2)*Ly/Lx+(1-24/(p*Math.PI)**2)*Lx/Ly)); }
+                    } else { s_pq = (2*k**6*Lx**3*Ly**3/(15*Math.PI**5*p**2*q**2))*(1-(5*k**2*Lx**2/64)*((1-24/(p*Math.PI)**2)*Lx/Ly+(1-24/(q*Math.PI)**2)*Ly/Lx)); }
+                    sigma_sum += s_pq > 0 ? s_pq : 0;
+                }}
                 return Math.max(1e-4, Math.min(sigma_sum, 1.0));
             });
 
-            createPlot('rad-chart',FREQS,[{label:'簡易モデル',data:sigma_simple},{label:'Leppington',data:sigma_leppington},{label:'Wallace(モード合計)',data:total_sigma_wallace}],'音響放射効率(σ)','係数(σ)', false, {min:0,max:1.1,type:'linear'});
-            createTable(ui.radTable,['f(Hz)','σ(簡易)','σ(Leppington)','σ(Wallace)'],FREQS.map((f,i)=>[f,sigma_simple[i].toFixed(3),sigma_leppington[i].toFixed(3), total_sigma_wallace[i].toExponential(2)]));
-            document.getElementById('rad-formula').innerHTML=`<h5>音響放射効率(σ)の計算式</h5><p><b>簡易モデル: </b>(f>fcでσ=1, f=fcでピーク値, f<fcで√fに比例)</p><p><b>Leppingtonモデル: </b>(μ=√(fc/f)を用いた詳細式)</p><p><b>Wallaceモデル: </b>(モード毎の放射効率σ_pqの総和として計算)</p><p>σ_pq (p,q:奇数): $$ \\approx \\frac{32k^2L_xL_y}{\\pi^5p^2q^2}[...] $$</p><p>σ_pq (p:奇,q:偶): $$ \\approx \\frac{8k^4L_x^3L_y}{\\pi^5p^2q^2}[...] $$</p><p>σ_pq (p,q:偶数): $$ \\approx \\frac{2k^6L_x^3L_y^3}{15\\pi^5p^2q^2}[...] $$</p>`; 
+            createPlot('rad-chart',FREQS,[{label:'簡易モデル',data:sigma_simple},{label:'Leppington',data:sigma_leppington},{label:'Wallace(モード合計)',data:sigma_wallace}],'音響放射効率(σ)','係数(σ)', false, {min:0,max:1.1});
+            createTable(ui.radTable,['f(Hz)','σ(簡易)','σ(Leppington)','σ(Wallace)'],FREQS.map((f,i)=>[f,sigma_simple[i].toFixed(3),sigma_leppington[i].toFixed(3), sigma_wallace[i].toExponential(2)]));
+            document.getElementById('rad-formula').innerHTML = `<h5>音響放射効率(σ)の計算式</h5><p><b>簡易モデル (Maidanik近似):</b><br><b>f < f<sub>c</sub>:</b> $$\\sigma \\approx \\frac{l \\lambda_c}{\\pi^2 S} \\sqrt{\\frac{f}{f_c}}$$</p><p><b>f = f<sub>c</sub>:</b> $$\\sigma = 0.45 \\sqrt{\\frac{l}{\\lambda_c}}$$</p><p><b>f > f<sub>c</sub>:</b> $$\\sigma = 1$$</p><hr><p><b>Leppingtonモデル:</b><br><b>f < f<sub>c</sub>:</b> $$\\sigma = \\frac{l}{2\\pi k S \\sqrt{\\mu^2-1}} [2\\tanh^{-1}(\\frac{1}{\\mu}) + \\frac{2\\mu}{\\mu^2-1}] \\cdot [C_{BC}C_{OB} - \\mu^{-8}(C_{BC}C_{OB}-1)]$$</p><p><b>f = f<sub>c</sub>:</b> $$\\sigma \\approx (0.5 - \\frac{0.15L_1}{L_2}) \\sqrt{k_{fc}\\sqrt{L_1}}$$</p><p><b>f > f<sub>c</sub>:</b> $$\\sigma = (1 - \\mu^2)^{-0.5}$$</p><hr><p><b>Wallaceモデル (モード総和):</b><br>$$ \\sigma(f) = \\sum_{p,q} \\sigma_{p,q}(f) $$</p><p>各モードの放射効率 \\(\\sigma_{p,q}\\) (p,qの偶奇で異なる近似式)を計算し、総和しています。</p>`; 
             if(window.MathJax)MathJax.typeset(); 
         } catch(e){alert(e.message);}
     }
