@@ -574,3 +574,552 @@ function calculateRadiation(){
     }
   }catch(e){ alert(e.message); }
 }
+/* =========================================================
+   ADD-ON FOR SS PLATE GUI (Features: 1,2,3,4,6)
+   - Drop-in JS to extend existing GUI
+   - No HTML edits required (DOM injected here)
+========================================================= */
+
+/* ---------- 0) Small helpers ---------- */
+const POW6 = Math.pow(2, 1/6);
+const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
+const isNum = v => Number.isFinite(+v);
+
+/* 1/3-octave bands from given centers (FREQS) */
+function thirdOctBands(centers){
+  return centers.map(fc => ({ fc, fl: fc/POW6, fu: fc*POW6 }));
+}
+
+/* Average over band: if isDb=true, do energy/linear平均 → dB化 */
+function bandAverage(series, band, isDb=false){
+  // series: [{f, v}]
+  const sel = series.filter(d => d.f >= band.fl && d.f <= band.fu && isNum(d.v));
+  if (!sel.length) return null;
+  if (!isDb){
+    // arithmetic mean
+    const s = sel.reduce((a,b)=>a+b.v, 0);
+    return s/sel.length;
+  }else{
+    // energy average in linear, then dB
+    const lin = sel.map(d => Math.pow(10, d.v/20)); // v is dB -> linear (mag)
+    const m = lin.reduce((a,b)=>a+b, 0)/lin.length;
+    return 20*Math.log10(Math.max(m, 1e-12));
+  }
+}
+
+/* Make a table (or replace tbody) under a container */
+function ensureTable(containerId, title, headers, rows){
+  let box = document.getElementById(containerId);
+  if (!box){
+    box = document.createElement('div');
+    box.id = containerId;
+    box.style.marginTop = '12px';
+    const tab = document.querySelector('.tab-content.active'); // not used strictly
+    document.body.appendChild(box);
+  }
+  const h = `<h4 style="margin:6px 0">${title}</h4>`;
+  const thead = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  box.innerHTML = `<table style="width:100%;border-collapse:collapse">${thead}${tbody}</table>`;
+}
+
+/* ---------- 1) Mode Shapes Tab Injection (SS only) ---------- */
+(function injectModeShapesTab(){
+  const tabs = document.querySelector('.tabs');
+  const outCol = document.querySelector('.output-column');
+  if (!tabs || !outCol) return;
+
+  // button
+  const btn = document.createElement('button');
+  btn.className = 'tab-button';
+  btn.textContent = 'Mode Shapes';
+  btn.onclick = (evt)=>openTab(evt, 'mode-shapes-tab');
+  tabs.appendChild(btn);
+
+  // panel
+  const panel = document.createElement('div');
+  panel.id = 'mode-shapes-tab';
+  panel.className = 'tab-content';
+  panel.innerHTML = `
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end">
+      <div>
+        <label>m:</label>
+        <input type="number" id="ms-m" value="1" min="1" step="1" style="width:80px">
+      </div>
+      <div>
+        <label>n:</label>
+        <input type="number" id="ms-n" value="1" min="1" step="1" style="width:80px">
+      </div>
+      <div>
+        <label>Resolution:</label>
+        <input type="number" id="ms-res" value="120" min="40" step="20" style="width:90px">
+      </div>
+      <div>
+        <button class="calc-btn-tab" id="ms-draw">Draw</button>
+      </div>
+      <div style="margin-left:auto;font-size:12px;opacity:.8">
+        SS: ψ<sub>mn</sub>(x,y)=sin(mπx/L<sub>x</sub>)·sin(nπy/L<sub>y</sub>)
+      </div>
+    </div>
+    <div class="chart-wrapper" style="height:420px;margin-top:8px;position:relative">
+      <canvas id="mode-shapes-canvas"></canvas>
+      <div id="ms-legend" style="position:absolute;right:8px;top:8px;background:#fffccf;border:1px solid #ddd;padding:6px;border-radius:6px;font-size:12px"></div>
+    </div>
+  `;
+  outCol.appendChild(panel);
+
+  // drawer
+  const cvs = panel.querySelector('#mode-shapes-canvas');
+  const ctx = cvs.getContext('2d');
+  function drawMode(){
+    const m = Math.max(1, +document.getElementById('ms-m').value|0);
+    const n = Math.max(1, +document.getElementById('ms-n').value|0);
+    const res = Math.max(40, +document.getElementById('ms-res').value|0);
+    const { Lx, Ly } = getCommonInputs(); // existing function
+    const W = cvs.clientWidth || panel.querySelector('.chart-wrapper').clientWidth;
+    const H = panel.querySelector('.chart-wrapper').clientHeight-2;
+    cvs.width = W; cvs.height = H;
+
+    // compute field ψ in normalized coords to color-map
+    const nx = res, ny = res;
+    const data = new Float64Array(nx*ny);
+    let k=0, vmin=+1e9, vmax=-1e9;
+    for (let j=0;j<ny;j++){
+      const y = (j+0.5)/ny * Ly;
+      for (let i=0;i<nx;i++){
+        const x = (i+0.5)/nx * Lx;
+        const v = Math.sin(m*Math.PI*x/Lx)*Math.sin(n*Math.PI*y/Ly);
+        data[k++] = v;
+        if (v<vmin) vmin=v; if (v>vmax) vmax=v;
+      }
+    }
+    const scale = 1/Math.max(Math.abs(vmin), Math.abs(vmax), 1e-9);
+
+    // draw
+    const img = ctx.createImageData(W, H);
+    // simple nearest mapping from grid to pixels
+    for (let py=0; py<H; py++){
+      const gy = Math.floor(py/H*ny);
+      for (let px=0; px<W; px++){
+        const gx = Math.floor(px/W*nx);
+        const v = data[gy*nx+gx]*scale; // -1..1
+        // blue-white-red colormap
+        const r = v>0 ? Math.round(v*255) : 0;
+        const b = v<0 ? Math.round(-v*255) : 0;
+        const g = Math.round((1-Math.abs(v))*255);
+        const o = (py*W+px)*4;
+        img.data[o]=r; img.data[o+1]=g; img.data[o+2]=b; img.data[o+3]=255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // draw nodal lines (ψ=0): sin=0 → x = i Lx/m , y = j Ly/n
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)';
+    ctx.setLineDash([4,3]);
+    for (let i=1;i<m;i++){
+      const xpx = Math.round((i/m)*W);
+      ctx.beginPath(); ctx.moveTo(xpx,0); ctx.lineTo(xpx,H); ctx.stroke();
+    }
+    for (let j=1;j<n;j++){
+      const ypx = Math.round((j/n)*H);
+      ctx.beginPath(); ctx.moveTo(0,ypx); ctx.lineTo(W,ypx); ctx.stroke();
+    }
+    ctx.restore();
+
+    // mark driving point
+    const px = +ui.posX.value/1000 * W / Lx;
+    const py = +ui.posY.value/1000 * H / Ly;
+    ctx.save();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // legend
+    panel.querySelector('#ms-legend').innerHTML =
+      `m=${m}, n=${n}<br>nodes: ${(m-1)} vertical, ${(n-1)} horizontal<br>` +
+      `pos: (${(+ui.posX.value).toFixed(0)} mm, ${(+ui.posY.value).toFixed(0)} mm)`;
+  }
+  panel.querySelector('#ms-draw').addEventListener('click', drawMode);
+  // first draw when user opens the tab
+  btn.addEventListener('click', ()=>setTimeout(drawMode, 50));
+})();
+
+/* ---------- 2) Band Averages for Impedance/STL/Radiation ---------- */
+function renderBandAveragesImpedance(series_dB){ // [{f, v(dB)}]
+  const bands = thirdOctBands(FREQS);
+  const rows = bands.map(b=>{
+    const v = bandAverage(series_dB, b, true);
+    return [b.fc, v==null? '–' : v.toFixed(2)];
+  });
+  addOrReplaceBelow('impedance-tab', 'imp-band-avg',
+    '1/3-oct Band Averages: |Z| [dB re 1 Ns/m³]', ['Fc (Hz)','Avg dB'], rows);
+}
+function renderBandAveragesSTL(series_dB){
+  const bands = thirdOctBands(FREQS);
+  const rows = bands.map(b=>{
+    const v = bandAverage(series_dB, b, true);
+    return [b.fc, v==null? '–' : v.toFixed(1)];
+  });
+  addOrReplaceBelow('stl-tab', 'stl-band-avg',
+    '1/3-oct Band Averages: STL [dB]', ['Fc (Hz)','Avg dB'], rows);
+}
+function renderBandAveragesSigma(series_lin){
+  const bands = thirdOctBands(FREQS);
+  const rows = bands.map(b=>{
+    const v = bandAverage(series_lin, b, false);
+    return [b.fc, v==null? '–' : v.toFixed(3)];
+  });
+  addOrReplaceBelow('rad-tab', 'rad-band-avg',
+    '1/3-oct Band Averages: σ (linear)', ['Fc (Hz)','Avg σ'], rows);
+}
+/* attach a table under a tab */
+function addOrReplaceBelow(tabId, boxId, title, headers, rows){
+  const tab = document.getElementById(tabId);
+  if (!tab) return;
+  let box = document.getElementById(boxId);
+  if (!box){
+    box = document.createElement('div');
+    box.id = boxId;
+    box.style.marginTop = '10px';
+    tab.appendChild(box);
+  }
+  const thead = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  box.innerHTML = `<h5 style="margin:6px 0">${title}</h5>
+  <table style="width:100%;border-collapse:collapse">${thead}${tbody}</table>`;
+}
+
+/* ---------- 3) Convergence management UI (epsilon & status) ---------- */
+(function injectConvergenceUI(){
+  const tab = document.getElementById('impedance-tab');
+  if (!tab) return;
+  const bar = document.createElement('div');
+  bar.id = 'imp-conv-ui';
+  bar.style.cssText = 'display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap';
+  bar.innerHTML = `
+    <label style="font-weight:600">Convergence ε:</label>
+    <input id="conv-eps" type="number" value="1e-10" step="1e-10" style="width:120px">
+    <label>Max modes P×Q:</label>
+    <input id="conv-P" type="number" value="12" min="4" step="1" style="width:70px">
+    <span>×</span>
+    <input id="conv-Q" type="number" value="12" min="4" step="1" style="width:70px">
+    <label>Averaging:</label>
+    <select id="obs-avg" style="min-width:180px">
+      <option value="point">Point (posX,posY)</option>
+      <option value="grid">Grid Avg (Nx×Ny)</option>
+      <option value="area">Area Avg (analytic)</option>
+    </select>
+    <span id="grid-opts" style="display:none">
+      Nx:<input id="grid-Nx" type="number" value="9" min="2" step="1" style="width:60px">
+      Ny:<input id="grid-Ny" type="number" value="9" min="2" step="1" style="width:60px">
+    </span>
+    <button class="calc-btn-tab" id="recalc-imp">Recalculate</button>
+    <span id="conv-status" style="margin-left:auto;font-size:12px;opacity:.8"></span>
+  `;
+  tab.insertBefore(bar, tab.firstChild);
+
+  const sel = bar.querySelector('#obs-avg');
+  const gridBox = bar.querySelector('#grid-opts');
+  sel.addEventListener('change', ()=>{
+    gridBox.style.display = (sel.value==='grid') ? '' : 'none';
+  });
+  bar.querySelector('#recalc-imp').addEventListener('click', ()=>calculateImpedance());
+})();
+
+/* ---------- 4) Mobility averaging (grid / area) support ---------- */
+/* override mobility calculation with epsilon truncation and averaging */
+function mobility_sum_SS_cached(omega, eta, cache, eps){
+  // cache: {psi2[], w2[], rho_s, S}
+  const { psi2, w2, rho_s, S } = cache;
+  let Yr=0, Yi=0, accum=0, used=0;
+  for (let k=0;k<psi2.length;k++){
+    const w2k = w2[k];
+    const Ar = (w2k - omega*omega);
+    const Ai = (w2k * eta);
+    const denom = Ar*Ar + Ai*Ai;
+    const scale = psi2[k] / denom;
+    const termAbs = scale * Math.hypot(Ar, Ai);
+    accum += termAbs; used++;
+    Yr += scale * Ar;
+    Yi -= scale * Ai;
+    if (termAbs < eps && accum > 100*eps) break;
+  }
+  const C = 4/(rho_s*S);
+  return { re: -omega*C*Yi, im: omega*C*Yr, used, resid: termAbsOrZero(accum) };
+}
+function termAbsOrZero(x){ return (isNum(x) ? x : 0); }
+
+/* area-mean of psi^2 for SS rectangle is exactly 1/4 */
+function buildCache_point(Lx,Ly,h,E,rho,nu,px,py,P,Q){
+  const rho_s = rho*h, D = (E*h**3)/(12*(1-nu**2)), S=Lx*Ly;
+  const N=P*Q, psi2=new Float64Array(N), w2=new Float64Array(N);
+  let k=0;
+  for (let p=1;p<=P;p++){
+    const sp = Math.sin(p*Math.PI*px/Lx), a=(p/Lx)**2;
+    for (let q=1;q<=Q;q++){
+      const sq = Math.sin(q*Math.PI*py/Ly), b=(q/Ly)**2;
+      psi2[k]=(sp*sq)*(sp*sq);
+      const f_pq=(Math.PI/2)*Math.sqrt(D/rho_s)*(a+b);
+      w2[k]=(2*Math.PI*f_pq)**2; k++;
+    }
+  }
+  // sort ascending by w2
+  const idx=[...Array(N).keys()].sort((i,j)=>w2[i]-w2[j]);
+  const psi2s=new Float64Array(N), w2s=new Float64Array(N);
+  for (let i=0;i<N;i++){ psi2s[i]=psi2[idx[i]]; w2s[i]=w2[idx[i]]; }
+  return { psi2:psi2s, w2:w2s, rho_s, S };
+}
+function buildCache_area(Lx,Ly,h,E,rho,nu,P,Q){
+  const rho_s = rho*h, D = (E*h**3)/(12*(1-nu**2)), S=Lx*Ly;
+  const N=P*Q, psi2=new Float64Array(N), w2=new Float64Array(N);
+  let k=0;
+  for (let p=1;p<=P;p++){
+    const a=(p/Lx)**2;
+    for (let q=1;q<=Q;q++){
+      const b=(q/Ly)**2;
+      psi2[k]=0.25; // <sin^2>*<sin^2> = (1/2)*(1/2)
+      const f_pq=(Math.PI/2)*Math.sqrt(D/rho_s)*(a+b);
+      w2[k]=(2*Math.PI*f_pq)**2; k++;
+    }
+  }
+  const idx=[...Array(N).keys()].sort((i,j)=>w2[i]-w2[j]);
+  const psi2s=new Float64Array(N), w2s=new Float64Array(N);
+  for (let i=0;i<N;i++){ psi2s[i]=psi2[idx[i]]; w2s[i]=w2[idx[i]]; }
+  return { psi2:psi2s, w2:w2s, rho_s, S };
+}
+function buildCache_grid(Lx,Ly,h,E,rho,nu,Nx,Ny,P,Q){
+  // average psi^2 over Nx×Ny samples
+  const rho_s = rho*h, D = (E*h**3)/(12*(1-nu**2)), S=Lx*Ly;
+  const N=P*Q, psi2=new Float64Array(N), w2=new Float64Array(N);
+  const xs=[...Array(Nx).keys()].map(i => (i+0.5)/Nx*Lx);
+  const ys=[...Array(Ny).keys()].map(j => (j+0.5)/Ny*Ly);
+
+  let k=0;
+  for (let p=1;p<=P;p++){
+    const a=(p/Lx)**2;
+    for (let q=1;q<=Q;q++){
+      const b=(q/Ly)**2;
+      // average of sin^2 over grid
+      let s=0;
+      for (const x of xs){
+        const sp = Math.sin(p*Math.PI*x/Lx);
+        for (const y of ys){
+          const sq = Math.sin(q*Math.PI*y/Ly);
+          s += (sp*sq)*(sp*sq);
+        }
+      }
+      psi2[k]= s/(Nx*Ny);
+      const f_pq=(Math.PI/2)*Math.sqrt(D/rho_s)*(a+b);
+      w2[k]=(2*Math.PI*f_pq)**2; k++;
+    }
+  }
+  const idx=[...Array(N).keys()].sort((i,j)=>w2[i]-w2[j]);
+  const psi2s=new Float64Array(N), w2s=new Float64Array(N);
+  for (let i=0;i<N;i++){ psi2s[i]=psi2[idx[i]]; w2s[i]=w2[idx[i]]; }
+  return { psi2:psi2s, w2:w2s, rho_s, S };
+}
+
+/* ---------- 6) Plot plugin extension: modal vertical lines + fc band ---------- */
+function ModalLinesPlugin(opts){
+  const { modalFreqs=[], fc=null } = opts || {};
+  return {
+    id: 'modalLinesPlugin',
+    afterDraw(chart){
+      const {ctx, chartArea:area, scales} = chart;
+      const xScale = scales.x;
+      if (!xScale || !area) return;
+
+      // fc band shading (0.7–1.3 fc)
+      if (fc){
+        const x0 = xScale.getPixelForValue(fc/POW6);
+        const x1 = xScale.getPixelForValue(fc*POW6);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,200,0,0.06)';
+        ctx.fillRect(Math.max(area.left,x0), area.top,
+                     Math.min(area.right,x1)-Math.max(area.left,x0),
+                     area.bottom-area.top);
+        ctx.restore();
+      }
+
+      // modal verticals (up to ~20 lines)
+      const list = modalFreqs.slice(0, 20);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,120,120,0.5)';
+      ctx.setLineDash([3,3]);
+      for (const mf of list){
+        const xp = xScale.getPixelForValue(mf.f);
+        if (xp>=area.left && xp<=area.right){
+          ctx.beginPath();
+          ctx.moveTo(xp, area.top); ctx.lineTo(xp, area.bottom); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  };
+}
+
+/* ---------- compute SS modal frequencies for lines ---------- */
+function ssModalFrequencies(Lx,Ly,E,rho,nu,h,P,Q){
+  const rho_s = rho*h;
+  const D = (E*h**3)/(12*(1-nu**2));
+  const out=[];
+  for (let p=1;p<=P;p++){
+    for (let q=1;q<=Q;q++){
+      const val = (Math.PI/2)*Math.sqrt(D/rho_s)*((p/Lx)**2 + (q/Ly)**2);
+      out.push({ m:p, n:q, f: val });
+    }
+  }
+  out.sort((a,b)=>a.f-b.f);
+  return out;
+}
+
+/* =========================================================
+   OVERRIDES: calculateImpedance / calculateSTL / calculateRadiation
+   to (a) support convergence UI & averaging
+   (b) emit band averages
+   (c) add modal vertical lines on impedance chart
+========================================================= */
+
+const _orig_calcSTL = (typeof calculateSTL==='function') ? calculateSTL : null;
+const _orig_calcRad = (typeof calculateRadiation==='function') ? calculateRadiation : null;
+
+/* ---- replace calculateImpedance ---- */
+const _orig_calcImp = (typeof calculateImpedance==='function') ? calculateImpedance : null;
+calculateImpedance = function(){
+  const status = document.getElementById('conv-status');
+  try{
+    const { E, rho, h, D, Lx, Ly, fc } = getCommonInputs();
+    const eps = parseFloat(document.getElementById('conv-eps').value) || 1e-10;
+    const P = Math.max(4, parseInt(document.getElementById('conv-P').value)||12);
+    const Q = Math.max(4, parseInt(document.getElementById('conv-Q').value)||12);
+    const avgMode = document.getElementById('obs-avg').value;
+    const Nx = Math.max(2, parseInt(document.getElementById('grid-Nx').value)||9);
+    const Ny = Math.max(2, parseInt(document.getElementById('grid-Ny').value)||9);
+
+    // cache by averaging mode
+    let cache;
+    if (avgMode==='point'){
+      const px = +ui.posX.value/1000, py=+ui.posY.value/1000;
+      cache = buildCache_point(Lx,Ly,h,E,rho,parseFloat(ui.nuInput.value||0.3), px,py,P,Q);
+    }else if (avgMode==='grid'){
+      cache = buildCache_grid(Lx,Ly,h,E,rho,parseFloat(ui.nuInput.value||0.3), Nx,Ny,P,Q);
+    }else{ // area-analytic
+      cache = buildCache_area(Lx,Ly,h,E,rho,parseFloat(ui.nuInput.value||0.3), P,Q);
+    }
+
+    // infinite-plate ref (as-is)
+    const C_L = Math.sqrt(E/rho);
+    const Z_inf_ref = 2.3 * rho * C_L * h*h;
+    const Z_inf_ref_dB = Number.isFinite(Z_inf_ref) && Z_inf_ref>0 ? 20*Math.log10(Z_inf_ref) : null;
+    createTable(ui.infImpedanceTable, ["Property","Value"],
+      [["Infinite Plate Impedance (Z_inf, ref)", `${Z_inf_ref.toExponential(2)} Ns/m³`]]
+    );
+
+    const mag_dB=[], realZ=[], phase=[];
+    const series_dB=[], usedMax = {count:0};
+    for (const f of FREQS){
+      const omega=2*Math.PI*f;
+      const eta = lossFactor(f); // existing function in your codebase; if not, clamp as needed
+      const Y = mobility_sum_SS_cached(omega, eta, cache, eps);
+      usedMax.count = Math.max(usedMax.count, Y.used);
+      const d = Y.re*Y.re + Y.im*Y.im;
+      let ZdB=null, Zr=null, ph=null;
+      if (d>0){
+        const Zr_ =  Y.re/d, Zi_ = -Y.im/d;
+        ZdB = 20*Math.log10(Math.max(Math.hypot(Zr_,Zi_), 1e-12));
+        ph  = Math.atan2(Zi_, Zr_)*180/Math.PI;
+        Zr  = Zr_;
+      }
+      mag_dB.push(ZdB); realZ.push(Zr); phase.push(ph);
+      series_dB.push({f, v: ZdB});
+    }
+
+    // modal frequencies for lines
+    const modalList = ssModalFrequencies(Lx,Ly,E,rho,parseFloat(ui.nuInput.value||0.3),h, 6,6);
+
+    // draw chart with plugin
+    const datasets = [
+      { label:'|Z| [dB re 1 Ns/m³]', data:mag_dB, yAxisID:'y', borderColor:'rgba(255,99,132,1)' },
+      { label:'Re(Z) [Ns/m³]',       data:realZ,  yAxisID:'y1', borderColor:'rgba(54,162,235,1)' },
+      { label:'Phase(Z) [deg]',      data:phase,  yAxisID:'y2', borderColor:'rgba(255,206,86,1)' },
+    ];
+    if (Z_inf_ref_dB!=null){
+      datasets.push({ label:'Z_inf_ref [dB]', data:FREQS.map(()=>Z_inf_ref_dB), yAxisID:'y', borderColor:'rgba(0,160,0,0.9)', borderDash:[6,3] });
+    }
+
+    // reuse existing createPlot but add extra plugin
+    const canvas = document.getElementById('impedance-chart');
+    if (charts['impedance-chart']) charts['impedance-chart'].destroy();
+    charts['impedance-chart'] = new Chart(canvas.getContext('2d'), {
+      type:'line',
+      data:{ labels:FREQS, datasets: datasets.map(ds=>({...ds, fill:false, pointRadius:2, spanGaps:true})) },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index', intersect:false},
+        plugins:{ title:{display:true, text:'Driving-Point Impedance (SS)'} },
+        scales:{
+          x:{ type:'logarithmic', ticks:{display:false}, min:Math.min(...FREQS), max:Math.max(...FREQS),
+              title:{display:true, text:'Frequency (Hz)'} },
+          y:{ position:'left', title:{display:true, text:'|Z| [dB]'} },
+          y1:{ position:'right', title:{display:true, text:'Re(Z) [Ns/m³]'}, grid:{drawOnChartArea:false}},
+          y2:{ position:'right', title:{display:true, text:'Phase [deg]'}, grid:{drawOnChartArea:false}, offset:true}
+        }
+      },
+      plugins:[ ModalLinesPlugin({ modalFreqs: modalList, fc }) , ThirdOctavePlugin({showBands:true, fc, zInfDb:Z_inf_ref_dB}) ]
+    });
+
+    // table under the chart
+    const rows = FREQS.map((f,i)=>[
+      f,
+      mag_dB[i]==null?'NaN':mag_dB[i].toFixed(2),
+      realZ[i]==null?'NaN':(+realZ[i]).toExponential(2),
+      phase[i]==null?'NaN':phase[i].toFixed(1)
+    ]);
+    createTable(ui.impedanceTable, ['Frequency (Hz)','|Z| dB','Re(Z)','Phase (deg)'], rows);
+
+    // band averages
+    renderBandAveragesImpedance(series_dB);
+
+    // status
+    if (status){
+      status.textContent = `ε=${eps} , modes used ≤ ${usedMax.count} (max of ${P*Q})  [${avgMode}${avgMode==='grid'?` ${document.getElementById('grid-Nx').value}×${document.getElementById('grid-Ny').value}`:''}]`;
+    }
+
+  }catch(e){
+    if (status) status.textContent = '';
+    alert(e.message);
+  }
+};
+
+/* ---- wrap STL to emit band averages ---- */
+if (_orig_calcSTL){
+  calculateSTL = function(){
+    _orig_calcSTL();
+    // pull last two datasets from chart for STL values
+    const ch = charts['stl-chart'];
+    if (!ch) return;
+    const labs = ch.data.labels;
+    const dsMass = ch.data.datasets[0].data;
+    const dsCoin = ch.data.datasets[1].data;
+    const series = labs.map((f,i)=>({f, v: dsCoin[i]}));
+    renderBandAveragesSTL(series);
+  }
+}
+
+/* ---- wrap Radiation to emit band averages ---- */
+if (_orig_calcRad){
+  calculateRadiation = function(){
+    _orig_calcRad();
+    const ch = charts['rad-chart'];
+    if (!ch) return;
+    const labs = ch.data.labels;
+    const ds = ch.data.datasets[0].data; // Simple model as representative
+    const series = labs.map((f,i)=>({f, v: ds[i]}));
+    renderBandAveragesSigma(series);
+  }
+}
+
+/* =========================================================
+   DONE — Features 1,2,3,4,6 enabled
+========================================================= */
