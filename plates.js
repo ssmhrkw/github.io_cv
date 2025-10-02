@@ -57,9 +57,38 @@ function ssModesOrder8(inputs){
   return pairs.map(([p,q]) => ({p,q,f:ssModalFreq(p,q,inputs)}));
 }
 
-// to Unicode subscript digits for labels like f₁₂
+// Unicode subscript
 const subDigit = d => ({'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'}[d]||d);
 const sub = s => String(s).split('').map(subDigit).join('');
+
+/* 1/3-oct band background plugin factory */
+function bandPlugin(centers){
+  const colors = [
+    'rgba(230,159,0,0.06)','rgba(86,180,233,0.06)','rgba(0,158,115,0.06)',
+    'rgba(240,228,66,0.06)','rgba(0,114,178,0.06)','rgba(213,94,0,0.06)',
+    'rgba(204,121,167,0.06)','rgba(160,160,160,0.06)','rgba(120,190,190,0.06)',
+    'rgba(190,120,190,0.06)','rgba(190,190,120,0.06)','rgba(120,120,190,0.06)'
+  ];
+  const pow6 = Math.pow(2,1/6);
+  return {
+    id: 'band_coloring_' + Math.random().toString(36).slice(2),
+    afterDraw(chart){
+      const {ctx, chartArea:area, scales:{x}} = chart;
+      if (!x) return;
+      ctx.save();
+      centers.forEach((fc,i)=>{
+        const fl = fc / pow6, fu = fc * pow6;
+        const x0 = x.getPixelForValue(fl), x1 = x.getPixelForValue(fu);
+        const left = Math.max(x0, area.left), right = Math.min(x1, area.right);
+        if (right>left){
+          ctx.fillStyle = colors[i % colors.length];
+          ctx.fillRect(left, area.top, right-left, area.bottom-area.top);
+        }
+      });
+      ctx.restore();
+    }
+  };
+}
 
 /* ===== DOM Ready ===== */
 document.addEventListener('DOMContentLoaded', () => {
@@ -73,9 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
     nuInput: document.getElementById('nu-input'),
     posX: document.getElementById('pos-x'),
     posY: document.getElementById('pos-y'),
+    posBlock: document.getElementById('pos-block'),
     useMesh: document.getElementById('use-mesh'),
     nxInput: document.getElementById('nx-input'),
     nyInput: document.getElementById('ny-input'),
+    nxBadge: document.getElementById('nx-badge'),
+    nyBadge: document.getElementById('ny-badge'),
     baffleCond: document.getElementById('baffle-cond'),
     basicInline: document.getElementById('basic-inline'),
     impChart: document.getElementById('impedance-chart'),
@@ -102,19 +134,47 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.materialSelect.value = 'Concrete';
   onMaterialSelect(); // sets E,rho,nu
 
-  // inputs -> recalc
-  ['materialSelect','thickInput','lxInput','lyInput','eInput','rhoInput','nuInput',
-   'posX','posY','useMesh','nxInput','nyInput','baffleCond'].forEach(k=>{
+  // listeners -> recalc (both input & change)
+  const recalcKeys = ['materialSelect','thickInput','lxInput','lyInput','eInput','rhoInput','nuInput',
+                      'posX','posY','useMesh','nxInput','nyInput','baffleCond'];
+  recalcKeys.forEach(k=>{
     ui[k].addEventListener('input', calculateAll);
+    ui[k].addEventListener('change', calculateAll);
   });
 
-  // toggle datasets
+  // slider badges & enabling
+  const syncBadges = ()=>{
+    ui.nxBadge.textContent = ui.nxInput.value;
+    ui.nyBadge.textContent = ui.nyInput.value;
+  };
+  ui.nxInput.addEventListener('input', syncBadges);
+  ui.nyInput.addEventListener('input', syncBadges);
+  syncBadges();
+
+  ui.useMesh.addEventListener('change', setAveragingUIState);
+  setAveragingUIState();
+
+  // dataset toggles
   ui.showMag.addEventListener('change', ()=>toggleImpedanceDataset('mag'));
   ui.showRe.addEventListener('change',  ()=>toggleImpedanceDataset('re'));
   ui.showPh.addEventListener('change',  ()=>toggleImpedanceDataset('ph'));
 
   calculateAll();
 });
+
+function setAveragingUIState(){
+  const use = ui.useMesh.checked;
+  // Position block disabled visuals
+  [...ui.posBlock.querySelectorAll('input')].forEach(inp=>{
+    inp.disabled = use;
+    inp.classList.toggle('disabled', use);
+  });
+  // Sliders enabled/disabled
+  ui.nxInput.disabled = !use;
+  ui.nyInput.disabled = !use;
+  ui.nxBadge.classList.toggle('disabled', !use);
+  ui.nyBadge.classList.toggle('disabled', !use);
+}
 
 function onMaterialSelect(){
   const props = MATERIAL_PROPERTIES[ui.materialSelect.value] || {};
@@ -168,7 +228,7 @@ function renderBasicInline(){
 }
 
 /* ===== Impedance ===== */
-let impDatasets = null; // refs for toggling
+let impDatasets = null;
 
 function renderImpedance(){
   const {E,rho,nu,h,Lx,Ly,fc} = getCommonInputs();
@@ -179,7 +239,6 @@ function renderImpedance(){
   const Z_inf_ref = 2.3 * rho * C_L * h*h;
   const Z_INF_DB = (Z_inf_ref>0 && isFinite(Z_inf_ref)) ? 20*Math.log10(Z_inf_ref) : null;
 
-  // property table: only Z_inf_ref [dB]
   createTable(ui.infImpTable, ['Property','Value'], [
     ['Infinite Plate Impedance (Z_inf, ref) [dB]', (Z_INF_DB==null?'NaN':Z_INF_DB.toFixed(2)+' dB re 1 Ns/m³')]
   ]);
@@ -189,7 +248,6 @@ function renderImpedance(){
   if (ui.useMesh.checked){
     const Nx = Math.max(1, parseInt(ui.nxInput.value||'1',10));
     const Ny = Math.max(1, parseInt(ui.nyInput.value||'1',10));
-    // cell-center grid
     for (let ix=1; ix<=Nx; ix++){
       const x = (ix-0.5)/Nx * Lx;
       for (let iy=1; iy<=Ny; iy++){
@@ -203,7 +261,7 @@ function renderImpedance(){
     points.push({x,y});
   }
 
-  // modal sum (SS) at points, then arithmetic mean on linear complex Z
+  // modal sum (SS) at points, arithmetic mean on linear complex Z
   const results = { mag_dB: [], re_dB: [], ph: [], table: [] };
   const Pmax=8, Qmax=8;
 
@@ -211,7 +269,6 @@ function renderImpedance(){
     const omega = 2*Math.PI*f;
     const eta_f = 0.005 + 0.3/Math.sqrt(Math.max(1e-6,f));
 
-    // accumulate complex Z over grid points
     let Zsum_re = 0, Zsum_im = 0, Np = points.length;
 
     for (const pt of points){
@@ -226,7 +283,6 @@ function renderImpedance(){
         }
       }
       const Ydp = Complex.i().mul(new Complex(4*omega/(rho_s*S),0)).mul(Ysum);
-      // Z = 1/Y
       const d = Ydp.re*Ydp.re + Ydp.im*Ydp.im;
       let Zr=Infinity, Zi=Infinity;
       if (d>0 && isFinite(d)){
@@ -241,7 +297,6 @@ function renderImpedance(){
     let Zr_avg = Zsum_re / Np;
     let Zi_avg = Zsum_im / Np;
 
-    // convert to |Z| dB, Re(Z) dB, Phase deg
     let mag_dB=null, re_dB=null, ph=null;
     if (isFinite(Zr_avg) && isFinite(Zi_avg)){
       const mag = Math.hypot(Zr_avg, Zi_avg);
@@ -266,7 +321,7 @@ function renderImpedance(){
     .filter(m => m.f>=F_IMP[0] && m.f<=F_IMP[F_IMP.length-1])
     .map(m => ({x:m.f, y:Z_INF_DB, label:`f${sub(m.p)}${sub(m.q)}`}));
 
-  // datasets (initialはZ_infとf_nmのみ表示)
+  // datasets
   impDatasets = [
     { key:'mag', label:'|Z|', data:results.mag_dB, yAxisID:'y',
       borderColor:'rgba(255,99,132,1)', borderWidth:2, pointRadius:2, hidden: true },
@@ -280,33 +335,11 @@ function renderImpedance(){
       pointRadius:4, pointHoverRadius:6, showLine:false, hidden:false }
   ];
 
-  // plugin: annotate scatter labels & color bands
-  const bandColors = [
-    'rgba(230,159,0,0.06)','rgba(86,180,233,0.06)','rgba(0,158,115,0.06)',
-    'rgba(240,228,66,0.06)','rgba(0,114,178,0.06)','rgba(213,94,0,0.06)',
-    'rgba(204,121,167,0.06)','rgba(160,160,160,0.06)','rgba(120,190,190,0.06)',
-    'rgba(190,120,190,0.06)','rgba(190,190,120,0.06)','rgba(120,120,190,0.06)'
-  ];
+  // plugin: band coloring + labels for dots
   const labelPlugin = {
-    id:'imp_annot_bands',
+    id:'imp_labels_' + Math.random().toString(36).slice(2),
     afterDraw(chart){
-      const {ctx, chartArea:area, scales:{x}} = chart;
-      // 1/3oct band coloring (distinct color each band)
-      const pow6 = Math.pow(2,1/6);
-      const centers = F_IMP;
-      ctx.save();
-      centers.forEach((fc,i)=>{
-        const fl = fc / pow6, fu = fc * pow6;
-        const x0 = x.getPixelForValue(fl), x1 = x.getPixelForValue(fu);
-        const left = Math.max(x0, area.left), right = Math.min(x1, area.right);
-        if (right>left){
-          ctx.fillStyle = bandColors[i % bandColors.length];
-          ctx.fillRect(left, area.top, right-left, area.bottom-area.top);
-        }
-      });
-      ctx.restore();
-
-      // f_nm labels
+      const {ctx, chartArea:area} = chart;
       const ds = chart.data.datasets.find(d=>d.key==='dots');
       if (!ds || ds.hidden) return;
       const meta = chart.getDatasetMeta(chart.data.datasets.indexOf(ds));
@@ -325,7 +358,6 @@ function renderImpedance(){
     }
   };
 
-  // draw chart
   if (charts.imp) charts.imp.destroy();
   charts.imp = new Chart(ui.impChart.getContext('2d'), {
     type:'line',
@@ -339,142 +371,4 @@ function renderImpedance(){
       interaction:{mode:'index',intersect:false},
       scales:{
         x:{type:'logarithmic', title:{display:true,text:'Frequency (Hz)'},
-           ticks:{callback:v=>[16,20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000].includes(v)?v:null},
-           min:16, max:1000},
-        y:{position:'left', title:{display:true,text:'Level [dB]'}},
-        y1:{position:'right', title:{display:true,text:'Re(Z) [dB]'}, grid:{drawOnChartArea:false}},
-        y2:{position:'right', title:{display:true,text:'Phase [deg]'}, grid:{drawOnChartArea:false}, offset:true}
-      }
-    },
-    plugins:[labelPlugin]
-  });
-
-  // formula note
-  ui.impFormula.innerHTML = `<span>SS modal sum。平均は「線形の複素インピーダンス」を算術平均してから dB/位相へ変換。初期表示は Z_inf_ref と f<sub>nm</sub>（サブスクリプト）だけ。チェックで系列表示。</span>`;
-}
-
-function toggleImpedanceDataset(kind){
-  if (!charts.imp || !impDatasets) return;
-  const mapKey = { mag:'mag', re:'re', ph:'ph' }[kind];
-  const dsIndex = charts.imp.data.datasets.findIndex(d=>d.key===mapKey);
-  if (dsIndex<0) return;
-  const chk = kind==='mag'?ui.showMag : kind==='re'?ui.showRe : ui.showPh;
-  charts.imp.data.datasets[dsIndex].hidden = !chk.checked;
-  charts.imp.update();
-}
-
-/* ===== STL ===== */
-function renderSTL(){
-  const {rho,h,fc} = getCommonInputs();
-  const m = rho*h, eta=0.01;
-  const Rm = FREQS.map(f=>20*Math.log10(m*f)-42.5);
-  const Rc = Rm.map((r,i)=>{
-    const f=FREQS[i], fr=f/fc;
-    if (Math.abs(fr-1)<1e-6) return r;
-    const c=(2*eta)/(Math.PI*fr) * (1/Math.pow(Math.abs(1-fr*fr),2));
-    return r - 10*Math.log10(Math.abs(c)+1);
-  });
-
-  if (charts.stl) charts.stl.destroy();
-  charts.stl = new Chart(ui.stlChart.getContext('2d'),{
-    type:'line',
-    data:{labels:FREQS,datasets:[
-      {label:'Mass Law (Normal Incidence)',data:Rm,borderWidth:2,pointRadius:2},
-      {label:'With Coincidence Dip',data:Rc,borderWidth:2,pointRadius:2}
-    ]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{title:{display:true,text:'Sound Transmission Loss (STL)'}},
-      scales:{
-        x:{type:'logarithmic',title:{display:true,text:'Frequency (Hz)'},
-           ticks:{callback:v=>THIRD_OCT.includes(v)?v:null},
-           min:Math.min(...FREQS),max:Math.max(...FREQS)},
-        y:{position:'left',title:{display:true,text:'STL (dB)'}}
-      }
-    }
-  });
-
-  createTable(ui.stlTable, ['Frequency (Hz)','Mass Law (dB)','With Coincidence (dB)'],
-    FREQS.map((f,i)=>[f,Rm[i].toFixed(1),Rc[i].toFixed(1)]));
-
-  ui.stlFormula.textContent = 'm″=ρh, TL₀=20log₁₀(m″f)−42.5。Coincidence 簡易補正。';
-}
-
-/* ===== Radiation ===== */
-function renderRadiation(){
-  const {h,Lx,Ly,c0,fc} = getCommonInputs();
-  const C_BC=1, C_OB=parseFloat(document.getElementById('baffle-cond').value);
-  const l=2*(Lx+Ly), S=Lx*Ly, lambda_c=c0/fc, L1=Math.min(Lx,Ly), L2=Math.max(Lx,Ly), kfc=2*Math.PI*fc/c0;
-
-  const sigma_simple = FREQS.map(f=>{
-    let s; if (f>fc) s=1; else if (Math.abs(f-fc)<1e-6) s=0.45*Math.sqrt(l/lambda_c);
-    else s=(l*lambda_c/(Math.PI**2*S))*Math.sqrt(f/fc);
-    return Math.max(1e-4, Math.min(s,1));
-  });
-
-  const sigma_lepp = FREQS.map(f=>{
-    let s; const mu=Math.sqrt(fc/f);
-    if (f>fc) s=1/Math.sqrt(1-fc/f);
-    else if (Math.abs(f-fc)<1e-6) s=(0.5-0.15*L1/L2)*Math.sqrt(kfc*Math.sqrt(L1));
-    else {
-      const k=2*Math.PI*f/c0; const mu2_1=mu*mu-1; if (mu2_1<=0||k<=0) return 1e-4;
-      const term1 = l/(2*Math.PI*k*S*Math.sqrt(mu2_1));
-      const term2 = 2*Math.atanh(1/mu);
-      const term3 = 2*mu/mu2_1;
-      const term4 = C_BC*C_OB - Math.pow(mu,-8)*(C_BC*C_OB-1);
-      s = term1*(term2+term3)*term4;
-    }
-    return Math.max(1e-4, Math.min(s,1));
-  });
-
-  const sigma_wallace = FREQS.map(f=>{
-    const k=2*Math.PI*f/c0; let sum=0;
-    for (let p=1;p<=5;p++){
-      for (let q=1;q<=5;q++){
-        let spq; const p_odd=p%2!==0, q_odd=q%2!==0;
-        if (p_odd && q_odd){
-          spq=(32*k**2*Lx*Ly/(Math.PI**5*p**2*q**2))*(1-(k**2*Lx*Ly/12)*
-             ((1-8/(p*Math.PI)**2)*Lx/Ly+(1-8/(q*Math.PI)**2)*Ly/Lx));
-        }else if (p_odd!==q_odd){
-          if (p_odd){
-            spq=(8*k**4*Lx**3*Ly/(3*Math.PI**5*p**2*q**2))*(1-(k**2*Lx*Ly/20)*
-               ((1-8/(p*Math.PI)**2)*Lx/Ly+(1-24/(q*Math.PI)**2)*Ly/Lx));
-          }else{
-            spq=(8*k**4*Ly**3*Lx/(3*Math.PI**5*q**2*p**2))*(1-(k**2*Ly*Lx/20)*
-               ((1-8/(q*Math.PI)**2)*Ly/Lx+(1-24/(p*Math.PI)**2)*Lx/Ly));
-          }
-        }else{
-          spq=(2*k**6*Lx**3*Ly**3/(15*Math.PI**5*p**2*q**2))*(1-(5*k**2*Lx**2/64)*
-             ((1-24/(p*Math.PI)**2)*Lx/Ly+(1-24/(q*Math.PI)**2)*Ly/Lx));
-        }
-        sum += Math.max(0, spq);
-      }
-    }
-    return Math.max(1e-4, Math.min(sum,1));
-  });
-
-  if (charts.rad) charts.rad.destroy();
-  charts.rad = new Chart(ui.radChart.getContext('2d'),{
-    type:'line',
-    data:{labels:FREQS,datasets:[
-      {label:'Simple Model',data:sigma_simple,borderWidth:2,pointRadius:2},
-      {label:'Leppington',data:sigma_lepp,borderWidth:2,pointRadius:2},
-      {label:'Wallace (Modes Sum)',data:sigma_wallace,borderWidth:2,pointRadius:2}
-    ]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{title:{display:true,text:'Radiation Efficiency (σ)'}},
-      scales:{
-        x:{type:'logarithmic',title:{display:true,text:'Frequency (Hz)'},
-           ticks:{callback:v=>THIRD_OCT.includes(v)?v:null},
-           min:Math.min(...FREQS),max:Math.max(...FREQS)},
-        y:{position:'left',title:{display:true,text:'Coefficient (σ)'},min:0,max:1.1}
-      }
-    }
-  });
-
-  createTable(ui.radTable, ['Frequency (Hz)','σ (Simple)','σ (Leppington)','σ (Wallace)'],
-    FREQS.map((f,i)=>[f,sigma_simple[i].toFixed(3),sigma_lepp[i].toFixed(3),sigma_wallace[i].toExponential(2)]));
-
-  ui.radFormula.textContent = 'σの近似式（Simple, Leppington, Wallace）を比較表示。';
-}
+           ticks:{
