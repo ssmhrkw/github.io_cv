@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acoustic & Vibration Properties of Plates - Final Version</title>
+    <title>Acoustic & Vibration Properties of Plates - Stable Version</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -51,12 +51,6 @@
                 <label for="baffle-cond">Baffle Condition:</label><select id="baffle-cond"><option value="1">In-plane</option><option value="2">Rigid</option></select>
             </div>
         </fieldset>
-        <fieldset><legend>Driving-Point Impedance</legend>
-            <div class="form-grid-condensed">
-                <label>Position X (mm):</label><input type="number" id="pos-x" value="500">
-                <label>Position Y (mm):</label><input type="number" id="pos-y" value="500">
-            </div>
-        </fieldset>
     </div>
 
     <div class="output-column">
@@ -70,7 +64,7 @@
 
         <div id="basic-tab" class="tab-content active"><table id="basic-results-table"></table><div id="basic-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateBasic()">Calculate</button></div>
         <div id="natural-freq-tab" class="tab-content"><table id="natural-freq-table"></table><div id="natural-freq-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateNaturalFreq()">Calculate</button></div>
-        <div id="impedance-tab" class="tab-content"><div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div><div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="impedance-table"></table></div><hr><table id="inf-impedance-table"></table><div id="impedance-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateImpedance()">Calculate</button></div>
+        <div id="impedance-tab" class="tab-content"><table id="inf-impedance-table"></table><div id="impedance-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateImpedance()">Calculate</button></div>
         <div id="stl-tab" class="tab-content"><div class="chart-wrapper"><canvas id="stl-chart"></canvas></div><div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="stl-table"></table></div><div id="stl-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateSTL()">Calculate</button></div>
         <div id="rad-tab" class="tab-content"><div class="chart-wrapper"><canvas id="rad-chart"></canvas></div><div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="rad-table"></table></div><div id="rad-formula" class="formula-container"></div><button class="calc-btn-tab" onclick="calculateRadiation()">Calculate</button></div>
     </div>
@@ -82,9 +76,9 @@
     let charts = {};
     const ui = {
         materialSelect: document.getElementById('material-select'), thickInput: document.getElementById('thick-input'), lxInput: document.getElementById('lx-input'), lyInput: document.getElementById('ly-input'), etaInput: document.getElementById('eta-input'), eInput: document.getElementById('e-input'), rhoInput: document.getElementById('rho-input'), nuInput: document.getElementById('nu-input'),
-        baffleCond: document.getElementById('baffle-cond'), posX: document.getElementById('pos-x'), posY: document.getElementById('pos-y'),
+        baffleCond: document.getElementById('baffle-cond'),
         basicTable: document.getElementById('basic-results-table'), naturalFreqTable: document.getElementById('natural-freq-table'),
-        infImpedanceTable: document.getElementById('inf-impedance-table'), impedanceTable: document.getElementById('impedance-table'),
+        infImpedanceTable: document.getElementById('inf-impedance-table'),
         stlTable: document.getElementById('stl-table'), radTable: document.getElementById('rad-table'),
     };
     class Complex { constructor(re=0, im=0) { this.re=re; this.im=im; } add(z) { return new Complex(this.re+z.re, this.im+z.im); } sub(z) { return new Complex(this.re-z.re, this.im-z.im); } mul(z) { return new Complex(this.re*z.re - this.im*z.im, this.re*z.im + this.im*z.re); } div(z) { const d=z.re*z.re+z.im*z.im; if(d===0) return new Complex(0,0); return new Complex((this.re*z.re+this.im*z.im)/d, (this.im*z.re-this.re*z.im)/d); } get magnitude() { return Math.sqrt(this.re*this.re+this.im*this.im); } get phase() { return Math.atan2(this.im, this.re); } static i() { return new Complex(0, 1); } }
@@ -138,40 +132,18 @@
 
     function calculateImpedance() {
         try {
-            const { rho, h, D, Lx, Ly, eta } = getCommonInputs();
-            const posX = parseFloat(ui.posX.value) / 1000, posY = parseFloat(ui.posY.value) / 1000;
-            const S = Lx * Ly, rho_s = rho * h;
-
+            const { rho, h, D } = getCommonInputs();
+            const rho_s = rho * h;
             const Z_inf = 8 * Math.sqrt(D * rho_s);
             createTable(ui.infImpedanceTable, [["Infinite Plate Impedance (Z_inf)", `${Z_inf.toExponential(2)} Ns/m³`]]);
             
-            let results = { abs: [] };
-            let tableData = [];
-
-            for (const f of FREQS) {
-                const omega = 2 * Math.PI * f;
-                let Y_sum = new Complex();
-                for (let p = 1; p <= 5; p++) {
-                    for (let q = 1; q <= 5; q++) {
-                        const f_pq = (Math.PI / 2) * Math.sqrt(D / rho_s) * ((p / Lx) ** 2 + (q / Ly) ** 2);
-                        const omega_pq = 2 * Math.PI * f_pq;
-                        const psi_pq = Math.sin(p * Math.PI * posX / Lx) * Math.sin(q * Math.PI * posY / Ly);
-                        const denominator = (new Complex(omega_pq ** 2, omega_pq ** 2 * eta)).sub(new Complex(omega ** 2, 0));
-                        Y_sum = Y_sum.add((new Complex(psi_pq ** 2, 0)).div(denominator));
-                    }
-                }
-                const Y_dp = (Complex.i().mul(new Complex(4 * omega / rho_s, 0))).div(new Complex(S, 0)).mul(Y_sum);
-                const Z_dp = (new Complex(1, 0)).div(Y_dp);
-                
-                const magnitude = isFinite(Z_dp.magnitude) ? Z_dp.magnitude : null;
-                results.abs.push(magnitude);
-                tableData.push([f, magnitude !== null ? magnitude.toExponential(2) : 'Infinity']);
+            // Clear previous results as the main calculation is removed
+            if (charts['impedance-chart']) {
+                charts['impedance-chart'].destroy();
             }
-            createPlot('impedance-chart', FREQS, [
-                { label: 'Magnitude', data: results.abs, borderColor: 'rgba(255, 99, 132, 1)'}
-            ], 'Driving-Point Impedance', 'Impedance Magnitude |Z| (Ns/m³)', {type: 'logarithmic'});
-            createTable(ui.impedanceTable,['Frequency (Hz)','|Z|'],tableData);
-            document.getElementById('impedance-formula').innerHTML = `<h5>Driving-Point Impedance Equations</h5><p>$$ Z_{dp}(x,y) = 1 / Y_{dp}(x,y) $$</p><p>$$ Y_{dp} = \\frac{i4\\omega}{\\rho_s S} \\sum_{p=1}^{5}\\sum_{q=1}^{5} \\frac{\\psi_{p,q}^2(x,y)}{\\omega_{p,q}^2(1+i\\eta) - \\omega^2} $$</p><p>$$ \\psi_{p,q}(x,y) = \\sin(\\frac{p\\pi x}{L_x})\\sin(\\frac{q\\pi y}{L_y}) $$</p>`;
+            document.getElementById('impedance-table').innerHTML = "";
+
+            document.getElementById('impedance-formula').innerHTML = `<h5>Impedance Equations</h5><p><b>Infinite Plate Impedance (Z<sub>inf</sub>):</b> $$ Z_{inf} = 8 \\sqrt{D \\rho_s} $$</p><p>Note: The Driving-Point Impedance calculation has been temporarily disabled to ensure application stability.</p>`;
             if (window.MathJax) MathJax.typeset();
         } catch (e) { alert(e.message); }
     }
@@ -187,7 +159,6 @@
             
             const sigma_simple = FREQS.map(f => { let s; if (f > fc) { s = 1.0; } else if (Math.abs(f - fc) < 1e-6) { s = 0.45 * Math.sqrt(l / lambda_c); } else { s = (l * lambda_c / (Math.PI ** 2 * S)) * Math.sqrt(f / fc); } return Math.max(1e-4, Math.min(s, 1.0)); });
             const sigma_leppington = FREQS.map(f => { let s; const mu = Math.sqrt(fc / f); if (f > fc) { s = 1 / Math.sqrt(1 - fc / f); } else if (Math.abs(f - fc) < 1e-6) { s = (0.5 - 0.15 * L1 / L2) * Math.sqrt(k_fc * Math.sqrt(L1)); } else { const k = 2 * Math.PI * f / c0; const mu2_1 = mu ** 2 - 1; if (mu2_1 <= 0 || k <= 0) return 1e-4; const term1 = l / (2 * Math.PI * k * S * Math.sqrt(mu2_1)); const term2 = 2 * Math.atanh(1 / mu); const term3 = 2 * mu / mu2_1; const term4 = C_BC * C_OB - Math.pow(mu, -8) * (C_BC * C_OB - 1); s = term1 * (term2 + term3) * term4; } return Math.max(1e-4, Math.min(s, 1.0)); });
-            
             const sigma_wallace = FREQS.map(f => {
                 const k = 2 * Math.PI * f / c0; let sigma_sum = 0;
                 for (let p = 1; p <= 5; p++) { for (let q = 1; q <= 5; q++) {
@@ -215,23 +186,20 @@
         } catch(e){alert(e.message);}
     }
 
-    function onMaterialSelect() { const selectedName = ui.materialSelect.value; const props = MATERIAL_PROPERTIES[selectedName]; const isManual = selectedName === "Custom"; ui.eInput.value = isManual ? "" : props.E.toExponential(2); ui.rhoInput.value = isManual ? "" : props.rho; ui.nuInput.value = isManual ? "" : props.nu;[ui.eInput, ui.rhoInput, ui.nuInput].forEach(input => input.readOnly = !isManual); }
+    function onMaterialSelect() { const selectedName = ui.materialSelect.value; const props = MATERIAL_PROPERTIES[selectedName]; const isManual = selectedName === "Custom"; ui.eInput.value = isManual ? "" : props.E.toExponential(2); ui.rhoInput.value = isManual ? "" : props.rho; ui.nuInput.value = isManual ? "" : props.nu;[ui.eInput, ui.rhoInput, ui.nuInput].forEach(input => input.readOnly = false); }
     function openTab(evt, tabName) { document.querySelectorAll('.tab-content').forEach(tab=>tab.classList.remove('active')); document.querySelectorAll('.tab-button').forEach(btn=>btn.classList.remove('active')); document.getElementById(tabName).classList.add('active'); evt.currentTarget.classList.add('active'); }
     function createTable(tableElement, headers, data) { tableElement.innerHTML = `<thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${data.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>`; }
     
     function createPlot(chartId, labels, datasets, title, yAxisLabel = 'dB', yAxisOptions = {}) {
         const canvasElement = document.getElementById(chartId);
+        if (!canvasElement) return;
         const ctx = canvasElement.getContext('2d');
         if(charts[chartId]) charts[chartId].destroy();
         
-        let scales = {
+        const scales = {
             x: { type: 'logarithmic', title: { display: true, text: 'Frequency (Hz)' }, ticks: { callback: v => THIRD_OCTAVE_TICKS.includes(v) ? v : null } },
             y: { position: 'left', ...yAxisOptions, title: { display: true, text: yAxisLabel } }
         };
-
-        if (chartId === 'impedance-chart-multi') { // Special handling for multi-axis
-            scales.y1 = { type: 'linear', position: 'right', title: { display: true, text: 'Phase (deg)' }, grid: { drawOnChartArea: false } };
-        }
 
         const chart = new Chart(ctx, { type: 'line', data: { labels, datasets: datasets.map((ds) => ({ ...ds, fill: false, borderWidth: 2, pointRadius: 2 })) },
             options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: title, font: { size: 16 } } }, scales: scales }
