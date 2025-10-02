@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Acoustic & Vibration Properties of Plates — SS only</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Meiryo, sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
+    .input-column, .output-column { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+    fieldset { border: 1px solid #ccc; border-radius: 5px; padding: 15px; background-color: #fff; margin: 0; }
+    legend { font-weight: bold; padding: 0 5px; }
+    .form-grid { display: grid; grid-template-columns: 140px 1fr 40px; align-items: center; gap: 8px; }
+    .form-grid-condensed { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 8px; }
+    label { font-size: 14px; }
+    input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px; }
+    button.calc-btn-tab { width: auto; padding: 8px 20px; float: right; margin-top: 10px; background-color: #5cb85c; color: white; border-color: #4cae4c; border-radius: 4px; cursor: pointer; }
+    .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ccc; }
+    .tab-button { padding: 10px 15px; cursor: pointer; background: #f1f1f1; border: 1px solid #ccc; border-bottom: none; border-radius: 5px 5px 0 0; margin-bottom: -1px; }
+    .tab-button.active { background: #fff; border-bottom: 1px solid #fff; }
+    .tab-content { display: none; padding: 15px; border: 1px solid #ccc; border-top: none; clear: both; background: #fff; }
+    .tab-content.active { display: block; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+    th { background-color: #f2f2f2; text-align: center; }
+    .chart-wrapper { position: relative; width: 100%; }
+    .formula-container { margin-top: 20px; padding: 15px; background-color: #fafafa; border: 1px solid #eee; border-radius: 5px; font-size: 13px; }
+    .formula-container h5 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+    @media (min-width: 900px) {
+      body { flex-direction: row; align-items: flex-start; }
+      .input-column { width: 420px; min-width: 420px; }
+      .output-column { flex-grow: 1; }
+      .chart-wrapper { height: 400px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- INPUTS -->
+  <div class="input-column">
+    <fieldset><legend>Common Input Conditions</legend>
+      <div class="form-grid">
+        <label for="material-select">Material:</label>
+        <select id="material-select"></select><span></span>
+        <label for="thick-input">Thickness (h):</label><input type="number" id="thick-input" value="12.0"><span>mm</span>
+        <label for="lx-input">Length (Lx):</label><input type="number" id="lx-input" value="1000"><span>mm</span>
+        <label for="ly-input">Width (Ly):</label><input type="number" id="ly-input" value="1000"><span>mm</span>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Material Properties (Editable)</legend>
+      <div class="form-grid">
+        <label for="e-input">Young's Modulus (E):</label><input type="text" id="e-input"><span>Pa</span>
+        <label for="rho-input">Density (ρ):</label><input type="text" id="rho-input"><span>kg/m³</span>
+        <label for="nu-input">Poisson's Ratio (ν):</label><input type="text" id="nu-input"><span></span>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Advanced Conditions</legend>
+      <div class="form-grid-condensed">
+        <label for="baffle-cond">Baffle Condition:</label>
+        <select id="baffle-cond"><option value="1">In-plane</option><option value="2">Rigid</option></select>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Driving-Point Impedance</legend>
+      <div class="form-grid-condensed">
+        <label>Position X (mm):</label><input type="number" id="pos-x" value="500">
+        <label>Position Y (mm):</label><input type="number" id="pos-y" value="500">
+      </div>
+    </fieldset>
+  </div>
+
+  <!-- OUTPUTS -->
+  <div class="output-column">
+    <div class="tabs">
+      <button class="tab-button active" onclick="openTab(event, 'basic-tab')">Basic Properties</button>
+      <!-- Natural Frequencies タブは物理削除 -->
+      <button class="tab-button" onclick="openTab(event, 'impedance-tab')">Impedance</button>
+      <button class="tab-button" onclick="openTab(event, 'stl-tab')">Sound Transmission Loss (STL)</button>
+      <button class="tab-button" onclick="openTab(event, 'rad-tab')">Radiation Efficiency (σ)</button>
+    </div>
+
+    <div id="basic-tab" class="tab-content active">
+      <table id="basic-results-table"></table>
+      <div id="basic-formula" class="formula-container"></div>
+      <button class="calc-btn-tab" onclick="calculateBasic()">Calculate</button>
+    </div>
+
+    <div id="impedance-tab" class="tab-content">
+      <div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;">
+        <table id="impedance-table"></table>
+      </div>
+      <hr>
+      <table id="inf-impedance-table"></table>
+      <div id="impedance-formula" class="formula-container"></div>
+      <button class="calc-btn-tab" onclick="calculateImpedance()">Calculate</button>
+    </div>
+
+    <div id="stl-tab" class="tab-content">
+      <div class="chart-wrapper"><canvas id="stl-chart"></canvas></div>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="stl-table"></table></div>
+      <div id="stl-formula" class="formula-container"></div>
+      <button class="calc-btn-tab" onclick="calculateSTL()">Calculate</button>
+    </div>
+
+    <div id="rad-tab" class="tab-content">
+      <div class="chart-wrapper"><canvas id="rad-chart"></canvas></div>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="rad-table"></table></div>
+      <div id="rad-formula" class="formula-container"></div>
+      <button class="calc-btn-tab" onclick="calculateRadiation()">Calculate</button>
+    </div>
+  </div>
+
+  <!-- 重要：スクリプトは body の最後。GitHub Pages でも確実に DOM 後に走る -->
+  <script src="plates.js"></script>
+</body>
+</html>
