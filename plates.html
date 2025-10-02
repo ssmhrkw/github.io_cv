@@ -3,16 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Acoustic & Vibration Properties of Plates</title>
-
-  <!-- Chart.js -->
+  <title>Acoustic & Vibration Properties of Plates — SS only</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Polyfill (optional) -->
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <!-- MathJax (equations) -->
-  <script id="MathJax-script" async
-          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
     body { font-family: 'Segoe UI', Meiryo, sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
     .input-column, .output-column { display: flex; flex-direction: column; gap: 15px; width: 100%; }
@@ -23,7 +18,7 @@
     label { font-size: 14px; }
     input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px; }
     button.calc-btn-tab { width: auto; padding: 8px 20px; float: right; margin-top: 10px; background-color: #5cb85c; color: white; border-color: #4cae4c; border-radius: 4px; cursor: pointer; }
-    .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ccc; gap: 6px; }
+    .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ccc; }
     .tab-button { padding: 10px 15px; cursor: pointer; background: #f1f1f1; border: 1px solid #ccc; border-bottom: none; border-radius: 5px 5px 0 0; margin-bottom: -1px; }
     .tab-button.active { background: #fff; border-bottom: 1px solid #fff; }
     .tab-content { display: none; padding: 15px; border: 1px solid #ccc; border-top: none; clear: both; background: #fff; }
@@ -31,20 +26,20 @@
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
     th { background-color: #f2f2f2; text-align: center; }
-    .chart-wrapper { position: relative; width: 100%; height: 400px; }
+    .chart-wrapper { position: relative; width: 100%; }
     .formula-container { margin-top: 20px; padding: 15px; background-color: #fafafa; border: 1px solid #eee; border-radius: 5px; font-size: 13px; }
     .formula-container h5 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-
     @media (min-width: 900px) {
       body { flex-direction: row; align-items: flex-start; }
       .input-column { width: 420px; min-width: 420px; }
       .output-column { flex-grow: 1; }
+      .chart-wrapper { height: 400px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Input Column -->
+  <!-- INPUTS -->
   <div class="input-column">
     <fieldset><legend>Common Input Conditions</legend>
       <div class="form-grid">
@@ -79,55 +74,48 @@
     </fieldset>
   </div>
 
-  <!-- Output Column -->
+  <!-- OUTPUTS -->
   <div class="output-column">
     <div class="tabs">
       <button class="tab-button active" onclick="openTab(event, 'basic-tab')">Basic Properties</button>
-      <button class="tab-button" onclick="openTab(event, 'natural-freq-tab')">Natural Frequencies</button>
+      <!-- Natural Frequencies タブは物理削除 -->
       <button class="tab-button" onclick="openTab(event, 'impedance-tab')">Impedance</button>
       <button class="tab-button" onclick="openTab(event, 'stl-tab')">Sound Transmission Loss (STL)</button>
       <button class="tab-button" onclick="openTab(event, 'rad-tab')">Radiation Efficiency (σ)</button>
     </div>
 
     <div id="basic-tab" class="tab-content active">
-      <div id="basic-results-table"></div>
+      <table id="basic-results-table"></table>
       <div id="basic-formula" class="formula-container"></div>
       <button class="calc-btn-tab" onclick="calculateBasic()">Calculate</button>
     </div>
 
-    <div id="natural-freq-tab" class="tab-content">
-      <div id="natural-freq-table"></div>
-      <div id="natural-freq-formula" class="formula-container"></div>
-      <button class="calc-btn-tab" onclick="calculateNaturalFreq()">Calculate</button>
-    </div>
-
     <div id="impedance-tab" class="tab-content">
       <div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div>
-      <div style="max-height: 220px; overflow-y: auto; margin-top: 10px;">
-        <div id="impedance-table"></div>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;">
+        <table id="impedance-table"></table>
       </div>
       <hr>
-      <div id="inf-impedance-table"></div>
+      <table id="inf-impedance-table"></table>
       <div id="impedance-formula" class="formula-container"></div>
       <button class="calc-btn-tab" onclick="calculateImpedance()">Calculate</button>
     </div>
 
     <div id="stl-tab" class="tab-content">
       <div class="chart-wrapper"><canvas id="stl-chart"></canvas></div>
-      <div style="max-height: 220px; overflow-y: auto; margin-top: 10px;"><div id="stl-table"></div></div>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="stl-table"></table></div>
       <div id="stl-formula" class="formula-container"></div>
       <button class="calc-btn-tab" onclick="calculateSTL()">Calculate</button>
     </div>
 
     <div id="rad-tab" class="tab-content">
       <div class="chart-wrapper"><canvas id="rad-chart"></canvas></div>
-      <div style="max-height: 220px; overflow-y: auto; margin-top: 10px;"><div id="rad-table"></div></div>
+      <div style="max-height: 200px; overflow-y: auto; margin-top: 10px;"><table id="rad-table"></table></div>
       <div id="rad-formula" class="formula-container"></div>
       <button class="calc-btn-tab" onclick="calculateRadiation()">Calculate</button>
     </div>
   </div>
 
-  <!-- Logic -->
   <script src="plates.js"></script>
 </body>
 </html>
