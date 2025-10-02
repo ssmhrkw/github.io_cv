@@ -14,8 +14,12 @@
     legend{font-weight:bold;padding:0 6px}
     .form-grid{display:grid;grid-template-columns:140px 1fr 40px;align-items:center;gap:8px}
     .form-grid-condensed{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:8px}
+    .row{display:grid;grid-template-columns:140px 1fr 140px 1fr;gap:8px;align-items:center}
     label{font-size:14px}
     input,select{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
+    input[type="range"]{padding:0}
+    .slider-wrap{display:flex;align-items:center;gap:10px}
+    .badge{min-width:34px;text-align:center;padding:3px 6px;border-radius:10px;background:#eef;border:1px solid #ccd}
     .tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid #ccc}
     .tab-button{padding:10px 14px;cursor:pointer;background:#f1f1f1;border:1px solid #ccc;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px}
     .tab-button.active{background:#fff;border-bottom:1px solid #fff}
@@ -25,9 +29,9 @@
     th,td{border:1px solid #ddd;padding:6px 8px;text-align:right}
     th{text-align:center;background:#f2f2f2}
     .chart-wrapper{position:relative;width:100%;height:430px}
-    .ctrl-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 2px 0}
+    .ctrl-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 2px}
     .muted{color:#666;font-size:12px}
-    .row{display:grid;grid-template-columns:140px 1fr 140px 1fr;gap:8px;align-items:center}
+    .disabled{opacity:.55}
     @media(min-width:900px){
       body{flex-direction:row;align-items:flex-start}
       .input-column{width:460px;min-width:460px}
@@ -61,17 +65,22 @@
 
     <fieldset>
       <legend>Positions / Averaging</legend>
-      <div class="form-grid-condensed">
+
+      <div id="pos-block" class="form-grid-condensed">
         <label>Position X (mm):</label><input type="number" id="pos-x" value="1500">
         <label>Position Y (mm):</label><input type="number" id="pos-y" value="2000">
       </div>
+
       <div class="row" style="margin-top:8px">
         <label for="use-mesh">Use grid average:</label>
-        <div><input type="checkbox" id="use-mesh"> <span class="muted">Arithmetic mean on linear (complex Z averaged)</span></div>
-        <label for="nx-input">Nx / Ny (cells):</label>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="nx-input" min="1" value="5">
-          <input type="number" id="ny-input" min="1" value="6">
+        <div><input type="checkbox" id="use-mesh"></div>
+
+        <label>Nx / Ny (cells):</label>
+        <div class="slider-wrap">
+          <input type="range" id="nx-input" min="1" max="20" step="1" value="5" />
+          <span id="nx-badge" class="badge">5</span>
+          <input type="range" id="ny-input" min="1" max="20" step="1" value="6" />
+          <span id="ny-badge" class="badge">6</span>
         </div>
       </div>
     </fieldset>
@@ -97,7 +106,7 @@
         <label><input type="checkbox" id="show-mag"> |Z|</label>
         <label><input type="checkbox" id="show-re"> Re(Z)</label>
         <label><input type="checkbox" id="show-ph"> Phase</label>
-        <span class="muted">初期は Z_inf_ref と fₙₘのみ表示（凡例は単位なし／軸に記載）</span>
+        <span class="muted">初期は Z_inf_ref と fₙₘのみ表示</span>
       </div>
       <div class="chart-wrapper"><canvas id="impedance-chart"></canvas></div>
       <div style="max-height:210px;overflow-y:auto;margin-top:10px;"><table id="impedance-table"></table></div>
