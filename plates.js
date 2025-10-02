@@ -51,7 +51,7 @@ window.openTab = openTab; // expose to inline onclick
    DOM Ready
    ========================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // Late binding of UI refs (確実に要素が存在してから取得)
+  // Late binding of UI refs
   ui = {
     materialSelect: document.getElementById('material-select'),
     thickInput:     document.getElementById('thick-input'),
@@ -74,9 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
     radFormula:     document.getElementById('rad-formula'),
   };
 
-  // Populate materials safely
+  // Populate materials
   if (ui.materialSelect) {
-    ui.materialSelect.innerHTML = ''; // clear just in case
+    ui.materialSelect.innerHTML = '';
     Object.keys(MATERIAL_PROPERTIES).forEach(name => {
       const opt = document.createElement('option');
       opt.value = name;
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     ui.materialSelect.value = "Gypsum Board"; // default
     ui.materialSelect.addEventListener('change', onMaterialSelect);
-    onMaterialSelect(); // set fields
+    onMaterialSelect();
   }
 
   // First run
@@ -99,14 +99,11 @@ function onMaterialSelect() {
   if (!ui || !ui.materialSelect) return;
   const selected = ui.materialSelect.value;
   const props = MATERIAL_PROPERTIES[selected];
-  if (!props) return; // safety
+  if (!props) return;
 
-  // 値をセット（指数表記は parseFloat 可）
   if (ui.eInput)   ui.eInput.value   = (props.E   ?? '').toExponential ? props.E.toExponential(2) : (props.E ?? '');
   if (ui.rhoInput) ui.rhoInput.value = props.rho ?? '';
   if (ui.nuInput)  ui.nuInput.value  = props.nu  ?? '';
-
-  // 入力可（Custom でも固定でもすべて手編集可能に）
   [ui.eInput, ui.rhoInput, ui.nuInput].forEach(el => { if (el) el.readOnly = false; });
 }
 
@@ -140,7 +137,6 @@ function calculateAllTabs() {
     calculateRadiation();
   } catch (e) {
     alert(e.message);
-    //console.error(e);
   }
 }
 window.calculateBasic     = calculateBasic;
@@ -194,7 +190,7 @@ function ssModalFreqs_1to3(E,rho,nu,h,Lx,Ly){
 }
 
 /* =========================
-   Impedance (SS)
+   Impedance (SS) — with requests applied
    ========================= */
 function calculateImpedance() {
   try {
@@ -204,18 +200,22 @@ function calculateImpedance() {
     const S = Lx * Ly;
     const rho_s = rho * h;
 
+    // ref Z_inf and dB
     const C_L = Math.sqrt(E/rho);
     const Z_inf_ref = 2.3 * rho * C_L * h * h;
-    const Z_inf_ref_dB = (Z_inf_ref>0 && isFinite(Z_inf_ref)) ? 20*Math.log10(Z_inf_ref) : null;
+    const Z_INF_DB = (Z_inf_ref>0 && isFinite(Z_inf_ref)) ? 20*Math.log10(Z_inf_ref) : null;
 
+    // ==== Property table: dB only ====
     createTable(ui.infImpedanceTable, ["Property", "Value"], [
-      ["Infinite Plate Impedance (Z_inf, ref)", `${Z_inf_ref.toExponential(2)} Ns/m³`],
-      ["Infinite Plate Impedance (Z_inf, ref) [dB]", (Z_inf_ref_dB==null?'NaN':Z_inf_ref_dB.toFixed(2) + " dB re 1 Ns/m³")]
+      ["Infinite Plate Impedance (Z_inf, ref) [dB]", (Z_INF_DB==null?'NaN':Z_INF_DB.toFixed(2) + " dB re 1 Ns/m³")]
     ]);
 
-    const results = { mag_dB: [], real: [], phase: [] };
+    // ==== Impedance calculation up to 1000 Hz only ====
+    const F_IMP = FREQS.filter(f => f <= 1000);
+
+    const results = { mag_dB: [], real_dB: [], phase: [] };
     const tableData = [];
-    for (const f of FREQS) {
+    for (const f of F_IMP) {
       const omega = 2 * Math.PI * f;
       const eta_f = 0.005 + 0.3 / Math.sqrt(Math.max(1e-6, f));
 
@@ -231,40 +231,43 @@ function calculateImpedance() {
         }
       }
       const Y_dp = Complex.i().mul(new Complex(4 * omega / (rho_s * S), 0)).mul(Y_sum);
-      const d = Y_dp.re*Y_dp.re + Y_dp.im*Y_dp.im;
 
-      let mag_dB = null, reZ = null, ph = null;
+      // Z = 1/Y
+      const d = Y_dp.re*Y_dp.re + Y_dp.im*Y_dp.im;
+      let mag_dB = null, reZ_dB = null, ph = null;
       if (d > 0 && isFinite(d)) {
         const Zr =  Y_dp.re / d;
         const Zi = -Y_dp.im / d;
         const mag = Math.hypot(Zr, Zi);
         mag_dB = 20 * Math.log10(Math.max(mag, 1e-12));
-        reZ = Zr;
+        // Re(Z) を dB 表示（絶対値）
+        reZ_dB = 20 * Math.log10(Math.max(Math.abs(Zr), 1e-12));
         ph = Math.atan2(Zi, Zr) * 180 / Math.PI;
       }
 
       results.mag_dB.push(mag_dB);
-      results.real.push(reZ);
+      results.real_dB.push(reZ_dB);
       results.phase.push(ph);
 
       tableData.push([
         f,
         mag_dB !== null ? mag_dB.toFixed(2) : 'NaN',
-        reZ !== null ? reZ.toExponential(2) : 'NaN',
+        reZ_dB !== null ? reZ_dB.toFixed(2) : 'NaN',
         ph !== null ? ph.toFixed(1) : 'NaN'
       ]);
     }
 
+    // datasets
     const datasets = [
-      { label: '|Z| [dB re 1 Ns/m³]', data: results.mag_dB, yAxisID: 'y', borderWidth:2, pointRadius:2, borderColor: 'rgba(255,99,132,1)' },
-      { label: 'Re(Z) [Ns/m³]',        data: results.real,   yAxisID: 'y1', borderWidth:2, pointRadius:2, borderColor: 'rgba(54,162,235,1)' },
-      { label: 'Phase(Z) [deg]',       data: results.phase,  yAxisID: 'y2', borderWidth:2, pointRadius:2, borderColor: 'rgba(255,206,86,1)' }
+      { label: '|Z| [dB re 1 Ns/m³]', data: results.mag_dB, yAxisID: 'y',  borderWidth:2, pointRadius:2, borderColor: 'rgba(255,99,132,1)' },
+      { label: 'Re(Z) [dB]',          data: results.real_dB, yAxisID: 'y1', borderWidth:2, pointRadius:2, borderColor: 'rgba(54,162,235,1)' },
+      { label: 'Phase(Z) [deg]',      data: results.phase,   yAxisID: 'y2', borderWidth:2, pointRadius:2, borderColor: 'rgba(255,206,86,1)' }
     ];
 
-    if (Z_inf_ref_dB !== null) {
+    if (Z_INF_DB !== null) {
       datasets.push({
         label: 'Z_inf_ref [dB]',
-        data: FREQS.map(() => Z_inf_ref_dB),
+        data: F_IMP.map(() => Z_INF_DB),
         yAxisID: 'y',
         borderColor: 'rgba(0,160,0,0.9)',
         borderDash: [6,3],
@@ -273,8 +276,9 @@ function calculateImpedance() {
         pointRadius: 0
       });
 
-      const modalSmall = ssModalFreqs_1to3(E,rho,nu,h,Lx,Ly);
-      const modalDots = modalSmall.map(m => ({ x: m.f, y: Z_inf_ref_dB, _mn: `f(${m.p},${m.q})=${m.f.toFixed(1)} Hz` }));
+      const modalSmall = ssModalFreqs_1to3(E,rho,nu,h,Lx,Ly)
+        .filter(m => m.f <= 1000); // 1000Hzまでに制限
+      const modalDots = modalSmall.map(m => ({ x: m.f, y: Z_INF_DB, _mn: `f(${m.p},${m.q})=${m.f.toFixed(1)} Hz` }));
       datasets.push({
         type: 'scatter',
         label: 'f11..f33 on Z_inf',
@@ -286,16 +290,17 @@ function calculateImpedance() {
       });
     }
 
+    // draw chart
     const canvas = document.getElementById('impedance-chart');
     if (charts['impedance-chart']) charts['impedance-chart'].destroy();
     charts['impedance-chart'] = new Chart(canvas.getContext('2d'), {
       type: 'line',
-      data: { labels: FREQS, datasets },
+      data: { labels: F_IMP, datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          title: { display: true, text: 'Driving-Point Impedance (SS)' },
+          title: { display: true, text: 'Driving-Point Impedance (SS, up to 1 kHz)' },
           tooltip: {
             callbacks: {
               label: function(ctx){
@@ -304,7 +309,6 @@ function calculateImpedance() {
                   const pt = ds.data[ctx.dataIndex];
                   return `${ds.label}: ${pt._mn}`;
                 }
-                // fallback to default
                 const def = Chart.defaults.plugins.tooltip.callbacks.label;
                 return def ? def(ctx) : `${ds.label}: ${ctx.formattedValue}`;
               }
@@ -313,23 +317,24 @@ function calculateImpedance() {
         },
         scales: {
           x: { type: 'logarithmic', title: { display: true, text: 'Frequency (Hz)' },
-               ticks: { callback: v => THIRD_OCTAVE_TICKS.includes(v) ? v : null },
-               min: Math.min(...FREQS), max: Math.max(...FREQS) },
+               ticks: { callback: v => [16,20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000].includes(v) ? v : null },
+               min: 16, max: 1000 },
           y:  { position: 'left',  title: { display: true, text: '|Z| [dB]' } },
-          y1: { position: 'right', title: { display: true, text: 'Re(Z) [Ns/m³]' }, grid: { drawOnChartArea: false } },
-          y2: { position: 'right', title: { display: true, text: 'Phase [deg]' },   grid: { drawOnChartArea: false }, offset: true }
+          y1: { position: 'right', title: { display: true, text: 'Re(Z) [dB]' }, grid: { drawOnChartArea: false } },
+          y2: { position: 'right', title: { display: true, text: 'Phase [deg]' }, grid: { drawOnChartArea: false }, offset: true }
         }
       }
     });
 
-    createTable(ui.impedanceTable, ['Frequency (Hz)', '|Z| dB', 'Re(Z)', 'Phase (deg)'], tableData);
+    // table under the figure (Re(Z) in dB)
+    createTable(ui.impedanceTable, ['Frequency (Hz)', '|Z| dB', 'Re(Z) dB', 'Phase (deg)'], tableData);
 
     if (ui.impFormula && window.MathJax) {
       ui.impFormula.innerHTML = `<h5>Driving-Point Impedance (SS, modal sum)</h5>
         <p><b>Mobility:</b> $$ Y_{dp} = i\\omega \\frac{4}{\\rho_s S} \\sum_{p=1}^P \\sum_{q=1}^Q
         \\frac{\\psi_{p,q}^2(x,y)}{\\omega_{p,q}^2(1+i\\eta) - \\omega^2} $$</p>
         <p><b>Impedance:</b> $$ Z_{dp} = \\frac{1}{Y_{dp}} $$</p>
-        <p><b>Infinite-plate ref:</b> $$ 20\\log_{10} Z_{\\infty,\\mathrm{ref}} \\text{ (horizontal line)} $$</p>`;
+        <p><b>表示:</b> \( |Z|, \\ \\Re\\{Z\\} \) はともに \(20\\log_{10}(\\cdot)\\) の dB で描画。</p>`;
       MathJax.typeset();
     }
 
@@ -337,7 +342,7 @@ function calculateImpedance() {
 }
 
 /* =========================
-   STL
+   STL（そのまま）
    ========================= */
 function calculateSTL() {
   try {
@@ -388,7 +393,7 @@ function calculateSTL() {
 }
 
 /* =========================
-   Radiation
+   Radiation（そのまま）
    ========================= */
 function calculateRadiation() {
   try {
