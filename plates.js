@@ -360,7 +360,7 @@ function wireTabs(){
 }
 
 /* boot */
-document.addEventListener('DOMContentLoaded', ()=>{
+document.addEventListener('DOMContentLoaded', () => {
   // refs
   ui = {
     materialSelect: document.getElementById('material-select'),
@@ -392,42 +392,80 @@ document.addEventListener('DOMContentLoaded', ()=>{
     showPh: document.getElementById('show-ph')
   };
 
-  // material options
-  if (ui.materialSelect.options.length===0){
-    Object.keys(MATERIAL_PROPERTIES).forEach(name=>{
-      const opt=document.createElement('option');
-      opt.value=name; opt.textContent=name;
-      ui.materialSelect.appendChild(opt);
-    });
+  // 1) Materialの選択肢は毎回「必ず再生成」する
+  function buildMaterialOptions() {
+    if (!ui.materialSelect) return;
+    const opts = Object.keys(MATERIAL_PROPERTIES)
+      .map(name => `<option value="${name}">${name}</option>`).join('');
+    ui.materialSelect.innerHTML = opts; // ← length チェックに頼らない
   }
-  ui.materialSelect.value = 'Concrete';
-  onMaterialSelect();
 
-  setAveragingUIState();
-  wireTabs();
+  // 2) 既定値を先にセット（ご指定の Concrete/180/3000/4000）
+  function setDefaults() {
+    ui.materialSelect.value = 'Concrete';
+    ui.thickInput.value = 180;
+    ui.lxInput.value = 3000;
+    ui.lyInput.value = 4000;
+    ui.posX.value = 1500;
+    ui.posY.value = 2000;
+    if (ui.useMesh) ui.useMesh.checked = true;
+    if (ui.nxInput) ui.nxInput.value = 5;
+    if (ui.nyInput) ui.nyInput.value = 6;
+  }
 
-  // initial draw
+  // 3) Material → E/ρ/ν を注入
+  function applyMaterialToFields() {
+    const props = MATERIAL_PROPERTIES[ui.materialSelect.value];
+    if (!props) return;
+    ui.eInput.value   = Number(props.E).toExponential(3);
+    ui.rhoInput.value = props.rho;
+    ui.nuInput.value  = props.nu;
+  }
+
+  // 4) Averaging UI の有効/無効
+  function setAveragingUIStateLocal() {
+    const use = ui.useMesh?.checked;
+    if (ui.posX) ui.posX.disabled = !!use;
+    if (ui.posY) ui.posY.disabled = !!use;
+  }
+
+  // 5) 初期化の正しい順序
+  buildMaterialOptions();
+  setDefaults();
+  applyMaterialToFields();
+  setAveragingUIStateLocal();
+
+  // 6) 初回計算（ここで例外が出ないことが重要）
   calculateAll();
 
-  // events: auto-update
-  ui.materialSelect.addEventListener('change', ()=>{ onMaterialSelect(); calculateAll(); });
-  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','baffleCond'].forEach(k=>{
-    ui[k].addEventListener('input', calculateAll);
-    ui[k].addEventListener('change', calculateAll);
+  // ====== イベント束ね ======
+  ui.materialSelect.addEventListener('change', () => {
+    applyMaterialToFields();
+    calculateAll();
   });
 
-  ui.useMesh.addEventListener('change', ()=>{ setAveragingUIState(); calcImpedance(); });
-  ui.nxInput.addEventListener('input',  calcImpedance);
-  ui.nxInput.addEventListener('change', calcImpedance);
-  ui.nyInput.addEventListener('input',  calcImpedance);
-  ui.nyInput.addEventListener('change', calcImpedance);
+  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','baffleCond']
+    .forEach(k => {
+      ui[k]?.addEventListener('input',  calculateAll);
+      ui[k]?.addEventListener('change', calculateAll);
+    });
 
-  ui.posX.addEventListener('input',  ()=>{ if(!ui.useMesh.checked) calcImpedance(); });
-  ui.posX.addEventListener('change', ()=>{ if(!ui.useMesh.checked) calcImpedance(); });
-  ui.posY.addEventListener('input',  ()=>{ if(!ui.useMesh.checked) calcImpedance(); });
-  ui.posY.addEventListener('change', ()=>{ if(!ui.useMesh.checked) calcImpedance(); });
+  ui.useMesh?.addEventListener('change', () => { setAveragingUIStateLocal(); calculateImpedance(); });
+  ui.nxInput?.addEventListener('input',  calculateImpedance);
+  ui.nxInput?.addEventListener('change', calculateImpedance);
+  ui.nyInput?.addEventListener('input',  calculateImpedance);
+  ui.nyInput?.addEventListener('change', calculateImpedance);
 
-  ui.showMag.addEventListener('change', ()=>toggleImpedanceDataset('mag'));
-  ui.showRe .addEventListener('change', ()=>toggleImpedanceDataset('re'));
-  ui.showPh .addEventListener('change', ()=>toggleImpedanceDataset('ph'));
+  // Grid OFF のときだけ位置で即時更新
+  const posInstant = () => { if (!ui.useMesh?.checked) calculateImpedance(); };
+  ui.posX?.addEventListener('input',  posInstant);
+  ui.posX?.addEventListener('change', posInstant);
+  ui.posY?.addEventListener('input',  posInstant);
+  ui.posY?.addEventListener('change', posInstant);
+
+  // 表示トグル
+  ui.showMag?.addEventListener('change', () => calculateImpedance());
+  ui.showRe ?.addEventListener('change', () => calculateImpedance());
+  ui.showPh ?.addEventListener('change', () => calculateImpedance());
 });
+
