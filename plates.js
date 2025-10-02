@@ -124,82 +124,33 @@ document.addEventListener('DOMContentLoaded', () => {
     showPh: document.getElementById('show-ph')
   };
 
-  // --- Material 選択肢の投入（未投入の場合に備えて常に再生成） ---
-  if (ui.materialSelect && ui.materialSelect.options.length === 0) {
-    Object.keys(MATERIAL_PROPERTIES).forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      ui.materialSelect.appendChild(opt);
+  for (const name in MATERIAL_PROPERTIES) {
+      ui.materialSelect.add(new Option(name, name));
+    }
+    ui.materialSelect.value = "Concrete";   // default
+    ui.thickInput.value = 180;              // default mm
+    ui.lxInput.value = 3000;                // default mm
+    ui.lyInput.value = 4000;                // default mm
+    onMaterialSelect();
+  
+    // --- 初期描画 ---
+    calculateAllTabs();
+  
+    // --- すべての入力にリスナーを追加して自動更新 ---
+    const inputs = [
+      ui.materialSelect, ui.thickInput, ui.lxInput, ui.lyInput,
+      ui.eInput, ui.rhoInput, ui.nuInput,
+      ui.posX, ui.posY,
+      ui.useMesh, ui.nxInput, ui.nyInput,
+      ui.baffleCond, ui.showMag, ui.showRe, ui.showPh
+    ];
+  
+    inputs.forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', calculateAllTabs);
+      el.addEventListener('change', calculateAllTabs);
     });
-  }
-
-  // 既定値（ご要望：Concrete, h=180mm, Lx=3000, Ly=4000）
-  if (ui.materialSelect) ui.materialSelect.value = 'Concrete';
-
-  // Material変更 → プロパティ反映 → 全再計算
-  if (ui.materialSelect) {
-    ui.materialSelect.addEventListener('change', () => {
-      onMaterialSelect();
-      calculateAll();
-    });
-  }
-  // 初期反映
-  onMaterialSelect?.();
-
-  // 数値バッジを使っている場合は同期（無ければスキップ）
-  const syncBadges = () => {
-    if (ui.nxBadge && ui.nxInput) ui.nxBadge.textContent = ui.nxInput.value;
-    if (ui.nyBadge && ui.nyInput) ui.nyBadge.textContent = ui.nyInput.value;
-  };
-
-  // Grid average チェックで UI 切替 & 再描画
-  if (ui.useMesh) {
-    ui.useMesh.addEventListener('change', () => {
-      setAveragingUIState?.();
-      // 座標→平均/格子へ切替時に直ちに反映
-      calculateImpedance();
-    });
-  }
-
-  // Nx/Ny：上下△で変えた瞬間にインピーダンス再描画
-  if (ui.nxInput) {
-    ui.nxInput.addEventListener('input', () => { syncBadges(); calculateImpedance(); });
-    ui.nxInput.addEventListener('change', () => { syncBadges(); calculateImpedance(); });
-  }
-  if (ui.nyInput) {
-    ui.nyInput.addEventListener('input', () => { syncBadges(); calculateImpedance(); });
-    ui.nyInput.addEventListener('change', () => { syncBadges(); calculateImpedance(); });
-  }
-
-  // Position X/Y：Grid average OFF のときだけ即時反映
-  if (ui.posX) {
-    ui.posX.addEventListener('input', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
-    ui.posX.addEventListener('change', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
-  }
-  if (ui.posY) {
-    ui.posY.addEventListener('input', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
-    ui.posY.addEventListener('change', () => { if (!ui.useMesh?.checked) calculateImpedance(); });
-  }
-
-  // 主要入力の変更で全再計算
-  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','baffleCond'].forEach(k => {
-    if (!ui[k]) return;
-    ui[k].addEventListener('input', calculateAll);
-    ui[k].addEventListener('change', calculateAll);
   });
-
-  // インピーダンス表示トグル
-  if (ui.showMag) ui.showMag.addEventListener('change', () => toggleImpedanceDataset?.('mag'));
-  if (ui.showRe)  ui.showRe.addEventListener('change', () => toggleImpedanceDataset?.('re'));
-  if (ui.showPh)  ui.showPh.addEventListener('change', () => toggleImpedanceDataset?.('ph'));
-
-  // 初期 UI 状態（位置入力の有効/無効など）
-  setAveragingUIState?.();
-  syncBadges();
-
-  // 最初の計算
-  calculateAll();
-});
 
 
 function setAveragingUIState(){
