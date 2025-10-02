@@ -137,13 +137,17 @@
             const Z_inf = 8 * Math.sqrt(D * rho_s);
             createTable(ui.infImpedanceTable, [["Infinite Plate Impedance (Z_inf)", `${Z_inf.toExponential(2)} Ns/m³`]]);
             
-            // Clear previous results as the main calculation is removed
+            // Clear previous results as the driving-point calculation is removed for stability
             if (charts['impedance-chart']) {
                 charts['impedance-chart'].destroy();
+                delete charts['impedance-chart'];
             }
+            const canvas = document.getElementById('impedance-chart');
+            if (canvas) canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+
             document.getElementById('impedance-table').innerHTML = "";
 
-            document.getElementById('impedance-formula').innerHTML = `<h5>Impedance Equations</h5><p><b>Infinite Plate Impedance (Z<sub>inf</sub>):</b> $$ Z_{inf} = 8 \\sqrt{D \\rho_s} $$</p><p>Note: The Driving-Point Impedance calculation has been temporarily disabled to ensure application stability.</p>`;
+            document.getElementById('impedance-formula').innerHTML = `<h5>Impedance Equations</h5><p><b>Infinite Plate Impedance (Z<sub>inf</sub>):</b> $$ Z_{inf} = 8 \\sqrt{D \\rho_s} $$</p><hr><p>Note: The Driving-Point Impedance calculation has been temporarily disabled to ensure application stability. It can be re-introduced in the next step.</p>`;
             if (window.MathJax) MathJax.typeset();
         } catch (e) { alert(e.message); }
     }
