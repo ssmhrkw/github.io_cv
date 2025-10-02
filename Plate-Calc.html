@@ -135,28 +135,33 @@
             if(window.MathJax) MathJax.typeset();
         } catch (e) { alert(e.message); }
     }
-
     function calculateImpedance() {
         try {
             const { E, rho, h, D, Lx, Ly, nu } = getCommonInputs();
             const posX = parseFloat(ui.posX.value) / 1000, posY = parseFloat(ui.posY.value) / 1000;
             const S = Lx * Ly, rho_s = rho * h;
-            const C_L = Math.sqrt(E/rho); // Note: using longitudinal wave speed, not plate wave speed, per reference code
-
+            const C_L = Math.sqrt(E/rho);
+    
             const Z_inf_ref = 2.3 * rho * C_L * h**2;
-            createTable(ui.infImpedanceTable, [["Infinite Plate Impedance (Z_inf, ref)", `${Z_inf_ref.toExponential(2)} Ns/m³`]]);
-            
+    
+            // ✅ 修正済み
+            createTable(
+                ui.infImpedanceTable,
+                ["Property", "Value"],
+                [["Infinite Plate Impedance (Z_inf, ref)", `${Z_inf_ref.toExponential(2)} Ns/m³`]]
+            );
+    
             let results = { abs: [] };
             let tableData = [];
-
+    
             for (const f of FREQS) {
                 const omega = 2 * Math.PI * f;
-                const eta_f = 0.005 + 0.3 / Math.sqrt(f); // Frequency-dependent loss factor
-
+                const eta_f = 0.005 + 0.3 / Math.sqrt(f);
+    
                 let Y_sum = new Complex();
                 for (let p = 1; p <= 5; p++) {
                     for (let q = 1; q <= 5; q++) {
-                        const C_L_p = Math.sqrt(E / (rho * (1-nu**2))); // Plate wave speed for f_pq
+                        const C_L_p = Math.sqrt(E / (rho * (1-nu**2)));
                         const f_pq = (Math.PI * C_L_p * h / (2 * Math.sqrt(3))) * ((p / Lx) ** 2 + (q / Ly) ** 2);
                         const omega_pq = 2 * Math.PI * f_pq;
                         const psi_pq = Math.sin(p * Math.PI * posX / Lx) * Math.sin(q * Math.PI * posY / Ly);
@@ -166,15 +171,17 @@
                 }
                 const Y_dp = (Complex.i().mul(new Complex(4 * omega / rho_s, 0))).div(new Complex(S, 0)).mul(Y_sum);
                 const Z_dp = (new Complex(1, 0)).div(Y_dp);
-                
+    
                 const magnitude = isFinite(Z_dp.magnitude) ? Z_dp.magnitude : null;
                 results.abs.push(magnitude);
                 tableData.push([f, magnitude !== null ? magnitude.toExponential(2) : 'Infinity']);
             }
+    
             createPlot('impedance-chart', FREQS, [
-                { label: 'Magnitude', data: results.abs, borderColor: 'rgba(255, 99, 132, 1)'}
+                { label: 'Magnitude', data: results.abs, borderColor: 'rgba(255, 99, 132, 1)' }
             ], 'Driving-Point Impedance', 'Impedance Magnitude |Z| (Ns/m³)', {type: 'logarithmic'});
-            createTable(ui.impedanceTable,['Frequency (Hz)','|Z|'],tableData);
+    
+            createTable(ui.impedanceTable, ['Frequency (Hz)', '|Z|'], tableData);
             document.getElementById('impedance-formula').innerHTML = `<h5>Driving-Point Impedance Equations</h5>
                 <p>Based on your reference code, using a frequency-dependent loss factor.</p>
                 <p><b>Loss Factor (η):</b> $$ \\eta(f) = 0.005 + \\frac{0.3}{\\sqrt{f}} $$</p>
@@ -183,6 +190,7 @@
             if (window.MathJax) MathJax.typeset();
         } catch (e) { alert(e.message); }
     }
+   
 
     function calculateSTL() {
         try {
