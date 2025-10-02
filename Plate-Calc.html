@@ -8,12 +8,12 @@
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { font-family: 'Meiryo', sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
+        body { font-family: 'Segoe UI', Meiryo, sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
         .input-column, .output-column { display: flex; flex-direction: column; gap: 15px; width: 100%; }
         fieldset { border: 1px solid #ccc; border-radius: 5px; padding: 15px; background-color: #fff; margin: 0; }
         legend { font-weight: bold; padding: 0 5px; }
-        .form-grid { display: grid; grid-template-columns: 120px 1fr 40px; align-items: center; gap: 8px; }
-        .form-grid-condensed { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px; }
+        .form-grid { display: grid; grid-template-columns: 140px 1fr 40px; align-items: center; gap: 8px; }
+        .form-grid-condensed { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 8px; }
         label { font-size: 14px; }
         input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 3px; }
         button.calc-btn-tab { width: auto; padding: 8px 20px; float: right; margin-top: 10px; background-color: #5cb85c; color: white; border-color: #4cae4c; border-radius: 4px; }
@@ -226,11 +226,10 @@
         
         let scales = {
             x: { type: 'logarithmic', title: { display: true, text: 'Frequency (Hz)' }, ticks: { callback: v => THIRD_OCTAVE_TICKS.includes(v) ? v : null } },
-            y: { type: 'linear', position: 'left', title: { display: true, text: yAxisLabel }, ...yAxisOptions }
+            y: { position: 'left', ...yAxisOptions, title: { display: true, text: yAxisLabel } }
         };
 
-        if (chartId === 'impedance-chart') { // Use isMultiAxis flag instead
-             // This is a special case for the dual-axis impedance chart
+        if (chartId === 'impedance-chart-multi') { // Special handling for multi-axis
             scales.y1 = { type: 'linear', position: 'right', title: { display: true, text: 'Phase (deg)' }, grid: { drawOnChartArea: false } };
         }
 
