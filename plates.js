@@ -91,7 +91,7 @@ function bandPlugin(centers){
 
 /* ===== DOM Ready ===== */
 document.addEventListener('DOMContentLoaded', () => {
-  // --- UI 要素を取得 ---
+  // ---- UI refs ----
   ui = {
     materialSelect: document.getElementById('material-select'),
     thickInput: document.getElementById('thick-input'),
@@ -102,9 +102,12 @@ document.addEventListener('DOMContentLoaded', () => {
     nuInput: document.getElementById('nu-input'),
     posX: document.getElementById('pos-x'),
     posY: document.getElementById('pos-y'),
+    posBlock: document.getElementById('pos-block'),
     useMesh: document.getElementById('use-mesh'),
     nxInput: document.getElementById('nx-input'),
     nyInput: document.getElementById('ny-input'),
+    nxBadge: document.getElementById('nx-badge'),
+    nyBadge: document.getElementById('ny-badge'),
     baffleCond: document.getElementById('baffle-cond'),
     basicInline: document.getElementById('basic-inline'),
     impChart: document.getElementById('impedance-chart'),
@@ -122,35 +125,81 @@ document.addEventListener('DOMContentLoaded', () => {
     showPh: document.getElementById('show-ph')
   };
 
-  // --- 材料リストを初期化 ---
-  for (const name in MATERIAL_PROPERTIES) {
-    ui.materialSelect.add(new Option(name, name));
+  // ---- 材料候補の投入（未投入なら）----
+  if (ui.materialSelect && ui.materialSelect.options.length === 0) {
+    Object.keys(MATERIAL_PROPERTIES).forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      ui.materialSelect.appendChild(opt);
+    });
   }
 
-  // --- デフォルト値をセット ---
-  ui.materialSelect.value = "Concrete";
-  ui.thickInput.value = 180;     // mm
-  ui.lxInput.value = 3000;       // mm
-  ui.lyInput.value = 4000;       // mm
-  onMaterialSelect();            // ここで E,ρ,ν をセット
+  // ---- 既定値（要求どおり）----
+  if (ui.materialSelect) ui.materialSelect.value = 'Concrete';
+  if (ui.thickInput) ui.thickInput.value = 180;   // mm
+  if (ui.lxInput)    ui.lxInput.value    = 3000;  // mm
+  if (ui.lyInput)    ui.lyInput.value    = 4000;  // mm
+  if (ui.posX)       ui.posX.value       = 1500;  // 中央近傍など任意
+  if (ui.posY)       ui.posY.value       = 2000;
+  if (ui.useMesh)    ui.useMesh.checked  = true;  // Grid平均を既定ONにするなら
+  if (ui.nxInput)    ui.nxInput.value    = 5;
+  if (ui.nyInput)    ui.nyInput.value    = 6;
 
-  // --- 初期計算を実行 ---
-  calculateAllTabs();
+  // ---- 材料→数値欄へ反映（E,ρ,ν をセット）----
+  if (typeof onMaterialSelect === 'function') onMaterialSelect();
 
-  // --- すべての入力変更で再計算 ---
-  const inputs = [
-    ui.materialSelect, ui.thickInput, ui.lxInput, ui.lyInput,
-    ui.eInput, ui.rhoInput, ui.nuInput,
-    ui.posX, ui.posY,
-    ui.useMesh, ui.nxInput, ui.nyInput,
-    ui.baffleCond, ui.showMag, ui.showRe, ui.showPh
-  ];
-  inputs.forEach(el => {
-    if (!el) return;
-    el.addEventListener('input', calculateAllTabs);
-    el.addEventListener('change', calculateAllTabs);
+  // ---- バッジ同期（存在する場合のみ）----
+  const syncBadges = () => {
+    if (ui.nxBadge && ui.nxInput) ui.nxBadge.textContent = ui.nxInput.value;
+    if (ui.nyBadge && ui.nyInput) ui.nyBadge.textContent = ui.nyInput.value;
+  };
+
+  // ---- Averaging UI の有効/無効（存在すれば実行）----
+  if (typeof setAveragingUIState === 'function') setAveragingUIState();
+
+  // ---- 初回計算（図・表を起動直後に表示）----
+  if (typeof calculateAll === 'function') calculateAll();
+
+  // ===== イベントバインド =====
+
+  // Material 変更 → 反映→全再計算
+  ui.materialSelect?.addEventListener('change', () => {
+    onMaterialSelect?.();
+    calculateAll?.();
   });
+
+  // 主要入力の変更で全再計算
+  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','baffleCond'].forEach(k => {
+    if (!ui[k]) return;
+    ui[k].addEventListener('input',  () => calculateAll?.());
+    ui[k].addEventListener('change', () => calculateAll?.());
+  });
+
+  // Grid average の ON/OFF
+  ui.useMesh?.addEventListener('change', () => {
+    setAveragingUIState?.();
+    calculateImpedance?.();
+  });
+
+  // Nx/Ny：上下△で変更 → インピーダンス即再描画
+  ui.nxInput?.addEventListener('input',  () => { syncBadges(); calculateImpedance?.(); });
+  ui.nxInput?.addEventListener('change', () => { syncBadges(); calculateImpedance?.(); });
+  ui.nyInput?.addEventListener('input',  () => { syncBadges(); calculateImpedance?.(); });
+  ui.nyInput?.addEventListener('change', () => { syncBadges(); calculateImpedance?.(); });
+
+  // Position X/Y：Grid平均OFFのときのみ即反映
+  const posInstantUpdate = () => { if (!ui.useMesh?.checked) calculateImpedance?.(); };
+  ui.posX?.addEventListener('input',  posInstantUpdate);
+  ui.posX?.addEventListener('change', posInstantUpdate);
+  ui.posY?.addEventListener('input',  posInstantUpdate);
+  ui.posY?.addEventListener('change', posInstantUpdate);
+
+  // 表示トグル（Mag/Re/Phase）
+  ui.showMag?.addEventListener('change', () => toggleImpedanceDataset?.('mag'));
+  ui.showRe ?.addEventListener('change', () => toggleImpedanceDataset?.('re'));
+  ui.showPh ?.addEventListener('change', () => toggleImpedanceDataset?.('ph'));
 });
+
 
 
 function setAveragingUIState(){
