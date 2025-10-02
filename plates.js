@@ -1,14 +1,14 @@
 /* ===== Constants ===== */
 const MATERIAL_PROPERTIES = {
-  "Custom":       { rho: 0,     E: 0,       nu: 0    },
+  "Custom":       { rho: 0,     E: 0,       nu: 0     },
+  "Concrete":     { rho: 2.3e3, E: 2.1e10,  nu: 0.005 },
   "Gypsum Board": { rho: 0.8e3, E: 0.18e10, nu: 0.005 },
   "Plywood":      { rho: 0.6e3, E: 0.5e10,  nu: 0.30  },
-  "Glass":        { rho: 2500,  E: 70e9,    nu: 0.23  },
-  "Concrete":     { rho: 2.3e3, E: 2.1e10,  nu: 0.005 }
+  "Glass":        { rho: 2500,  E: 70e9,    nu: 0.23  }
 };
 const FREQS = [16,20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000];
 const THIRD_OCT = [16,31.5,63,125,250,500,1000,2000,4000,8000];
-const F_IMP = FREQS.filter(f => f <= 1000); // impedance plot up to 1 kHz
+const F_IMP = FREQS.filter(f => f <= 1000); // Impedance up to 1 kHz
 
 /* ===== State/UI ===== */
 let charts = {};
@@ -57,6 +57,10 @@ function ssModesOrder8(inputs){
   return pairs.map(([p,q]) => ({p,q,f:ssModalFreq(p,q,inputs)}));
 }
 
+// to Unicode subscript digits for labels like f₁₂
+const subDigit = d => ({'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'}[d]||d);
+const sub = s => String(s).split('').map(subDigit).join('');
+
 /* ===== DOM Ready ===== */
 document.addEventListener('DOMContentLoaded', () => {
   ui = {
@@ -67,9 +71,12 @@ document.addEventListener('DOMContentLoaded', () => {
     eInput: document.getElementById('e-input'),
     rhoInput: document.getElementById('rho-input'),
     nuInput: document.getElementById('nu-input'),
-    baffleCond: document.getElementById('baffle-cond'),
     posX: document.getElementById('pos-x'),
     posY: document.getElementById('pos-y'),
+    useMesh: document.getElementById('use-mesh'),
+    nxInput: document.getElementById('nx-input'),
+    nyInput: document.getElementById('ny-input'),
+    baffleCond: document.getElementById('baffle-cond'),
     basicInline: document.getElementById('basic-inline'),
     impChart: document.getElementById('impedance-chart'),
     impTable: document.getElementById('impedance-table'),
@@ -91,20 +98,22 @@ document.addEventListener('DOMContentLoaded', () => {
   Object.keys(MATERIAL_PROPERTIES).forEach(name=>{
     const o=document.createElement('option'); o.value=name; o.textContent=name; ui.materialSelect.appendChild(o);
   });
-  ui.materialSelect.value = 'Gypsum Board';
-  ui.materialSelect.addEventListener('change', onMaterialSelect);
+  // defaults
+  ui.materialSelect.value = 'Concrete';
+  onMaterialSelect(); // sets E,rho,nu
 
   // inputs -> recalc
-  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','posX','posY'].forEach(k=>{
+  ['materialSelect','thickInput','lxInput','lyInput','eInput','rhoInput','nuInput',
+   'posX','posY','useMesh','nxInput','nyInput','baffleCond'].forEach(k=>{
     ui[k].addEventListener('input', calculateAll);
   });
 
   // toggle datasets
   ui.showMag.addEventListener('change', ()=>toggleImpedanceDataset('mag'));
-  ui.showRe.addEventListener('change', ()=>toggleImpedanceDataset('re'));
-  ui.showPh.addEventListener('change', ()=>toggleImpedanceDataset('ph'));
+  ui.showRe.addEventListener('change',  ()=>toggleImpedanceDataset('re'));
+  ui.showPh.addEventListener('change',  ()=>toggleImpedanceDataset('ph'));
 
-  onMaterialSelect(); // also triggers first calc
+  calculateAll();
 });
 
 function onMaterialSelect(){
@@ -113,7 +122,6 @@ function onMaterialSelect(){
   ui.rhoInput.value = props.rho ?? '';
   ui.nuInput.value  = props.nu ?? '';
   [ui.eInput,ui.rhoInput,ui.nuInput].forEach(el=>el.readOnly=false);
-  calculateAll();
 }
 
 /* ===== Core calcs ===== */
@@ -160,12 +168,11 @@ function renderBasicInline(){
 }
 
 /* ===== Impedance ===== */
-let impDatasets = null; // hold refs for toggling
+let impDatasets = null; // refs for toggling
 
 function renderImpedance(){
-  const {E,rho,nu,h,Lx,Ly} = getCommonInputs();
+  const {E,rho,nu,h,Lx,Ly,fc} = getCommonInputs();
   const S = Lx*Ly, rho_s = rho*h;
-  const posX = parseFloat(ui.posX.value)/1000, posY = parseFloat(ui.posY.value)/1000;
 
   // Z_inf_ref (dB)
   const C_L = Math.sqrt(E/rho);
@@ -177,35 +184,70 @@ function renderImpedance(){
     ['Infinite Plate Impedance (Z_inf, ref) [dB]', (Z_INF_DB==null?'NaN':Z_INF_DB.toFixed(2)+' dB re 1 Ns/m³')]
   ]);
 
-  // modal sum for Ydp
+  // positions: single or grid-average
+  let points = [];
+  if (ui.useMesh.checked){
+    const Nx = Math.max(1, parseInt(ui.nxInput.value||'1',10));
+    const Ny = Math.max(1, parseInt(ui.nyInput.value||'1',10));
+    // cell-center grid
+    for (let ix=1; ix<=Nx; ix++){
+      const x = (ix-0.5)/Nx * Lx;
+      for (let iy=1; iy<=Ny; iy++){
+        const y = (iy-0.5)/Ny * Ly;
+        points.push({x,y});
+      }
+    }
+  }else{
+    const x = Math.max(0, Math.min(Lx, parseFloat(ui.posX.value)/1000));
+    const y = Math.max(0, Math.min(Ly, parseFloat(ui.posY.value)/1000));
+    points.push({x,y});
+  }
+
+  // modal sum (SS) at points, then arithmetic mean on linear complex Z
   const results = { mag_dB: [], re_dB: [], ph: [], table: [] };
-  const Pmax=8,Qmax=8;
+  const Pmax=8, Qmax=8;
 
   for (const f of F_IMP){
     const omega = 2*Math.PI*f;
     const eta_f = 0.005 + 0.3/Math.sqrt(Math.max(1e-6,f));
-    let Ysum = new Complex(0,0);
 
-    for (let p=1;p<=Pmax;p++){
-      for (let q=1;q<=Qmax;q++){
-        const fpq = ssModalFreq(p,q,{E,rho,nu,h,Lx,Ly});
-        const opq = 2*Math.PI*fpq;
-        const psi = Math.sin(p*Math.PI*posX/Lx)*Math.sin(q*Math.PI*posY/Ly);
-        const denom = (new Complex(opq*opq, opq*opq*eta_f)).sub(new Complex(omega*omega,0));
-        Ysum = Ysum.add( (new Complex(psi*psi,0)).div(denom) );
+    // accumulate complex Z over grid points
+    let Zsum_re = 0, Zsum_im = 0, Np = points.length;
+
+    for (const pt of points){
+      let Ysum = new Complex(0,0);
+      for (let p=1;p<=Pmax;p++){
+        for (let q=1;q<=Qmax;q++){
+          const fpq = ssModalFreq(p,q,{E,rho,nu,h,Lx,Ly});
+          const opq = 2*Math.PI*fpq;
+          const psi = Math.sin(p*Math.PI*pt.x/Lx)*Math.sin(q*Math.PI*pt.y/Ly);
+          const denom = (new Complex(opq*opq, opq*opq*eta_f)).sub(new Complex(omega*omega,0));
+          Ysum = Ysum.add( (new Complex(psi*psi,0)).div(denom) );
+        }
       }
+      const Ydp = Complex.i().mul(new Complex(4*omega/(rho_s*S),0)).mul(Ysum);
+      // Z = 1/Y
+      const d = Ydp.re*Ydp.re + Ydp.im*Ydp.im;
+      let Zr=Infinity, Zi=Infinity;
+      if (d>0 && isFinite(d)){
+        Zr =  Ydp.re/d;
+        Zi = -Ydp.im/d;
+      }
+      Zsum_re += Zr;
+      Zsum_im += Zi;
     }
-    const Ydp = Complex.i().mul(new Complex(4*omega/(rho_s*S),0)).mul(Ysum);
-    const d = Ydp.re*Ydp.re + Ydp.im*Ydp.im;
 
+    // arithmetic mean (linear) of complex Z
+    let Zr_avg = Zsum_re / Np;
+    let Zi_avg = Zsum_im / Np;
+
+    // convert to |Z| dB, Re(Z) dB, Phase deg
     let mag_dB=null, re_dB=null, ph=null;
-    if (d>0 && isFinite(d)){
-      const Zr =  Ydp.re/d;
-      const Zi = -Ydp.im/d;
-      const mag = Math.hypot(Zr,Zi);
+    if (isFinite(Zr_avg) && isFinite(Zi_avg)){
+      const mag = Math.hypot(Zr_avg, Zi_avg);
       mag_dB = 20*Math.log10(Math.max(mag,1e-12));
-      re_dB  = 20*Math.log10(Math.max(Math.abs(Zr),1e-12));
-      ph = Math.atan2(Zi,Zr)*180/Math.PI;
+      re_dB  = 20*Math.log10(Math.max(Math.abs(Zr_avg),1e-12));
+      ph = Math.atan2(Zi_avg, Zr_avg)*180/Math.PI;
     }
     results.mag_dB.push(mag_dB);
     results.re_dB.push(re_dB);
@@ -218,44 +260,65 @@ function renderImpedance(){
   }
   createTable(ui.impTable, ['Frequency (Hz)','|Z| dB','Re(Z) dB','Phase (deg)'], results.table);
 
-  // modal dots on Z_inf
-  const modes8 = ssModesOrder8({E,rho,nu,h,Lx,Ly})
+  // modal dots on Z_inf_ref with subscript labels
+  const modes8raw = ssModesOrder8({E,rho,nu,h,Lx,Ly});
+  const modes8 = modes8raw
     .filter(m => m.f>=F_IMP[0] && m.f<=F_IMP[F_IMP.length-1])
-    .map(m => ({x:m.f, y:Z_INF_DB, label:`f${m.p}${m.q}=${m.f.toFixed(1)} Hz`}));
+    .map(m => ({x:m.f, y:Z_INF_DB, label:`f${sub(m.p)}${sub(m.q)}`}));
 
-  // build datasets (initially hidden except Z_inf and dots)
+  // datasets (initialはZ_infとf_nmのみ表示)
   impDatasets = [
-    { key:'mag', label:'|Z| [dB re 1 Ns/m³]', data:results.mag_dB, yAxisID:'y',
+    { key:'mag', label:'|Z|', data:results.mag_dB, yAxisID:'y',
       borderColor:'rgba(255,99,132,1)', borderWidth:2, pointRadius:2, hidden: true },
-    { key:'re',  label:'Re(Z) [dB]', data:results.re_dB, yAxisID:'y1',
+    { key:'re',  label:'Re(Z)', data:results.re_dB, yAxisID:'y1',
       borderColor:'rgba(54,162,235,1)', borderWidth:2, pointRadius:2, hidden: true },
-    { key:'ph',  label:'Phase(Z) [deg]', data:results.ph, yAxisID:'y2',
+    { key:'ph',  label:'Phase', data:results.ph, yAxisID:'y2',
       borderColor:'rgba(255,206,86,1)', borderWidth:2, pointRadius:2, hidden: true },
-    { key:'zinf',label:'Z_inf_ref [dB]', data:F_IMP.map(()=>Z_INF_DB), yAxisID:'y',
-      borderColor:'rgba(0,160,0,0.9)', borderDash:[6,3], borderWidth:2, pointRadius:0, hidden:false },
-    { key:'dots', type:'scatter', label:'f11..f33 on Z_inf', data:modes8, yAxisID:'y',
+    { key:'zinf',label:'Z_inf_ref', data:F_IMP.map(()=>Z_INF_DB), yAxisID:'y',
+      borderColor:'rgba(0,160,0,0.95)', borderDash:[6,3], borderWidth:2, pointRadius:0, hidden:false },
+    { key:'dots', type:'scatter', label:'f_nm', data:modes8, yAxisID:'y',
       pointRadius:4, pointHoverRadius:6, showLine:false, hidden:false }
   ];
 
-  // plugin: annotate scatter labels
+  // plugin: annotate scatter labels & color bands
+  const bandColors = [
+    'rgba(230,159,0,0.06)','rgba(86,180,233,0.06)','rgba(0,158,115,0.06)',
+    'rgba(240,228,66,0.06)','rgba(0,114,178,0.06)','rgba(213,94,0,0.06)',
+    'rgba(204,121,167,0.06)','rgba(160,160,160,0.06)','rgba(120,190,190,0.06)',
+    'rgba(190,120,190,0.06)','rgba(190,190,120,0.06)','rgba(120,120,190,0.06)'
+  ];
   const labelPlugin = {
-    id:'imp_annot',
-    afterDatasetsDraw(chart){
-      const {ctx, chartArea, scales} = chart;
+    id:'imp_annot_bands',
+    afterDraw(chart){
+      const {ctx, chartArea:area, scales:{x}} = chart;
+      // 1/3oct band coloring (distinct color each band)
+      const pow6 = Math.pow(2,1/6);
+      const centers = F_IMP;
+      ctx.save();
+      centers.forEach((fc,i)=>{
+        const fl = fc / pow6, fu = fc * pow6;
+        const x0 = x.getPixelForValue(fl), x1 = x.getPixelForValue(fu);
+        const left = Math.max(x0, area.left), right = Math.min(x1, area.right);
+        if (right>left){
+          ctx.fillStyle = bandColors[i % bandColors.length];
+          ctx.fillRect(left, area.top, right-left, area.bottom-area.top);
+        }
+      });
+      ctx.restore();
+
+      // f_nm labels
       const ds = chart.data.datasets.find(d=>d.key==='dots');
       if (!ds || ds.hidden) return;
       const meta = chart.getDatasetMeta(chart.data.datasets.indexOf(ds));
       ctx.save();
       ctx.font = '11px Arial';
-      ctx.fillStyle = '#444';
+      ctx.fillStyle = '#333';
       ds.data.forEach((pt,i)=>{
         const el = meta.data[i];
         if (!el) return;
-        const {x,y} = el.getProps(['x','y'], true);
-        const label = pt.label || '';
-        const dx = 6, dy = -6;
-        if (x>chartArea.left && x<chartArea.right && y>chartArea.top && y<chartArea.bottom){
-          ctx.fillText(label, x+dx, y+dy);
+        const {x:xp,y:yp} = el.getProps(['x','y'], true);
+        if (xp>area.left && xp<area.right && yp>area.top && yp<area.bottom){
+          ctx.fillText(pt.label, xp+6, yp-6);
         }
       });
       ctx.restore();
@@ -287,7 +350,7 @@ function renderImpedance(){
   });
 
   // formula note
-  ui.impFormula.innerHTML = `<span>SS modal sum; |Z|, Re(Z) は 20log₁₀(·) 表示。初期表示は Z_inf_ref と f<sub>mn</sub> の注記のみ。チェックで他系列を表示/非表示。</span>`;
+  ui.impFormula.innerHTML = `<span>SS modal sum。平均は「線形の複素インピーダンス」を算術平均してから dB/位相へ変換。初期表示は Z_inf_ref と f<sub>nm</sub>（サブスクリプト）だけ。チェックで系列表示。</span>`;
 }
 
 function toggleImpedanceDataset(kind){
@@ -308,7 +371,7 @@ function renderSTL(){
   const Rc = Rm.map((r,i)=>{
     const f=FREQS[i], fr=f/fc;
     if (Math.abs(fr-1)<1e-6) return r;
-    const c=(2*eta)/(Math.PI*fr)* (1/Math.pow(Math.abs(1-fr*fr),2));
+    const c=(2*eta)/(Math.PI*fr) * (1/Math.pow(Math.abs(1-fr*fr),2));
     return r - 10*Math.log10(Math.abs(c)+1);
   });
 
@@ -334,7 +397,7 @@ function renderSTL(){
   createTable(ui.stlTable, ['Frequency (Hz)','Mass Law (dB)','With Coincidence (dB)'],
     FREQS.map((f,i)=>[f,Rm[i].toFixed(1),Rc[i].toFixed(1)]));
 
-  ui.stlFormula.innerHTML = `<span>m″=ρh, TL₀=20log₁₀(m″f)−42.5。Coincidence 補正を簡易適用。</span>`;
+  ui.stlFormula.textContent = 'm″=ρh, TL₀=20log₁₀(m″f)−42.5。Coincidence 簡易補正。';
 }
 
 /* ===== Radiation ===== */
