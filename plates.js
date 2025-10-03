@@ -38,7 +38,7 @@ function createPlot(chartId, datasets, title, yTitle, extra={}){
   const ctx = canvas.getContext('2d');
   if(charts[chartId]) charts[chartId].destroy();
 
-  // background bands plugin + labels + vertical modal dots
+  // 1/3oct バンド背景 & モード点
   const bandsPlugin = {
     id: 'bands_'+chartId,
     afterDraw(chart){
@@ -46,7 +46,6 @@ function createPlot(chartId, datasets, title, yTitle, extra={}){
       const x = scales.x, y = scales.y;
       if (!x || !chartArea) return;
 
-      // 1/3-octave shaded
       const pow6 = Math.pow(2,1/6);
       for (let i=0;i<FREQS.length;i++){
         const fc = Number(FREQS[i]);
@@ -59,7 +58,7 @@ function createPlot(chartId, datasets, title, yTitle, extra={}){
         ctx.fillRect(left, chartArea.top, right-left, chartArea.bottom-chartArea.top);
         ctx.restore();
       }
-      // x labels for each 1/3-oct center
+      // 1/3oct ラベル
       ctx.save();
       ctx.font = '11px Arial'; ctx.fillStyle='#222'; ctx.textAlign='center';
       const yText = chartArea.bottom + 14;
@@ -69,7 +68,7 @@ function createPlot(chartId, datasets, title, yTitle, extra={}){
       });
       ctx.restore();
 
-      // modal dots provided in extra.modalDots
+      // モード点
       if (extra.modalDots && Array.isArray(extra.modalDots) && typeof extra.zInfDb==='number'){
         ctx.save();
         ctx.fillStyle = '#222'; ctx.textAlign='center';
@@ -95,7 +94,7 @@ function createPlot(chartId, datasets, title, yTitle, extra={}){
         borderWidth: 2,
         pointRadius: 0,
         spanGaps: true,
-        parsing: false,              // we provide {x,y}
+        parsing: false,              // {x,y} で渡す
         data: ds.data
       }))
     },
@@ -107,21 +106,9 @@ function createPlot(chartId, datasets, title, yTitle, extra={}){
         legend:{position:'top'}
       },
       scales:{
-        x:{
-          type:'logarithmic',
-          min:16, max:1000,
-          grid:{display:false},
-          ticks:{display:false}
-        },
-        y:{
-          type:'linear', position:'left',
-          title:{display:true, text:yTitle}
-        },
-        yR:{
-          type:'linear', position:'right',
-          grid:{drawOnChartArea:false},
-          title:{display:true, text:'aux'}
-        }
+        x:{ type:'logarithmic', min:16, max:1000, grid:{display:false}, ticks:{display:false} },
+        y:{ type:'linear', position:'left', title:{display:true, text:yTitle} },
+        yR:{ type:'linear', position:'right', grid:{drawOnChartArea:false}, title:{display:true, text:'aux'} }
       }
     },
     plugins:[bandsPlugin]
@@ -144,17 +131,17 @@ function getInputs(){
   const C_Lp = Math.sqrt(E/(rho*(1-nu*nu)));
   const fc = (c0*c0/(2*Math.PI*h))*Math.sqrt(12*rho*(1-nu*nu)/E);
   const S = Lx*Ly;
-  const n_const = (S*Math.sqrt(3))/(h*C_Lp); // approx modal density
+  const n_const = (S*Math.sqrt(3))/(h*C_Lp);
   return {h,E,rho,nu,Lx,Ly,S,c0,D,fc,C_Lp,n_const};
 }
 
-// natural freq SS plate
+// Simply supported plate natural freq.
 function f_mn_SS(m,n, D, rho, h, Lx, Ly){
   return (Math.PI/2)*Math.sqrt(D/(rho*h))*((m/Lx)**2 + (n/Ly)**2);
 }
 
 function calcBasicInline(){
-  const {h,E,rho,nu,D,fc,C_Lp,S,n_const} = getInputs();
+  const {D,fc,C_Lp,n_const} = getInputs();
   createTable(ui.basicInline,
     ['Property','Value','Unit'],
     [
@@ -166,15 +153,14 @@ function calcBasicInline(){
   );
 }
 
-// mobility via modal sum at a point (SS), or grid-average
 function mobilityY_at(f, inputs, x, y){
-  const {D,rho,h,Lx,Ly} = inputs;
+  const {D,rho,h,Lx,Ly,S} = inputs;
   const rho_s = rho*h;
   const omega = 2*Math.PI*f;
   const eta_f = 0.005 + 0.3/Math.sqrt(Math.max(1e-6,f));
 
   let sum = new Complex(0,0);
-  const Pmax = 8, Qmax = 8; // decent default
+  const Pmax = 8, Qmax = 8;
   for(let p=1;p<=Pmax;p++){
     for(let q=1;q<=Qmax;q++){
       const fpq = f_mn_SS(p,q, D, rho, h, Lx, Ly);
@@ -184,8 +170,7 @@ function mobilityY_at(f, inputs, x, y){
       sum = sum.add( new Complex(psi*psi,0).div(denom) );
     }
   }
-  // Y = i*omega * 4/(rho_s*S) * sum
-  return Complex.i().mul(new Complex(4*omega/(rho_s*inputs.S),0)).mul(sum);
+  return Complex.i().mul(new Complex(4*omega/(rho_s*S),0)).mul(sum);
 }
 
 function toXY(freqs, arr){ return freqs.map((f,i)=>({x:f, y: arr[i]})); }
@@ -193,7 +178,7 @@ function toXY(freqs, arr){ return freqs.map((f,i)=>({x:f, y: arr[i]})); }
 function calcImpedance(){
   const ins = getInputs();
 
-  // Z_inf (reference) & its dB (shown in table; horizontal line in figure)
+  // Z_inf の参照ライン（常に表示）
   const C_L = Math.sqrt(ins.E/ins.rho);
   const Z_inf_ref = 2.3 * ins.rho * C_L * Math.pow(ins.h,2);
   const Z_inf_ref_dB = 20*Math.log10(Z_inf_ref);
@@ -201,11 +186,10 @@ function calcImpedance(){
   createTable(ui.infImpTable, ['Property','Value'],
     [['Infinite Plate Impedance (Z_inf, ref) [dB]', Z_inf_ref_dB.toFixed(2)]]);
 
-  // datasets
+  // データ生成
   const mag_dB = [], re_dB = [], ph_deg = [];
   const tableRows = [];
 
-  // grid-average?
   const useGrid = ui.useMesh.checked;
   const Nx = Math.max(1, parseInt(ui.nxInput.value||'1',10));
   const Ny = Math.max(1, parseInt(ui.nyInput.value||'1',10));
@@ -213,7 +197,6 @@ function calcImpedance(){
   for(const f of FREQS){
     let Z;
     if (useGrid){
-      // arithmetic mean of complex Z over grid
       let acc = new Complex(0,0);
       for (let ix=0; ix<Nx; ix++){
         for (let iy=0; iy<Ny; iy++){
@@ -233,14 +216,14 @@ function calcImpedance(){
     }
 
     const mag = Z.magnitude;
-    const re  = Math.abs(Z.re); // dB化するので絶対値に
+    const re  = Math.abs(Z.re);
     const ph  = Z.phase*180/Math.PI;
     mag_dB.push( (mag>0)? 20*Math.log10(mag) : null );
     re_dB .push( (re>0)?  20*Math.log10(re)  : null );
     ph_deg.push( isFinite(ph)? ph : null );
 
     tableRows.push([
-      f, 
+      f,
       mag>0 ? (20*Math.log10(mag)).toFixed(2) : 'NaN',
       re>0  ? (20*Math.log10(re)).toFixed(2)  : 'NaN',
       isFinite(ph) ? ph.toFixed(1) : 'NaN'
@@ -249,7 +232,7 @@ function calcImpedance(){
 
   createTable(ui.impTable, ['Frequency (Hz)', '|Z| [dB]', 'Re(Z) [dB]', 'Phase [deg]'], tableRows);
 
-  // modal dots (f11,f12,f21,f13,f31,f23,f32,f33)
+  // モード点（図の注釈）
   const dots = [];
   const pairs = [[1,1],[1,2],[2,1],[1,3],[3,1],[2,3],[3,2],[3,3]];
   pairs.forEach(([m,n])=>{
@@ -257,7 +240,7 @@ function calcImpedance(){
     if (fmn>=FREQS[0] && fmn<=FREQS[FREQS.length-1]) dots.push({f:fmn, m, n});
   });
 
-  // datasets build (Infinite only by default; checkboxes add more)
+  // データセット構成：Z_inf は常時、|Z|/Re/Phase はチェックで切替
   const sets = [
     {label:'Z_inf_ref [dB]', data: toXY(FREQS, FREQS.map(()=>Z_inf_ref_dB)), borderColor:'rgba(0,160,0,0.9)', borderDash:[6,3]}
   ];
@@ -270,7 +253,6 @@ function calcImpedance(){
     modalDots: dots
   });
 
-  // formulas (brief)
   ui.impFormula.innerHTML = `<p><b>Y<sub>dp</sub></b> = iω·4/(ρh·S)·Σ<sub>p,q</sub> { ψ² / [ω<sub>pq</sub>²(1+iη)-ω²] }, &nbsp; Z = 1/Y</p>`;
 }
 
@@ -296,7 +278,7 @@ function calcSTL(){
 }
 
 function calcRadiation(){
-  const {h,Lx,Ly,c0,fc} = getInputs();
+  const {Lx,Ly,c0,fc} = getInputs();
   const l = 2*(Lx+Ly), S=Lx*Ly, lambda_c = c0/fc;
   const sigma_simple = FREQS.map(f=>{
     if (f>fc) return 1;
@@ -313,31 +295,7 @@ function calcRadiation(){
 }
 
 /* ---------------- UI init & wiring ---------------- */
-function onMaterialSelect(){
-  const name = ui.materialSelect.value;
-  const props = MATERIAL_PROPERTIES[name];
-  if (!props) return;
-  ui.eInput.value   = props.E.toExponential(3);
-  ui.rhoInput.value = props.rho;
-  ui.nuInput.value  = props.nu;
-}
-
-function setAveragingUIState(){
-  const use = ui.useMesh.checked;
-  ui.posX.disabled = use;
-  ui.posY.disabled = use;
-}
-
-function calculateAll(){
-  calcBasicInline();
-  calcImpedance();
-  calcSTL();
-  calcRadiation();
-}
-
-function toggleImpedanceDataset(kind){
-  calcImpedance();
-}
+function calculateAll(){ calcBasicInline(); calcImpedance(); calcSTL(); calcRadiation(); }
 
 /* tabs */
 function wireTabs(){
@@ -386,51 +344,49 @@ document.addEventListener('DOMContentLoaded', () => {
     showPh: document.getElementById('show-ph')
   };
 
-  function buildMaterialOptions() {
+  // マテリアル選択肢
+  const buildMaterialOptions = () => {
     if (!ui.materialSelect) return;
     const opts = Object.keys(MATERIAL_PROPERTIES)
       .map(name => `<option value="${name}">${name}</option>`).join('');
     ui.materialSelect.innerHTML = opts;
-  }
+  };
 
-  function setDefaults() {
+  // 既定値 + 初期描画（|Z| を既定で ON）
+  const setDefaultsAndRender = () => {
     ui.materialSelect.value = 'Concrete';
     ui.thickInput.value = 180;
     ui.lxInput.value = 3000;
     ui.lyInput.value = 4000;
     ui.posX.value = 1500;
     ui.posY.value = 2000;
-    if (ui.useMesh) ui.useMesh.checked = true;
-    if (ui.nxInput) ui.nxInput.value = 5;
-    if (ui.nyInput) ui.nyInput.value = 6;
-  }
+    ui.useMesh.checked = true;
+    ui.nxInput.value = 5;
+    ui.nyInput.value = 6;
 
-  function applyMaterialToFields() {
     const props = MATERIAL_PROPERTIES[ui.materialSelect.value];
-    if (!props) return;
     ui.eInput.value   = Number(props.E).toExponential(3);
     ui.rhoInput.value = props.rho;
     ui.nuInput.value  = props.nu;
-  }
 
-  function setAveragingUIStateLocal() {
-    const use = ui.useMesh?.checked;
-    if (ui.posX) ui.posX.disabled = !!use;
-    if (ui.posY) ui.posY.disabled = !!use;
-  }
+    // 初期表示で必ず |Z| を出す
+    if (ui.showMag) ui.showMag.checked = true;
+
+    wireTabs();
+    calculateAll();
+  };
 
   buildMaterialOptions();
-  setDefaults();
-  applyMaterialToFields();
-  setAveragingUIStateLocal();
-  wireTabs();                 // tabs wired
+  setDefaultsAndRender();
 
-  // 初回計算
-  calculateAll();
-
-  // ====== イベント束ね ======
+  // ====== イベント束ね（すべてライブ更新） ======
   ui.materialSelect.addEventListener('change', () => {
-    applyMaterialToFields();
+    const p = MATERIAL_PROPERTIES[ui.materialSelect.value];
+    if (p){
+      ui.eInput.value   = Number(p.E).toExponential(3);
+      ui.rhoInput.value = p.rho;
+      ui.nuInput.value  = p.nu;
+    }
     calculateAll();
   });
 
@@ -440,21 +396,30 @@ document.addEventListener('DOMContentLoaded', () => {
       ui[k]?.addEventListener('change', calculateAll);
     });
 
-  ui.useMesh?.addEventListener('change', () => { setAveragingUIStateLocal(); calculateImpedance(); });
-  ui.nxInput?.addEventListener('input',  calculateImpedance);
-  ui.nxInput?.addEventListener('change', calculateImpedance);
-  ui.nyInput?.addEventListener('input',  calculateImpedance);
-  ui.nyInput?.addEventListener('change', calculateImpedance);
+  const setAveragingUIState = () => {
+    const use = ui.useMesh.checked;
+    ui.posX.disabled = use;
+    ui.posY.disabled = use;
+  };
 
-  // Grid OFF のときだけ位置で即時更新
-  const posInstant = () => { if (!ui.useMesh?.checked) calculateImpedance(); };
-  ui.posX?.addEventListener('input',  posInstant);
-  ui.posX?.addEventListener('change', posInstant);
-  ui.posY?.addEventListener('input',  posInstant);
-  ui.posY?.addEventListener('change', posInstant);
+  ui.useMesh.addEventListener('change', () => { setAveragingUIState(); calcImpedance(); });
+  ui.nxInput.addEventListener('input',  calcImpedance);
+  ui.nxInput.addEventListener('change', calcImpedance);
+  ui.nyInput.addEventListener('input',  calcImpedance);
+  ui.nyInput.addEventListener('change', calcImpedance);
 
-  // 表示トグル
-  ui.showMag?.addEventListener('change', () => calculateImpedance());
-  ui.showRe ?.addEventListener('change', () => calculateImpedance());
-  ui.showPh ?.addEventListener('change', () => calculateImpedance());
+  // Grid OFF のとき位置変更で即時更新
+  const posInstant = () => { if (!ui.useMesh.checked) calcImpedance(); };
+  ui.posX.addEventListener('input',  posInstant);
+  ui.posX.addEventListener('change', posInstant);
+  ui.posY.addEventListener('input',  posInstant);
+  ui.posY.addEventListener('change', posInstant);
+
+  // データセット表示トグル
+  ui.showMag.addEventListener('change', calcImpedance);
+  ui.showRe .addEventListener('change', calcImpedance);
+  ui.showPh .addEventListener('change', calcImpedance);
+
+  // UI 状態反映
+  setAveragingUIState();
 });
