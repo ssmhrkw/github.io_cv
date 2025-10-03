@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setDefaults();
   applyMaterialToFields();
   setAveragingUIStateLocal();
-  wireTabs();                 // FIX 2: tabs actually work
+  wireTabs();                 // tabs wired
 
   // 初回計算
   calculateAll();
