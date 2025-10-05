@@ -31,7 +31,7 @@
     input[type="checkbox"]{transform: translateY(1px);}
     .subtle{color:var(--muted);font-size:12px;}
     .section{margin:12px 0 16px 0;border-top:1px dashed var(--border);padding-top:12px;}
-    .btn{appearance:none;border:1px solid var(--border);background:#fff;color:var(--fg);
+    .btn{appearance:none;border:1px solid var(--border);background:#fff;color:#0f172a;
       padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;}
     .btn.primary{border-color:transparent;background:var(--accent);color:#fff;}
     .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
@@ -47,22 +47,17 @@
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
   <script>
-    // MathJax configuration
-    window.MathJax = {
-      tex: {inlineMath: [['$', '$'], ['\\(', '\\)']]},
-      svg: {fontCache: 'global'}
-    };
+    window.MathJax = { tex: {inlineMath: [['$', '$'], ['\\(', '\\)']]}, svg: {fontCache: 'global'} };
   </script>
   <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
   <header>
     <h1>矩形板の駆動点インピーダンス（リアルタイム）</h1>
-    <span class="subtle">★: オクターブ平均（16, 31.5, 63, 125, 250, 500, 1000, 2000）／ ●: 無限長／ ▲: f<sub>11</sub>〜f<sub>32</sub></span>
+    <span class="subtle">★: オクターブ平均（16, 31.5, 63, 125, 250, 500, 1000, 2000）／ ●: 無限長（周波数非依存）／ ▲: f<sub>11</sub>〜f<sub>32</sub></span>
   </header>
 
   <div class="container">
-    <!-- Controls -->
     <div class="card" id="controls">
       <h2>設定</h2>
 
@@ -174,10 +169,9 @@
       </div>
     </div>
 
-    <!-- Plot -->
     <div class="card">
       <div id="plot"></div>
-      <div class="note">★: 1/1オクターブ中心（16, 31.5, 63, 125, 250, 500, 1000, 2000）でのバンド平均（線形平均→必要に応じdB変換）。●: 無限長理論。▲: f<sub>11</sub>, f<sub>12</sub>, f<sub>21</sub>, f<sub>22</sub>, f<sub>31</sub>, f<sub>32</sub>。</div>
+      <div class="note">★: 1/1オクターブ中心（16, 31.5, 63, 125, 250, 500, 1000, 2000）でのバンド平均。●: 無限長（$Z_\infty=8\sqrt{D\,\rho h}$, 実数・周波数非依存）。▲: f<sub>11</sub>, f<sub>12</sub>, f<sub>21</sub>, f<sub>22</sub>, f<sub>31</sub>, f<sub>32</sub>。</div>
       <details class="equations">
         <summary>計算式（MathJax）を表示</summary>
         <div>
@@ -186,10 +180,10 @@
           $f_{mn}=\omega_{mn}/(2\pi)$</p>
           <p>点モビリティ（モード和）：
           $$Y(x_0,y_0,\omega)=\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}} \frac{4}{m' L_x L_y}\sin^2\frac{m\pi x_0}{L_x}\sin^2\frac{n\pi y_0}{L_y}\cdot \frac{j\omega}{\omega_{mn}^2-\omega^2+j\eta \omega_{mn}\omega}$$
-          駆動点インピーダンスは $Z=1/Y$.</p>
-          <p>無限長板の点モビリティの大きさ（損失小）：
-          $$|Y_{\infty}(\omega)|=\frac{1}{8\sqrt{D\,m'\,\omega}}\qquad\Rightarrow\qquad |Z_{\infty}(\omega)|=8\sqrt{D\,m'\,\omega}$$
-          （位相は $45^\circ$ 程度）</p>
+          $Z=1/Y$.</p>
+          <p>無限長板（中心部加振, Cremer 等）：
+          $$Z_\infty = 8\sqrt{D\,\rho h} = 2.3\,\rho\,c_{L,p}\,h^2\quad(\text{実数, 周波数非依存})$$
+          </p>
         </div>
       </details>
     </div>
