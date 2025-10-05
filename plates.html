@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Driving-Point Impedance of Rectangular Plate (v2)</title>
+  <title>矩形板の駆動点インピーダンス（リアルタイム）</title>
   <style>
     :root{
       --bg:#ffffff;
@@ -18,24 +18,24 @@
     body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";color:var(--fg);background:var(--bg);}
     header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:0.2px;}
-    .container{display:grid;grid-template-columns: 420px 1fr;gap:16px;padding:16px;}
+    .container{display:grid;grid-template-columns: 460px 1fr;gap:16px;padding:16px;}
     .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
     .card h2{margin:0 0 12px 0;font-size:14px;}
     .grid{display:grid;gap:10px;grid-template-columns: 1fr 1fr;}
-    .row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-    label{font-size:12px;color:var(--muted);min-width:132px;}
+    .row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    label{font-size:12px;color:var(--muted);min-width:150px;}
     input[type="number"], select{
-      width:100%;min-width:130px;padding:10px 12px;border:1px solid var(--border);
+      width:100%;min-width:160px;padding:12px 14px;border:1px solid var(--border);
       border-radius:10px;font-size:14px;background:#fff;color:var(--fg);
     }
     input[type="checkbox"]{transform: translateY(1px);}
     .subtle{color:var(--muted);font-size:12px;}
     .section{margin:12px 0 16px 0;border-top:1px dashed var(--border);padding-top:12px;}
     .btn{appearance:none;border:1px solid var(--border);background:#fff;color:var(--fg);
-      padding:8px 10px;border-radius:10px;cursor:pointer;font-size:13px;}
+      padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;}
     .btn.primary{border-color:transparent;background:var(--accent);color:#fff;}
     .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
-    #plot{width:100%;height:680px;background:#fff;border-radius:14px;border:1px solid var(--border);}
+    #plot{width:100%;height:700px;background:#fff;border-radius:14px;border:1px solid var(--border);}
     .note{font-size:11px;color:var(--muted);}
     footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
     .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;}
@@ -57,8 +57,8 @@
 </head>
 <body>
   <header>
-    <h1>矩形板の駆動点インピーダンス v2（リアルタイム）</h1>
-    <span class="subtle">★: オクターブ平均, ▲: 固有振動数, ●: 無限長（式確認後に表示）</span>
+    <h1>矩形板の駆動点インピーダンス（リアルタイム）</h1>
+    <span class="subtle">★: オクターブ平均（16, 31.5, 63, 125, 250, 500, 1000, 2000）／ ●: 無限長／ ▲: f<sub>11</sub>〜f<sub>32</sub></span>
   </header>
 
   <div class="container">
@@ -79,7 +79,7 @@
       <div class="grid">
         <div class="row">
           <label for="E">E [GPa]</label>
-          <input id="E" type="number" step="0.1" min="0.1" value="30"/>
+          <input id="E" type="number" step="0.1" min="0.1" value="30.0"/>
         </div>
         <div class="row">
           <label for="rho">ρ [kg/m³]</label>
@@ -91,7 +91,7 @@
         </div>
         <div class="row">
           <label for="thick">板厚 h [mm]</label>
-          <input id="thick" type="number" step="1" min="1" value="150"/>
+          <input id="thick" type="number" step="1" min="1" value="200"/>
         </div>
       </div>
 
@@ -147,23 +147,14 @@
             <label><input type="checkbox" id="showZ" checked> |Z|</label>
             <label><input type="checkbox" id="showY"> |Y|</label>
             <label><input type="checkbox" id="logx" checked> log f</label>
-            <label><input type="checkbox" id="db"> dB (20·log10)</label>
+            <label><input type="checkbox" id="db" checked> dB (20·log10)</label>
           </div>
         </div>
         <div class="row">
-          <label>オクターブ</label>
+          <label>★/●/▲</label>
           <div class="stack">
-            <select id="octType">
-              <option value="1">1/1 octave</option>
-              <option value="3">1/3 octave</option>
-            </select>
             <button class="btn" id="toggleOct">★ 表示/非表示</button>
-          </div>
-        </div>
-        <div class="row">
-          <label>モードマーカー</label>
-          <div class="stack">
-            <label>数 <input id="markN" type="number" min="2" max="20" value="6" style="width:90px"></label>
+            <button class="btn" id="toggleInf">● 表示/非表示</button>
             <button class="btn" id="toggleModes">▲ 表示/非表示</button>
           </div>
         </div>
@@ -186,17 +177,19 @@
     <!-- Plot -->
     <div class="card">
       <div id="plot"></div>
-      <div class="note">★: バンド内平均（デフォルトは 1/1 オクターブ・線形平均 → dB変換）。▲: f<sub>mn</sub> の上位N点。</div>
+      <div class="note">★: 1/1オクターブ中心（16, 31.5, 63, 125, 250, 500, 1000, 2000）でのバンド平均（線形平均→必要に応じdB変換）。●: 無限長理論。▲: f<sub>11</sub>, f<sub>12</sub>, f<sub>21</sub>, f<sub>22</sub>, f<sub>31</sub>, f<sub>32</sub>。</div>
       <details class="equations">
         <summary>計算式（MathJax）を表示</summary>
         <div>
           <p>薄板曲げ剛性：$D=\dfrac{E h^3}{12(1-\nu^2)}$，面密度：$m'=\rho h$</p>
-          <p>単純支持矩形板 (SSSS) の固有角振動数：$ \omega_{mn}=\sqrt{\dfrac{D}{m'}} \left(\pi^2\left(\dfrac{m^2}{L_x^2}+\dfrac{n^2}{L_y^2}\right)\right)^2$，
+          <p>SSSS矩形板の固有角振動数：$ \omega_{mn}=\sqrt{\dfrac{D}{m'}} \left(\pi^2\left(\dfrac{m^2}{L_x^2}+\dfrac{n^2}{L_y^2}\right)\right)^2$，
           $f_{mn}=\omega_{mn}/(2\pi)$</p>
-          <p>点モビリティ（モード和，損失係数 $\eta$）：
+          <p>点モビリティ（モード和）：
           $$Y(x_0,y_0,\omega)=\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}} \frac{4}{m' L_x L_y}\sin^2\frac{m\pi x_0}{L_x}\sin^2\frac{n\pi y_0}{L_y}\cdot \frac{j\omega}{\omega_{mn}^2-\omega^2+j\eta \omega_{mn}\omega}$$
           駆動点インピーダンスは $Z=1/Y$.</p>
-          <p class="subtle">※ 無限長板の解析式は複数流儀があるため、合意した式で実装します（●マーカー）。</p>
+          <p>無限長板の点モビリティの大きさ（損失小）：
+          $$|Y_{\infty}(\omega)|=\frac{1}{8\sqrt{D\,m'\,\omega}}\qquad\Rightarrow\qquad |Z_{\infty}(\omega)|=8\sqrt{D\,m'\,\omega}$$
+          （位相は $45^\circ$ 程度）</p>
         </div>
       </details>
     </div>
