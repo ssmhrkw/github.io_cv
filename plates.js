@@ -1,425 +1,326 @@
-/* ---------------- constants ---------------- */
-const MATERIAL_PROPERTIES = {
-  "Custom": { rho: 0, E: 0, nu: 0.30 },
-  "Concrete": { rho: 2300, E: 2.1e10, nu: 0.2 },
-  "Gypsum Board": { rho: 800, E: 0.18e10, nu: 0.25 },
-  "Plywood": { rho: 600, E: 0.5e10, nu: 0.30 },
-  "Glass": { rho: 2500, E: 70.0e9, nu: 0.23 }
-};
-const FREQS = [16,20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000];
-let charts = {};
-let ui = {};
+# Write a standalone JS file (plates.js) extracted from the delivered HTML's <script> with slight modularization.
+js_code = r"""/* plates.js — Rectangular plate driving-point impedance (live) */
+/* Requires: Plotly 2.x loaded before this script. */
+/* Expects the following element IDs to exist in HTML:
+   material,E,rho,nu,thick,Lx,Ly,x0,y0,eta,fmin,fmax,mx,ny,
+   showZ,showY,logx,logy,reim,avgOn,avgN,seed,
+   file,exportPng,reset,plot,kpiD,kpimm,kpif11
+*/
+(function(){
+  "use strict";
 
-/* ---------------- small Complex ---------------- */
-class Complex {
-  constructor(re=0, im=0){ this.re = re; this.im = im; }
-  add(z){ return new Complex(this.re+z.re, this.im+z.im); }
-  sub(z){ return new Complex(this.re-z.re, this.im-z.im); }
-  mul(z){ return new Complex(this.re*z.re - this.im*z.im, this.re*z.im + this.im*z.re); }
-  div(z){
-    const d = z.re*z.re + z.im*z.im;
-    if(d===0) return new Complex(Infinity, Infinity);
-    return new Complex((this.re*z.re + this.im*z.im)/d, (this.im*z.re - this.re*z.im)/d);
-  }
-  get magnitude(){ return Math.hypot(this.re, this.im); }
-  get phase(){ return Math.atan2(this.im, this.re); }
-  static i(){ return new Complex(0,1); }
-}
+  // --- Small utilities ------------------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const EPS = 1e-30;
 
-/* ---------------- helpers ---------------- */
-function createTable(el, headers, rows){
-  if (!el) return;
-  el.innerHTML = `<thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-  <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>`;
-}
-function createPlot(chartId, datasets, title, yTitle, extra={}){
-  const canvas = document.getElementById(chartId);
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if(charts[chartId]) charts[chartId].destroy();
-
-  // 1/3oct バンド背景 & モード点
-  const bandsPlugin = {
-    id: 'bands_'+chartId,
-    afterDraw(chart){
-      const {ctx, chartArea, scales} = chart;
-      const x = scales.x, y = scales.y;
-      if (!x || !chartArea) return;
-
-      const pow6 = Math.pow(2,1/6);
-      for (let i=0;i<FREQS.length;i++){
-        const fc = Number(FREQS[i]);
-        const x0 = x.getPixelForValue(fc/pow6);
-        const x1 = x.getPixelForValue(fc*pow6);
-        const left = Math.max(x0, chartArea.left), right = Math.min(x1, chartArea.right);
-        if (right<=chartArea.left || left>=chartArea.right) continue;
-        ctx.save();
-        ctx.fillStyle = (i%2===0) ? 'rgba(200,200,200,0.05)' : 'rgba(180,180,180,0.03)';
-        ctx.fillRect(left, chartArea.top, right-left, chartArea.bottom-chartArea.top);
-        ctx.restore();
-      }
-      // 1/3oct ラベル
-      ctx.save();
-      ctx.font = '11px Arial'; ctx.fillStyle='#222'; ctx.textAlign='center';
-      const yText = chartArea.bottom + 14;
-      FREQS.forEach(fc=>{
-        const xp = x.getPixelForValue(fc);
-        if (xp>=chartArea.left && xp<=chartArea.right) ctx.fillText(String(fc), xp, yText);
-      });
-      ctx.restore();
-
-      // モード点
-      if (extra.modalDots && Array.isArray(extra.modalDots) && typeof extra.zInfDb==='number'){
-        ctx.save();
-        ctx.fillStyle = '#222'; ctx.textAlign='center';
-        extra.modalDots.forEach(md=>{
-          const xp = x.getPixelForValue(md.f);
-          const yp = y.getPixelForValue(extra.zInfDb);
-          if (xp>=chartArea.left && xp<=chartArea.right && yp>=chartArea.top && yp<=chartArea.bottom){
-            ctx.beginPath(); ctx.arc(xp, yp, 3, 0, Math.PI*2); ctx.fill();
-            ctx.font = '11px Arial';
-            ctx.fillText(`f${md.n}${md.m}`, xp, yp-8);
-          }
-        });
-        ctx.restore();
-      }
+  function seededRandom(seed){
+    let s = (seed >>> 0) || 1;
+    return function(){
+      // xorshift32
+      s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+      return (s >>> 0) / 4294967296;
     }
+  }
+
+  // debounce to avoid excessive Plotly.react calls
+  function debounce(fn, wait=50){
+    let t;
+    return (...args)=>{
+      clearTimeout(t);
+      t = setTimeout(()=>fn(...args), wait);
+    };
+  }
+
+  // Minimal complex arithmetic
+  function c(re, im){ return {re, im} }
+  function cadd(a,b){ return c(a.re+b.re, a.im+b.im) }
+  function cdiv(a,b){
+    const d = b.re*b.re + b.im*b.im || EPS;
+    return c( (a.re*b.re + a.im*b.im)/d, (a.im*b.re - a.re*b.im)/d );
+  }
+  function cinv(a){
+    const d = a.re*a.re + a.im*a.im || EPS;
+    return c(a.re/d, -a.im/d);
+  }
+  function cabs(a){ return Math.hypot(a.re, a.im) }
+  const creal = (a)=>a.re, cimag = (a)=>a.im;
+
+  // --- State ----------------------------------------------------------------
+  const state = {
+    material: "concrete",
+    E: 30e9, rho: 2400, nu: 0.20, h: 0.150,
+    Lx: 3.6, Ly: 2.7,
+    x0: 1.8, y0: 1.35,
+    eta: 0.01,
+    fmin: 20, fmax: 5000,
+    mx: 30, ny: 30,
+    showZ: true, showY: false, logx: true, logy: true, reim: false,
+    avgOn: false, avgN: 9, seed: 42,
+    overlay: null
   };
 
-  const chart = new Chart(ctx, {
-    type:'line',
-    data:{
-      datasets: datasets.map(ds=>({
-        ...ds,
-        borderWidth: 2,
-        pointRadius: 0,
-        spanGaps: true,
-        parsing: false,              // {x,y} で渡す
-        data: ds.data
-      }))
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        title:{display:true, text:title, font:{size:16}},
-        legend:{position:'top'}
-      },
-      scales:{
-        x:{ type:'logarithmic', min:16, max:1000, grid:{display:false}, ticks:{display:false} },
-        y:{ type:'linear', position:'left', title:{display:true, text:yTitle} },
-        yR:{ type:'linear', position:'right', grid:{drawOnChartArea:false}, title:{display:true, text:'aux'} }
-      }
-    },
-    plugins:[bandsPlugin]
-  });
-  charts[chartId] = chart;
-  return chart;
-}
+  const presets = {
+    concrete:{E:30e9, rho:2400, nu:0.20, h_mm:150},
+    gypsum:{E:3.0e9, rho:800, nu:0.30, h_mm:12.5},
+    wood:{E:10e9, rho:600, nu:0.30, h_mm:18}
+  };
 
-/* ---------------- physics core ---------------- */
-function getInputs(){
-  const h  = parseFloat(ui.thickInput.value)/1000;
-  const E  = parseFloat(ui.eInput.value);
-  const rho= parseFloat(ui.rhoInput.value);
-  const nu = parseFloat(ui.nuInput.value);
-  const Lx = parseFloat(ui.lxInput.value)/1000;
-  const Ly = parseFloat(ui.lyInput.value)/1000;
-  if(!(h>0&&E>0&&rho>0&&Lx>0&&Ly>0)) throw new Error('Invalid inputs');
-  const c0 = 343;
-  const D  = (E*Math.pow(h,3))/(12*(1-nu*nu));
-  const C_Lp = Math.sqrt(E/(rho*(1-nu*nu)));
-  const fc = (c0*c0/(2*Math.PI*h))*Math.sqrt(12*rho*(1-nu*nu)/E);
-  const S = Lx*Ly;
-  const n_const = (S*Math.sqrt(3))/(h*C_Lp);
-  return {h,E,rho,nu,Lx,Ly,S,c0,D,fc,C_Lp,n_const};
-}
-
-// Simply supported plate natural freq.
-function f_mn_SS(m,n, D, rho, h, Lx, Ly){
-  return (Math.PI/2)*Math.sqrt(D/(rho*h))*((m/Lx)**2 + (n/Ly)**2);
-}
-
-function calcBasicInline(){
-  const {D,fc,C_Lp,n_const} = getInputs();
-  createTable(ui.basicInline,
-    ['Property','Value','Unit'],
-    [
-      ['Bending Stiffness (D)', D.toExponential(3), 'N·m'],
-      ['Critical Frequency (fc)', fc.toFixed(1), 'Hz'],
-      ['Longitudinal Plate Wave (c_L,p)', C_Lp.toFixed(1), 'm/s'],
-      ['Modal density n(f) ~ const', n_const.toFixed(3), 'modes/Hz']
-    ]
-  );
-}
-
-function mobilityY_at(f, inputs, x, y){
-  const {D,rho,h,Lx,Ly,S} = inputs;
-  const rho_s = rho*h;
-  const omega = 2*Math.PI*f;
-  const eta_f = 0.005 + 0.3/Math.sqrt(Math.max(1e-6,f));
-
-  let sum = new Complex(0,0);
-  const Pmax = 8, Qmax = 8;
-  for(let p=1;p<=Pmax;p++){
-    for(let q=1;q<=Qmax;q++){
-      const fpq = f_mn_SS(p,q, D, rho, h, Lx, Ly);
-      const w0  = 2*Math.PI*fpq;
-      const psi = Math.sin(p*Math.PI*x/Lx)*Math.sin(q*Math.PI*y/Ly);
-      const denom = (new Complex(w0*w0, w0*w0*eta_f)).sub(new Complex(omega*omega,0));
-      sum = sum.add( new Complex(psi*psi,0).div(denom) );
-    }
+  function applyPreset(name){
+    if(!presets[name]) return;
+    const p = presets[name];
+    $("E").value = (p.E/1e9).toFixed(1);
+    $("rho").value = p.rho;
+    $("nu").value = p.nu.toFixed(2);
+    $("thick").value = p.h_mm;
+    pullFromUI(); // update state & replot
   }
-  return Complex.i().mul(new Complex(4*omega/(rho_s*S),0)).mul(sum);
-}
 
-function toXY(freqs, arr){ return freqs.map((f,i)=>({x:f, y: arr[i]})); }
+  // --- Physics core ---------------------------------------------------------
+  function bendingStiffness(E, nu, h){ return E*h*h*h/(12*(1-nu*nu)); } // D [N*m]
+  function massPerArea(rho, h){ return rho*h } // m' [kg/m2]
 
-function calcImpedance(){
-  const ins = getInputs();
+  function fmn(m,n,Lx,Ly,E,nu,rho,h){
+    const D = bendingStiffness(E,nu,h);
+    const mp = massPerArea(rho,h);
+    const lam2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly));
+    const omega = Math.sqrt(D/mp) * (lam2*lam2); // ω_mn = sqrt(D/mp) * λ^2^2
+    return omega/(2*Math.PI);
+  }
 
-  // Z_inf の参照ライン（常に表示）
-  const C_L = Math.sqrt(ins.E/ins.rho);
-  const Z_inf_ref = 2.3 * ins.rho * C_L * Math.pow(ins.h,2);
-  const Z_inf_ref_dB = 20*Math.log10(Z_inf_ref);
-
-  createTable(ui.infImpTable, ['Property','Value'],
-    [['Infinite Plate Impedance (Z_inf, ref) [dB]', Z_inf_ref_dB.toFixed(2)]]);
-
-  // データ生成
-  const mag_dB = [], re_dB = [], ph_deg = [];
-  const tableRows = [];
-
-  const useGrid = ui.useMesh.checked;
-  const Nx = Math.max(1, parseInt(ui.nxInput.value||'1',10));
-  const Ny = Math.max(1, parseInt(ui.nyInput.value||'1',10));
-
-  for(const f of FREQS){
-    let Z;
-    if (useGrid){
-      let acc = new Complex(0,0);
-      for (let ix=0; ix<Nx; ix++){
-        for (let iy=0; iy<Ny; iy++){
-          const x = (ix+0.5)*ins.Lx/Nx;
-          const y = (iy+0.5)*ins.Ly/Ny;
-          const Y = mobilityY_at(f, ins, x, y);
-          const Zi = (new Complex(1,0)).div(Y);
-          acc = acc.add(Zi);
+  function mobilityAtPoint(freqs, params){
+    const {E,nu,rho,h,Lx,Ly,x0,y0,eta,mx,ny} = params;
+    const C = 4/(rho*h*Lx*Ly);
+    const Y = new Array(freqs.length).fill(0).map(()=>c(0,0));
+    for(let m=1; m<=mx; m++){
+      const sx2 = Math.sin(m*Math.PI*x0/Lx); // squared later
+      const mm = m*m/(Lx*Lx);
+      for(let n=1; n<=ny; n++){
+        const sy2 = Math.sin(n*Math.PI*y0/Ly);
+        const nn = n*n/(Ly*Ly);
+        const lam2 = Math.PI*Math.PI*(mm + nn);
+        const omega_mn = Math.sqrt(bendingStiffness(E,nu,h)/massPerArea(rho,h)) * (lam2*lam2);
+        const phi2 = (sx2*sx2) * (sy2*sy2); // (sin)^2 * (sin)^2
+        for(let i=0; i<freqs.length; i++){
+          const w = 2*Math.PI*freqs[i];
+          // jω / (ω_mn^2 - ω^2 + j η ω_mn ω)
+          const den = c( (omega_mn*omega_mn - w*w), (eta*omega_mn*w) );
+          const num = c(0, w);
+          const frac = cdiv(num, den);
+          Y[i] = c( Y[i].re + C*phi2*frac.re, Y[i].im + C*phi2*frac.im );
         }
       }
-      Z = new Complex(acc.re/(Nx*Ny), acc.im/(Nx*Ny));
-    }else{
-      const x = parseFloat(ui.posX.value)/1000;
-      const y = parseFloat(ui.posY.value)/1000;
-      const Y = mobilityY_at(f, ins, x, y);
-      Z = (new Complex(1,0)).div(Y);
     }
-
-    const mag = Z.magnitude;
-    const re  = Math.abs(Z.re);
-    const ph  = Z.phase*180/Math.PI;
-    mag_dB.push( (mag>0)? 20*Math.log10(mag) : null );
-    re_dB .push( (re>0)?  20*Math.log10(re)  : null );
-    ph_deg.push( isFinite(ph)? ph : null );
-
-    tableRows.push([
-      f,
-      mag>0 ? (20*Math.log10(mag)).toFixed(2) : 'NaN',
-      re>0  ? (20*Math.log10(re)).toFixed(2)  : 'NaN',
-      isFinite(ph) ? ph.toFixed(1) : 'NaN'
-    ]);
+    return Y;
   }
 
-  createTable(ui.impTable, ['Frequency (Hz)', '|Z| [dB]', 'Re(Z) [dB]', 'Phase [deg]'], tableRows);
-
-  // モード点（図の注釈）
-  const dots = [];
-  const pairs = [[1,1],[1,2],[2,1],[1,3],[3,1],[2,3],[3,2],[3,3]];
-  pairs.forEach(([m,n])=>{
-    const fmn = f_mn_SS(m,n, ins.D, ins.rho, ins.h, ins.Lx, ins.Ly);
-    if (fmn>=FREQS[0] && fmn<=FREQS[FREQS.length-1]) dots.push({f:fmn, m, n});
-  });
-
-  // データセット構成：Z_inf は常時、|Z|/Re/Phase はチェックで切替
-  const sets = [
-    {label:'Z_inf_ref [dB]', data: toXY(FREQS, FREQS.map(()=>Z_inf_ref_dB)), borderColor:'rgba(0,160,0,0.9)', borderDash:[6,3]}
-  ];
-  if (ui.showMag.checked) sets.push({label:'|Z| [dB]', data: toXY(FREQS, mag_dB), borderColor:'rgba(220,40,80,1)'});
-  if (ui.showRe .checked) sets.push({label:'Re(Z) [dB]', data: toXY(FREQS, re_dB),  borderColor:'rgba(40,120,220,1)', yAxisID:'y'});
-  if (ui.showPh .checked) sets.push({label:'Phase [deg]', data: toXY(FREQS, ph_deg), borderColor:'rgba(240,180,40,1)', yAxisID:'yR'});
-
-  createPlot('impedance-chart', sets, 'Driving-Point Impedance (SS, 16–1000 Hz)', 'Level / dB', {
-    zInfDb: Z_inf_ref_dB,
-    modalDots: dots
-  });
-
-  ui.impFormula.innerHTML = `<p><b>Y<sub>dp</sub></b> = iω·4/(ρh·S)·Σ<sub>p,q</sub> { ψ² / [ω<sub>pq</sub>²(1+iη)-ω²] }, &nbsp; Z = 1/Y</p>`;
-}
-
-function calcSTL(){
-  const {rho,h,fc} = getInputs();
-  const eta = 0.01;
-  const mpp = rho*h;
-  const R_mass = FREQS.map(f=>20*Math.log10(mpp*f)-42.5);
-  const R_coin = R_mass.map((r, i)=>{
-    const f = FREQS[i], fr=f/fc;
-    if (Math.abs(fr-1)<1e-6) return r;
-    const c = (2*eta)/(Math.PI*fr)*(1/Math.pow(1-fr*fr,2));
-    return r - 10*Math.log10(Math.abs(c)+1);
-  });
-
-  createPlot('stl-chart', [
-    {label:'Mass law', data: toXY(FREQS, R_mass), borderColor:'rgba(60,140,220,1)'},
-    {label:'With coincidence', data: toXY(FREQS, R_coin), borderColor:'rgba(220,90,120,1)'}
-  ], 'STL (16–1000 Hz)', 'STL [dB]');
-  createTable(ui.stlTable, ['f [Hz]','Mass law','With coincidence'],
-    FREQS.map((f,i)=>[f, R_mass[i].toFixed(1), R_coin[i].toFixed(1)]));
-  ui.stlFormula.innerHTML = `<p>TL ≈ 20log₁₀(m''f)−42.5, coincidence correction near f<sub>c</sub></p>`;
-}
-
-function calcRadiation(){
-  const {Lx,Ly,c0,fc} = getInputs();
-  const l = 2*(Lx+Ly), S=Lx*Ly, lambda_c = c0/fc;
-  const sigma_simple = FREQS.map(f=>{
-    if (f>fc) return 1;
-    if (Math.abs(f-fc)<1e-6) return Math.min(1, 0.45*Math.sqrt(l/lambda_c));
-    return Math.min(1, (l*lambda_c/(Math.PI**2*S))*Math.sqrt(f/fc));
-  });
-
-  createPlot('rad-chart', [
-    {label:'σ (simple)', data: toXY(FREQS, sigma_simple), borderColor:'rgba(20,160,120,1)'}
-  ], 'Radiation Efficiency (16–1000 Hz)', 'σ [-]');
-  createTable(ui.radTable, ['f [Hz]','σ (simple)'],
-    FREQS.map((f,i)=>[f, sigma_simple[i].toFixed(3)]));
-  ui.radFormula.innerHTML = `<p>Simple σ model with sub/coincidence behavior.</p>`;
-}
-
-/* ---------------- UI init & wiring ---------------- */
-function calculateAll(){ calcBasicInline(); calcImpedance(); calcSTL(); calcRadiation(); }
-
-/* tabs */
-function wireTabs(){
-  const btns = document.querySelectorAll('.tab-btn');
-  btns.forEach(b=>{
-    b.addEventListener('click', ()=>{
-      btns.forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      const key = b.getAttribute('data-tab');
-      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-      document.getElementById('tab-'+key).classList.add('active');
-    });
-  });
-}
-
-/* boot */
-document.addEventListener('DOMContentLoaded', () => {
-  // refs
-  ui = {
-    materialSelect: document.getElementById('material-select'),
-    thickInput: document.getElementById('thick-input'),
-    lxInput: document.getElementById('lx-input'),
-    lyInput: document.getElementById('ly-input'),
-    eInput: document.getElementById('e-input'),
-    rhoInput: document.getElementById('rho-input'),
-    nuInput: document.getElementById('nu-input'),
-    posX: document.getElementById('pos-x'),
-    posY: document.getElementById('pos-y'),
-    useMesh: document.getElementById('use-mesh'),
-    nxInput: document.getElementById('nx-input'),
-    nyInput: document.getElementById('ny-input'),
-    baffleCond: document.getElementById('baffle-cond'),
-    basicInline: document.getElementById('basic-inline'),
-    impChart: document.getElementById('impedance-chart'),
-    impTable: document.getElementById('impedance-table'),
-    infImpTable: document.getElementById('inf-impedance-table'),
-    stlChart: document.getElementById('stl-chart'),
-    stlTable: document.getElementById('stl-table'),
-    radChart: document.getElementById('rad-chart'),
-    radTable: document.getElementById('rad-table'),
-    impFormula: document.getElementById('impedance-formula'),
-    stlFormula: document.getElementById('stl-formula'),
-    radFormula: document.getElementById('rad-formula'),
-    showMag: document.getElementById('show-mag'),
-    showRe: document.getElementById('show-re'),
-    showPh: document.getElementById('show-ph')
-  };
-
-  // マテリアル選択肢
-  const buildMaterialOptions = () => {
-    if (!ui.materialSelect) return;
-    const opts = Object.keys(MATERIAL_PROPERTIES)
-      .map(name => `<option value="${name}">${name}</option>`).join('');
-    ui.materialSelect.innerHTML = opts;
-  };
-
-  // 既定値 + 初期描画（|Z| を既定で ON）
-  const setDefaultsAndRender = () => {
-    ui.materialSelect.value = 'Concrete';
-    ui.thickInput.value = 180;
-    ui.lxInput.value = 3000;
-    ui.lyInput.value = 4000;
-    ui.posX.value = 1500;
-    ui.posY.value = 2000;
-    ui.useMesh.checked = true;
-    ui.nxInput.value = 5;
-    ui.nyInput.value = 6;
-
-    const props = MATERIAL_PROPERTIES[ui.materialSelect.value];
-    ui.eInput.value   = Number(props.E).toExponential(3);
-    ui.rhoInput.value = props.rho;
-    ui.nuInput.value  = props.nu;
-
-    // 初期表示で必ず |Z| を出す
-    if (ui.showMag) ui.showMag.checked = true;
-
-    wireTabs();
-    calculateAll();
-  };
-
-  buildMaterialOptions();
-  setDefaultsAndRender();
-
-  // ====== イベント束ね（すべてライブ更新） ======
-  ui.materialSelect.addEventListener('change', () => {
-    const p = MATERIAL_PROPERTIES[ui.materialSelect.value];
-    if (p){
-      ui.eInput.value   = Number(p.E).toExponential(3);
-      ui.rhoInput.value = p.rho;
-      ui.nuInput.value  = p.nu;
+  function spatialAverageMobility(freqs, params){
+    const {avgN, seed, Lx, Ly} = params;
+    const rng = seededRandom(seed);
+    let acc = new Array(freqs.length).fill(0).map(()=>c(0,0));
+    for(let k=0;k<avgN;k++){
+      const p = {...params};
+      p.x0 = rng()*Lx;
+      p.y0 = rng()*Ly;
+      const Yk = mobilityAtPoint(freqs,p);
+      for(let i=0;i<freqs.length;i++){
+        acc[i] = c( acc[i].re + Yk[i].re, acc[i].im + Yk[i].im );
+      }
     }
-    calculateAll();
-  });
+    return acc.map(z=>c(z.re/avgN, z.im/avgN));
+  }
 
-  ['thickInput','lxInput','lyInput','eInput','rhoInput','nuInput','baffleCond']
-    .forEach(k => {
-      ui[k]?.addEventListener('input',  calculateAll);
-      ui[k]?.addEventListener('change', calculateAll);
+  // --- UI sync --------------------------------------------------------------
+  const plotDebounced = debounce(plot, 10);
+
+  function pullFromUI(){
+    state.material = $("material").value;
+    state.E = parseFloat($("E").value)*1e9;
+    state.rho = parseFloat($("rho").value);
+    state.nu = clamp(parseFloat($("nu").value), 0.0, 0.49);
+    state.h = parseFloat($("thick").value)/1000;
+    state.Lx = parseFloat($("Lx").value);
+    state.Ly = parseFloat($("Ly").value);
+    state.x0 = clamp(parseFloat($("x0").value), 0, state.Lx);
+    state.y0 = clamp(parseFloat($("y0").value), 0, state.Ly);
+    state.eta = Math.max(0.0001, parseFloat($("eta").value)/100);
+    state.fmin = Math.max(1, parseFloat($("fmin").value));
+    state.fmax = Math.max(state.fmin+10, parseFloat($("fmax").value));
+    state.mx = Math.max(1, parseInt($("mx").value));
+    state.ny = Math.max(1, parseInt($("ny").value));
+    state.showZ = $("showZ").checked;
+    state.showY = $("showY").checked;
+    state.logx = $("logx").checked;
+    state.logy = $("logy").checked;
+    state.reim = $("reim").checked;
+    state.avgOn = $("avgOn").checked;
+    state.avgN = Math.max(2, parseInt($("avgN").value));
+    state.seed = Math.max(0, parseInt($("seed").value));
+
+    // KPIs
+    const D = bendingStiffness(state.E, state.nu, state.h);
+    const mp = massPerArea(state.rho, state.h);
+    $("kpiD").textContent = D.toExponential(3);
+    $("kpimm").textContent = mp.toFixed(1);
+    const f11 = fmn(1,1,state.Lx,state.Ly,state.E,state.nu,state.rho,state.h);
+    $("kpif11").textContent = f11.toFixed(1);
+
+    plotDebounced();
+  }
+
+  function attachEvents(){
+    $("material").addEventListener("change",(e)=>{
+      const v = e.target.value;
+      if(v!=="custom"){ applyPreset(v); }
+    });
+    // All inputs trigger pullFromUI WITHOUT resetting material selection
+    ["E","rho","nu","thick","Lx","Ly","x0","y0","eta","fmin","fmax","mx","ny",
+     "showZ","showY","logx","logy","reim","avgOn","avgN","seed"].forEach(id=>{
+      $(id).addEventListener("input", pullFromUI);
+      $(id).addEventListener("change", pullFromUI);
     });
 
-  const setAveragingUIState = () => {
-    const use = ui.useMesh.checked;
-    ui.posX.disabled = use;
-    ui.posY.disabled = use;
-  };
+    $("reset").addEventListener("click", ()=>{
+      $("material").value = "concrete";
+      applyPreset("concrete");
+      $("Lx").value = 3.6; $("Ly").value = 2.7;
+      $("x0").value = 1.8; $("y0").value = 1.35;
+      $("eta").value = 1.0;
+      $("fmin").value = 20; $("fmax").value = 5000;
+      $("mx").value = 30; $("ny").value = 30;
+      $("showZ").checked = true; $("showY").checked = false;
+      $("logx").checked = true; $("logy").checked = true; $("reim").checked=false;
+      $("avgOn").checked = false; $("avgN").value = 9; $("seed").value = 42;
+      state.overlay = null;
+      pullFromUI();
+    });
 
-  ui.useMesh.addEventListener('change', () => { setAveragingUIState(); calcImpedance(); });
-  ui.nxInput.addEventListener('input',  calcImpedance);
-  ui.nxInput.addEventListener('change', calcImpedance);
-  ui.nyInput.addEventListener('input',  calcImpedance);
-  ui.nyInput.addEventListener('change', calcImpedance);
+    $("exportPng").addEventListener("click", ()=>{
+      Plotly.downloadImage("plot", {format:"png", filename:"plate_impedance"});
+    });
 
-  // Grid OFF のとき位置変更で即時更新
-  const posInstant = () => { if (!ui.useMesh.checked) calcImpedance(); };
-  ui.posX.addEventListener('input',  posInstant);
-  ui.posX.addEventListener('change', posInstant);
-  ui.posY.addEventListener('input',  posInstant);
-  ui.posY.addEventListener('change', posInstant);
+    $("file").addEventListener("change", handleFileOverlay, false);
+  }
 
-  // データセット表示トグル
-  ui.showMag.addEventListener('change', calcImpedance);
-  ui.showRe .addEventListener('change', calcImpedance);
-  ui.showPh .addEventListener('change', calcImpedance);
+  async function handleFileOverlay(evt){
+    const file = evt.target.files?.[0];
+    if(!file) return;
+    try{
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(x=>x.trim().length>0);
+      let f=[], zr=[], zi=[];
+      for(let i=0;i<lines.length;i++){
+        const row = lines[i].trim();
+        if(i===0 && /f.*Zreal.*Zimag/i.test(row)) continue; // header
+        const cols = row.split(/[,;\t]/).map(s=>s.trim());
+        if(cols.length < 3) continue;
+        const ff = parseFloat(cols[0]), r = parseFloat(cols[1]), im = parseFloat(cols[2]);
+        if(Number.isFinite(ff) && Number.isFinite(r) && Number.isFinite(im)){
+          f.push(ff); zr.push(r); zi.push(im);
+        }
+      }
+      if(f.length>0){
+        state.overlay = {f, zr, zi};
+        plotDebounced();
+      }else{
+        alert("CSVを解釈できませんでした。ヘッダ: f,Zreal,Zimag で数値を含めてください。");
+        state.overlay = null;
+      }
+    }catch(err){
+      console.error(err);
+      alert("CSV読み込みでエラーが発生しました。");
+    }
+  }
 
-  // UI 状態反映
-  setAveragingUIState();
-});
+  // --- Plot -----------------------------------------------------------------
+  function plot(){
+    const N = 800;
+    const fmin = state.fmin, fmax = state.fmax;
+    const freqs = Array.from({length:N}, (_,i)=> fmin*Math.pow(fmax/fmin, i/(N-1)) );
+
+    const params = {...state};
+    const Y = (state.avgOn ? spatialAverageMobility(freqs, params) : mobilityAtPoint(freqs, params));
+    const Z = Y.map(y => cinv(y));
+
+    const traces = [];
+
+    if(state.showZ){
+      traces.push({
+        x: freqs, y: Z.map(cabs),
+        type: "scatter", mode:"lines",
+        name: "|Z| [N·s/m]"
+      });
+    }
+    if(state.showY){
+      traces.push({
+        x: freqs, y: Y.map(cabs),
+        type: "scatter", mode:"lines",
+        name: "|Y| [m/N·s]"
+      });
+    }
+    if(state.reim){
+      traces.push({ x: freqs, y: Z.map(creal), type:"scatter", mode:"lines", name:"Re{Z}" });
+      traces.push({ x: freqs, y: Z.map(cimag), type:"scatter", mode:"lines", name:"Im{Z}" });
+    }
+
+    if(state.overlay){
+      const {f, zr, zi} = state.overlay;
+      const Zm = zr.map((r, i)=> Math.hypot(r, zi[i] ?? 0));
+      traces.push({
+        x: f, y: Zm, type:"scatter", mode:"lines",
+        name: "Overlay |Z| (CSV)", line:{dash:"dot"}
+      });
+    }
+
+    const layout = {
+      title: {text: "駆動点インピーダンス / モビリティ（SSSS板, モード和）", font:{size:16}},
+      xaxis: {
+        title: "Frequency [Hz]",
+        type: state.logx ? "log" : "linear",
+        gridcolor: "#e5e7eb",
+        zerolinecolor: "#e5e7eb"
+      },
+      yaxis: {
+        title: state.showY && !state.showZ ? "Mobility |Y| [m/N·s]" : "Impedance / Mobility (magnitude)",
+        type: state.logy ? "log" : "linear",
+        gridcolor: "#e5e7eb",
+        zerolinecolor: "#e5e7eb",
+        rangemode: "tozero"
+      },
+      legend:{orientation:"h", x:0, y:1.06},
+      plot_bgcolor:"#ffffff",
+      paper_bgcolor:"#ffffff",
+      margin:{l:70,r:20,t:60,b:60}
+    };
+
+    Plotly.react("plot", traces, layout, {responsive:true, displaylogo:false});
+  }
+
+  // --- Init -----------------------------------------------------------------
+  function init(){
+    // Guard for required nodes
+    const ids = ["material","E","rho","nu","thick","Lx","Ly","x0","y0","eta","fmin","fmax","mx","ny",
+      "showZ","showY","logx","logy","reim","avgOn","avgN","seed",
+      "file","exportPng","reset","plot","kpiD","kpimm","kpif11"];
+    for(const id of ids){
+      if(!$(id)){
+        console.warn("[plates.js] Missing element:", id);
+      }
+    }
+    attachEvents();
+    $("material").value = "concrete";
+    applyPreset("concrete"); // calls pullFromUI() -> plotDebounced()
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", init);
+  }else{
+    init();
+  }
+
+})();"""
+path = "/mnt/data/plates.js"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(js_code)
+
+path
