@@ -1,25 +1,21 @@
-/* plates.js — unified */
+/* plates.js — unified (freq-independent infinite plate) */
 (function(){
   "use strict";
   const $ = (id) => document.getElementById(id);
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const EPS = 1e-30;
 
-  // ---------- Complex helpers ----------
   function c(re, im){ return {re, im} }
-  function cadd(a,b){ return c(a.re+b.re, a.im+b.im) }
   function cdiv(a,b){
     const d = b.re*b.re + b.im*b.im || EPS;
-    return c( (a.re*b.re + a.im*b.im)/d, (a.im*b.re - a.re*b.im)/d );
+    return {re:(a.re*b.re + a.im*b.im)/d, im:(a.im*b.re - a.re*b.im)/d};
   }
   function cinv(a){
     const d = a.re*a.re + a.im*a.im || EPS;
-    return c(a.re/d, -a.im/d);
+    return {re:a.re/d, im:-a.im/d};
   }
   const cabs = (z)=> Math.hypot(z.re, z.im);
-  const creal = (z)=> z.re, cimag = (z)=> z.im;
 
-  // ---------- State ----------
   const state = {
     material: "concrete",
     E: 30e9, rho: 2400, nu: 0.20, h: 0.200,
@@ -38,7 +34,6 @@
     wood:{E:10e9, rho:600, nu:0.30, h_mm:18}
   };
 
-  // Fixed octave centers and mapping to 1/1 band edges (sqrt(2))
   const OCT_CENTERS = [16, 31.5, 63, 125, 250, 500, 1000, 2000];
   const BAND_FACTOR = Math.SQRT2;
 
@@ -51,9 +46,8 @@
     pullFromUI();
   }
 
-  // ---------- Physics core ----------
-  const D = (E,nu,h)=> E*h*h*h/(12*(1-nu*nu));       // [N*m]
-  const mp = (rho,h)=> rho*h;                         // [kg/m2]
+  const D = (E,nu,h)=> E*h*h*h/(12*(1-nu*nu));
+  const mp = (rho,h)=> rho*h;
 
   function fmn(m,n,Lx,Ly,E,nu,rho,h){
     const lam2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly));
@@ -64,7 +58,7 @@
   function mobilityAtPoint(freqs, params){
     const {E,nu,rho,h,Lx,Ly,x0,y0,eta,mx,ny} = params;
     const C = 4/(rho*h*Lx*Ly);
-    const Y = new Array(freqs.length).fill(0).map(()=>c(0,0));
+    const Y = new Array(freqs.length).fill(0).map(()=>({re:0,im:0}));
     for(let m=1; m<=mx; m++){
       const sx2 = Math.sin(m*Math.PI*x0/Lx);
       const mm = m*m/(Lx*Lx);
@@ -76,24 +70,20 @@
         const phi2 = (sx2*sx2) * (sy2*sy2);
         for(let i=0;i<freqs.length;i++){
           const w = 2*Math.PI*freqs[i];
-          const den = c( (omg_mn*omg_mn - w*w), (eta*omg_mn*w) );
-          const num = c(0, w);
+          const den = {re:(omg_mn*omg_mn - w*w), im:(eta*omg_mn*w)};
+          const num = {re:0, im:w};
           const frac = cdiv(num, den);
-          Y[i] = c( Y[i].re + C*phi2*frac.re, Y[i].im + C*phi2*frac.im );
+          Y[i] = {re: Y[i].re + C*phi2*frac.re, im: Y[i].im + C*phi2*frac.im};
         }
       }
     }
     return Y;
   }
 
-  // Infinite-plate |Z_inf| = 8*sqrt(D*m'*omega); |Y_inf|=1/|Z_inf|
-  function Zinf_mag(f, E,nu,rho,h){
-    const d = D(E,nu,h), mps = mp(rho,h);
-    const w = 2*Math.PI*f;
-    return 8*Math.sqrt(d*mps*w);
+  function Zinf_const(E,nu,rho,h){
+    return 8*Math.sqrt( D(E,nu,h) * (rho*h) );
   }
 
-  // ---------- Utilities ----------
   function toDB20(arr, ref){
     return arr.map(v => 20*Math.log10( Math.max(v, EPS) / ref ));
   }
@@ -110,7 +100,6 @@
     return y0*(1-t)+y1*t;
   }
 
-  // ---------- UI sync ----------
   function pullFromUI(){
     state.material = $("material").value;
     state.E   = parseFloat($("E").value)*1e9;
@@ -131,7 +120,6 @@
     state.logx = $("logx").checked;
     state.db   = $("db").checked;
 
-    // KPIs
     const d = D(state.E,state.nu,state.h);
     const mps = mp(state.rho,state.h);
     $("kpiD").textContent = d.toExponential(3);
@@ -145,7 +133,7 @@
   function attachEvents(){
     $("material").addEventListener("change",(e)=>{
       const v = e.target.value;
-      if(v!=="custom"){ applyPreset(v); } else { /* keep manual */ }
+      if(v!=="custom"){ applyPreset(v); }
     });
     ["E","rho","nu","thick","Lx","Ly","x0mm","y0mm","eta","fmin","fmax","mx","ny",
      "showZ","showY","logx","db"].forEach(id=>{
@@ -172,7 +160,6 @@
     });
   }
 
-  // ---------- Plot ----------
   function plot(){
     const N = 900;
     const fmin = state.fmin, fmax = state.fmax;
@@ -187,10 +174,8 @@
     const Y = mobilityAtPoint(freqs, params);
     const Z = Y.map(cinv);
 
-    // choose curve(s)
     let traces = [];
-    const refZ = 1.0; // 1 Ns/m
-    const refY = 1.0; // 1 m/Ns
+    const refZ = 1.0, refY = 1.0;
     const magZ = Z.map(cabs);
     const magY = Y.map(cabs);
     let yZ = state.db ? toDB20(magZ, refZ) : magZ;
@@ -205,7 +190,6 @@
 
     const primaryY = state.showZ ? yZ : yY;
 
-    // --- Octave stars at fixed centers ---
     if(state.showOct){
       const xs=[], ys=[];
       for(const fc of OCT_CENTERS){
@@ -224,13 +208,12 @@
       }
     }
 
-    // --- Infinite-plate ● at same centers ---
     if(state.showInf){
+      const zc = Zinf_const(state.E,state.nu,state.rho,state.h);
+      const val = state.db ? 20*Math.log10(zc/refZ) : zc;
       const xs=[], ys=[];
       for(const fc of OCT_CENTERS){
         if(fc < fmin || fc > fmax) continue;
-        const zinf = Zinf_mag(fc, state.E,state.nu,state.rho,state.h);
-        const val = state.db ? 20*Math.log10(zinf/refZ) : zinf;
         xs.push(fc); ys.push(val);
       }
       if(xs.length){
@@ -239,7 +222,6 @@
       }
     }
 
-    // --- Mode markers ▲ fixed set: (1,1),(1,2),(2,1),(2,2),(3,1),(3,2) ---
     if(state.showModes){
       const modes = [[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]];
       const xm=[], ym=[], txt=[];
@@ -259,16 +241,10 @@
 
     const layout = {
       title: {text: "駆動点インピーダンス / モビリティ（SSSS板, モード和）", font:{size:16}},
-      xaxis: {
-        title: "Frequency [Hz]",
-        type: state.logx ? "log" : "linear",
-        gridcolor: "#e5e7eb",
-        zerolinecolor: "#e5e7eb"
-      },
+      xaxis: { title: "Frequency [Hz]", type: state.logx ? "log" : "linear", gridcolor: "#e5e7eb", zerolinecolor: "#e5e7eb" },
       yaxis: {
-        title: state.db
-          ? (state.showZ||!state.showY ? "Level [dB re 1 Ns/m]" : "Level [dB re 1 m/N·s]")
-          : (state.showZ||!state.showY ? "Impedance |Z|" : "Mobility |Y|"),
+        title: state.db ? (state.showZ||!state.showY ? "Level [dB re 1 Ns/m]" : "Level [dB re 1 m/N·s]")
+                        : (state.showZ||!state.showY ? "Impedance |Z|" : "Mobility |Y|"),
         type: state.db ? "linear" : "log",
         gridcolor: "#e5e7eb", zerolinecolor: "#e5e7eb", rangemode: "tozero"
       },
@@ -279,7 +255,6 @@
     Plotly.react("plot", traces, layout, {responsive:true, displaylogo:false});
   }
 
-  // ---------- Init ----------
   function init(){
     $("material").value = "concrete";
     applyPreset("concrete");
