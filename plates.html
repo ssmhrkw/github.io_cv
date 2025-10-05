@@ -5,50 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>矩形板の駆動点インピーダンス（リアルタイム）</title>
   <style>
-    :root{
-      --bg:#ffffff;
-      --fg:#0f172a;
-      --muted:#475569;
-      --panel:#f8fafc;
-      --accent:#2563eb;
-      --border:#e2e8f0;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";color:var(--fg);background:var(--bg);}
+    :root{ --bg:#ffffff; --fg:#0f172a; --muted:#475569; --panel:#f8fafc; --accent:#2563eb; --border:#e2e8f0; }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:var(--fg); background:var(--bg);}
     header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:0.2px;}
-    .container{display:grid;grid-template-columns: 460px 1fr;gap:16px;padding:16px;}
+    .container{display:grid;grid-template-columns: 480px 1fr;gap:16px;padding:16px;}
     .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
+    #controls{max-height: calc(100vh - 140px); overflow:auto;}
     .card h2{margin:0 0 12px 0;font-size:14px;}
     .grid{display:grid;gap:10px;grid-template-columns: 1fr 1fr;}
     .row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
     label{font-size:12px;color:var(--muted);min-width:150px;}
-    input[type="number"], select{
-      width:100%;min-width:160px;padding:12px 14px;border:1px solid var(--border);
-      border-radius:10px;font-size:14px;background:#fff;color:var(--fg);
-    }
+    input[type="number"], select{ width:100%;min-width:170px;padding:12px 14px;border:1px solid var(--border); border-radius:10px;font-size:14px;background:#fff;color:var(--fg);}
     input[type="checkbox"]{transform: translateY(1px);}
     .subtle{color:var(--muted);font-size:12px;}
     .section{margin:12px 0 16px 0;border-top:1px dashed var(--border);padding-top:12px;}
-    .btn{appearance:none;border:1px solid var(--border);background:#fff;color:#0f172a;
-      padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;}
+    .btn{appearance:none;border:1px solid var(--border);background:#fff;color:#0f172a;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;}
     .btn.primary{border-color:transparent;background:var(--accent);color:#fff;}
     .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
-    #plot{width:100%;height:700px;background:#fff;border-radius:14px;border:1px solid var(--border);}
+    #plot{width:100%;height:720px;background:#fff;border-radius:14px;border:1px solid var(--border);}
     .note{font-size:11px;color:var(--muted);}
     footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
     .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;}
     .kpi .item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;}
     .item b{font-weight:700;}
-    details.equations{margin-top:10px}
-    details.equations summary{cursor:pointer}
-    code.k{background:#f1f5f9;padding:1px 6px;border-radius:6px}
+    details.equations{margin-top:10px} details.equations summary{cursor:pointer}
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script>
-    window.MathJax = { tex: {inlineMath: [['$', '$'], ['\\(', '\\)']]}, svg: {fontCache: 'global'} };
-  </script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']]},svg:{fontCache:'global'}};</script>
   <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
@@ -60,7 +45,6 @@
   <div class="container">
     <div class="card" id="controls">
       <h2>設定</h2>
-
       <div class="row">
         <label for="material">材料プリセット</label>
         <select id="material">
@@ -72,66 +56,27 @@
       </div>
 
       <div class="grid">
-        <div class="row">
-          <label for="E">E [GPa]</label>
-          <input id="E" type="number" step="0.1" min="0.1" value="30.0"/>
-        </div>
-        <div class="row">
-          <label for="rho">ρ [kg/m³]</label>
-          <input id="rho" type="number" step="1" min="10" value="2400"/>
-        </div>
-        <div class="row">
-          <label for="nu">ν [-]</label>
-          <input id="nu" type="number" step="0.01" min="0.0" max="0.49" value="0.20"/>
-        </div>
-        <div class="row">
-          <label for="thick">板厚 h [mm]</label>
-          <input id="thick" type="number" step="1" min="1" value="200"/>
-        </div>
+        <div class="row"><label for="E">E [GPa]</label><input id="E" type="number" step="0.1" min="0.1" value="30.0"/></div>
+        <div class="row"><label for="rho">ρ [kg/m³]</label><input id="rho" type="number" step="1" min="10" value="2400"/></div>
+        <div class="row"><label for="nu">ν [-]</label><input id="nu" type="number" step="0.01" min="0.0" max="0.49" value="0.20"/></div>
+        <div class="row"><label for="thick">板厚 h [mm]</label><input id="thick" type="number" step="1" min="1" value="200"/></div>
       </div>
 
       <div class="section">
         <div class="grid">
-          <div class="row">
-            <label for="Lx">Lx [m]</label>
-            <input id="Lx" type="number" step="0.01" min="0.1" value="3.6"/>
-          </div>
-          <div class="row">
-            <label for="Ly">Ly [m]</label>
-            <input id="Ly" type="number" step="0.01" min="0.1" value="2.7"/>
-          </div>
-          <div class="row">
-            <label for="x0mm">測定点 x [mm]</label>
-            <input id="x0mm" type="number" step="1" min="0" value="1800"/>
-          </div>
-          <div class="row">
-            <label for="y0mm">測定点 y [mm]</label>
-            <input id="y0mm" type="number" step="1" min="0" value="1350"/>
-          </div>
+          <div class="row"><label for="Lx">Lx [m]</label><input id="Lx" type="number" step="0.01" min="0.1" value="3.6"/></div>
+          <div class="row"><label for="Ly">Ly [m]</label><input id="Ly" type="number" step="0.01" min="0.1" value="2.7"/></div>
+          <div class="row"><label for="x0mm">測定点 x [mm]</label><input id="x0mm" type="number" step="1" min="0" value="1800"/></div>
+          <div class="row"><label for="y0mm">測定点 y [mm]</label><input id="y0mm" type="number" step="1" min="0" value="1350"/></div>
         </div>
-        <div class="row">
-          <label for="eta">損失係数 η [%]</label>
-          <input id="eta" type="number" step="0.01" min="0.01" value="1.0"/>
+        <div class="row"><label for="eta">損失係数 η [%]</label><input id="eta" type="number" step="0.01" min="0.01" value="1.0"/></div>
+        <div class="grid">
+          <div class="row"><label for="fmin">f<sub>min</sub> [Hz]</label><input id="fmin" type="number" step="1" min="1" value="20"/></div>
+          <div class="row"><label for="fmax">f<sub>max</sub> [Hz]</label><input id="fmax" type="number" step="10" min="100" value="5000"/></div>
         </div>
         <div class="grid">
-          <div class="row">
-            <label for="fmin">f<sub>min</sub> [Hz]</label>
-            <input id="fmin" type="number" step="1" min="1" value="20"/>
-          </div>
-          <div class="row">
-            <label for="fmax">f<sub>max</sub> [Hz]</label>
-            <input id="fmax" type="number" step="10" min="100" value="5000"/>
-          </div>
-        </div>
-        <div class="grid">
-          <div class="row">
-            <label for="mx">m<sub>max</sub></label>
-            <input id="mx" type="number" step="1" min="1" value="30"/>
-          </div>
-          <div class="row">
-            <label for="ny">n<sub>max</sub></label>
-            <input id="ny" type="number" step="1" min="1" value="30"/>
-          </div>
+          <div class="row"><label for="mx">m<sub>max</sub></label><input id="mx" type="number" step="1" min="1" value="30"/></div>
+          <div class="row"><label for="ny">n<sub>max</sub></label><input id="ny" type="number" step="1" min="1" value="30"/></div>
         </div>
       </div>
 
@@ -181,17 +126,13 @@
           <p>点モビリティ（モード和）：
           $$Y(x_0,y_0,\omega)=\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}} \frac{4}{m' L_x L_y}\sin^2\frac{m\pi x_0}{L_x}\sin^2\frac{n\pi y_0}{L_y}\cdot \frac{j\omega}{\omega_{mn}^2-\omega^2+j\eta \omega_{mn}\omega}$$
           $Z=1/Y$.</p>
-          <p>無限長板（中心部加振, Cremer 等）：
-          $$Z_\infty = 8\sqrt{D\,\rho h} = 2.3\,\rho\,c_{L,p}\,h^2\quad(\text{実数, 周波数非依存})$$
-          </p>
+          <p>無限長板（中心部加振, Cremer 等）: $$Z_\infty = 8\sqrt{D\,\rho h} = 2.3\,\rho\,c_{L,p}\,h^2 \quad(\text{実数, 周波数非依存})$$ </p>
         </div>
       </details>
     </div>
   </div>
 
-  <footer>
-    <span class="subtle">Model: Kirchhoff thin plate, simply-supported (SSSS). Modal sum with m=1..m<sub>max</sub>, n=1..n<sub>max</sub>.</span>
-  </footer>
+  <footer><span class="subtle">Model: Kirchhoff thin plate, SSSS. Modal sum with m=1..m<sub>max</sub>, n=1..n<sub>max</sub>.</span></footer>
 
   <script src="plates.js" defer></script>
 </body>
