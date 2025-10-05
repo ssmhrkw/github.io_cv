@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Driving-Point Impedance of Rectangular Plate (Live)</title>
+  <title>Driving-Point Impedance of Rectangular Plate (v2)</title>
   <style>
     :root{
       --bg:#ffffff;
@@ -15,71 +15,50 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--fg);
-      background:var(--bg);
-    }
-    header{
-      padding:16px 20px;
-      border-bottom:1px solid var(--border);
-      background:var(--panel);
-      position:sticky; top:0; z-index:10;
-      display:flex; align-items:center; gap:12px;
-    }
-    header h1{
-      font-size:16px; margin:0; font-weight:700; letter-spacing:0.2px;
-    }
-    .container{
-      display:grid;
-      grid-template-columns: 360px 1fr;
-      gap:16px;
-      padding:16px;
-    }
-    .card{
-      background:#fff; border:1px solid var(--border);
-      border-radius:14px; padding:14px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    }
-    .card h2{margin:0 0 10px 0; font-size:14px;}
-    .grid{
-      display:grid; gap:10px;
-      grid-template-columns: 1fr 1fr;
-    }
-    .row{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
-    label{font-size:12px; color:var(--muted); min-width:110px;}
+    body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";color:var(--fg);background:var(--bg);}
+    header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:0.2px;}
+    .container{display:grid;grid-template-columns: 420px 1fr;gap:16px;padding:16px;}
+    .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
+    .card h2{margin:0 0 12px 0;font-size:14px;}
+    .grid{display:grid;gap:10px;grid-template-columns: 1fr 1fr;}
+    .row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+    label{font-size:12px;color:var(--muted);min-width:132px;}
     input[type="number"], select{
-      width:100%; padding:8px 10px; border:1px solid var(--border);
-      border-radius:10px; font-size:13px; background:#fff; color:var(--fg);
+      width:100%;min-width:130px;padding:10px 12px;border:1px solid var(--border);
+      border-radius:10px;font-size:14px;background:#fff;color:var(--fg);
     }
     input[type="checkbox"]{transform: translateY(1px);}
-    .subtle{color:var(--muted); font-size:12px;}
-    .section{margin:10px 0 16px 0; border-top:1px dashed var(--border); padding-top:12px;}
-    .btn{
-      appearance:none; border:1px solid var(--border); background:#fff; color:var(--fg);
-      padding:8px 10px; border-radius:10px; cursor:pointer; font-size:13px;
-    }
-    .btn.primary{border-color:transparent; background:var(--accent); color:#fff;}
-    .stack{display:flex; flex-wrap:wrap; gap:8px;}
-    #plot{
-      width:100%; height:640px;
-      background:#fff; border-radius:14px; border:1px solid var(--border);
-    }
-    .note{font-size:11px; color:var(--muted);}
-    footer{padding:8px 16px 20px; color:var(--muted); font-size:12px;}
-    .kpi{display:flex; gap:16px; flex-wrap:wrap; margin-top:6px;}
-    .kpi .item{padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:#fff;}
+    .subtle{color:var(--muted);font-size:12px;}
+    .section{margin:12px 0 16px 0;border-top:1px dashed var(--border);padding-top:12px;}
+    .btn{appearance:none;border:1px solid var(--border);background:#fff;color:var(--fg);
+      padding:8px 10px;border-radius:10px;cursor:pointer;font-size:13px;}
+    .btn.primary{border-color:transparent;background:var(--accent);color:#fff;}
+    .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+    #plot{width:100%;height:680px;background:#fff;border-radius:14px;border:1px solid var(--border);}
+    .note{font-size:11px;color:var(--muted);}
+    footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
+    .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;}
+    .kpi .item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;}
     .item b{font-weight:700;}
-    .danger{color:#b91c1c;}
+    details.equations{margin-top:10px}
+    details.equations summary{cursor:pointer}
+    code.k{background:#f1f5f9;padding:1px 6px;border-radius:6px}
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
-  <script src="plates.js" defer></script>
+  <script>
+    // MathJax configuration
+    window.MathJax = {
+      tex: {inlineMath: [['$', '$'], ['\\(', '\\)']]},
+      svg: {fontCache: 'global'}
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
   <header>
-    <h1>矩形板の駆動点インピーダンス（リアルタイム）</h1>
-    <span class="subtle">初期表示・常時ライブ更新・軸/背景の明示</span>
+    <h1>矩形板の駆動点インピーダンス v2（リアルタイム）</h1>
+    <span class="subtle">★: オクターブ平均, ▲: 固有振動数, ●: 無限長（式確認後に表示）</span>
   </header>
 
   <div class="container">
@@ -127,12 +106,12 @@
             <input id="Ly" type="number" step="0.01" min="0.1" value="2.7"/>
           </div>
           <div class="row">
-            <label for="x0">測定点 x [m]</label>
-            <input id="x0" type="number" step="0.01" min="0" value="1.8"/>
+            <label for="x0mm">測定点 x [mm]</label>
+            <input id="x0mm" type="number" step="1" min="0" value="1800"/>
           </div>
           <div class="row">
-            <label for="y0">測定点 y [m]</label>
-            <input id="y0" type="number" step="0.01" min="0" value="1.35"/>
+            <label for="y0mm">測定点 y [mm]</label>
+            <input id="y0mm" type="number" step="1" min="0" value="1350"/>
           </div>
         </div>
         <div class="row">
@@ -168,34 +147,25 @@
             <label><input type="checkbox" id="showZ" checked> |Z|</label>
             <label><input type="checkbox" id="showY"> |Y|</label>
             <label><input type="checkbox" id="logx" checked> log f</label>
-            <label><input type="checkbox" id="logy" checked> log y</label>
-            <label><input type="checkbox" id="reim"> 実部/虚部</label>
+            <label><input type="checkbox" id="db"> dB (20·log10)</label>
           </div>
         </div>
         <div class="row">
-          <label>空間平均</label>
+          <label>オクターブ</label>
           <div class="stack">
-            <label><input type="checkbox" id="avgOn"> 有効</label>
-            <label>点数
-              <input id="avgN" type="number" step="1" min="2" value="9" style="width:80px; margin-left:6px;">
-            </label>
+            <select id="octType">
+              <option value="1">1/1 octave</option>
+              <option value="3">1/3 octave</option>
+            </select>
+            <button class="btn" id="toggleOct">★ 表示/非表示</button>
           </div>
         </div>
         <div class="row">
-          <label for="seed">乱数シード</label>
-          <input id="seed" type="number" step="1" min="0" value="42"/>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="row">
-          <label>データ重ね描き</label>
-          <input id="file" type="file" accept=".csv"/>
-        </div>
-        <p class="note">CSV: ヘッダに <code>f, Zreal, Zimag</code>（Hz, N·s/m）を含む形式に対応（任意）。</p>
-        <div class="stack">
-          <button class="btn primary" id="exportPng">PNG保存</button>
-          <button class="btn" id="reset">リセット</button>
+          <label>モードマーカー</label>
+          <div class="stack">
+            <label>数 <input id="markN" type="number" min="2" max="20" value="6" style="width:90px"></label>
+            <button class="btn" id="toggleModes">▲ 表示/非表示</button>
+          </div>
         </div>
       </div>
 
@@ -204,303 +174,38 @@
         <div class="item"><span class="subtle">m' = </span><b id="kpimm">—</b> <span class="subtle">[kg/m²]</span></div>
         <div class="item"><span class="subtle">f<sub>11</sub> = </span><b id="kpif11">—</b> <span class="subtle">[Hz]</span></div>
       </div>
+
+      <div class="section">
+        <div class="stack">
+          <button class="btn primary" id="exportPng">PNG保存</button>
+          <button class="btn" id="reset">リセット</button>
+        </div>
+      </div>
     </div>
 
     <!-- Plot -->
     <div class="card">
       <div id="plot"></div>
-      <div class="note">軸ラベル・背景色はレイアウトで明示設定（CSSに依存せず消失しません）。</div>
+      <div class="note">★: バンド内平均（デフォルトは 1/1 オクターブ・線形平均 → dB変換）。▲: f<sub>mn</sub> の上位N点。</div>
+      <details class="equations">
+        <summary>計算式（MathJax）を表示</summary>
+        <div>
+          <p>薄板曲げ剛性：$D=\dfrac{E h^3}{12(1-\nu^2)}$，面密度：$m'=\rho h$</p>
+          <p>単純支持矩形板 (SSSS) の固有角振動数：$ \omega_{mn}=\sqrt{\dfrac{D}{m'}} \left(\pi^2\left(\dfrac{m^2}{L_x^2}+\dfrac{n^2}{L_y^2}\right)\right)^2$，
+          $f_{mn}=\omega_{mn}/(2\pi)$</p>
+          <p>点モビリティ（モード和，損失係数 $\eta$）：
+          $$Y(x_0,y_0,\omega)=\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}} \frac{4}{m' L_x L_y}\sin^2\frac{m\pi x_0}{L_x}\sin^2\frac{n\pi y_0}{L_y}\cdot \frac{j\omega}{\omega_{mn}^2-\omega^2+j\eta \omega_{mn}\omega}$$
+          駆動点インピーダンスは $Z=1/Y$.</p>
+          <p class="subtle">※ 無限長板の解析式は複数流儀があるため、合意した式で実装します（●マーカー）。</p>
+        </div>
+      </details>
     </div>
   </div>
 
   <footer>
-    <span class="subtle">Model: Kirchhoff thin plate, simply-supported (SSSS). Modal sum with m=1..m<sub>max</sub>, n=1..n<sub>max</sub>. Y = Σ C·sin²(mπx/Lx)sin²(nπy/Ly)·jω / (ω<sub>mn</sub>² − ω² + jη ω<sub>mn</sub> ω), C=4/(ρ h Lx Ly). Z = 1/Y.</span>
+    <span class="subtle">Model: Kirchhoff thin plate, simply-supported (SSSS). Modal sum with m=1..m<sub>max</sub>, n=1..n<sub>max</sub>.</span>
   </footer>
 
-<script>
-// --- Small utilities --------------------------------------------------------
-const $ = (id) => document.getElementById(id);
-const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-
-function seededRandom(seed){
-  let s = seed >>> 0;
-  return function(){
-    // xorshift32
-    s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
-    return (s >>> 0) / 4294967296;
-  }
-}
-
-// Minimal complex arithmetic
-function c(re, im){ return {re, im} }
-function cadd(a,b){ return c(a.re+b.re, a.im+b.im) }
-function csub(a,b){ return c(a.re-b.re, a.im-b.im) }
-function cmul(a,b){ return c(a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re) }
-function cdiv(a,b){
-  const d = b.re*b.re + b.im*b.im || 1e-30;
-  return c( (a.re*b.re + a.im*b.im)/d, (a.im*b.re - a.re*b.im)/d );
-}
-function cinv(a){
-  const d = a.re*a.re + a.im*a.im || 1e-30;
-  return c(a.re/d, -a.im/d);
-}
-function cabs(a){ return Math.hypot(a.re, a.im) }
-function creal(a){ return a.re }
-function cimag(a){ return a.im }
-
-// --- State ------------------------------------------------------------------
-const state = {
-  material: "concrete",
-  E: 30e9, rho: 2400, nu: 0.20, h: 0.150,
-  Lx: 3.6, Ly: 2.7,
-  x0: 1.8, y0: 1.35,
-  eta: 0.01,
-  fmin: 20, fmax: 5000,
-  mx: 30, ny: 30,
-  showZ: true, showY: false, logx: true, logy: true, reim: false,
-  avgOn: false, avgN: 9, seed: 42,
-  overlay: null
-};
-
-const presets = {
-  concrete:{E:30e9, rho:2400, nu:0.20, h_mm:150},
-  gypsum:{E:3.0e9, rho:800, nu:0.30, h_mm:12.5},
-  wood:{E:10e9, rho:600, nu:0.30, h_mm:18}
-};
-
-function applyPreset(name){
-  if(!presets[name]) return;
-  const p = presets[name];
-  $("E").value = (p.E/1e9).toFixed(1);
-  $("rho").value = p.rho;
-  $("nu").value = p.nu.toFixed(2);
-  $("thick").value = p.h_mm;
-  pullFromUI(); // update state & replot
-}
-
-// --- Physics core -----------------------------------------------------------
-function bendingStiffness(E, nu, h){ return E*h*h*h/(12*(1-nu*nu)); } // D [N*m]
-function massPerArea(rho, h){ return rho*h } // m' [kg/m2]
-
-function fmn(m,n,Lx,Ly,E,nu,rho,h){
-  const D = bendingStiffness(E,nu,h);
-  const mp = massPerArea(rho,h);
-  const lam2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly));
-  const omega = Math.sqrt(D/mp) * (lam2*lam2); // ω_mn = sqrt(D/mp) * λ^2^2
-  return omega/(2*Math.PI);
-}
-
-function mobilityAtPoint(freqs, params){
-  const {E,nu,rho,h,Lx,Ly,x0,y0,eta,mx,ny} = params;
-  const C = 4/(rho*h*Lx*Ly);
-  const Y = new Array(freqs.length).fill(0).map(()=>c(0,0));
-  for(let m=1; m<=mx; m++){
-    const sx = Math.sin(m*Math.PI*x0/Lx);
-    const sx2 = sx*sx;
-    const mm = m*m/(Lx*Lx);
-    for(let n=1; n<=ny; n++){
-      const sy = Math.sin(n*Math.PI*y0/Ly);
-      const sy2 = sy*sy;
-      const nn = n*n/(Ly*Ly);
-      const lam2 = Math.PI*Math.PI*(mm + nn);
-      const omega_mn = Math.sqrt(bendingStiffness(E,nu,h)/massPerArea(rho,h)) * (lam2*lam2);
-      const phi2 = sx2*sy2;
-      for(let i=0; i<freqs.length; i++){
-        const w = 2*Math.PI*freqs[i];
-        // jω / (ω_mn^2 - ω^2 + j η ω_mn ω)
-        const den = c( (omega_mn*omega_mn - w*w), (eta*omega_mn*w) );
-        const num = c(0, w);
-        const frac = cdiv(num, den);
-        Y[i] = cadd( Y[i], c( C*phi2*frac.re, C*phi2*frac.im ) );
-      }
-    }
-  }
-  return Y;
-}
-
-function spatialAverageMobility(freqs, params){
-  const {avgN, seed, Lx, Ly} = params;
-  const rng = seededRandom(seed);
-  let acc = new Array(freqs.length).fill(0).map(()=>c(0,0));
-  for(let k=0;k<avgN;k++){
-    const p = {...params};
-    p.x0 = rng()*Lx;
-    p.y0 = rng()*Ly;
-    const Yk = mobilityAtPoint(freqs,p);
-    for(let i=0;i<freqs.length;i++){
-      acc[i] = cadd(acc[i], Yk[i]);
-    }
-  }
-  return acc.map(z=>c(z.re/avgN, z.im/avgN));
-}
-
-// --- UI sync ----------------------------------------------------------------
-function pullFromUI(){
-  state.material = $("material").value;
-  state.E = parseFloat($("E").value)*1e9;
-  state.rho = parseFloat($("rho").value);
-  state.nu = clamp(parseFloat($("nu").value), 0.0, 0.49);
-  state.h = parseFloat($("thick").value)/1000;
-  state.Lx = parseFloat($("Lx").value);
-  state.Ly = parseFloat($("Ly").value);
-  state.x0 = clamp(parseFloat($("x0").value), 0, state.Lx);
-  state.y0 = clamp(parseFloat($("y0").value), 0, state.Ly);
-  state.eta = Math.max(0.0001, parseFloat($("eta").value)/100);
-  state.fmin = Math.max(1, parseFloat($("fmin").value));
-  state.fmax = Math.max(state.fmin+10, parseFloat($("fmax").value));
-  state.mx = Math.max(1, parseInt($("mx").value));
-  state.ny = Math.max(1, parseInt($("ny").value));
-  state.showZ = $("showZ").checked;
-  state.showY = $("showY").checked;
-  state.logx = $("logx").checked;
-  state.logy = $("logy").checked;
-  state.reim = $("reim").checked;
-  state.avgOn = $("avgOn").checked;
-  state.avgN = Math.max(2, parseInt($("avgN").value));
-  state.seed = Math.max(0, parseInt($("seed").value));
-
-  // KPIs
-  const D = bendingStiffness(state.E, state.nu, state.h);
-  const mp = massPerArea(state.rho, state.h);
-  $("kpiD").textContent = D.toExponential(3);
-  $("kpimm").textContent = mp.toFixed(1);
-  const f11 = fmn(1,1,state.Lx,state.Ly,state.E,state.nu,state.rho,state.h);
-  $("kpif11").textContent = f11.toFixed(1);
-
-  plot();
-}
-
-function attachEvents(){
-  $("material").addEventListener("change",(e)=>{
-    const v = e.target.value;
-    if(v!=="custom"){ applyPreset(v); }
-    // if custom, do not change the current numeric fields
-  });
-  // All inputs trigger pullFromUI WITHOUT resetting material selection
-  ["E","rho","nu","thick","Lx","Ly","x0","y0","eta","fmin","fmax","mx","ny",
-   "showZ","showY","logx","logy","reim","avgOn","avgN","seed"].forEach(id=>{
-    $(id).addEventListener("input", pullFromUI);
-    $(id).addEventListener("change", pullFromUI);
-  });
-
-  $("reset").addEventListener("click", ()=>{
-    $("material").value = "concrete";
-    applyPreset("concrete");
-    $("Lx").value = 3.6; $("Ly").value = 2.7;
-    $("x0").value = 1.8; $("y0").value = 1.35;
-    $("eta").value = 1.0;
-    $("fmin").value = 20; $("fmax").value = 5000;
-    $("mx").value = 30; $("ny").value = 30;
-    $("showZ").checked = true; $("showY").checked = false;
-    $("logx").checked = true; $("logy").checked = true; $("reim").checked=false;
-    $("avgOn").checked = false; $("avgN").value = 9; $("seed").value = 42;
-    state.overlay = null;
-    pullFromUI();
-  });
-
-  $("exportPng").addEventListener("click", ()=>{
-    Plotly.downloadImage("plot", {format:"png", filename:"plate_impedance"});
-  });
-
-  $("file").addEventListener("change", handleFileOverlay, false);
-}
-
-async function handleFileOverlay(evt){
-  const file = evt.target.files?.[0];
-  if(!file) return;
-  const text = await file.text();
-  const lines = text.split(/\r?\n/).filter(x=>x.trim().length>0);
-  let f=[], zr=[], zi=[], ok = false;
-  for(let i=0;i<lines.length;i++){
-    const row = lines[i].trim();
-    if(i===0 && /f.*Zreal.*Zimag/i.test(row)){ ok = true; continue; }
-    const cols = row.split(/[,;\t]/).map(s=>s.trim());
-    if(cols.length < 3) continue;
-    const ff = parseFloat(cols[0]), r = parseFloat(cols[1]), im = parseFloat(cols[2]);
-    if(isFinite(ff) && isFinite(r) && isFinite(im)){
-      f.push(ff); zr.push(r); zi.push(im);
-    }
-  }
-  if(f.length>0){
-    state.overlay = {f, zr, zi};
-    plot();
-  }else{
-    alert("CSVを解釈できませんでした。ヘッダ: f,Zreal,Zimag で数値を含めてください。");
-    state.overlay = null;
-  }
-}
-
-// --- Plot -------------------------------------------------------------------
-function plot(){
-  const N = 800;
-  const fmin = state.fmin, fmax = state.fmax;
-  const freqs = Array.from({length:N}, (_,i)=> fmin*Math.pow(fmax/fmin, i/(N-1)) );
-
-  const params = {...state};
-  const Y = (state.avgOn ? spatialAverageMobility(freqs, params) : mobilityAtPoint(freqs, params));
-  const Z = Y.map(y => cinv(y));
-
-  const traces = [];
-
-  if(state.showZ){
-    traces.push({
-      x: freqs, y: Z.map(cabs),
-      type: "scatter", mode:"lines",
-      name: "|Z| [N·s/m]"
-    });
-  }
-  if(state.showY){
-    traces.push({
-      x: freqs, y: Y.map(cabs),
-      type: "scatter", mode:"lines",
-      name: "|Y| [m/N·s]"
-    });
-  }
-  if(state.reim){
-    traces.push({ x: freqs, y: Z.map(creal), type:"scatter", mode:"lines", name:"Re{Z}" });
-    traces.push({ x: freqs, y: Z.map(cimag), type:"scatter", mode:"lines", name:"Im{Z}" });
-  }
-
-  if(state.overlay){
-    const {f, zr, zi} = state.overlay;
-    const Zm = zr.map((r, i)=> Math.hypot(r, zi[i] ?? 0));
-    traces.push({
-      x: f, y: Zm, type:"scatter", mode:"lines",
-      name: "Overlay |Z| (CSV)", line:{dash:"dot"}
-    });
-  }
-
-  const layout = {
-    title: {text: "駆動点インピーダンス / モビリティ（SSSS板, モード和）", font:{size:16}},
-    xaxis: {
-      title: "Frequency [Hz]",
-      type: state.logx ? "log" : "linear",
-      gridcolor: "#e5e7eb",
-      zerolinecolor: "#e5e7eb"
-    },
-    yaxis: {
-      title: state.showY && !state.showZ ? "Mobility |Y| [m/N·s]" : "Impedance / Mobility (magnitude)",
-      type: state.logy ? "log" : "linear",
-      gridcolor: "#e5e7eb",
-      zerolinecolor: "#e5e7eb",
-      rangemode: "tozero"
-    },
-    legend:{orientation:"h", x:0, y:1.06},
-    plot_bgcolor:"#ffffff",
-    paper_bgcolor:"#ffffff",
-    margin:{l:70,r:20,t:60,b:60}
-  };
-
-  Plotly.react("plot", traces, layout, {responsive:true, displaylogo:false});
-}
-
-// --- Init -------------------------------------------------------------------
-window.addEventListener("DOMContentLoaded", ()=>{
-  attachEvents();
-  // Ensure initial values correspond to concrete
-  $("material").value = "concrete";
-  applyPreset("concrete"); // this calls pullFromUI() and plot()
-});
-</script>
+  <script src="plates_v2.js" defer></script>
 </body>
 </html>
