@@ -1,4 +1,4 @@
-/* plates_v2.js — Rectangular plate DP impedance (live) with octave stars & mode markers */
+/* plates.js — unified */
 (function(){
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -22,21 +22,25 @@
   // ---------- State ----------
   const state = {
     material: "concrete",
-    E: 30e9, rho: 2400, nu: 0.20, h: 0.150,
+    E: 30e9, rho: 2400, nu: 0.20, h: 0.200,
     Lx: 3.6, Ly: 2.7,
     x0mm: 1800, y0mm: 1350,
     eta: 0.01,
     fmin: 20, fmax: 5000,
     mx: 30, ny: 30,
-    showZ: true, showY: false, logx: true, db: false,
-    octType: 1, showOct: true, markN: 6, showModes: true,
+    showZ: true, showY: false, logx: true, db: true,
+    showOct: true, showInf: true, showModes: true,
   };
 
   const presets = {
-    concrete:{E:30e9, rho:2400, nu:0.20, h_mm:150},
+    concrete:{E:30e9, rho:2400, nu:0.20, h_mm:200},
     gypsum:{E:3.0e9, rho:800, nu:0.30, h_mm:12.5},
     wood:{E:10e9, rho:600, nu:0.30, h_mm:18}
   };
+
+  // Fixed octave centers and mapping to 1/1 band edges (sqrt(2))
+  const OCT_CENTERS = [16, 31.5, 63, 125, 250, 500, 1000, 2000];
+  const BAND_FACTOR = Math.SQRT2;
 
   function applyPreset(name){
     const p = presets[name]; if(!p) return;
@@ -62,7 +66,7 @@
     const C = 4/(rho*h*Lx*Ly);
     const Y = new Array(freqs.length).fill(0).map(()=>c(0,0));
     for(let m=1; m<=mx; m++){
-      const sx2 = Math.sin(m*Math.PI*x0/Lx); // will square later
+      const sx2 = Math.sin(m*Math.PI*x0/Lx);
       const mm = m*m/(Lx*Lx);
       for(let n=1; n<=ny; n++){
         const sy2 = Math.sin(n*Math.PI*y0/Ly);
@@ -82,36 +86,18 @@
     return Y;
   }
 
-  // ---------- Octave utilities ----------
-  function octaveCenters(type, fmin, fmax){
-    const list = [];
-    if(type===1){
-      // Start around 31.5 Hz and double
-      let fc = 31.5;
-      while(fc < fmin) fc *= 2;
-      for(; fc <= fmax*1.01; fc*=2){ list.push(fc); }
-    }else{
-      // 1/3 octave based on 31.5 Hz nominal
-      const k = Math.pow(2, 1/3);
-      // start so that we land near within range
-      let fc = 31.5;
-      while(fc/k > fmin) fc /= k; // move down to just below fmin
-      while(fc < fmin) fc *= k;
-      for(; fc <= fmax*1.01; fc*=k){ list.push(fc); }
-    }
-    return list;
-  }
-  function bandEdges(fc, type){
-    const factor = (type===1)? Math.SQRT2 : Math.pow(2, 1/6);
-    return [fc/factor, fc*factor];
+  // Infinite-plate |Z_inf| = 8*sqrt(D*m'*omega); |Y_inf|=1/|Z_inf|
+  function Zinf_mag(f, E,nu,rho,h){
+    const d = D(E,nu,h), mps = mp(rho,h);
+    const w = 2*Math.PI*f;
+    return 8*Math.sqrt(d*mps*w);
   }
 
-  // ---------- Plot helpers ----------
+  // ---------- Utilities ----------
   function toDB20(arr, ref){
     return arr.map(v => 20*Math.log10( Math.max(v, EPS) / ref ));
   }
   function interpY(xarr, yarr, x){
-    // log-spaced data; find nearest two
     if(x<=xarr[0]) return yarr[0];
     if(x>=xarr[xarr.length-1]) return yarr[yarr.length-1];
     let lo=0, hi=xarr.length-1;
@@ -144,8 +130,6 @@
     state.showY = $("showY").checked;
     state.logx = $("logx").checked;
     state.db   = $("db").checked;
-    state.octType = parseInt($("octType").value);
-    state.markN = Math.max(2, Math.min(20, parseInt($("markN").value)||6));
 
     // KPIs
     const d = D(state.E,state.nu,state.h);
@@ -164,14 +148,15 @@
       if(v!=="custom"){ applyPreset(v); } else { /* keep manual */ }
     });
     ["E","rho","nu","thick","Lx","Ly","x0mm","y0mm","eta","fmin","fmax","mx","ny",
-     "showZ","showY","logx","db","octType","markN"].forEach(id=>{
+     "showZ","showY","logx","db"].forEach(id=>{
       $(id).addEventListener("input", pullFromUI);
       $(id).addEventListener("change", pullFromUI);
     });
     $("toggleOct").addEventListener("click", ()=>{ state.showOct = !state.showOct; plot(); });
+    $("toggleInf").addEventListener("click", ()=>{ state.showInf = !state.showInf; plot(); });
     $("toggleModes").addEventListener("click", ()=>{ state.showModes = !state.showModes; plot(); });
     $("exportPng").addEventListener("click", ()=>{
-      Plotly.downloadImage("plot",{format:"png", filename:"plate_impedance_v2"});
+      Plotly.downloadImage("plot",{format:"png", filename:"plate_impedance"});
     });
     $("reset").addEventListener("click", ()=>{
       $("material").value = "concrete"; applyPreset("concrete");
@@ -181,9 +166,8 @@
       $("fmin").value = 20; $("fmax").value = 5000;
       $("mx").value = 30; $("ny").value = 30;
       $("showZ").checked=true; $("showY").checked=false;
-      $("logx").checked=true; $("db").checked=false;
-      $("octType").value = "1"; $("markN").value="6";
-      state.showOct = true; state.showModes = true;
+      $("logx").checked=true; $("db").checked=true;
+      state.showOct = true; state.showInf = true; state.showModes = true;
       pullFromUI();
     });
   }
@@ -205,12 +189,12 @@
 
     // choose curve(s)
     let traces = [];
-    const yRefZ = 1.0; // 1 Ns/m
-    const yRefY = 1.0; // 1 m/Ns
+    const refZ = 1.0; // 1 Ns/m
+    const refY = 1.0; // 1 m/Ns
     const magZ = Z.map(cabs);
     const magY = Y.map(cabs);
-    let yZ = state.db ? toDB20(magZ, yRefZ) : magZ;
-    let yY = state.db ? toDB20(magY, yRefY) : magY;
+    let yZ = state.db ? toDB20(magZ, refZ) : magZ;
+    let yY = state.db ? toDB20(magY, refY) : magY;
 
     if(state.showZ){
       traces.push({x:freqs, y:yZ, type:"scatter", mode:"lines", name: state.db? "|Z| [dB re 1 Ns/m]" : "|Z| [N·s/m]"});
@@ -219,55 +203,56 @@
       traces.push({x:freqs, y:yY, type:"scatter", mode:"lines", name: state.db? "|Y| [dB re 1 m/N·s]" : "|Y| [m/N·s]"});
     }
 
-    // --- Octave stars (current primary curve: prefer Z if shown else Y) ---
     const primaryY = state.showZ ? yZ : yY;
+
+    // --- Octave stars at fixed centers ---
     if(state.showOct){
-      const centers = octaveCenters(state.octType, fmin, fmax);
       const xs=[], ys=[];
-      centers.forEach(fc=>{
-        const [lo,hi] = bandEdges(fc, state.octType);
-        // sample indices inside band
+      for(const fc of OCT_CENTERS){
+        const lo = fc/BAND_FACTOR, hi = fc*BAND_FACTOR;
+        if(hi < fmin || lo > fmax) continue;
         let acc=0, cnt=0;
         for(let i=0;i<freqs.length;i++){
           const f = freqs[i];
           if(f>=lo && f<=hi){ acc += primaryY[i]; cnt++; }
         }
-        if(cnt>0){
-          xs.push(fc);
-          ys.push(acc/cnt);
-        }
-      });
+        if(cnt>0){ xs.push(fc); ys.push(acc/cnt); }
+      }
       if(xs.length){
         traces.push({x:xs, y:ys, type:"scatter", mode:"markers", name:"Octave mean (★)",
           marker:{symbol:"star", size:10}});
       }
     }
 
-    // --- Mode markers ▲ for first N modes ---
-    if(state.showModes){
-      // compute a set of lowest modes using a small search window
-      const pairs = [];
-      const M = Math.max(5, Math.min(20, Math.max(state.mx, state.ny)));
-      for(let m=1;m<=M;m++){
-        for(let n=1;n<=M;n++){
-          const f = fmn(m,n, state.Lx,state.Ly, state.E,state.nu,state.rho,state.h);
-          if(f>=fmin && f<=fmax){
-            pairs.push({m,n,f});
-          }
-        }
+    // --- Infinite-plate ● at same centers ---
+    if(state.showInf){
+      const xs=[], ys=[];
+      for(const fc of OCT_CENTERS){
+        if(fc < fmin || fc > fmax) continue;
+        const zinf = Zinf_mag(fc, state.E,state.nu,state.rho,state.h);
+        const val = state.db ? 20*Math.log10(zinf/refZ) : zinf;
+        xs.push(fc); ys.push(val);
       }
-      pairs.sort((a,b)=> a.f-b.f);
-      const take = pairs.slice(0, state.markN);
-      const xM = [], yM = [], txt = [];
-      take.forEach(p=>{
-        xM.push(p.f);
-        // place marker on primary curve for readability
-        const yv = interpY(freqs, primaryY, p.f);
-        yM.push(yv);
-        txt.push(`f_${p.m}${p.n} = ${p.f.toFixed(1)} Hz`);
+      if(xs.length){
+        traces.push({x:xs, y:ys, type:"scatter", mode:"markers", name:"Infinite plate (●)",
+          marker:{symbol:"circle", size:8}});
+      }
+    }
+
+    // --- Mode markers ▲ fixed set: (1,1),(1,2),(2,1),(2,2),(3,1),(3,2) ---
+    if(state.showModes){
+      const modes = [[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]];
+      const xm=[], ym=[], txt=[];
+      modes.forEach(([m,n])=>{
+        const f = fmn(m,n, state.Lx,state.Ly, state.E,state.nu,state.rho,state.h);
+        if(f>=fmin && f<=fmax){
+          xm.push(f);
+          ym.push(interpY(freqs, primaryY, f));
+          txt.push(`f_${m}${n} = ${f.toFixed(1)} Hz`);
+        }
       });
-      if(xM.length){
-        traces.push({x:xM, y:yM, type:"scatter", mode:"markers+text", name:"Modes (▲)",
+      if(xm.length){
+        traces.push({x:xm, y:ym, type:"scatter", mode:"markers+text", name:"Modes (▲)",
           marker:{symbol:"triangle-up", size:9}, text:txt, textposition:"top center", hoverinfo:"text+x+y"});
       }
     }
@@ -296,7 +281,6 @@
 
   // ---------- Init ----------
   function init(){
-    // inflate inputs from HTML defaults
     $("material").value = "concrete";
     applyPreset("concrete");
   }
