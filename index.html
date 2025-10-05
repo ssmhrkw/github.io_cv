@@ -1,113 +1,206 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Susumu Hirakawa Profile</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-
-        header {
-            background-color: #f4f4f4;
-            padding: 20px;
-        }
-
-        header h1 {
-            margin: 0;
-        }
-
-        header h2, header h3 {
-            margin: 5px 0;
-        }
-
-        section {
-            padding: 20px;
-        }
-
-        section h4 {
-            margin-bottom: 10px;
-        }
-
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        li {
-            margin-bottom: 10px;
-        }
-
-        a {
-            text-decoration: none;
-            color: #0077cc;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Susumu Hirakawa | Profile & Tools</title>
+  <meta name="description" content="Susumu Hirakawa / 平川 侑 — National Institute for Land and Infrastructure Management. Publications, tools, and contact.">
+  <meta property="og:title" content="Susumu Hirakawa | Profile & Tools">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:description" content="建築音響（重量床衝撃音）関連のプロフィール・成果・ツール集。">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f172a; --panel2:#111827; --card:#0b1324;
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#60a5fa; --border:#1f2937;
+      --chip:#0b2540; --chip-b:#1e3a8a;
+      --link:#93c5fd; --link-h:#bfdbfe;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      background:radial-gradient(1200px 600px at 10% -10%, #0d1b35 0%, transparent 60%),
+                 radial-gradient(1000px 600px at 100% 0%, #0d1930 0%, transparent 55%),
+                 linear-gradient(180deg,var(--bg),#0d1424 40%,#0e182a);
+      color:var(--text);
+      font-family:'Inter','Noto Sans JP',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue','Noto Sans',Arial,'Apple Color Emoji','Segoe UI Emoji',sans-serif;
+      line-height:1.75;
+    }
+    a{color:var(--link);text-decoration:none} a:hover{color:var(--link-h);text-decoration:underline}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 18px}
+    .hero{
+      display:grid;grid-template-columns:1.3fr .9fr;gap:20px;align-items:stretch;
+    }
+    @media (max-width:860px){.hero{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);
+      border-radius:18px;box-shadow:0 30px 70px rgba(2,6,23,.36);}
+    .pad{padding:22px}
+    h1{font-weight:800;letter-spacing:.2px;margin:0 0 6px;font-size:clamp(22px,3vw,36px)}
+    h2{font-weight:800;margin:0 0 8px;font-size:clamp(18px,2.2vw,26px)}
+    h3{font-weight:800;margin:0 0 6px;font-size:18px}
+    .muted{color:var(--muted)}
+    .badge{display:inline-flex;align-items:center;gap:8px;
+      background:var(--chip);border:1px solid var(--chip-b);padding:4px 10px;border-radius:999px;color:#c7d2fe;font-size:12px}
+    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    @media (max-width:820px){.grid3,.grid2{grid-template-columns:1fr}}
+    .tool{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;gap:12px;flex-direction:column;min-height:160px}
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#0f172a;border:1px solid #1e293b;color:#e5e7eb;text-decoration:none;font-weight:700;transition:.15s}
+    .btn:hover{background:#1d283a;transform:translateY(-1px)}
+    .btn svg{width:18px;height:18px}
+    .list{list-style:none;padding:0;margin:0}
+    .list li{margin:8px 0}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace}
+    .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+    .sep{height:1px;background:#1f2937;margin:18px 0}
+    .contact a{display:inline-flex;align-items:center;gap:8px}
+    .contact svg{width:16px;height:16px}
+    footer{margin-top:24px;text-align:center;color:var(--muted);font-size:12px}
+  </style>
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"Person",
+    "name":"Susumu Hirakawa",
+    "alternateName":"平川 侑",
+    "affiliation":{"@type":"Organization","name":"National Institute for Land and Infrastructure Management (NILIM)"},
+    "jobTitle":"Senior Researcher / 主任研究官",
+    "worksFor":{"@type":"GovernmentOrganization","name":"Ministry of Land, Infrastructure, Transport and Tourism"},
+    "knowsAbout":["Building acoustics","Impact sound","Heavy impact sources","Signal processing"],
+    "url":"https://ssmhrkw.github.io/github.io_cv/",
+    "sameAs":[
+      "https://www.linkedin.com/in/susumuhirakawa/",
+      "https://www.researchgate.net/profile/Susumu-Hirakawa",
+      "https://researchmap.jp/sh_liv?lang=en"
+    ]
+  }
+  </script>
 </head>
 <body>
-    <header>
-        <h1>Susumu Hirakawa</h1>
-        <h1>平川　侑</h1>
-        <h2>Ministry of Land, Infrastructure, Transport and Tourism, National Institute for Land and Infrastructure
-            Management</h2>
-        <h2>国土交通省国土技術政策総合研究所</h2>
-        <h3>Building Research Department, Equipment Standard Research Division, Senior Researcher</h3>
-        <h3>建築研究部, 設備基準研究室, 主任研究官</h3>
-    </header>
-<section>
-    <h4>Contact(連絡先):</h4>
-    <p>〒305-0802 Ibaraki Prefecture, Tsukuba City, Tachihara 1 (茨城県つくば市立原1番地)</p>
-    <ul>
-        <li><a href="mailto:hirakawa-s92ta@mlit.go.jp">hirakawa-s92ta@mlit.go.jp</a></li>
-        <li><a href="tel:029-864-4356">029-864-4356</a></li>
-    </ul>
-</section>
-<section>
-    <h4>Find me on:</h4>
-    <ul>
-        <li><a href="https://www.linkedin.com/in/susumuhirakawa/" target="_blank">LinkedIn</a></li>
-        <li><a href="https://www.researchgate.net/profile/Susumu-Hirakawa" target="_blank">ResearchGate</a></li>
-        <li><a href="https://researchmap.jp/sh_liv?lang=en" target="_blank">ResearchMap</a></li>
-        <li><a href="https://nrid.nii.ac.jp/ja/nrid/1000070848978/" target="_blank">Kakenhi</a></li>
-    </ul>
-</section>
-<section>
-    <h4>Recent Papers:</h4>
-    <ul>
-        <li>
-            <a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1326.htm" target="_blank">国総研資料第1326号 鉄骨造・木造建築物における実建物と実験室間の重量床衝撃音遮断性能の比較</a>
-        </li>
-        <li>
-            <a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1263.htm" target="_blank">国総研資料第1263号 非RC造の実建物等を対象とした標準重量衝撃源（ゴムボール）による重量床衝撃音遮断性能の調査報告書</a>
-        </li>
-        <li>
-            <a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1261.htm" target="_blank">国総研資料第1261号 集合住宅における居住者の音環境評価に関するオンライン調査報告書</a>
-        </li>
-        <li>
-            <a href="https://livrepository.liverpool.ac.uk/3028540/" target="_blank">Thesis (PhD): Prediction of impact sound transmission with heavy impact sources in heavyweight buildings</a>
-        </li>
-    </ul>
-</section>
+  <div class="wrap">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="card pad">
+        <div class="badge mono">Building Acoustics • Floor Impact Sound • SignalProcessing</div>
 
-    
-<section>
-    <h4>Educational Background (学歴):</h4>
-    <ul>
-        <li>Degree of Doctor in Philosophy, University of Liverpool, 26th November 2018</li>
-        <li>Bachelor of Science (Applied Sciences) (Honours) Honours 1st Class, RMIT University, 17th December 2014
+        <h1>Susumu Hirakawa / 平川 侑</h1>
+        <div class="muted">Ministry of Land, Infrastructure, Transport and Tourism — National Institute for Land and Infrastructure Management</div>
+        <div class="muted">国土交通省 国土技術政策総合研究所</div>
+        <div class="sep"></div>
+        <div>
+          <h3>Role / 所属</h3>
+          <div>Building Research Department, Equipment Standard Research Division, <b>Senior Researcher</b></div>
+          <div>建築研究部 設備基準研究室 <b>主任研究官</b></div>
+        </div>
+        <div class="sep"></div>
+        <div class="grid2 contact">
+          <div>
+            <h3>Contact</h3>
+            <ul class="list">
+              <li>
+                <a href="mailto:hirakawa-s92ta@mlit.go.jp">
+                  <!-- mail icon -->
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h18v14H3z"/><path d="m3 7 9 6 9-6"/></svg>
+                  hirakawa-s92ta@mlit.go.jp
+                </a>
+              </li>
+              <li>
+                <a href="tel:029-864-4356">
+                  <!-- phone icon -->
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 16.92v2a2 2 0 0 1-2.18 2c-3.17-.35-6.2-1.86-8.47-4.13a19.79 19.79 0 0 1-4.13-8.47A2 2 0 0 1 9.24 6h2a2 2 0 0 1 2 1.72c.1.81.28 1.6.54 2.36a2 2 0 0 1-.45 2.11L12 14a16 16 0 0 0 4 4l1.81-1.33a2 2 0 0 1 2.11-.45c.76.26 1.55.44 2.36.54A2 2 0 0 1 22 16.92z"/></svg>
+                  029-864-4356
+                </a>
+              </li>
+              <li class="muted">〒305-0802 茨城県つくば市立原1番地</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Profiles</h3>
+            <ul class="list">
+              <li><a href="https://www.linkedin.com/in/susumuhirakawa/" target="_blank" rel="noopener">LinkedIn</a></li>
+              <li><a href="https://www.researchgate.net/profile/Susumu-Hirakawa" target="_blank" rel="noopener">ResearchGate</a></li>
+              <li><a href="https://researchmap.jp/sh_liv?lang=en" target="_blank" rel="noopener">researchmap</a></li>
+              <li><a href="https://nrid.nii.ac.jp/ja/nrid/1000070848978/" target="_blank" rel="noopener">KAKEN</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h2>Tools / Calculators</h2>
+        <div class="grid3">
+          <div class="tool">
+            <div><b>重量床衝撃音算出ツール</b></div>
+            <div class="muted">実務的騒音対策指針を参考（作成途中）</div>
+            <a class="btn" href="./Floorimpact.html" target="_blank" rel="noopener">
+              <!-- link icon -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1"/><path d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1"/></svg>
+              開く（Floorimpact.html）
+            </a>
+          </div>
+          <div class="tool">
+            <div><b>板の曲げ波・固有振動数</b></div>
+            <div class="muted">矩形板の基本式（作成途中）</div>
+            <a class="btn" href="./plates.html" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5V4.5a2 2 0 0 1 2-2h9l5 5v12a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2z"/><path d="M14 2.5v6h6"/></svg>
+              開く（plates.html）
+            </a>
+          </div>
+          <div class="tool">
+            <div><b>積層板の遮音簡易計算</b></div>
+            <div class="muted">「こんなのあったらいいな」を形に（作成途中）</div>
+            <a class="btn" href="./Laminated-Calc.html" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18M3 12h18M3 17h18"/></svg>
+              開く（Laminated-Calc.html）
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAPERS -->
+    <section class="card pad" style="margin-top:18px">
+      <h2>Recent Papers / 最近の成果</h2>
+      <ul class="list">
+        <li>
+          <a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1326.htm" target="_blank" rel="noopener">
+            国総研資料第1326号 鉄骨造・木造建築物における実建物と実験室間の重量床衝撃音遮断性能の比較
+          </a>
         </li>
-        <li>Bachelor of Arts in Theology, Doshisha University, 20th March 2014</li>
-        <li>Bachelor of Science (Physics), RMIT University, 13th March 2012</li>
-    </ul>
-</section>
+        <li>
+          <a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1263.htm" target="_blank" rel="noopener">
+            国総研資料第1263号 非RC造の実建物等を対象とした標準重量衝撃源（ゴムボール）による重量床衝撃音遮断性能の調査報告書
+          </a>
+        </li>
+        <li>
+          <a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1261.htm" target="_blank" rel="noopener">
+            国総研資料第1261号 集合住宅における居住者の音環境評価に関するオンライン調査報告書
+          </a>
+        </li>
+        <li>
+          <a href="https://livrepository.liverpool.ac.uk/3028540/" target="_blank" rel="noopener">
+            Thesis (PhD): Prediction of impact sound transmission with heavy impact sources in heavyweight buildings
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- EDUCATION -->
+    <section class="card pad" style="margin-top:18px">
+      <h2>Educational Background / 学歴</h2>
+      <ul class="list">
+        <li>Degree of Doctor in Philosophy, University of Liverpool — <span class="muted">26 Nov 2018</span></li>
+        <li>Bachelor of Science (Applied Sciences) (Honours) 1st Class, RMIT University — <span class="muted">17 Dec 2014</span></li>
+        <li>Bachelor of Arts in Theology, Doshisha University — <span class="muted">20 Mar 2014</span></li>
+        <li>Bachelor of Science (Physics), RMIT University — <span class="muted">13 Mar 2012</span></li>
+      </ul>
+    </section>
+
+    <footer>© <span class="mono">ssmhrkw</span> — GitHub Pages</footer>
+  </div>
 </body>
 </html>
