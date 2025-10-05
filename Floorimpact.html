@@ -1,405 +1,285 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
+<meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>床衝撃音レベル予測（重量衝撃源）S1-1〜S1-8 完全実装</title>
+<title>床衝撃音レベル予測（重量衝撃源）— Hirakawa v4</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+JP:wght@100..900&display=swap');
-  :root{--panel:#f7f9fb}
-  body{font-family:'Inter','Noto Sans JP',sans-serif;background:var(--panel)}
-  .card{background:#fff;border-radius:1rem;box-shadow:0 20px 40px rgba(0,0,0,.05)}
+  body{font-family:'Inter','Noto Sans JP',sans-serif;background:#f7f9fb}
+  .card{background:#fff;border-radius:1rem;box-shadow:0 18px 40px rgba(0,0,0,.06)}
   .small{font-size:.875rem;color:#6b7280}
-  .mono{font-variant-numeric:tabular-nums}
-  .result-box{border:2px solid #3b82f6;background:#eff6ff;color:#1e40af}
-  .pass{background:#d1fae5;color:#065f46}
-  .fail{background:#fee2e2;color:#991b1b}
   .tbl th{background:#f9fafb}
-  details > summary { cursor: pointer; }
+  .errbox{position:fixed;right:1rem;bottom:1rem;background:#fee2e2;color:#7f1d1d;border:1px solid #fecaca;border-radius:.5rem;padding:.5rem .75rem;max-width:90vw}
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
 </style>
 </head>
 <body class="p-4 sm:p-8">
-
 <div class="max-w-7xl mx-auto card p-6 sm:p-10">
-  <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-2">床衝撃音レベル予測（重量衝撃源）</h1>
-  <p class="text-gray-500 mb-6">図8-2のロジックフロー（S1-1〜S1-8）に準拠。加振点は手入力に加え「対角5点」をワンクリック投入可。集計は<strong>平均</strong>。</p>
 
-  <!-- 入力 -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    <div>
-      <label class="block small">短辺 a [m]</label>
-      <input id="a_m" type="number" class="w-full p-2 rounded border" step="0.001" value="4.650">
-    </div>
-    <div>
-      <label class="block small">長辺 b [m]</label>
-      <input id="b_m" type="number" class="w-full p-2 rounded border" step="0.001" value="3.150">
-    </div>
-    <div>
-      <label class="block small">厚さ h [mm]</label>
-      <input id="h_mm" type="number" class="w-full p-2 rounded border" min="120" value="210">
-    </div>
-    <div>
-      <label class="block small">密度 ρ [kg/m³]</label>
-      <input id="rho" type="number" class="w-full p-2 rounded border" value="2300">
-    </div>
-    <div>
-      <label class="block small">ヤング率 E [N/m² ×10¹⁰]</label>
-      <input id="E10" type="number" class="w-full p-2 rounded border" step="0.1" value="2.1">
-    </div>
-    <div>
-      <label class="block small">下室吸音力 A [m²]</label>
-      <input id="A_m2" type="number" class="w-full p-2 rounded border" step="0.1" value="10">
-    </div>
-    <div>
-      <label class="block small">衝撃周波数 fθ [Hz]（タイヤ=25）</label>
-      <input id="f_theta" type="number" class="w-full p-2 rounded border" value="25">
-    </div>
-    <div>
-      <label class="block small">合成法（ΔLz）</label>
-      <select id="combineMode" class="w-full p-2 rounded border">
-        <option value="a">(a) エネルギー和 20log(10^(ΔL1/20)+10^(ΔL2/20)-1)</option>
-        <option value="b">(b) 算術和 ΔL1+ΔL2</option>
-      </select>
-    </div>
-    <div>
-      <label class="block small">支持条件（f_n1用）</label>
-      <select id="support" class="w-full p-2 rounded border">
-        <option value="fix">四辺固定相当（式 8.2 で 0.8×f_fix）</option>
-      </select>
+  <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-6">床衝撃音レベル予測（重量衝撃源）— Based on 実務的騒音対策指針</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+    <div><label class="block small">室の短辺 a<sub>room</sub> [mm]</label><input id="a_mm" type="number" class="w-full p-2 rounded border" value="4650"></div>
+    <div><label class="block small">室の長辺 b<sub>room</sub> [mm]</label><input id="b_mm" type="number" class="w-full p-2 rounded border" value="3150"></div>
+    <div><label class="block small">厚さ h [mm]</label><input id="h_mm" type="number" class="w-full p-2 rounded border" value="210" min="80"></div>
+    <div><label class="block small">密度 ρ [kg/m³]</label><input id="rho" type="number" class="w-full p-2 rounded border" value="2300"></div>
+    <div><label class="block small">ヤング率 E [N/m² ×10¹⁰]</label><input id="E10" type="number" class="w-full p-2 rounded border" step="0.1" value="2.1"></div>
+    <div><label class="block small">下室吸音力 A [m²]</label><input id="A_m2" type="number" class="w-full p-2 rounded border" step="0.1" value="10"></div>
+    <div><label class="block small">衝撃周波数 fθ [Hz]（タイヤ=25）</label><input id="f_theta" type="number" class="w-full p-2 rounded border" value="25"></div>
+    <div><label class="block small">ΔL<sub>z</sub> 合成法</label><select id="combine" class="w-full p-2 rounded border"><option value="a">(a) エネルギー和</option><option value="b">(b) 算術和</option></select></div>
+  </div>
+
+  <div class="mb-4 p-3 rounded border bg-white">
+    <label class="inline-flex items-center gap-2">
+      <input id="sameArea" type="checkbox" class="h-4 w-4" checked>
+      <span class="font-semibold">スラブ面積＝室面積（a<sub>room</sub>×b<sub>room</sub>）</span>
+      <span class="small">(OFFにすると「スラブスパン Lx/Ly」を使って一次固有振動数 fn1 を計算します)</span>
+    </label>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-3 items-end">
+      <div><label class="block small">スラブ面積 [m²]</label><input id="slabArea" type="number" class="w-full p-2 rounded border" value="14.65" readonly></div>
+      <div><label class="block small">室面積 [m²]</label><input id="roomArea" type="number" class="w-full p-2 rounded border" value="14.65" readonly></div>
+      <div id="lxwrap" class="hidden"><label class="block small">スラブ短辺 Lx [mm]</label><input id="Lx_mm" type="number" class="w-full p-2 rounded border" value="4650"></div>
+      <div id="lywrap" class="hidden"><label class="block small">スラブ長辺 Ly [mm]</label><input id="Ly_mm" type="number" class="w-full p-2 rounded border" value="3150"></div>
+      <div><label class="block small">備考</label><input id="memo" type="text" class="w-full p-2 rounded border" placeholder="任意メモ"></div>
     </div>
   </div>
 
-  <!-- 加振点 -->
-  <div class="mb-4 flex items-center gap-3">
+  <div class="mb-2 flex items-center gap-3">
     <h2 class="text-lg font-bold">加振点（S1〜S5）</h2>
-    <button id="fill5" class="px-3 py-1 bg-slate-100 rounded border hover:bg-slate-200">対角5点を自動入力</button>
+    <button id="fill5" class="px-3 py-1 rounded border bg-slate-100 hover:bg-slate-200">対角5点を自動入力</button>
+    <span class="small">S4/S5 は任意（既定 ON）</span>
   </div>
-  <div id="points" class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6"></div>
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
+    <template id="ptTemplate">
+      <div class="p-3 rounded border bg-white">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold ptLabel"></div>
+          <label class="inline-flex items-center gap-1 small"><input type="checkbox" class="on h-4 w-4" checked> 有効</label>
+        </div>
+        <label class="block small mt-1">x [mm]</label><input type="number" class="x w-full p-1 rounded border">
+        <label class="block small mt-1">y [mm]</label><input type="number" class="y w-full p-1 rounded border">
+        <div class="grid grid-cols-2 gap-2 mt-1">
+          <div><label class="block small">x 端部</label><select class="ex w-full p-1 rounded border">
+            <option value="none">梁なし</option><option value="kobari">小ばり</option><option value="obari">大ばり</option>
+          </select></div>
+          <div><label class="block small">y 端部</label><select class="ey w-full p-1 rounded border">
+            <option value="none">梁なし</option><option value="kobari">小ばり</option><option value="obari">大ばり</option>
+          </select></div>
+        </div>
+      </div>
+    </template>
+    <div id="pt1"></div><div id="pt2"></div><div id="pt3"></div><div id="pt4"></div><div id="pt5"></div>
+  </div>
 
-  <button id="run" class="w-full py-3 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700">S1-1〜S1-8 を計算</button>
+  <button id="run" class="w-full py-3 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700">計算（S1-1〜S1-8）</button>
 
-  <!-- 結果 -->
   <div id="out" class="mt-8 hidden">
-    <h2 class="text-xl font-bold mb-3">計算結果</h2>
-    <div id="info" class="grid md:grid-cols-3 gap-4 mb-4"></div>
-
-    <div class="result-box p-4 rounded mb-6">
-      <div class="text-sm text-gray-800">LL等級（平均スペクトルによる正式判定）</div>
-      <div class="text-4xl font-extrabold" id="ll-grade"></div>
-      <div class="text-sm" id="ll-note"></div>
+    <div class="grid md:grid-cols-3 gap-4 mb-6">
+      <div class="p-3 rounded border"><div class="small">S1-2 基準インピーダンス</div><div id="zrBox" class="font-semibold mono"></div></div>
+      <div class="p-3 rounded border"><div class="small">S1-4(a) 一次固有振動数</div><div id="fn1Box" class="font-semibold mono"></div></div>
+      <div class="p-3 rounded border"><div class="small">判定帯域（図8-10）</div><div id="bandBox" class="font-semibold mono"></div></div>
     </div>
 
-    <div class="overflow-x-auto rounded border mb-6">
-      <table class="min-w-full tbl">
+    <div class="overflow-x-auto rounded border">
+      <table class="min-w-full tbl text-sm">
         <thead>
-          <tr>
-            <th class="px-2 py-2 text-xs">f (Hz)</th>
-            <th class="px-2 py-2 text-xs">(1) 20log F_rms</th>
-            <th class="px-2 py-2 text-xs">(2)+(3)+(4) L_Z(avg)</th>
-            <th class="px-2 py-2 text-xs">(7) 10log S_eff</th>
-            <th class="px-2 py-2 text-xs">(8) 10log k</th>
-            <th class="px-2 py-2 text-xs">(10) -10log A</th>
-            <th class="px-2 py-2 text-xs">(11) ΔL_peak</th>
-            <th class="px-2 py-2 text-xs">152</th>
-            <th class="px-2 py-2 text-xs font-bold">(12) L_avg</th>
-            <th class="px-2 py-2 text-xs">L-45基準</th>
-          </tr>
+          <tr><th class="px-2 py-2">項目</th><th class="px-2 py-2">単位</th><th class="px-2 py-2">63 Hz</th><th class="px-2 py-2">125 Hz</th><th class="px-2 py-2">250 Hz</th><th class="px-2 py-2">500 Hz</th></tr>
         </thead>
-        <tbody id="avgBody" class="text-sm"></tbody>
+        <tbody id="tableBody"></tbody>
       </table>
     </div>
 
-    <details class="mb-3">
-      <summary class="font-semibold">各加振点の中間計算 (1)〜(12)</summary>
-      <div id="perPoint"></div>
-    </details>
+    <div class="grid md:grid-cols-2 gap-4 mt-4">
+      <div class="p-4 rounded border bg-white"><div class="text-sm">平均スペクトルによる LL 等級（曲線比較）</div><div id="grade" class="text-2xl font-extrabold mt-1"></div></div>
+      <div class="p-4 rounded border bg-white"><div class="text-sm">しゃ音等級数（L数, L<sub>suu</sub>）</div><div id="lnum" class="text-2xl font-extrabold mt-1"></div><div class="small text-gray-500">リファレンス: [53, 43, 36, 30] に 2 dB 以内で収まる最小シフト。</div></div>
+    </div>
   </div>
 </div>
 
+<div id="err" class="errbox" style="display:none"></div>
+
 <script>
-const BANDS = [63,125,250,500];
-const F_RMS = {63:32,125:20,250:13,500:4};
-const DL_PEAK = 8;
-function k_dB_from_h(h_mm, band){
-  const map = {
-    120:{63:-7,125:-2,250:0,500:0},
-    150:{63:-5,125:0,250:0,500:0},
-    180:{63:-4,125:0,250:0,500:0},
-    200:{63:-3,125:0,250:0,500:0},
-    230:{63:0,125:0,250:0,500:0}
-  };
-  const keys=[120,150,180,200,230];
-  let nearest=keys[0], minDiff=Math.abs(h_mm-keys[0]);
-  for(const k of keys){ const d=Math.abs(h_mm-k); if(d<minDiff){minDiff=d; nearest=k;} }
-  return map[nearest][band];
-}
-function relLZ_from_band(bandTag, f){
-  const rel = {
-    "31.5":{63:-15,125:-12,250:-9,500:-6},
-    "63":  {63:-12,125:-9,250:-6,500:-3},
-    "125": {63:-9,125:-6,250:-3,500:0}
-  };
-  return rel[bandTag][f];
-}
-function pickBandFromFn1(fn1){
-  if (fn1>=22.4 && fn1<44.7) return "31.5";
-  if (fn1>=44.7 && fn1<89.1) return "63";
-  return "125";
-}
-const DL_CURVE = {
-  none: [[0.0,0],[0.5,0]],
-  kobari: [
-    [0.00,10.0],[0.10,7.0],[0.15,5.8],[0.20,4.8],
-    [0.25,3.8],[0.30,3.0],[0.35,1.5],[0.40,0.5],[0.50,0.0]
-  ],
-  obari: [
-    [0.00,12.0],[0.10,9.5],[0.15,7.5],[0.20,6.0],
-    [0.25,4.5],[0.30,3.0],[0.35,1.5],[0.40,0.5],[0.50,0.0]
-  ]
+const BANDS=[63,125,250,500];
+const FRMS={63:32,125:20,250:13,500:4};
+const DL_PEAK=8;
+const L_CURVE={'L-40':[68,56,49,42],'L-45':[73,61,54,47],'L-50':[78,66,59,52],'L-55':[83,71,64,57],'L-60':[88,76,69,62],'L-65':[93,81,74,67]};
+function k_dB(h,b){const map={120:{63:-7,125:-2,250:0,500:0},150:{63:-5,125:0,250:0,500:0},180:{63:-4,125:0,250:0,500:0},200:{63:-3,125:0,250:0,500:0},230:{63:0,125:0,250:0,500:0}};const keys=[120,150,180,200,230];let q=keys[0],d=1e9;for(const k of keys){const dd=Math.abs(h-k);if(dd<d){d=dd;q=k;}}return map[q][b];}
+function relLZ(bandTag,f){const rel={ "31.5":{63:-15,125:-12,250:-9,500:-6},"63":{63:-12,125:-9,250:-6,500:-3},"125":{63:-9,125:-6,250:-3,500:0}};return rel[bandTag][f];}
+function pickBand(fn1){if(fn1>=22.4 && fn1<44.7) return "31.5"; if(fn1>=44.7 && fn1<89.1) return "63"; return "125";}
+const DL_CURVE={
+  none:[[0,0],[0.50,0.0]],
+  kobari:[[0.00,10.0],[0.10,7.0],[0.15,5.6],[0.20,4.5],[0.25,3.5],[0.30,2.5],[0.35,1.2],[0.40,0.5],[0.50,0.0]],
+  obari:[[0.00,12.0],[0.10,9.5],[0.15,7.0],[0.20,4.8],[0.23,4.1],[0.25,3.5],[0.30,2.5],[0.35,1.2],[0.40,0.5],[0.50,0.0]]
 };
-function interpDL(tbl,x){
-  x=Math.max(0,Math.min(x,tbl[tbl.length-1][0]));
-  for(let i=1;i<tbl.length;i++){
-    const [x2,y2]=tbl[i],[x1,y1]=tbl[i-1];
-    if(x<=x2) return y1+(y2-y1)*(x-x1)/(x2-x1);
-  }
-  return tbl[tbl.length-1][1];
-}
-function lambdaB_f(E,rho,h_m,f){
-  const c_l=Math.sqrt(E/rho);
-  return Math.sqrt(Math.PI*c_l*h_m/(Math.sqrt(3)*f));
-}
-function lambdaB_theta(E,rho,h_m,f_theta){
-  return lambdaB_f(E,rho,h_m,f_theta);
-}
-function Zr(E,rho,h_m){
-  return (4/Math.sqrt(3))*Math.sqrt(rho)*Math.sqrt(E)*h_m*h_m;
-}
-function fn1_fixed(E,rho,h_m,a_m,b_m){
-  const cl=Math.sqrt(E/rho);
-  const ffix = (Math.PI/(4*Math.sqrt(3))) * ((2.25/(a_m*a_m)) + (1.4/(b_m*b_m))) * cl * h_m;
-  return 0.8*ffix;
-}
-function combineDeltaL(dL1,dL2,mode){
-  if (mode==='b') return dL1+dL2;
-  return 20*Math.log10(Math.pow(10,dL1/20)+Math.pow(10,dL2/20)-1);
-}
-function makePointForm(idx){
-  return `
-  <div class="p-3 border rounded">
-    <div class="font-semibold mb-1">S${idx}</div>
-    <label class="block small">x [mm]</label>
-    <input id="x_${idx}" type="number" class="w-full p-1 rounded border" value="${idx===1?1160:idx===2?2300:idx===3?1160:0}">
-    <label class="block small mt-1">y [mm]</label>
-    <input id="y_${idx}" type="number" class="w-full p-1 rounded border" value="${idx===1?790:idx===2?1600:idx===3?2400:0}">
-    <div class="grid grid-cols-2 gap-1 mt-1">
-      <div>
-        <label class="block small">x端部</label>
-        <select id="edgeX_${idx}" class="w-full p-1 rounded border">
-          <option value="none">梁なし</option>
-          <option value="kobari">小ばり</option>
-          <option value="obari">大ばり</option>
-        </select>
-      </div>
-      <div>
-        <label class="block small">y端部</label>
-        <select id="edgeY_${idx}" class="w-full p-1 rounded border">
-          <option value="none">梁なし</option>
-          <option value="kobari">小ばり</option>
-          <option value="obari">大ばり</option>
-        </select>
-      </div>
-    </div>
-  </div>`;
-}
-function fillDiagonal5(){
-  const a_m=parseFloat(document.getElementById('a_m').value);
-  const b_m=parseFloat(document.getElementById('b_m').value);
-  const pts=[
-    [a_m/3, b_m/3],
-    [2*a_m/3, b_m/3],
-    [a_m/3, 2*b_m/3],
-    [2*a_m/3, 2*b_m/3],
-    [a_m/2, b_m/2]
-  ];
-  pts.forEach((p,i)=>{
-    const xmm=Math.round(p[0]*1000), ymm=Math.round(p[1]*1000);
-    document.getElementById(`x_${i+1}`).value = xmm;
-    document.getElementById(`y_${i+1}`).value = ymm;
-    document.getElementById(`edgeX_${i+1}`).value='none';
-    document.getElementById(`edgeY_${i+1}`).value='none';
-  });
-}
-function runCalc(){
-  const a_m=parseFloat(document.getElementById('a_m').value);
-  const b_m=parseFloat(document.getElementById('b_m').value);
-  const h_mm=parseFloat(document.getElementById('h_mm').value);
-  const rho=parseFloat(document.getElementById('rho').value);
-  const E = parseFloat(document.getElementById('E10').value)*1e10;
-  const A = parseFloat(document.getElementById('A_m2').value);
-  const f_theta=parseFloat(document.getElementById('f_theta').value);
-  const mode=document.getElementById('combineMode').value;
-  const h_m=h_mm/1000;
-  const Zr_val=Zr(E,rho,h_m);
-  const Lzr=20*Math.log10(Zr_val);
-  const fn1=fn1_fixed(E,rho,h_m,a_m,b_m);
-  const bandTag=pickBandFromFn1(fn1);
-  const tenLogA = 10*Math.log10(A);
-  const points=[];
+function interpDL(tbl,x){const T=tbl;const xmax=T[T.length-1][0];x=Math.max(0,Math.min(x,xmax));for(let i=1;i<T.length;i++){const [x2,y2]=T[i],[x1,y1]=T[i-1];if(x<=x2) return y1+(y2-y1)*(x-x1)/(x2-x1);}return T[T.length-1][1];}
+function lambda_b(E,rho,h_m,f){const c_l=Math.sqrt(E/rho);return Math.sqrt(Math.PI*c_l*h_m/(Math.sqrt(3)*f));}
+function Zr(E,rho,h_m){return (4/Math.sqrt(3))*Math.sqrt(rho)*Math.sqrt(E)*h_m*h_m;}
+function fn1_fix(E,rho,h_m,a_m,b_m){const short=Math.min(a_m,b_m), long=Math.max(a_m,b_m);const cl=Math.sqrt(E/rho);const ffix=(Math.PI/(4*Math.sqrt(3)))*((2.25/(short*short))+(1.4/(long*long)))*cl*h_m;return 0.8*ffix;}
+function combine(d1,d2,mode){return (mode==='b')? (d1+d2) : 20*Math.log10(Math.pow(10,d1/20)+Math.pow(10,d2/20)-1);}
+function rowHtml(label,unit,vals,isAvg=false){function fmt(v){return (typeof v==='number' && isFinite(v)) ? (unit==='m'||unit==='m²'?v.toFixed(3):(unit==='dB'?v.toFixed(1):v)) : '—';}const cls=isAvg?'font-bold bg-slate-50':'';return `<tr class="${cls}"><td class="px-2 py-1">${label}</td><td class="px-2 py-1">${unit}</td><td class="px-2 py-1 text-right">${fmt(vals[0])}</td><td class="px-2 py-1 text-right">${fmt(vals[1])}</td><td class="px-2 py-1 text-right">${fmt(vals[2])}</td><td class="px-2 py-1 text-right">${fmt(vals[3])}</td></tr>`;}
+const REF=[53,43,36,30];
+function calcLnum(Lavg){for(let i=0;i<75;i++){let ok=true;for(let j=0;j<4;j++){if(Lavg[j] - (REF[j]+i) > 2){ok=false;break;}}if(ok) return 30+i;}return null;}
+
+function setupPoints(){
+  const initData=[{x:1160,y:790, ex:"obari", ey:"obari"},{x:2300,y:1600, ex:"none",  ey:"none"},{x:1160,y:2400, ex:"obari", ey:"kobari"},{x:0,y:0, ex:"none", ey:"none"},{x:0,y:0, ex:"none", ey:"none"}];
   for(let i=1;i<=5;i++){
-    const x_mm=parseFloat(document.getElementById(`x_${i}`).value);
-    const y_mm=parseFloat(document.getElementById(`y_${i}`).value);
-    if (Number.isNaN(x_mm) || Number.isNaN(y_mm)) continue;
-    const edgeX=document.getElementById(`edgeX_${i}`).value;
-    const edgeY=document.getElementById(`edgeY_${i}`).value;
-    const lam_theta=lambdaB_theta(E,rho,h_m,f_theta);
-    const d1 = Math.min(x_mm, a_m*1000 - x_mm)/1000;
-    const d2 = Math.min(y_mm, b_m*1000 - y_mm)/1000;
-    const x1 = d1/lam_theta, x2=d2/lam_theta;
-    const dL1 = interpDL(DL_CURVE[edgeX], x1);
-    const dL2 = interpDL(DL_CURVE[edgeY], x2);
-    const dLz = combineDeltaL(dL1,dL2,mode);
-    const Lz_theta = Lzr + dLz;
-    const rows=[];
-    const Lvals=[];
-    BANDS.forEach((f)=>{
-      const rel = relLZ_from_band(bandTag,f);
-      const Lz_f = Lz_theta + rel;
-      const lam_f = lambdaB_f(E,rho,h_m,f);
-      const Seff_raw = Math.max(0, a_m - lam_f/4)*Math.max(0, b_m - lam_f/4);
-      const Seff = Math.max(Seff_raw, 1e-6);
-      const tenLogSe = 10*Math.log10(Seff);
-      const tenLogk = k_dB_from_h(h_mm, f);
-      const L = F_RMS[f] - Lz_f + tenLogSe + tenLogk - tenLogA + DL_PEAK + 152;
-      rows.push({ f, F:F_RMS[f], Lz_f, tenLogSe, tenLogk, negTenLogA:(-tenLogA), dLpeak:DL_PEAK, add152:152, L });
-      Lvals.push(L);
-    });
-    points.push({idx:i, x_mm, y_mm, edgeX, edgeY, lam_theta, d1, d2, x1, x2, dL1, dL2, dLz, Lz_theta, rows, Lvals});
+    const host=document.getElementById('pt'+i);
+    const t=document.getElementById('ptTemplate').content.cloneNode(true);
+    t.querySelector('.ptLabel').textContent='S'+i;
+    const on=t.querySelector('.on'); on.id='on_'+i; on.checked=true;
+    const x=t.querySelector('.x'); x.id='x_'+i; x.value=initData[i-1].x;
+    const y=t.querySelector('.y'); y.id='y_'+i; y.value=initData[i-1].y;
+    const ex=t.querySelector('.ex'); ex.id='ex_'+i; ex.value=initData[i-1].ex;
+    const ey=t.querySelector('.ey'); ey.id='ey_'+i; ey.value=initData[i-1].ey;
+    host.replaceWith(t);
   }
-  const avgRows=[];
-  BANDS.forEach((f,fi)=>{
-    const Lavg = points.reduce((s,p)=>s+p.rows[fi].L,0)/points.length;
-    const Lzavg = points.reduce((s,p)=>s+p.rows[fi].Lz_f,0)/points.length;
-    const tenLogSe = points[0].rows[fi].tenLogSe;
-    const tenLogk = points[0].rows[fi].tenLogk;
-    avgRows.push({f, F:F_RMS[f], Lzavg, tenLogSe, tenLogk, negTenLogA:(-tenLogA), dLpeak:DL_PEAK, add152:152, L:Lavg});
-  });
-  const LL_CURVES = {
-    'L-40':[68,56,49,42],
-    'L-45':[73,61,54,47],
-    'L-50':[78,66,59,52],
-    'L-55':[83,71,64,57],
-    'L-60':[88,76,69,62],
-    'L-65':[93,81,74,67]
-  };
-  const grades = Object.keys(LL_CURVES).reverse();
-  let final='L-65以上';
-  for(const g of grades){
-    const curve=LL_CURVES[g];
-    let pass=true;
-    for(let i=0;i<BANDS.length;i++){
-      if (avgRows[i].L > curve[i]){ pass=false; break; }
+}
+
+function updateAreas(){
+  const a_m=document.getElementById('a_mm').value/1000;
+  const b_m=document.getElementById('b_mm').value/1000;
+  const same=document.getElementById('sameArea').checked;
+  const slab=document.getElementById('slabArea');
+  const room=document.getElementById('roomArea');
+  const lxwrap=document.getElementById('lxwrap');
+  const lywrap=document.getElementById('lywrap');
+  if(same){
+    lxwrap.classList.add('hidden'); lywrap.classList.add('hidden');
+    const S=(a_m*b_m)||0; slab.value=S.toFixed(2); room.value=S.toFixed(2); slab.readOnly=true; room.readOnly=true;
+  }else{
+    lxwrap.classList.remove('hidden'); lywrap.classList.remove('hidden');
+    room.readOnly=false;
+    const Lx=document.getElementById('Lx_mm'); const Ly=document.getElementById('Ly_mm');
+    const S=((Lx.value/1000)*(Ly.value/1000))||0; slab.value=S.toFixed(2); slab.readOnly=true;
+  }
+}
+
+function runCalc(){
+  try{
+    const a_room=parseFloat(document.getElementById('a_mm').value)/1000.0;
+    const b_room=parseFloat(document.getElementById('b_mm').value)/1000.0;
+    const h_mm=parseFloat(document.getElementById('h_mm').value);
+    const rho=parseFloat(document.getElementById('rho').value);
+    const E=parseFloat(document.getElementById('E10').value)*1e10;
+    const A=parseFloat(document.getElementById('A_m2').value);
+    const fth=parseFloat(document.getElementById('f_theta').value);
+    const mode=document.getElementById('combine').value;
+    const h_m=h_mm/1000.0;
+
+    let a_span=a_room, b_span=b_room;
+    if(!document.getElementById('sameArea').checked){
+      a_span=parseFloat(document.getElementById('Lx_mm').value)/1000.0;
+      b_span=parseFloat(document.getElementById('Ly_mm').value)/1000.0;
     }
-    if (pass) final=g; else break;
+
+    const ZR=(4/Math.sqrt(3))*Math.sqrt(rho)*Math.sqrt(E)*h_m*h_m;
+    const Lzr=20*Math.log10(ZR);
+    const cl=Math.sqrt(E/rho);
+    const ffix=(Math.PI/(4*Math.sqrt(3)))*((2.25/(Math.min(a_span,b_span)**2))+(1.4/(Math.max(a_span,b_span)**2)))*cl*h_m;
+    const fn1=0.8*ffix;
+    const band=(fn1>=22.4 && fn1<44.7)?"31.5":((fn1>=44.7 && fn1<89.1)?"63":"125");
+
+    document.getElementById('out').classList.remove('hidden');
+    document.getElementById('zrBox').innerHTML = `Z<sub>r</sub>=${ZR.toExponential(3)} kg/s, 20log Z<sub>r</sub>=${Lzr.toFixed(1)} dB`;
+    document.getElementById('fn1Box').textContent = fn1.toFixed(2)+" Hz";
+    document.getElementById('bandBox').textContent = band+" Hz 帯（図8-10）";
+
+    const tenLogA=10*Math.log10(A);
+    const lamB={}, Seff={}, tenLogSe={}, tenLogk={};
+    const shortDim=Math.min(a_room,b_room), longDim=Math.max(a_room,b_room);
+    for(const f of BANDS){
+      const lam=Math.sqrt(Math.PI*cl*h_m/(Math.sqrt(3)*f));
+      lamB[f]=lam;
+      const term1=Math.max(shortDim - lam/4, 0);
+      const term2=Math.max(longDim  - lam/2, 0);
+      const s_eff= term1*term2;
+      Seff[f]=s_eff;
+      tenLogSe[f]=10*Math.log10(Math.max(s_eff,1e-12));
+      tenLogk[f]=k_dB(h_mm,f);
+    }
+
+    const pts=[];
+    for(let i=1;i<=5;i++){
+      const onEl=document.getElementById('on_'+i);
+      if(!onEl || !onEl.checked) continue;
+      const x_mm=parseFloat(document.getElementById('x_'+i).value);
+      const y_mm=parseFloat(document.getElementById('y_'+i).value);
+      const ex=document.getElementById('ex_'+i).value;
+      const ey=document.getElementById('ey_'+i).value;
+
+      const lam_theta=Math.sqrt(Math.PI*cl*h_m/(Math.sqrt(3)*fth));
+      const d1=Math.min(x_mm, a_room*1000-x_mm)/1000.0;
+      const d2=Math.min(y_mm, b_room*1000-y_mm)/1000.0;
+      const r1=d1/lam_theta, r2=d2/lam_theta;
+      const DL1=(ex==='none')?0: (ex==='kobari'?interpDL(DL_CURVE.kobari,r1):interpDL(DL_CURVE.obari,r1));
+      const DL2=(ey==='none')?0: (ey==='kobari'?interpDL(DL_CURVE.kobari,r2):interpDL(DL_CURVE.obari,r2));
+      const DLz=(mode==='b')? (DL1+DL2) : 20*Math.log10(Math.pow(10,DL1/20)+Math.pow(10,DL2/20)-1);
+      const Lz_theta=Lzr+DLz;
+
+      const Lz_f={}, Lvals={};
+      for(const f of BANDS){
+        const rel=relLZ(band,f);
+        Lz_f[f]=Lz_theta+rel;
+        Lvals[f]=FRMS[f]-Lz_f[f]+tenLogSe[f]+tenLogk[f]-tenLogA+DL_PEAK+152;
+      }
+      pts.push({i,x_mm,y_mm,ex,ey,r1,r2,DL1,DL2,DLz,Lz_theta,Lz_f,Lvals});
+    }
+
+    const TB=document.getElementById('tableBody'); TB.innerHTML='';
+    for(const p of pts){ TB.insertAdjacentHTML('beforeend', rowHtml(`(2) 20log Z<sub>θ</sub>（S${p.i}）`,'dB',[p.Lz_theta,p.Lz_theta,p.Lz_theta,p.Lz_theta])); }
+    TB.insertAdjacentHTML('beforeend', rowHtml('(3) インピーダンスレベル周波数特性','dB',BANDS.map(f=>relLZ(band,f))));
+    for(const p of pts){ TB.insertAdjacentHTML('beforeend', rowHtml(`(4) 20log Z<sub>b</sub>（S${p.i}）`,'dB',BANDS.map(f=>p.Lz_f[f]))); }
+    TB.insertAdjacentHTML('beforeend', rowHtml('(5) 曲げ波の波長 λb','m',BANDS.map(f=>lamB[f])));
+    TB.insertAdjacentHTML('beforeend', rowHtml('(6) 有効放射面積 S_eff','m²',BANDS.map(f=>Seff[f])));
+    TB.insertAdjacentHTML('beforeend', rowHtml('(7) 10log S_eff','dB',BANDS.map(f=>tenLogSe[f])));
+    TB.insertAdjacentHTML('beforeend', rowHtml('(8) 10log k','dB',BANDS.map(f=>tenLogk[f])));
+    TB.insertAdjacentHTML('beforeend', rowHtml('(9) 室内吸音力 A','m²',BANDS.map(()=>A)));
+    TB.insertAdjacentHTML('beforeend', rowHtml('(10) 10log A','dB',BANDS.map(()=>tenLogA)));
+    TB.insertAdjacentHTML('beforeend', rowHtml('(11) 時定数の補正 ΔL','dB',BANDS.map(()=>8)));
+    for(const p of pts){ TB.insertAdjacentHTML('beforeend', rowHtml(`(12) 床衝撃音レベル L（S${p.i}）`,'dB',BANDS.map(f=>p.Lvals[f]))); }
+    const Lavg=BANDS.map((f)=>pts.reduce((s,p)=>s+p.Lvals[f],0)/pts.length);
+    TB.insertAdjacentHTML('beforeend', rowHtml('平均 L','dB',Lavg,true));
+
+    let final='L-65以上';
+    const grades=Object.keys(L_CURVE).reverse();
+    for(const g of grades){
+      let ok=true;
+      for(let j=0;j<4;j++){ if(Lavg[j]>L_CURVE[g][j]){ok=false;break;} }
+      if(ok){ final=g; } else break;
+    }
+    if(final==='L-40') final='L-40 (特級)';
+    document.getElementById('grade').textContent=final;
+
+    const lnum = calcLnum(Lavg);
+    document.getElementById('lnum').textContent = (lnum!==null)? `L-${lnum}` : '判定不可';
+
+  }catch(e){
+    const box=document.getElementById('err'); box.style.display='block'; box.textContent='実行時エラー: '+e.message; console.error(e);
   }
-  if (final==='L-40') final='L-40 (特級)';
-  document.getElementById('out').classList.remove('hidden');
-  const info = document.getElementById('info');
-  info.innerHTML = `
-    <div class="p-3 border rounded small">
-      <div class="font-semibold">S1-2 基準インピーダンス</div>
-      Z_r = ${(Zr_val).toExponential(3)} kg/s<br/>
-      20log Z_r = ${Lzr.toFixed(1)} dB
-    </div>
-    <div class="p-3 border rounded small">
-      <div class="font-semibold">S1-4(a) 一次固有周波数</div>
-      f_n1 = ${fn1.toFixed(2)} Hz<br/>
-      帯域 = ${bandTag} Hz
-    </div>
-    <div class="p-3 border rounded small">
-      <div class="font-semibold">S1-5 放射関連</div>
-      10log A = ${tenLogA.toFixed(1)} dB<br/>
-      合成法(ΔLz) = ${mode==='a'?'(a)エネルギー和':'(b)算術和'}
-    </div>
-  `;
-  const avgBody = document.getElementById('avgBody');
-  avgBody.innerHTML = '';
-  const L45=[73,61,54,47];
-  avgRows.forEach((r,i)=>{
-    const over = r.L > L45[i];
-    avgBody.insertAdjacentHTML('beforeend', `
-      <tr class="${over?'bg-red-50':''}">
-        <td class="px-2 py-1">${r.f}</td>
-        <td class="px-2 py-1">${r.F.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.Lzavg.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.tenLogSe.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.tenLogk.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.negTenLogA.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.dLpeak.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.add152.toFixed(0)}</td>
-        <td class="px-2 py-1 font-bold">${r.L.toFixed(1)}</td>
-        <td class="px-2 py-1">${L45[i].toFixed(0)}</td>
-      </tr>
-    `);
-  });
-  const gradeBox=document.getElementById('ll-grade');
-  gradeBox.textContent = final;
-  document.getElementById('ll-note').textContent = '判定は平均スペクトルが全帯域で基準以下であるかで決定。';
-  const perPoint = document.getElementById('perPoint');
-  perPoint.innerHTML = '';
-  points.forEach((p)=>{
-    const rows = p.rows.map((r,i)=>`
-      <tr>
-        <td class="px-2 py-1">${r.f}</td>
-        <td class="px-2 py-1">${r.F.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.Lz_f.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.tenLogSe.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.tenLogk.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.negTenLogA.toFixed(1)}</td>
-        <td class="px-2 py-1">${r.dLpeak.toFixed(1)}</td>
-        <td class="px-2 py-1">152</td>
-        <td class="px-2 py-1 font-bold">${r.L.toFixed(1)}</td>
-      </tr>`).join('');
-    perPoint.insertAdjacentHTML('beforeend', `
-      <div class="mb-6 p-3 border rounded">
-        <div class="font-semibold mb-1">S${p.idx} (x=${p.x_mm} mm, y=${p.y_mm} mm, x端=${p.edgeX}, y端=${p.edgeY})</div>
-        <div class="small mb-2">S1-3: λbθ=${p.lam_theta.toFixed(2)} m, d1=${p.d1.toFixed(3)} m, d2=${p.d2.toFixed(3)} m, x1=${p.x1.toFixed(3)}, x2=${p.x2.toFixed(3)}, ΔL1=${p.dL1.toFixed(1)} dB, ΔL2=${p.dL2.toFixed(1)} dB, ΔLz=${p.dLz.toFixed(1)} dB, Lzθ=${p.Lz_theta.toFixed(1)} dB</div>
-        <div class="overflow-x-auto rounded border">
-          <table class="min-w-full tbl text-sm">
-            <thead><tr>
-              <th class="px-2 py-1">f</th>
-              <th class="px-2 py-1">(1)</th>
-              <th class="px-2 py-1">(2)+(3)+(4) L_Z</th>
-              <th class="px-2 py-1">(7) 10logS_eff</th>
-              <th class="px-2 py-1">(8) 10logk</th>
-              <th class="px-2 py-1">(10) -10logA</th>
-              <th class="px-2 py-1">(11) ΔL_peak</th>
-              <th class="px-2 py-1">152</th>
-              <th class="px-2 py-1">(12) L</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>
-    `);
-  });
 }
-function init(){
-  const container=document.getElementById('points');
-  container.innerHTML='';
-  for(let i=1;i<=5;i++) container.insertAdjacentHTML('beforeend', makePointForm(i));
-  document.getElementById('edgeX_1').value='obari';
-  document.getElementById('edgeY_1').value='obari';
-  document.getElementById('edgeX_2').value='none';
-  document.getElementById('edgeY_2').value='none';
-  document.getElementById('edgeX_3').value='obari';
-  document.getElementById('edgeY_3').value='kobari';
-  document.getElementById('fill5').addEventListener('click', fillDiagonal5);
+
+(function init(){
+  setupPoints();
+  document.getElementById('fill5').addEventListener('click', ()=>{
+    const a=parseFloat(document.getElementById('a_mm').value)/1000.0;
+    const b=parseFloat(document.getElementById('b_mm').value)/1000.0;
+    const pts=[[a/3,b/3],[2*a/3,b/3],[a/3,2*b/3],[2*a/3,2*b/3],[a/2,b/2]];
+    for(let i=1;i<=5;i++){
+      document.getElementById('x_'+i).value=Math.round(pts[i-1][0]*1000);
+      document.getElementById('y_'+i).value=Math.round(pts[i-1][1]*1000);
+    }
+  });
+  document.getElementById('a_mm').addEventListener('input', updateAreas);
+  document.getElementById('b_mm').addEventListener('input', updateAreas);
+  document.getElementById('sameArea').addEventListener('change', updateAreas);
+  document.getElementById('Lx_mm')?.addEventListener('input', updateAreas);
+  document.getElementById('Ly_mm')?.addEventListener('input', updateAreas);
+  updateAreas();
   document.getElementById('run').addEventListener('click', runCalc);
-}
-window.onload=init;
+})();
 </script>
 </body>
 </html>
