@@ -10,27 +10,25 @@
     body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:var(--fg); background:var(--bg);}
     header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:0.2px;}
-    .container{display:grid;grid-template-columns: 480px 1fr;gap:16px;padding:16px;}
+    .container{display:grid;grid-template-columns: 500px 1fr;gap:16px;padding:16px;}
     .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
     #controls{max-height: calc(100vh - 140px); overflow:auto;}
     .card h2{margin:0 0 12px 0;font-size:14px;}
     .grid{display:grid;gap:10px;grid-template-columns: 1fr 1fr;}
     .row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
     label{font-size:12px;color:var(--muted);min-width:150px;}
-    input[type="number"], select{ width:100%;min-width:170px;padding:12px 14px;border:1px solid var(--border); border-radius:10px;font-size:14px;background:#fff;color:var(--fg);}
-    input[type="checkbox"]{transform: translateY(1px);}
+    input[type="number"], select{ width:100%;min-width:180px;padding:12px 14px;border:1px solid var(--border); border-radius:10px;font-size:14px;background:#fff;color:var(--fg);}
+    input[type="checkbox"]{transform: translateY(1px);} input[type="radio"]{transform: translateY(1px);}
     .subtle{color:var(--muted);font-size:12px;}
     .section{margin:12px 0 16px 0;border-top:1px dashed var(--border);padding-top:12px;}
     .btn{appearance:none;border:1px solid var(--border);background:#fff;color:#0f172a;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;}
     .btn.primary{border-color:transparent;background:var(--accent);color:#fff;}
     .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
     #plot{width:100%;height:720px;background:#fff;border-radius:14px;border:1px solid var(--border);}
-    .note{font-size:11px;color:var(--muted);}
-    footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
-    .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;}
-    .kpi .item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;}
-    .item b{font-weight:700;}
-    details.equations{margin-top:10px} details.equations summary{cursor:pointer}
+    .note{font-size:11px;color:var(--muted);} footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
+    .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;} .kpi .item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;}
+    .item b{font-weight:700;} details.equations{margin-top:10px} details.equations summary{cursor:pointer}
+    .mutedbox{padding:10px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;}
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
   <script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']]},svg:{fontCache:'global'}};</script>
@@ -66,9 +64,29 @@
         <div class="grid">
           <div class="row"><label for="Lx">Lx [m]</label><input id="Lx" type="number" step="0.01" min="0.1" value="3.6"/></div>
           <div class="row"><label for="Ly">Ly [m]</label><input id="Ly" type="number" step="0.01" min="0.1" value="2.7"/></div>
-          <div class="row"><label for="x0mm">測定点 x [mm]</label><input id="x0mm" type="number" step="1" min="0" value="1800"/></div>
-          <div class="row"><label for="y0mm">測定点 y [mm]</label><input id="y0mm" type="number" step="1" min="0" value="1350"/></div>
         </div>
+
+        <div class="mutedbox">
+          <div class="row"><label>測定点モード</label>
+            <div class="stack">
+              <label><input type="radio" name="ptmode" id="pt_single" checked> 単点</label>
+              <label><input type="radio" name="ptmode" id="pt_grid"> 格子平均</label>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="row"><label for="x0mm">測定点 x [mm]（単点）</label><input id="x0mm" type="number" step="1" min="0" value="1800"/></div>
+            <div class="row"><label for="y0mm">測定点 y [mm]（単点）</label><input id="y0mm" type="number" step="1" min="0" value="1350"/></div>
+            <div class="row"><label for="Nx">分割数 Nx（格子）</label><input id="Nx" type="number" step="1" min="1" value="3"/></div>
+            <div class="row"><label for="Ny">分割数 Ny（格子）</label><input id="Ny" type="number" step="1" min="1" value="3"/></div>
+          </div>
+          <div class="row"><label>平均方法</label>
+            <div class="stack">
+              <label><input type="radio" name="avgmode" id="avg_linear" checked> 線形平均（|Z|/|Y|）→必要に応じdB表示</label>
+              <label><input type="radio" name="avgmode" id="avg_db"> dB値平均</label>
+            </div>
+          </div>
+        </div>
+
         <div class="row"><label for="eta">損失係数 η [%]</label><input id="eta" type="number" step="0.01" min="0.01" value="1.0"/></div>
         <div class="grid">
           <div class="row"><label for="fmin">f<sub>min</sub> [Hz]</label><input id="fmin" type="number" step="1" min="1" value="20"/></div>
