@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CSV Segmenter (Web) </title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <style>
+    :root {
+      --bg: #faf6ed;
+      --card: #ffffff;
+      --muted: #5b6b7a;
+      --text: #1e293b;
+      --accent: #0b6bcb;
+      --warn: #c77d00;
+      --danger: #c92a2a;
+      --ok: #13795b;
+      --border: #e2e8f0;
+      --soft: #f6f8fb;
+      --ok-bg: #e6f7ef;
+      --ok-br: #86e1b5;
+      --ng-bg: #fdecec;
+      --ng-br: #f5a3a3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: "Hiragino Kaku Gothic ProN", "Meiryo", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+    }
+    header {
+      padding: 18px 20px 10px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    header h1 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: #0f2e54; }
+    header p { margin: 0; font-size: 12px; color: var(--muted); }
+    main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 1024px) { .grid-2 { grid-template-columns: 1.2fr 1fr; } }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px;
+      box-shadow: 0 6px 16px rgba(148,163,184,0.15);
+    }
+    .card h2 { margin: 0 0 10px; font-size: 16px; color: #0f2e54; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    label { font-size: 12px; color: var(--text); }
+    input[type="text"], input[type="number"], select {
+      background: #fff; color: var(--text); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none;
+      transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
+    }
+    input[type="number"] { width: 100px; }
+    input.ok-state { background: var(--ok-bg); border-color: var(--ok-br); box-shadow: 0 0 0 3px rgba(19,121,91,0.12); }
+    input.ng-state { background: var(--ng-bg); border-color: var(--ng-br); box-shadow: 0 0 0 3px rgba(201,42,42,0.12); }
+    .file-wrap { padding: 6px 10px; border: 1px dashed var(--border); border-radius: 10px; background: #fff; }
+    .file-wrap.ok-state { background: var(--ok-bg); border-color: var(--ok-br); }
+    .file-wrap.ng-state { background: var(--ng-bg); border-color: var(--ng-br); }
+    button {
+      appearance: none; border: 1px solid var(--border); color: var(--text);
+      background: #fff;
+      padding: 8px 12px; font-size: 13px; border-radius: 12px; cursor: pointer;
+      transition: transform 0.05s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    button:hover { border-color: #b6c3d2; box-shadow: 0 2px 8px rgba(15,46,84,0.06); }
+    button:active { transform: translateY(1px); }
+    .btn-primary { background: #0b6bcb; color: #fff; border-color: #0b6bcb; }
+    .btn-green { background: #0b8f6b; color: #fff; border-color: #0b8f6b; }
+    .btn-outline { background: transparent; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; color: #334155; }
+    .danger { color: var(--danger); }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .mapping-table { width: 100%; border-collapse: collapse; }
+    .mapping-table th, .mapping-table td { border-bottom: 1px dashed var(--border); padding: 6px 8px; font-size: 12px; }
+    .mapping-table th { text-align: left; color: #0f2e54; }
+    .plots { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .plot-card { background: var(--soft); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+    .plot-title { margin: 0 0 6px; font-size: 13px; color: #0f2e54; }
+    .kpi-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    @media (min-width: 1200px) { .kpi-row { grid-template-columns: repeat(4, 1fr); } }
+    .kpi { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+    table.metrics { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+    table.metrics th, table.metrics td { border-bottom: 1px solid var(--border); padding: 6px 8px; }
+    table.metrics th { text-align: left; color: #0f2e54; position: sticky; top: 0; background: #fff; z-index: 1; }
+    table.metrics td, table.metrics th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #eef2f7; border: 1px solid #d8e0ea; }
+    .footer-note { font-size: 11px; color: var(--muted); }
+    .help { font-size: 12px; color: var(--muted); }
+    .vspacer { height: 6px; }
+    .hr { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
+    .right { text-align: right; }
+    .nowrap { white-space: nowrap; }
+    #infoPanel { margin-top: 8px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+    #infoPanel h3 { margin: 0 0 8px; font-size: 14px; color: #0f2e54; }
+    #infoPanel table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #infoPanel th, #infoPanel td { border-bottom: 1px solid var(--border); padding: 6px 8px; }
+    #infoPanel th { text-align: left; color: #0f2e54; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+    .status-ok { background: #22c55e; }
+    .status-ng { background: #ef4444; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CSV Segmenter (Web) — v3.3</h1>
+    <p class="muted"></p>
+  </header>
+
+  <main class="grid grid-2">
+    <!-- LEFT: Data & Mapping & Tools & Info & Metrics -->
+    <section class="card">
+      <h2>1) データ入力</h2>
+      <div class="row" id="urlRow">
+        <label>CSV URL:</label>
+        <input id="csvUrl" type="text" placeholder="/data/sample.csv または https://raw.githubusercontent.com/USER/REPO/BRANCH/path/to.csv" style="flex:1" />
+        <button id="btnLoadUrl" class="btn-primary">URLから読み込む</button>
+        <span id="urlStatus" class="muted"></span>
+      </div>
+      <div class="vspacer"></div>
+      <div class="row file-wrap" id="fileRow">
+        <label>ローカルCSV:</label>
+        <input id="csvFile" type="file" accept=".csv" />
+        <button id="btnLoadFile">ファイル読み込み</button>
+        <span id="fileStatus" class="muted">（UTF-8推奨）</span>
+      </div>
+
+      <hr class="hr" />
+      <h2>2) チャンネル・マッピング</h2>
+      <p class="help">Mic 選択時は距離(m)を指定。Timeが無い場合 <span class="mono">Time (s)=index/51200</span> を自動生成。</p>
+      <div id="mappingArea" class="mono muted">CSV読み込み後に自動生成します。</div>
+      <div class="vspacer"></div>
+      <div class="row">
+        <button id="btnApplyMapping" class="btn-green">マッピング適用 / 反映</button>
+        <button id="btnResetMapping" class="btn-outline">リセット</button>
+        <button id="btnPreset1" class="btn-outline">プリセット1（Time, FH, Acc, Acc, Mic×5）</button>
+        <span id="mapStatus" class="muted"></span>
+      </div>
+
+      <hr class="hr" />
+      <h2>3) ツール</h2>
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="muted">サンプリング周波数</div>
+          <div class="mono">51200 Hz</div>
+        </div>
+        <div class="kpi">
+          <div class="muted">セグメント番号</div>
+          <div class="row">
+            <input id="segmentNo" type="number" value="1" min="1" step="1" />
+            <button id="btnClearSelections" class="btn-outline">全選択クリア</button>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="muted">計算</div>
+          <div class="row">
+            <button id="btnCompute" class="btn-primary">メトリクス計算</button>
+          </div>
+        </div>
+        <div class="kpi">
+          <div class="muted">エクスポート</div>
+          <div class="row">
+            <button id="btnExportSegment" class="btn-outline">combined_segment_#.csv</button>
+            <button id="btnExportSummary" class="btn-outline">calculation_summary.csv</button>
+          </div>
+        </div>
+      </div>
+      <p class="help">FH範囲確定後、他chで<b>開始点のみ</b>クリックするとFHの<b>衝撃時間ガイド帯</b>を表示。</p>
+
+      <!-- Information -->
+      <div id="infoPanel">
+        <h3>Information（Max / Min / Duration）</h3>
+        <div id="fhInfo" class="muted" style="margin-bottom:6px;"></div>
+        <div id="infoTableWrap"></div>
+      </div>
+
+      <!-- Metrics under Information -->
+      <div class="vspacer"></div>
+      <h3 class="muted">Metrics（ご提案形式）</h3>
+      <div style="overflow:auto; max-height: 260px;">
+        <table class="metrics" id="metricsTable">
+          <thead>
+            <tr>
+              <th style="width:120px">Channel</th>
+              <th>Sum Abs</th>
+              <th>Max_abs</th>
+              <th>F/v_Sum</th>
+              <th>F/v_dB_Sum</th>
+              <th>F/v_Max</th>
+              <th>F/v_dB_Max</th>
+            </tr>
+          </thead>
+          <tbody id="metricsBody"></tbody>
+        </table>
+      </div>
+      <p class="footer-note">Micは v = p/(ρc) に変換（ρ≈1.21kg/m³, c=343m/s）。Accはそのままvとして扱います。</p>
+    </section>
+
+    <!-- RIGHT: Plots only -->
+    <section class="card">
+      <h2>プレビュー</h2>
+      <div id="plots" class="plots"></div>
+    </section>
+  </main>
+
+  <script>
+    // =============================
+    // Constants & Global State
+    // =============================
+    const FS = 51200;
+    const rho = 1.21, c = 343;
+    let rawRows = [];
+    let headers = [];
+    let mapping = [];
+    let mapped = null;
+    let selections = {};
+    let plotDivs = {};
+    let summaryRows = []; // export用
+
+    // =============================
+    // Helpers
+    // =============================
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    function showStatus(el, msg, ok=true) {
+      el.innerHTML = (ok ? '<span class="status-dot status-ok"></span>' : '<span class="status-dot status-ng"></span>') + msg;
+      el.className = ok ? "muted ok" : "muted danger";
+    }
+    function markInputState(el, ok=true) {
+      el.classList.remove("ok-state","ng-state");
+      el.classList.add(ok ? "ok-state" : "ng-state");
+    }
+    function markRowState(row, ok=true) {
+      row.classList.remove("ok-state","ng-state");
+      row.classList.add(ok ? "ok-state" : "ng-state");
+    }
+    function downloadText(filename, text) {
+      const blob = new Blob([text], {type: "text/csv;charset=utf-8"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    }
+    function ensureUniqueName(base, existing) {
+      if (!existing.has(base)) return base;
+      let idx = 2;
+      while (existing.has(`${base}_${idx}`)) idx++;
+      return `${base}_${idx}`;
+    }
+    function autoTimeIfMissing(rows) {
+      const timeKey = headers.find(h => h.toLowerCase().trim() === "time (s)");
+      if (timeKey) return rows.map((r,i)=> Number(r[timeKey]));
+      return rows.map((_,i) => i / FS);
+    }
+    function toFloatArray(rows, key) {
+      const arr = new Float64Array(rows.length);
+      for (let i = 0; i < rows.length; i++) {
+        const v = rows[i][key];
+        arr[i] = (v === null || v === undefined || v === "" || isNaN(Number(v))) ? 0 : Number(v);
+      }
+      return arr;
+    }
+    function idxBetween(time, t0, t1) {
+      const lo = Math.min(t0, t1), hi = Math.max(t0, t1);
+      const idxs = [];
+      for (let i = 0; i < time.length; i++) {
+        const t = time[i];
+        if (t >= lo && t <= hi) idxs.push(i);
+      }
+      return idxs;
+    }
+    function absSum(arr, idxs) { let s = 0; for (const i of idxs) s += Math.abs(arr[i]); return s; }
+    function absMax(arr, idxs) { let m = 0; for (const i of idxs) { const v = Math.abs(arr[i]); if (v > m) m = v; } return m; }
+    function absMin(arr, idxs) { let m = Infinity; for (const i of idxs) { const v = arr[i]; if (v < m) m = v; } return m; }
+    function fmt(v, d=2) { return (v===null || v===undefined || !isFinite(v)) ? "" : Number(v).toFixed(d); }
+
+    // FH helpers
+    function getFH() { return mapped ? (mapped.channels.find(c => c.role === "FH") || null) : null; }
+    function fhSel() { const fh = getFH(); if (!fh) return null; const s = selections[fh.name]; return (s && s.clicks.length>=2) ? s : null; }
+    function fhClicks() { const s = fhSel(); return s ? s.clicks.slice(0,2) : null; }
+    function fhDuration() { const cks = fhClicks(); return cks ? Math.abs(cks[1]-cks[0]) : null; }
+
+    // =============================
+    // CSV Loading
+    // =============================
+    async function loadCSVFromURL(url) {
+      const res = await fetch(url, {mode: "cors"});
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const text = await res.text();
+      return parseCSVText(text);
+    }
+    function parseCSVText(text) {
+      const out = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+      if (out.errors && out.errors.length) console.warn("Papa parse errors:", out.errors);
+      rawRows = out.data;
+      headers = out.meta.fields || Object.keys(rawRows[0] || {});
+      buildMappingUI();
+      $("#plots").innerHTML = "";
+      $("#infoTableWrap").innerHTML = "";
+      $("#fhInfo").textContent = "";
+      $("#metricsBody").innerHTML = "";
+      selections = {}; plotDivs = {}; summaryRows = [];
+      return true;
+    }
+    function loadCSVFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => { try { parseCSVText(reader.result); resolve(true); } catch (e) { reject(e); } };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file, "utf-8");
+      });
+    }
+
+    // =============================
+    // Mapping UI
+    // =============================
+    function buildMappingUI() {
+      mapping = headers.map(h => ({ src: h, role: "Ignore", distance: "" }));
+      const container = document.getElementById("mappingArea");
+      const rowsHtml = headers.map((h, i) => {
+        return `
+          <tr>
+            <td class="mono nowrap">${i+1}</td>
+            <td class="mono">${h}</td>
+            <td>
+              <select data-idx="${i}" class="role">
+                <option value="Ignore">Ignore</option>
+                <option value="FH">FH</option>
+                <option value="Acc">Acc</option>
+                <option value="Mic">Mic</option>
+                <option value="Time">Time (s)</option>
+              </select>
+            </td>
+            <td>
+              <input type="number" step="0.1" min="0" placeholder="Mic距離(m)" class="dist" data-idx="${i}" />
+            </td>
+          </tr>
+        `;
+      }).join("");
+      container.innerHTML = `
+        <table class="mapping-table">
+          <thead><tr><th>#</th><th>CSV列名</th><th>役割</th><th>Mic距離(m)</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
+
+    function applyMapping() {
+      $$("#mappingArea select.role").forEach(sel => { const i = Number(sel.dataset.idx); mapping[i].role = sel.value; });
+      $$("#mappingArea input.dist").forEach(inp => { const i = Number(inp.dataset.idx); mapping[i].distance = inp.value ? Number(inp.value) : ""; });
+
+      const usedNames = new Set();
+      const timeAuto = autoTimeIfMissing(rawRows);
+      const channels = [];
+      mapping.forEach((m, i) => {
+        if (m.role === "Ignore" || m.role === "Time") return;
+        let base = m.role;
+        if (m.role === "Mic") {
+          const d = (typeof m.distance === "number" && !isNaN(m.distance)) ? m.distance : null;
+          base = d !== null ? `Mic(${d.toFixed(1)}m)` : "Mic";
+        }
+        const name = ensureUniqueName(base, usedNames);
+        usedNames.add(name);
+        channels.push({ name, role: m.role, src: mapping[i].src, data: toFloatArray(rawRows, mapping[i].src), distance: m.distance });
+      });
+      const timeIdx = mapping.findIndex(m => m.role === "Time");
+      const timeFinal = (timeIdx >= 0) ? toFloatArray(rawRows, mapping[timeIdx].src) : Float64Array.from(timeAuto);
+      if (channels.length === 0) throw new Error("データチャンネルがありません。");
+      mapped = { time: timeFinal, channels };
+      showStatus($("#mapStatus"), `OK: ${channels.length}ch 反映 (FH:${channels.filter(c=>c.role==='FH').length}, Acc:${channels.filter(c=>c.role==='Acc').length}, Mic:${channels.filter(c=>c.role==='Mic').length})`, true);
+      renderPlots();
+      updateInfoPanel();
+    }
+
+    // プリセット1：Time, FH, Acc, Acc, Mic×5
+    function applyPreset1() {
+      const seq = ["Time","FH","Acc","Acc","Mic","Mic","Mic","Mic","Mic"];
+      const selects = $$("#mappingArea select.role");
+      for (let i = 0; i < selects.length; i++) {
+        const role = (i < seq.length) ? seq[i] : "Ignore";
+        selects[i].value = role;
+        mapping[i].role = role;
+      }
+      showStatus($("#mapStatus"), "プリセット1を適用しました。必要に応じて距離(m)を入力してください。", true);
+      try { applyMapping(); } catch (e) { console.error(e); showStatus($("#mapStatus"), `エラー: ${e.message}`, false); }
+    }
+
+    // =============================
+    // Plotting & Selection
+    // =============================
+    function renderPlots() {
+      const wrap = $("#plots"); wrap.innerHTML = "";
+      plotDivs = {}; selections = {};
+      for (const ch of mapped.channels) {
+        const div = document.createElement("div");
+        div.className = "plot-card";
+        const title = document.createElement("div");
+        title.className = "plot-title";
+        title.textContent = `Channel: ${ch.name} (${ch.role})`;
+        const plot = document.createElement("div");
+        plot.style.height = "200px";
+        plot.dataset.chan = ch.name;
+        div.appendChild(title); div.appendChild(plot); wrap.appendChild(div);
+        plotDivs[ch.name] = plot;
+        const trace = { x: Array.from(mapped.time), y: Array.from(ch.data), mode: "lines", line: { width: 1 }, hoverinfo: "x+y", name: ch.name };
+        const layout = {
+          margin: { l: 40, r: 10, t: 6, b: 22 },
+          xaxis: { title: "Time (s)", color: "#1f2937" },
+          yaxis: { title: "Amp.", color: "#1f2937" },
+          shapes: [], showlegend: false, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1f2937" },
+        };
+        Plotly.newPlot(plot, [trace], layout, { responsive: true });
+        selections[ch.name] = { clicks: [], guide: null };
+        plot.on("plotly_click", (ev) => {
+          if (!ev || !ev.points || !ev.points.length) return;
+          const x = ev.points[0].x;
+          handleClickOnChannel(ch.name, x);
+        });
+      }
+    }
+    function drawSelectionOnPlot(name) {
+      const plot = plotDivs[name]; if (!plot) return;
+      const sel = selections[name];
+      const shapes = [];
+      const dt = fhDuration();
+      if (sel.clicks.length === 1 && dt && isFinite(dt)) {
+        const x0 = sel.clicks[0]; const x1 = x0 + dt;
+        shapes.push(
+          { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper",
+            fillcolor: "rgba(255,170,0,0.18)", line: { color: "rgba(199,125,0,0.8)", width: 1, dash: "dot" } },
+          { type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper",
+            line: { color: "#c77d00", width: 2, dash: "dot" } }
+        );
+        sel.guide = { x0, x1, dt };
+      } else { sel.guide = null; }
+      if (sel.clicks.length === 1 && !dt) {
+        const x0 = sel.clicks[0];
+        shapes.push({ type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } });
+      } else if (sel.clicks.length === 2) {
+        const [a,b] = sel.clicks; const x0 = Math.min(a,b), x1 = Math.max(a,b);
+        shapes.push(
+          { type: "line", x0: a, x1: a, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
+          { type: "line", x0: b, x1: b, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
+          { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper", fillcolor: "rgba(11,107,203,0.12)", line: { width: 0 } }
+        );
+      }
+      plot.layout.shapes = shapes; Plotly.redraw(plot);
+    }
+    function handleClickOnChannel(name, x) {
+      const sel = selections[name]; if (!sel) return;
+      if (sel.clicks.length >= 2) sel.clicks = [];
+      sel.clicks.push(x);
+      drawSelectionOnPlot(name);
+      const FH = getFH();
+      if (FH && name === FH.name) { for (const ch of mapped.channels) { if (ch.name !== FH.name) drawSelectionOnPlot(ch.name); } }
+      updateInfoPanel();
+    }
+
+    // =============================
+    // Info Panel
+    // =============================
+    function selectionStatsFor(ch) {
+      const sel = selections[ch.name]; if (!sel || sel.clicks.length < 2) return null;
+      const [a,b] = sel.clicks; const x0 = Math.min(a,b), x1 = Math.max(a,b);
+      const idxs = idxBetween(mapped.time, x0, x1); if (idxs.length===0) return null;
+      const maxv = absMax(ch.data, idxs);
+      const minv = (function(){ let m=Infinity; for(const i of idxs){ const v=ch.data[i]; if(v<m) m=v; } return m; })();
+      const dur = x1 - x0;
+      return { start:x0, end:x1, duration:dur, max:maxv, min:minv };
+    }
+    function updateInfoPanel() {
+      const dt = fhDuration();
+      $("#fhInfo").innerHTML = dt ? `<span class="pill">FH Duration = ${fmt(dt)}</span>` : `<span class="muted">FH Duration = 未決定</span>`;
+      const rows = [];
+      if (mapped) {
+        for (const ch of mapped.channels) {
+          const st = selectionStatsFor(ch);
+          rows.push(`
+            <tr>
+              <td class="mono nowrap">${ch.name}</td>
+              <td>${ch.role}</td>
+              <td class="mono right">${st ? fmt(st.start) : ""}</td>
+              <td class="mono right">${st ? fmt(st.end) : ""}</td>
+              <td class="mono right">${st ? fmt(st.duration) : ""}</td>
+              <td class="mono right">${st ? fmt(st.max) : ""}</td>
+              <td class="mono right">${st ? fmt(st.min) : ""}</td>
+            </tr>`);
+        }
+      }
+      $("#infoTableWrap").innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Channel</th><th>Role</th><th class="right">Start (s)</th><th class="right">End (s)</th><th class="right">Duration (s)</th><th class="right">Max</th><th class="right">Min</th></tr>
+          </thead>
+          <tbody>${rows.join("")}</tbody>
+        </table>`;
+    }
+
+    // =============================
+    // Metrics（ご提案形式）
+    // =============================
+    function computeAndRenderMetrics() {
+      if (!mapped) throw new Error("データがありません。");
+      const fh = mapped.channels.find(c => c.role === "FH");
+      const resChs = mapped.channels.filter(c => c.role !== "FH");
+      if (!fh) throw new Error("FH チャンネルが必要です。");
+      if (resChs.length === 0) throw new Error("FH以外のチャンネルが必要です。");
+
+      const fhSelObj = fhSel(); if (!fhSelObj) throw new Error("FH の範囲が未選択です。");
+      const fhIdxs = idxBetween(mapped.time, fhSelObj.clicks[0], fhSelObj.clicks[1]);
+      if (fhIdxs.length === 0) throw new Error("FH 範囲にデータ点がありません。");
+
+      const sumAbsS = absSum(fh.data, fhIdxs);
+      const maxAbsS = absMax(fh.data, fhIdxs);
+
+      const tbody = $("#metricsBody");
+      tbody.innerHTML = "";
+
+      // FH行
+      const trFH = document.createElement("tr");
+      trFH.innerHTML = `
+        <td class="mono nowrap">FH</td>
+        <td class="mono right">${fmt(sumAbsS)}</td>
+        <td class="mono right">${fmt(maxAbsS)}</td>
+        <td class="mono right">-</td>
+        <td class="mono right">-</td>
+        <td class="mono right">-</td>
+        <td class="mono right">-</td>`;
+      tbody.appendChild(trFH);
+
+      const segNo = Number($("#segmentNo").value || 1);
+      const sourceFile = ($("#csvUrl").value || ($("#csvFile").files[0]?.name ?? ""));
+      summaryRows = []; // reset each compute
+
+      // 応答チャンネル行
+      for (const ch of resChs) {
+        const sel = selections[ch.name];
+        if (!sel || sel.clicks.length < 2) continue;
+        const idxs = idxBetween(mapped.time, sel.clicks[0], sel.clicks[1]);
+        if (idxs.length === 0) continue;
+
+        const sumAbsR_raw = absSum(ch.data, idxs);
+        const maxAbsR_raw = absMax(ch.data, idxs);
+        const vSum = (ch.role === "Mic") ? (sumAbsR_raw / (rho*c)) : sumAbsR_raw;
+        const vMax = (ch.role === "Mic") ? (maxAbsR_raw / (rho*c)) : maxAbsR_raw;
+        const F_over_v_Sum = (vSum === 0) ? NaN : (sumAbsS / vSum);
+        const F_over_v_Max = (vMax === 0) ? NaN : (maxAbsS / vMax);
+        const F_over_v_dB_Sum = (!isFinite(F_over_v_Sum) || F_over_v_Sum<=0) ? NaN : (20*Math.log10(F_over_v_Sum));
+        const F_over_v_dB_Max = (!isFinite(F_over_v_Max) || F_over_v_Max<=0) ? NaN : (20*Math.log10(F_over_v_Max));
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="mono nowrap">${ch.name}</td>
+          <td class="mono right">${fmt(sumAbsR_raw)}</td>
+          <td class="mono right">${fmt(maxAbsR_raw)}</td>
+          <td class="mono right">${isFinite(F_over_v_Sum) ? fmt(F_over_v_Sum) : ""}</td>
+          <td class="mono right">${isFinite(F_over_v_dB_Sum) ? fmt(F_over_v_dB_Sum) : ""}</td>
+          <td class="mono right">${isFinite(F_over_v_Max) ? fmt(F_over_v_Max) : ""}</td>
+          <td class="mono right">${isFinite(F_over_v_dB_Max) ? fmt(F_over_v_dB_Max) : ""}</td>`;
+        tbody.appendChild(tr);
+
+        // export用
+        summaryRows.push({
+          SourceFile: sourceFile,
+          SegmentFile: `combined_segment_${segNo}.csv`,
+          Channel: ch.name,
+          "Sum Abs(S)": sumAbsS,
+          "Max_abs(S)": maxAbsS,
+          "Sum Abs(R)": sumAbsR_raw,
+          "Max_abs(R)": maxAbsR_raw,
+          "F/v_Sum": F_over_v_Sum,
+          "F/v_dB_Sum": F_over_v_dB_Sum,
+          "F/v_Max": F_over_v_Max,
+          "F/v_dB_Max": F_over_v_dB_Max
+        });
+      }
+    }
+
+    // =============================
+    // Exporters
+    // =============================
+    function exportCombinedSegment() {
+      if (!mapped) throw new Error("データがありません。");
+      for (const ch of mapped.channels) {
+        const sel = selections[ch.name];
+        if (!sel || sel.clicks.length < 2) throw new Error(`'${ch.name}' の範囲が未選択です。`);
+      }
+      const slices = {};
+      let minLen = Infinity;
+      for (const ch of mapped.channels) {
+        const [t0, t1] = selections[ch.name].clicks;
+        const idxs = idxBetween(mapped.time, t0, t1);
+        slices[ch.name] = idxs.map(i => ch.data[i]);
+        if (idxs.length < minLen) minLen = idxs.length;
+      }
+      const [t0Any, t1Any] = selections[mapped.channels[0].name].clicks;
+      const tIdxs = idxBetween(mapped.time, Math.min(t0Any,t1Any), Math.max(t0Any,t1Any)).slice(0, minLen);
+      const tSlice = tIdxs.map(i => mapped.time[i]);
+
+      const segNo = Number($("#segmentNo").value || 1);
+      const cols = ["Time (s)", ...mapped.channels.map(ch => ch.name)];
+      let csv = cols.join(",") + "\n";
+      for (let i = 0; i < minLen; i++) {
+        const vals = mapped.channels.map(ch => slices[ch.name][i]);
+        csv += [tSlice[i].toFixed(10), ...vals].join(",") + "\n";
+      }
+      downloadText(`combined_segment_${segNo}.csv`, csv);
+      $("#segmentNo").value = String(segNo + 1);
+    }
+    function exportSummaryCSV() {
+      if (summaryRows.length === 0) { alert("先に「メトリクス計算」を実行してください。"); return; }
+      const cols = ["SourceFile","SegmentFile","Channel","Sum Abs(S)","Max_abs(S)","Sum Abs(R)","Max_abs(R)","F/v_Sum","F/v_dB_Sum","F/v_Max","F/v_dB_Max"];
+      let csv = cols.join(",") + "\n";
+      for (const r of summaryRows) {
+        csv += cols.map(k => {
+          const v = r[k];
+          if (typeof v === "number") return Number.isFinite(v) ? v.toFixed(6) : "";
+          return (v ?? "");
+        }).join(",") + "\n";
+      }
+      downloadText("calculation_summary.csv", csv);
+    }
+
+    // =============================
+    // Event Wiring
+    // =============================
+    $("#btnLoadUrl").addEventListener("click", async () => {
+      try {
+        const url = $("#csvUrl").value.trim();
+        if (!url) return alert("CSV URL を入力してください。");
+        await loadCSVFromURL(url);
+        showStatus($("#urlStatus"), "URL読み込み成功", true);
+        markInputState($("#csvUrl"), true);
+        markRowState($("#urlRow"), true);
+      } catch (e) {
+        console.error(e);
+        showStatus($("#urlStatus"), `URL読み込み失敗: ${e.message}`, false);
+        markInputState($("#csvUrl"), false);
+        markRowState($("#urlRow"), false);
+      }
+    });
+    $("#btnLoadFile").addEventListener("click", async () => {
+      try {
+        const f = $("#csvFile").files[0];
+        if (!f) return alert("CSVファイルを選択してください。");
+        await loadCSVFromFile(f);
+        showStatus($("#fileStatus"), "ファイル読み込み成功", true);
+        markRowState($("#fileRow"), true);
+      } catch (e) {
+        console.error(e);
+        showStatus($("#fileStatus"), `ファイル読み込み失敗: ${e.message}`, false);
+        markRowState($("#fileRow"), false);
+      }
+    });
+    $("#btnApplyMapping").addEventListener("click", () => { try { applyMapping(); } catch (e) { console.error(e); showStatus($("#mapStatus"), `エラー: ${e.message}`, false); } });
+    $("#btnResetMapping").addEventListener("click", () => {
+      buildMappingUI();
+      $("#plots").innerHTML = ""; $("#infoTableWrap").innerHTML = ""; $("#fhInfo").textContent = ""; $("#metricsBody").innerHTML = "";
+      selections = {}; plotDivs = {}; summaryRows = [];
+      showStatus($("#mapStatus"), "マッピングをリセットしました。", true);
+    });
+    $("#btnPreset1").addEventListener("click", applyPreset1);
+    $("#btnClearSelections").addEventListener("click", () => {
+      Object.keys(selections).forEach(name => { selections[name].clicks = []; selections[name].guide = null; });
+      $$("#plots .plot-card > div:last-child").forEach(plot => { plot.layout = plot.layout || {}; plot.layout.shapes = []; Plotly.redraw(plot); });
+      updateInfoPanel();
+    });
+    $("#btnCompute").addEventListener("click", () => { try { computeAndRenderMetrics(); } catch (e) { alert(e.message); } });
+    $("#btnExportSegment").addEventListener("click", () => { try { exportCombinedSegment(); } catch (e) { alert(e.message); } });
+    $("#btnExportSummary").addEventListener("click", () => { exportSummaryCSV(); });
+  </script>
+</body>
+</html>
