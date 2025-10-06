@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>矩形板の駆動点インピーダンス（リアルタイム）</title>
+  <style>
+    :root{ --bg:#ffffff; --fg:#0f172a; --muted:#475569; --panel:#f8fafc; --accent:#2563eb; --border:#e2e8f0; }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:var(--fg); background:var(--bg);}
+    header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:0.2px;}
+    .container{display:grid;grid-template-columns: 500px 1fr;gap:16px;padding:16px;}
+    .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
+    #controls{max-height: calc(100vh - 140px); overflow:auto;}
+    .card h2{margin:0 0 12px 0;font-size:14px;}
+    .grid{display:grid;gap:10px;grid-template-columns: 1fr 1fr;}
+    .row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    label{font-size:12px;color:var(--muted);min-width:150px;}
+    input[type="number"], select{ width:100%;min-width:180px;padding:12px 14px;border:1px solid var(--border); border-radius:10px;font-size:14px;background:#fff;color:var(--fg);}
+    input[type="checkbox"]{transform: translateY(1px);} input[type="radio"]{transform: translateY(1px);}
+    .subtle{color:var(--muted);font-size:12px;}
+    .section{margin:12px 0 16px 0;border-top:1px dashed var(--border);padding-top:12px;}
+    .btn{appearance:none;border:1px solid var(--border);background:#fff;color:#0f172a;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;}
+    .btn.primary{border-color:transparent;background:var(--accent);color:#fff;}
+    .stack{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+    #plot{width:100%;height:720px;background:#fff;border-radius:14px;border:1px solid var(--border);}
+    .note{font-size:11px;color:var(--muted);} footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
+    .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;} .kpi .item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;}
+    .item b{font-weight:700;} details.equations{margin-top:10px} details.equations summary{cursor:pointer}
+    .mutedbox{padding:10px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;}
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']]},svg:{fontCache:'global'}};</script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <header>
+    <h1>矩形板の駆動点インピーダンス（リアルタイム）</h1>
+    <span class="subtle">★: オクターブ平均（16, 31.5, 63, 125, 250, 500, 1000, 2000）／ ●: 無限長（周波数非依存）／ ▲: f<sub>11</sub>〜f<sub>32</sub></span>
+  </header>
+
+  <div class="container">
+    <div class="card" id="controls">
+      <h2>設定</h2>
+      <div class="row">
+        <label for="material">材料プリセット</label>
+        <select id="material">
+          <option value="concrete">コンクリート</option>
+          <option value="gypsum">石こうボード</option>
+          <option value="wood">合板</option>
+          <option value="custom">カスタム</option>
+        </select>
+      </div>
+
+      <div class="grid">
+        <div class="row"><label for="E">E [GPa]</label><input id="E" type="number" step="0.1" min="0.1" value="30.0"/></div>
+        <div class="row"><label for="rho">ρ [kg/m³]</label><input id="rho" type="number" step="1" min="10" value="2400"/></div>
+        <div class="row"><label for="nu">ν [-]</label><input id="nu" type="number" step="0.01" min="0.0" max="0.49" value="0.20"/></div>
+        <div class="row"><label for="thick">板厚 h [mm]</label><input id="thick" type="number" step="1" min="1" value="200"/></div>
+      </div>
+
+      <div class="section">
+        <div class="grid">
+          <div class="row"><label for="Lx">Lx [m]</label><input id="Lx" type="number" step="0.01" min="0.1" value="3.6"/></div>
+          <div class="row"><label for="Ly">Ly [m]</label><input id="Ly" type="number" step="0.01" min="0.1" value="2.7"/></div>
+        </div>
+
+        <div class="mutedbox">
+          <div class="row"><label>測定点モード</label>
+            <div class="stack">
+              <label><input type="radio" name="ptmode" id="pt_single" checked> 単点</label>
+              <label><input type="radio" name="ptmode" id="pt_grid"> 格子平均</label>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="row"><label for="x0mm">測定点 x [mm]（単点）</label><input id="x0mm" type="number" step="1" min="0" value="1800"/></div>
+            <div class="row"><label for="y0mm">測定点 y [mm]（単点）</label><input id="y0mm" type="number" step="1" min="0" value="1350"/></div>
+            <div class="row"><label for="Nx">分割数 Nx（格子）</label><input id="Nx" type="number" step="1" min="1" value="3"/></div>
+            <div class="row"><label for="Ny">分割数 Ny（格子）</label><input id="Ny" type="number" step="1" min="1" value="3"/></div>
+          </div>
+          <div class="row"><label>平均方法</label>
+            <div class="stack">
+              <label><input type="radio" name="avgmode" id="avg_linear" checked> 線形平均（|Z|/|Y|）→必要に応じdB表示</label>
+              <label><input type="radio" name="avgmode" id="avg_db"> dB値平均</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="row"><label for="eta">損失係数 η [%]</label><input id="eta" type="number" step="0.01" min="0.01" value="1.0"/></div>
+        <div class="grid">
+          <div class="row"><label for="fmin">f<sub>min</sub> [Hz]</label><input id="fmin" type="number" step="1" min="1" value="20"/></div>
+          <div class="row"><label for="fmax">f<sub>max</sub> [Hz]</label><input id="fmax" type="number" step="10" min="100" value="5000"/></div>
+        </div>
+        <div class="grid">
+          <div class="row"><label for="mx">m<sub>max</sub></label><input id="mx" type="number" step="1" min="1" value="30"/></div>
+          <div class="row"><label for="ny">n<sub>max</sub></label><input id="ny" type="number" step="1" min="1" value="30"/></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="row">
+          <label>表示</label>
+          <div class="stack">
+            <label><input type="checkbox" id="showZ" checked> |Z|</label>
+            <label><input type="checkbox" id="showY"> |Y|</label>
+            <label><input type="checkbox" id="logx" checked> log f</label>
+            <label><input type="checkbox" id="db" checked> dB (20·log10)</label>
+            <label><input type="checkbox" id="bandbg" checked> 1/1オクターブ背景</label>
+          </div>
+        </div>
+        <div class="row">
+          <label>★/●/▲</label>
+          <div class="stack">
+            <button class="btn" id="toggleOct">★ 表示/非表示</button>
+            <button class="btn" id="toggleInf">● 表示/非表示</button>
+            <button class="btn" id="toggleModes">▲ 表示/非表示</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="item"><span class="subtle">D = </span><b id="kpiD">—</b> <span class="subtle">[N·m]</span></div>
+        <div class="item"><span class="subtle">m' = </span><b id="kpimm">—</b> <span class="subtle">[kg/m²]</span></div>
+        <div class="item"><span class="subtle">f<sub>11</sub> = </span><b id="kpif11">—</b> <span class="subtle">[Hz]</span></div>
+      </div>
+
+      <div class="section">
+        <div class="stack">
+          <button class="btn primary" id="exportPng">PNG保存</button>
+          <button class="btn" id="reset">リセット</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="plot"></div>
+      <div class="note">★: 1/1オクターブ中心（16, 31.5, 63, 125, 250, 500, 1000, 2000）でのバンド平均。●: 無限長（$Z_\infty=8\sqrt{D\,\rho h}$, 実数・周波数非依存）。▲: f<sub>11</sub>, f<sub>12</sub>, f<sub>21</sub>, f<sub>22</sub>, f<sub>31</sub>, f<sub>32</sub>。</div>
+      <details class="equations">
+        <summary>計算式（MathJax）を表示</summary>
+        <div>
+          <p>薄板曲げ剛性：$D=\dfrac{E h^3}{12(1-\nu^2)}$，面密度：$m'=\rho h$</p>
+          <p>SSSS矩形板の固有角振動数：$ \omega_{mn}=\sqrt{\dfrac{D}{m'}}\,\Big[\pi^2\Big(\dfrac{m^2}{L_x^2}+\dfrac{n^2}{L_y^2}\Big)\Big]$，
+          $f_{mn}=\dfrac{\omega_{mn}}{2\pi}$</p>
+          <p>点モビリティ（モード和・構造減衰）：
+          $$Y(x_0,y_0,\omega)=\frac{4}{m' L_x L_y}\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}} \frac{i\,\omega\,\sin^2\!\frac{m\pi x_0}{L_x}\,\sin^2\!\frac{n\pi y_0}{L_y}}{(1+i\eta)\,\omega_{mn}^2-\omega^2},\qquad Z=\frac{1}{Y}.$$
+          </p>
+          <p>無限長板（中心部加振, Cremer 等）: $$Z_\infty = 8\sqrt{D\,\rho h} = 2.3\,\rho\,c_{L,p}\,h^2 \quad(\text{実数, 周波数非依存})$$ </p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <footer><span class="subtle">Model: Kirchhoff thin plate, SSSS. Modal sum with m=1..m<sub>max</sub>, n=1..n<sub>max</sub>.</span></footer>
+
+  <script>
+  (function(){
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const EPS = 1e-30;
+
+    function c(re, im){ return {re, im}; }
+    function cdiv(a,b){ const d=b.re*b.re+b.im*b.im||EPS; return {re:(a.re*b.re+a.im*b.im)/d, im:(a.im*b.re-a.re*b.im)/d}; }
+    function cinv(a){ const d=a.re*a.re+a.im*a.im||EPS; return {re:a.re/d, im:-a.im/d}; }
+    const cabs = (z)=> Math.hypot(z.re, z.im);
+
+    const state = {
+      material:"concrete",
+      E:30e9, rho:2400, nu:0.20, h:0.200,
+      Lx:3.6, Ly:2.7,
+      x0mm:1800, y0mm:1350,
+      ptmode:"single", Nx:3, Ny:3, avgMode:"linear",
+      eta:0.01, fmin:20, fmax:5000,
+      mx:30, ny:30,
+      showZ:true, showY:false, logx:true, db:true,
+      showOct:true, showInf:true, showModes:true,
+      bandBg:true
+    };
+
+    const presets = {
+      concrete:{E:30e9,rho:2400,nu:0.20,h_mm:200},
+      gypsum:{E:3.0e9,rho:800,nu:0.30,h_mm:12.5},
+      wood:{E:10e9,rho:600,nu:0.30,h_mm:18}
+    };
+
+    const OCT_CENTERS = [16, 31.5, 63, 125, 250, 500, 1000, 2000];
+    const BAND_FACTOR = Math.SQRT2;
+
+    function makeBandShapes(fmin, fmax){
+      const shapes = [];
+      let alt = true;
+      for(const fc of OCT_CENTERS){
+        const lo = fc/BAND_FACTOR, hi = fc*BAND_FACTOR;
+        if(hi < fmin || lo > fmax) continue;
+        shapes.push({
+          type:"rect", xref:"x", yref:"paper",
+          x0: Math.max(lo, fmin), x1: Math.min(hi, fmax),
+          y0: 0, y1: 1,
+          layer: "below",
+          fillcolor: alt ? "rgba(99,102,241,0.10)" : "rgba(16,185,129,0.10)",
+          line:{width:0}
+        });
+        alt = !alt;
+      }
+      return shapes;
+    }
+
+    const D  = (E,nu,h)=> E*h*h*h/(12*(1-nu*nu));
+    const mp = (rho,h)=> rho*h;
+
+    function fmn(m,n,Lx,Ly,E,nu,rho,h){
+      const lam2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly)); // k^2
+      const omg = Math.sqrt(D(E,nu,h)/mp(rho,h)) * lam2;            // ωmn
+      return omg/(2*Math.PI);
+    }
+
+    function mobilityAtPoint(freqs, params){
+      const {E,nu,rho,h,Lx,Ly,x0,y0,eta,mx,ny} = params;
+      const C = 4/(rho*h*Lx*Ly); // = 4/(ρ_s S)
+      const Y = new Array(freqs.length).fill(0).map(()=>({re:0,im:0}));
+      for(let m=1; m<=mx; m++){
+        const sx  = Math.sin(m*Math.PI*x0/Lx);
+        const sx2 = sx*sx;
+        for(let n=1; n<=ny; n++){
+          const sy  = Math.sin(n*Math.PI*y0/Ly);
+          const sy2 = sy*sy;
+          const lam2   = Math.PI*Math.PI*( (m*m)/(Lx*Lx) + (n*n)/(Ly*Ly) ); // k^2
+          const omg_mn = Math.sqrt(D(E,nu,h)/mp(rho,h)) * lam2;            // ωmn
+          const omg2   = omg_mn*omg_mn;
+          const phi2   = sx*sx * sy*sy;
+          for(let i=0;i<freqs.length;i++){
+            const w = 2*Math.PI*freqs[i];
+            const den = {re:(omg2 - w*w), im:(eta*omg2)};   // (1+iη)ωmn^2 - ω^2
+            const num = {re:0, im:w};                       // iω
+            const frac = cdiv(num, den);
+            Y[i].re += C*phi2*frac.re;
+            Y[i].im += C*phi2*frac.im;
+          }
+        }
+      }
+      return Y;
+    }
+
+    const Zinf_const = (E,nu,rho,h)=> 8*Math.sqrt( D(E,nu,h) * (rho*h) );
+
+    function toDB20(arr, ref){ return arr.map(v => 20*Math.log10( Math.max(v, 1e-30) / ref )); }
+
+    function interpY(xarr, yarr, x){
+      if(x<=xarr[0]) return yarr[0];
+      if(x>=xarr[xarr.length-1]) return yarr[yarr.length-1];
+      let lo=0, hi=xarr.length-1; while(hi-lo>1){ const mid=(lo+hi)>>1; if(xarr[mid] > x) hi=mid; else lo=mid; }
+      const x0=xarr[lo], x1=xarr[hi], y0=yarr[lo], y1=yarr[hi];
+      const t = (Math.log(x) - Math.log(x0))/(Math.log(x1)-Math.log(x0));
+      return y0*(1-t)+y1*t;
+    }
+
+    function enableGridInputs(){
+      const grid = state.ptmode==="grid";
+      $("Nx").disabled = !grid; $("Ny").disabled = !grid;
+      $("x0mm").disabled = grid; $("y0mm").disabled = grid;
+    }
+
+    function getPositions(){
+      if(state.ptmode==="single"){
+        return [[state.x0mm/1000, state.y0mm/1000]];
+      }else{
+        const xs = Array.from({length:state.Nx}, (_,i)=> (i+0.5)/state.Nx * state.Lx);
+        const ys = Array.from({length:state.Ny}, (_,j)=> (j+0.5)/state.Ny * state.Ly);
+        const pts = [];
+        for(const x of xs) for(const y of ys) pts.push([x,y]);
+        return pts;
+      }
+    }
+
+    function computeAveraged(freqs, params){
+      const pts = getPositions();
+      const n = pts.length;
+      const refZ = 1.0, refY = 1.0;
+      let accZ, accY;
+      if(state.avgMode==="db"){
+        accZ = new Array(freqs.length).fill(0);
+        accY = new Array(freqs.length).fill(0);
+        for(const [x,y] of pts){
+          const Y = mobilityAtPoint(freqs, {...params, x0:x, y0:y});
+          const Z = Y.map(cinv);
+          const mz = Z.map(z=>20*Math.log10(Math.max(cabs(z),1e-30)/refZ));
+          const my = Y.map(yc=>20*Math.log10(Math.max(cabs(yc),1e-30)/refY));
+          for(let i=0;i<freqs.length;i++){ accZ[i]+=mz[i]; accY[i]+=my[i]; }
+        }
+        for(let i=0;i<freqs.length;i++){ accZ[i]/=n; accY[i]/=n; }
+        return { yZ: accZ, yY: accY, alreadyDB: true };
+      }else{
+        accZ = new Array(freqs.length).fill(0);
+        accY = new Array(freqs.length).fill(0);
+        for(const [x,y] of pts){
+          const Y = mobilityAtPoint(freqs, {...params, x0:x, y0:y});
+          const Z = Y.map(cinv);
+          for(let i=0;i<freqs.length;i++){ accZ[i]+=cabs(Z[i]); accY[i]+=cabs(Y[i]); }
+        }
+        for(let i=0;i<freqs.length;i++){ accZ[i]/=n; accY[i]/=n; }
+        return { yZ: accZ, yY: accY, alreadyDB: false };
+      }
+    }
+
+    function pullFromUI(){
+      state.material = $("material").value;
+      state.E   = parseFloat($("E").value)*1e9;
+      state.rho = parseFloat($("rho").value);
+      state.nu  = Math.min(0.49, Math.max(0.0, parseFloat($("nu").value)));
+      state.h   = parseFloat($("thick").value)/1000;
+      state.Lx  = parseFloat($("Lx").value);
+      state.Ly  = parseFloat($("Ly").value);
+      state.x0mm = Math.max(0, parseFloat($("x0mm").value));
+      state.y0mm = Math.max(0, parseFloat($("y0mm").value));
+      state.Nx = Math.max(1, parseInt($("Nx").value));
+      state.Ny = Math.max(1, parseInt($("Ny").value));
+      state.eta = Math.max(0.0001, parseFloat($("eta").value)/100);
+      state.fmin= Math.max(1, parseFloat($("fmin").value));
+      state.fmax= Math.max(state.fmin+10, parseFloat($("fmax").value));
+      state.mx  = Math.max(1, parseInt($("mx").value));
+      state.ny  = Math.max(1, parseInt($("ny").value));
+      state.showZ = $("showZ").checked;
+      state.showY = $("showY").checked;
+      state.logx  = $("logx").checked;
+      state.db    = $("db").checked;
+      state.bandBg= $("bandbg").checked;
+      state.ptmode = $("pt_grid").checked ? "grid" : "single";
+      state.avgMode = $("avg_db").checked ? "db" : "linear";
+      enableGridInputs();
+
+      const d = D(state.E,state.nu,state.h);
+      const mps = mp(state.rho,state.h);
+      $("kpiD").textContent = d.toExponential(3);
+      $("kpimm").textContent = mps.toFixed(1);
+      const f11 = fmn(1,1,state.Lx,state.Ly,state.E,state.nu,state.rho,state.h);
+      $("kpif11").textContent = f11.toFixed(1);
+
+      plot();
+    }
+
+    function attachEvents(){
+      $("material").addEventListener("change",(e)=>{
+        const v = e.target.value;
+        if(v!=="custom"){
+          const p = presets[v];
+          $("E").value = (p.E/1e9).toFixed(1);
+          $("rho").value = p.rho;
+          $("nu").value = p.nu.toFixed(2);
+          $("thick").value = p.h_mm;
+        }
+        pullFromUI();
+      });
+      ["E","rho","nu","thick","Lx","Ly","x0mm","y0mm","Nx","Ny","eta","fmin","fmax","mx","ny",
+       "showZ","showY","logx","db","bandbg","pt_single","pt_grid","avg_linear","avg_db"].forEach(id=>{
+        const el = $(id);
+        if(el){ el.addEventListener("input", pullFromUI); el.addEventListener("change", pullFromUI); }
+      });
+      $("toggleOct").addEventListener("click", ()=>{ state.showOct = !state.showOct; plot(); });
+      $("toggleInf").addEventListener("click", ()=>{ state.showInf = !state.showInf; plot(); });
+      $("toggleModes").addEventListener("click", ()=>{ state.showModes = !state.showModes; plot(); });
+      $("exportPng").addEventListener("click", ()=>{
+        Plotly.downloadImage("plot",{format:"png", filename:"plate_impedance"});
+      });
+      $("reset").addEventListener("click", ()=>{
+        $("material").value = "concrete";
+        $("E").value = 30.0;
+        $("rho").value = 2400;
+        $("nu").value = 0.20;
+        $("thick").value = 200;
+        $("Lx").value = 3.6; $("Ly").value = 2.7;
+        $("x0mm").value = 1800; $("y0mm").value = 1350;
+        $("Nx").value = 3; $("Ny").value = 3;
+        $("pt_single").checked = true; $("pt_grid").checked = false;
+        $("avg_linear").checked = true; $("avg_db").checked = false;
+        $("eta").value = 1.0;
+        $("fmin").value = 20; $("fmax").value = 5000;
+        $("mx").value = 30; $("ny").value = 30;
+        $("showZ").checked=true; $("showY").checked=false;
+        $("logx").checked=true; $("db").checked=true; $("bandbg").checked=true;
+        state.showOct = true; state.showInf = true; state.showModes = true; state.bandBg = true;
+        pullFromUI();
+      });
+    }
+
+    function plot(){
+      const N = 900;
+      const fmin = state.fmin, fmax = state.fmax;
+      const freqs = Array.from({length:N}, (_,i)=> fmin*Math.pow(fmax/fmin, i/(N-1)) );
+
+      const params = {
+        E:state.E, nu:state.nu, rho:state.rho, h:state.h,
+        Lx:state.Lx, Ly:state.Ly,
+        eta: state.eta, mx: state.mx, ny: state.ny
+      };
+
+      const avg = computeAveraged(freqs, params);
+      let yZ = avg.yZ, yY = avg.yY;
+      const alreadyDB = avg.alreadyDB;
+
+      if(state.db && !alreadyDB){
+        yZ = toDB20(yZ, 1.0);
+        yY = toDB20(yY, 1.0);
+      }
+
+      const traces = [];
+      if(state.showZ){
+        traces.push({x:freqs, y:yZ, type:"scatter", mode:"lines",
+          name: state.db? "|Z| [dB re 1 Ns/m]" : "|Z| [N·s/m]"});
+      }
+      if(state.showY){
+        traces.push({x:freqs, y:yY, type:"scatter", mode:"lines",
+          name: state.db? "|Y| [dB re 1 m/N·s]" : "|Y| [m/N·s]"});
+      }
+
+      const primaryY = (state.showZ || !state.showY) ? yZ : yY;
+
+      // ★ Octave means
+      if(state.showOct){
+        const xs=[], ys=[];
+        for(const fc of OCT_CENTERS){
+          const lo = fc/BAND_FACTOR, hi = fc*BAND_FACTOR;
+          if(hi < fmin || lo > fmax) continue;
+          let acc=0, cnt=0;
+          for(let i=0;i<freqs.length;i++){
+            const f = freqs[i];
+            if(f>=lo && f<=hi){ acc += primaryY[i]; cnt++; }
+          }
+        if(cnt>0){ xs.push(fc); ys.push(acc/cnt); }
+        }
+        if(xs.length){
+          traces.push({x:xs, y:ys, type:"scatter", mode:"markers", name:"Octave mean (★)",
+            marker:{symbol:"star", size:10}});
+        }
+      }
+
+      // ● Infinite-plate markers
+      if(state.showInf){
+        const zinf = Zinf_const(state.E,state.nu,state.rho,state.h);
+        const val = state.db ? 20*Math.log10(zinf/1.0) : zinf;
+        const xs=[], ys=[];
+        for(const fc of OCT_CENTERS){
+          if(fc < fmin || fc > fmax) continue;
+          xs.push(fc); ys.push(val);
+        }
+        if(xs.length){
+          traces.push({x:xs, y:ys, type:"scatter", mode:"markers", name:"Infinite plate (●)",
+            marker:{symbol:"circle", size:8}});
+        }
+      }
+
+      // ▲ Mode markers up to f32
+      if(state.showModes){
+        const modes = [[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]];
+        const xm=[], ym=[], txt=[];
+        modes.forEach(([m,n])=>{
+          const f = fmn(m,n, state.Lx,state.Ly, state.E,state.nu,state.rho,state.h);
+          if(f>=fmin && f<=fmax){
+            xm.push(f);
+            ym.push(interpY(freqs, primaryY, f));
+            txt.push(`f_${m}${n} = ${f.toFixed(1)} Hz`);
+          }
+        });
+        if(xm.length){
+          traces.push({x:xm, y:ym, type:"scatter", mode:"markers+text", name:"Modes (▲)",
+            marker:{symbol:"triangle-up", size:9}, text:txt, textposition:"top center", hoverinfo:"text+x+y"});
+        }
+      }
+
+      const layout = {
+        title: {text: "駆動点インピーダンス / モビリティ（SSSS板, モード和）", font:{size:16}},
+        xaxis: { title: "Frequency [Hz]", type: state.logx ? "log" : "linear",
+                 gridcolor: "#e5e7eb", zerolinecolor: "#e5e7eb" },
+        yaxis: {
+          title: state.db
+            ? (state.showZ||!state.showY ? "Level [dB re 1 Ns/m]" : "Level [dB re 1 m/N·s]")
+            : (state.showZ||!state.showY ? "Impedance |Z|" : "Mobility |Y|"),
+          type: state.db ? "linear" : "log",
+          gridcolor: "#e5e7eb", zerolinecolor: "#e5e7eb", rangemode: "tozero"
+        },
+        legend:{orientation:"h", x:0, y:1.06},
+        plot_bgcolor:"#ffffff", paper_bgcolor:"#ffffff",
+        margin:{l:80,r:30,t:60,b:60},
+        shapes: state.bandBg ? makeBandShapes(fmin, fmax) : []
+      };
+      Plotly.react("plot", traces, layout, {responsive:true, displaylogo:false});
+    }
+
+    function init(){
+      $("material").value = "concrete";
+      enableGridInputs();
+      pullFromUI();
+    }
+    if(document.readyState === "loading"){
+      document.addEventListener("DOMContentLoaded", ()=>{ attachEvents(); init(); });
+    }else{
+      attachEvents(); init();
+    }
+  })();
+  </script>
+</body>
+</html>
