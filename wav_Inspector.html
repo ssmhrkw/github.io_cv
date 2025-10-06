@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WAV Inspector — Wave Data & Device Metadata</title>
+<style>
+  :root {
+    --bg:#f8fafc; --panel:#ffffff; --text:#0f172a; --muted:#475569;
+    --accent:#2563eb; --ok:#10b981; --warn:#f59e0b; --bad:#ef4444; --chip:#e2e8f0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--text);
+       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo}
+  h1{margin:0 0 16px 0;font-size: clamp(20px, 2.4vw, 30px)}
+  h2{margin:18px 0 8px}
+  .grid{display:grid;gap:16px;grid-template-columns: repeat(12, minmax(0,1fr))}
+  .card{grid-column: span 12;background:var(--panel);border:1px solid #e5e7eb;border-radius:16px;padding:16px;
+        box-shadow:0 8px 24px rgba(15,23,42,.05)}
+  @media (min-width: 1024px){ .span6{grid-column: span 6} .span4{grid-column: span 4} .span8{grid-column: span 8} }
+  .drop{border:2px dashed #cbd5e1;background:#f1f5f9;border-radius:16px;padding:18px;text-align:center;cursor:pointer}
+  .btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--muted)}
+  .chip{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--chip);font-family:var(--mono);font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border-top:1px solid #e5e7eb;padding:8px 10px;vertical-align:top}
+  th{text-align:left;background:#f8fafc}
+  .kv{display:grid;grid-template-columns: 220px 1fr;gap:8px}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .select,.number{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
+  canvas{width:100%;height:200px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  details>summary{cursor:pointer}
+</style>
+</head>
+<body>
+<h1>WAV Inspector — Wave Data & Device Metadata</h1>
+<div class="grid">
+
+  <div class="card span6">
+    <h2>1) ファイルを選択</h2>
+    <div id="drop" class="drop">
+      ここに WAV をドラッグ＆ドロップ、または
+      <label class="btn" for="file">ファイルを選ぶ</label>
+      <input id="file" type="file" accept=".wav,audio/wav" style="display:none">
+      <div class="muted" style="margin-top:6px">完全フロントエンド処理（アップロードしません）。</div>
+    </div>
+    <div id="fileInfo" class="muted" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card span6">
+    <h2>2) 概要</h2>
+    <div id="summary" class="kv mono"></div>
+  </div>
+
+  <div class="card span4"><h2>RIFF ヘッダ</h2><table id="riffTbl"><tbody></tbody></table></div>
+  <div class="card span4"><h2>fmt subchunk</h2><table id="fmtTbl"><tbody></tbody></table></div>
+  <div class="card span4"><h2>data（Wave Data）</h2><table id="dataTbl"><tbody></tbody></table></div>
+
+  <div class="card span6"><h2>TYPE subchunk</h2><table id="typeTbl"><tbody></tbody></table></div>
+  <div class="card span6"><h2>Wave Settings（WSET）</h2><table id="wsetTbl"><tbody></tbody></table></div>
+
+  <div class="card span12">
+    <h2>共通設定（CSET）</h2>
+    <div class="grid">
+      <div class="span6">
+        <h3 style="margin:0 0 6px">共通部</h3>
+        <table id="csetCommon"><tbody></tbody></table>
+      </div>
+      <div class="span6">
+        <h3 style="margin:0 0 6px">Chごとの設定</h3>
+        <table id="csetCh"><thead><tr>
+          <th>#</th><th>Name</th><th>Enabled</th><th>Measure</th><th>Sensor</th><th>Range</th><th>Coupling</th><th>HPF</th><th>Unit</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card span12"><h2>スキップしたチャンク</h2>
+    <table id="skipTbl"><thead><tr><th>Index</th><th>Chunk ID</th><th>Size</th><th>Offset</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card span12"><h2>検証 (Validation)</h2><ul id="validation" class="mono" style="margin:0;padding-left:20px"></ul></div>
+
+  <div class="card span12">
+    <h2>3) 波形プレビュー（任意）</h2>
+    <div class="controls">
+      <label>チャンネル: <select id="chSelect" class="select"></select></label>
+      <label>幅(px): <input id="plotWidth" type="number" class="number" value="1200" min="400" step="100"></label>
+      <label>高さ(px): <input id="plotHeight" type="number" class="number" value="200" min="120" step="20"></label>
+      <button id="drawBtn" class="btn" disabled>描画</button>
+    </div>
+    <div id="canvasWrap" style="margin-top:12px"></div>
+    <details style="margin-top:8px">
+      <summary>最初の 16 サンプル（選択CH）</summary>
+      <pre id="firstSamples" class="mono" style="white-space:pre-wrap"></pre>
+    </details>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  const el = (s)=>document.querySelector(s);
+  const fmtNum = (n)=> n.toLocaleString('ja-JP');
+  const toTime = (sec)=>{ if(!isFinite(sec))return '-'; const s=Math.floor(sec%60),m=Math.floor(sec/60)%60,h=Math.floor(sec/3600); const ms=Math.round((sec-Math.floor(sec))*1000); return (h? h+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(ms).padStart(3,'0') };
+  const fourCC = (dv,o)=> String.fromCharCode(dv.getUint8(o), dv.getUint8(o+1), dv.getUint8(o+2), dv.getUint8(o+3));
+  const readStr = (dv, off, len)=>{
+    let s=''; for(let i=0;i<len;i++){ const c=dv.getUint8(off+i); if(c===0) break; s+=String.fromCharCode(c); } return s.trim();
+  };
+  const getI64 = (dv, off)=> Number(dv.getBigInt64(off, true));
+
+  function appendKV(tbody, k, v){
+    const tr=document.createElement('tr'); const th=document.createElement('th'); th.textContent=k;
+    const td=document.createElement('td'); td.innerHTML=v; tr.appendChild(th); tr.appendChild(td); tbody.appendChild(tr);
+  }
+  function setTable(tbody, rows){ tbody.innerHTML=''; rows.forEach(([k,v])=>appendKV(tbody,k,v)); }
+
+  // enums
+  const RANGE_CODE = {3:100,5:500,6:1000,8:5000,9:10000,10:20000};
+  const RATIO_CODE = {1:"2.56"};
+  const SENSOR_CODE = {2:"Mic",3:"Piezo Accel.",4:"Sound Level Meter",6:"Vibration Level Meter",20:"Other(AC)",21:"Other(DC)"};
+  const COUPLING = {0:"AC",1:"DC"};
+  const HPF = {0:"OFF",4:"1 Hz",12:"10 Hz"};
+
+  function parseWSET(dv, off, size){
+    const id = fourCC(dv, off);
+    const csize = dv.getUint32(off+4, true);
+    const dataOff = off+8;
+    const reserved2 = dv.getUint16(dataOff+0, true); // reserved
+    const pretime = dv.getInt16(dataOff+2, true);
+    return {id, size:csize, dataOffset:dataOff, pretime};
+  }
+
+  function parseTYPE(dv, off, size){
+    const id=fourCC(dv,off); const csize=dv.getUint32(off+4,true); const dataOff=off+8;
+    const fileType = readStr(dv, dataOff+0, 8);
+    const fileRev = dv.getUint16(dataOff+8, true);
+    return {id, size:csize, dataOffset:dataOff, fileType, fileRev};
+  }
+
+  function parseCSET(dv, off, size){
+    const id=fourCC(dv,off); const csize=dv.getUint32(off+4,true); const dataOff=off+8;
+    let p = dataOff;
+    const common = {};
+    common.productType = readStr(dv, p, 12); p+=12;
+    common.repeatSerial = dv.getUint16(p,true); p+=2;
+    common.fileSerial = dv.getUint16(p,true); p+=2;
+    common.startTimeMs = getI64(dv,p); p+=8;
+    common.actualRecordTimeMs = getI64(dv,p); p+=8;
+    common.unitEquippedCh = dv.getUint16(p,true); p+=2;
+    common.totalEnabledCh = dv.getUint16(p,true); p+=2;
+    p+=2; // reserved
+    common.unitId = dv.getUint16(p,true); p+=2;
+    common.unitName = readStr(dv,p,40); p+=40;
+    common.unitType = readStr(dv,p,8); p+=8;
+    common.unitSerial = readStr(dv,p,16); p+=16;
+    common.unitCpuVer = dv.getUint32(p,true); p+=4;
+    common.unitDspVer = dv.getUint32(p,true); p+=4;
+    common.unitCpldVer = dv.getUint32(p,true); p+=4;
+    common.unitSubMiconVer = dv.getUint32(p,true); p+=4;
+    common.triggerMode = dv.getInt16(p,true); p+=2;
+    common.triggerSource = dv.getInt16(p,true); p+=2;
+    common.triggerChannel = dv.getInt16(p,true); p+=2;
+    common.triggerLevelWave = dv.getInt32(p,true); p+=4;
+    p+=2; // reserved2
+    p+=4; // reserved4
+    common.triggerSlope = dv.getInt16(p,true); p+=2;
+    common.triggerStartDateTime = getI64(dv,p); p+=8;
+    common.triggerStopDateTime = getI64(dv,p+8); p+=8;
+    p+=16;
+    common.triggerIntervalSec = dv.getInt32(p,true); p+=4;
+    common.measureFreqRangeCode = dv.getInt16(p,true); p+=2;
+    common.measureFreqRatioCode = dv.getInt16(p+2,true); p+=2;
+    p+=4;
+    common.tachoCodecMode = dv.getInt16(p,true); p+=2;
+    p+=24; // reserved
+
+    // Per-channel blocks
+    const chBlockSize = 114;
+    const remain = csize - (p - dataOff);
+    const nChBlocks = Math.max(0, Math.floor(remain / chBlockSize));
+    const channels = [];
+    for (let i=0;i<nChBlocks;i++){
+      const bOff = p + i*chBlockSize;
+      let q=bOff;
+      const ch={};
+      ch.name = readStr(dv,q,40); q+=40;
+      ch.number = dv.getInt16(q,true); q+=2;
+      ch.enabled = dv.getInt16(q+2,true) ? true:false; q+=4;
+      ch.measureEnabled = dv.getInt16(q,true)?true:false; q+=2;
+      ch.sensorType = dv.getInt16(q+2,true); q+=4;
+      ch.sensorRangeVrms = dv.getInt16(q,true); q+=2; // code only, device-specific
+      ch.coupling = dv.getInt16(q+2,true); q+=4;
+      ch.ccld = dv.getInt16(q,true); q+=2;
+      ch.inversion = dv.getInt16(q+2,true); q+=4;
+      ch.hpfCutoff = dv.getInt16(q,true); q+=2;
+      q+=2; // reserved
+      ch.unit = readStr(dv,q,8); q+=8;
+      // doubles (IEEE754 little-endian)
+      ch.valuePerBit = dv.getFloat64(q, true); q+=8;
+      ch.valuePerVolt = dv.getFloat64(q, true); q+=8;
+      ch.offsetValue = dv.getFloat64(q, true); q+=8;
+      ch.zeroDbEU = dv.getFloat64(q, true); q+=8;
+      ch.overload = dv.getUint16(q, true); q+=2;
+      q+=2; // reserved
+      q+=10; // reserved
+      channels.push(ch);
+    }
+
+    return {id, size:csize, dataOffset:dataOff, common, channels};
+  }
+
+  function parseWav(arrayBuffer){
+    const dv=new DataView(arrayBuffer); const bytes=dv.byteLength;
+    const header={ riff: fourCC(dv,0), size: dv.getUint32(4,true), wave: fourCC(dv,8) };
+    let off=12;
+    const chunks=[]; const skipped=[];
+    let fmt=null, data=null, type=null, wset=null, cset=null;
+
+    while (off + 8 <= bytes){
+      const id=fourCC(dv,off);
+      const size=dv.getUint32(off+4,true);
+      const dataOffset=off+8;
+      if (id==='fmt '){
+        const wFormatTag = dv.getUint16(dataOffset + 0, true);
+        const nChannels = dv.getUint16(dataOffset + 2, true);
+        const nSamplesPerSec = dv.getUint32(dataOffset + 4, true);
+        const nAvgBytesPerSec = dv.getUint32(dataOffset + 8, true);
+        const nBlockAlign = dv.getUint16(dataOffset + 12, true);
+        const wBitsPerSample = dv.getUint16(dataOffset + 14, true);
+        fmt = { id, size, dataOffset, wFormatTag, nChannels, nSamplesPerSec, nAvgBytesPerSec, nBlockAlign, wBitsPerSample };
+        chunks.push({id,size,dataOffset});
+      } else if (id==='data'){
+        data = {id, size, dataOffset}; chunks.push(data);
+      } else if (id==='TYPE'){
+        type = parseTYPE(dv, off, size); chunks.push({id,size,dataOffset});
+      } else if (id==='WSET'){
+        wset = parseWSET(dv, off, size); chunks.push({id,size,dataOffset});
+      } else if (id==='CSET'){
+        cset = parseCSET(dv, off, size); chunks.push({id,size,dataOffset});
+      } else {
+        skipped.push({id,size,dataOffset}); chunks.push({id,size,dataOffset});
+      }
+      off = dataOffset + size + (size % 2);
+      if (off <= 0) break;
+    }
+    return {header, fmt, data, type, wset, cset, skipped, bytes, dv};
+  }
+
+  // waveform
+  function drawWaveform(parsed, {channelIndex=0, width=1200, height=200}){
+    const {dv, data, fmt} = parsed;
+    const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height;
+    const ctx=canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,width,height);
+    ctx.strokeStyle='#334155'; ctx.lineWidth=1;
+    const mid=height/2; ctx.beginPath(); ctx.moveTo(0,mid); ctx.lineTo(width,mid); ctx.stroke();
+
+    const bytesPerSample = fmt.wBitsPerSample / 8;
+    const blockAlign = fmt.nBlockAlign;
+    const frames = Math.floor(data.size / blockAlign);
+    const fmtTag = fmt.wFormatTag;
+    const samplesPerPx = Math.max(1, Math.floor(frames / width));
+    const ch = channelIndex;
+    const vMax = (fmtTag===0x0003) ? 1.0 : Math.pow(2, fmt.wBitsPerSample - 1);
+
+    let frame=0;
+    for (let x=0;x<width;x++){
+      let sMin=1e9, sMax=-1e9;
+      for(let i=0;i<samplesPerPx && frame<frames;i++,frame++){
+        const off = data.dataOffset + frame*blockAlign + ch*bytesPerSample;
+        let v=0;
+        if (fmtTag===0x0001){
+          if (bytesPerSample===1) v = dv.getInt8(off);
+          else if (bytesPerSample===2) v = dv.getInt16(off, true);
+          else if (bytesPerSample===3){ const b0=dv.getUint8(off), b1=dv.getUint8(off+1), b2=dv.getUint8(off+2); let val=(b2<<16)|(b1<<8)|b0; if(val&0x800000) val|=0xff000000; v=val; }
+          else if (bytesPerSample===4) v = dv.getInt32(off, true);
+          v/=vMax;
+        } else if (fmtTag===0x0003){
+          if (bytesPerSample===4) v = dv.getFloat32(off, true);
+          else if (bytesPerSample===8) v = dv.getFloat64(off, true);
+        }
+        if (v<sMin) sMin=v; if (v>sMax) sMax=v;
+      }
+      const y1 = mid - sMax*(height*0.48), y2 = mid - sMin*(height*0.48);
+      ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke();
+    }
+    return canvas;
+  }
+
+  function firstSamples(parsed, ch, N=16){
+    const {dv, data, fmt} = parsed;
+    const bytesPerSample = fmt.wBitsPerSample / 8, blockAlign=fmt.nBlockAlign, frames=Math.floor(data.size/blockAlign), fmtTag=fmt.wFormatTag;
+    const len = Math.min(N, frames); const out=[];
+    for (let i=0;i<len;i++){
+      const off = data.dataOffset + i*blockAlign + ch*bytesPerSample;
+      let v=0;
+      if (fmtTag===0x0001){
+        if (bytesPerSample===1) v = dv.getInt8(off);
+        else if (bytesPerSample===2) v = dv.getInt16(off,true);
+        else if (bytesPerSample===3){ const b0=dv.getUint8(off), b1=dv.getUint8(off+1), b2=dv.getUint8(off+2); let val=(b2<<16)|(b1<<8)|b0; if(val&0x800000) val|=0xff000000; v=val; }
+        else if (bytesPerSample===4) v = dv.getInt32(off,true);
+      } else if (fmtTag===0x0003){
+        if (bytesPerSample===4) v=dv.getFloat32(off,true);
+        else if (bytesPerSample===8) v=dv.getFloat64(off,true);
+      }
+      out.push(v);
+    }
+    return out;
+  }
+
+  // UI elements
+  const riffTbl=el('#riffTbl tbody'), fmtTbl=el('#fmtTbl tbody'), dataTbl=el('#dataTbl tbody');
+  const typeTbl=el('#typeTbl tbody'), wsetTbl=el('#wsetTbl tbody');
+  const csetCommon=el('#csetCommon tbody'), csetCh=el('#csetCh tbody');
+  const skipTbl=el('#skipTbl tbody'), summary=el('#summary'), fileInfo=el('#fileInfo');
+  const validation=el('#validation');
+  const chSelect=el('#chSelect'), drawBtn=el('#drawBtn'), canvasWrap=el('#canvasWrap'), firstSamplesPre=el('#firstSamples');
+  const fileInput=el('#file'), drop=el('#drop'); const plotWidth=el('#plotWidth'), plotHeight=el('#plotHeight');
+  let parsed=null;
+
+  function renderAll(p){
+    // RIFF
+    setTable(riffTbl, [
+      ['Chunk ID', `<span class="mono">${p.header.riff}</span>`],
+      ['Chunk Size', `${fmtNum(p.header.size)} bytes`],
+      ['riffType', `<span class="mono">${p.header.wave}</span>`],
+    ]);
+
+    // fmt
+    if (p.fmt){
+      const f=p.fmt;
+      setTable(fmtTbl, [
+        ['Chunk ID', `<span class="mono">${f.id}</span>`],
+        ['Chunk Size', `${fmtNum(f.size)} bytes`],
+        ['Offset', fmtNum(f.dataOffset)],
+        ['wFormatTag', `0x${f.wFormatTag.toString(16).padStart(4,'0')} ${f.wFormatTag===1?'(PCM)':(f.wFormatTag===3?'(IEEE float)':'')}`],
+        ['nChannels', fmtNum(f.nChannels)],
+        ['nSamplesPerSec', `${fmtNum(f.nSamplesPerSec)} Hz`],
+        ['nAvgBytesPerSec', fmtNum(f.nAvgBytesPerSec)],
+        ['nBlockAlign', fmtNum(f.nBlockAlign)],
+        ['wBitsPerSample', `${fmtNum(f.wBitsPerSample)} bit`],
+      ]);
+    } else setTable(fmtTbl, [['エラー','<span class="bad">fmt が見つかりません</span>']]);
+
+    // data
+    if (p.data){
+      const f=p.fmt; const d=p.data;
+      const frames = (f ? Math.floor(d.size / f.nBlockAlign) : 0);
+      const dur = (f ? frames / f.nSamplesPerSec : NaN);
+      setTable(dataTbl, [
+        ['Chunk ID', `<span class="mono">${d.id}</span>`],
+        ['Chunk Size', `${fmtNum(d.size)} bytes`],
+        ['Offset', fmtNum(d.dataOffset)],
+        ['推定フレーム数', fmtNum(frames)],
+        ['推定デュレーション', `${toTime(dur)} ${f? '('+f.nSamplesPerSec+' Hz)':''}`],
+        ['チャンネル数', f? fmtNum(f.nChannels):'-'],
+        ['量子化', f? `${f.wBitsPerSample} bit`:'-'],
+      ]);
+    } else setTable(dataTbl, [['エラー','<span class="bad">data が見つかりません</span>']]);
+
+    // TYPE
+    if (p.type){
+      const t=p.type;
+      setTable(typeTbl, [
+        ['Chunk ID', `<span class="mono">${t.id}</span>`],
+        ['Chunk Size', `${fmtNum(t.size)} bytes`],
+        ['File Type', `<span class="mono">${t.fileType}</span>`],
+        ['File Revision', fmtNum(t.fileRev)],
+      ]);
+    } else setTable(typeTbl, [['情報','TYPE は見つかりません']]);
+    // WSET
+    if (p.wset){
+      const w=p.wset;
+      const pre = w.pretime;
+      setTable(wsetTbl, [
+        ['Chunk ID', `<span class="mono">${w.id}</span>`],
+        ['Chunk Size', `${fmtNum(w.size)} bytes`],
+        ['Pre-time', `${pre} s（0 / -1 / -5 など）`],
+      ]);
+    } else setTable(wsetTbl, [['情報','WSET は見つかりません']]);
+
+    // CSET
+    csetCommon.innerHTML=''; csetCh.innerHTML='';
+    if (p.cset){
+      const c=p.cset.common;
+      const range = RANGE_CODE[c.measureFreqRangeCode] ? `${RANGE_CODE[c.measureFreqRangeCode]} Hz` : `Code ${c.measureFreqRangeCode}`;
+      const ratio = RATIO_CODE[c.measureFreqRatioCode] ? RATIO_CODE[c.measureFreqRatioCode] : `Code ${c.measureFreqRatioCode}`;
+      const startDate = new Date(c.startTimeMs);
+      const trigStart = c.triggerStartDateTime ? new Date(c.triggerStartDateTime): null;
+      const trigStop  = c.triggerStopDateTime ? new Date(c.triggerStopDateTime): null;
+
+      setTable(csetCommon, [
+        ['Product Type', `<span class="mono">${c.productType}</span>`],
+        ['Unit Name', `<span class="mono">${c.unitName}</span>`],
+        ['Unit Type', `<span class="mono">${c.unitType}</span>`],
+        ['Unit Serial', `<span class="mono">${c.unitSerial}</span>`],
+        ['Unit ID', fmtNum(c.unitId)],
+        ['Equipped Channels', fmtNum(c.unitEquippedCh)],
+        ['Enabled Channels', fmtNum(c.totalEnabledCh)],
+        ['Start Time', `${startDate.toLocaleString()}`],
+        ['Actual Record Time', `${fmtNum(c.actualRecordTimeMs)} ms (${toTime(c.actualRecordTimeMs/1000)})`],
+        ['Measure Frequency Range', `${range}`],
+        ['Measure Frequency Ratio', `${ratio}`],
+        ['Tacho Codec Mode', fmtNum(c.tachoCodecMode)],
+        ['Trigger Mode / Source / Ch', `${fmtNum(c.triggerMode)} / ${fmtNum(c.triggerSource)} / ${fmtNum(c.triggerChannel)}`],
+        ['Trigger Level (Wave)', fmtNum(c.triggerLevelWave)],
+        ['Trigger Slope', fmtNum(c.triggerSlope)],
+        ['Trigger Start', trigStart? trigStart.toLocaleString() : '-'],
+        ['Trigger Stop', trigStop? trigStop.toLocaleString() : '-'],
+        ['CSET サイズ / Offset', `${fmtNum(p.cset.size)} bytes / ${fmtNum(p.cset.dataOffset)}`],
+      ]);
+
+      p.cset.channels.forEach((ch,i)=>{
+        const tr=document.createElement('tr');
+        const sensor = (SENSOR_CODE[ch.sensorType]||('Code '+ch.sensorType));
+        const coupling = (COUPLING[ch.coupling]||('Code '+ch.coupling));
+        const hpf = (HPF[ch.hpfCutoff]||('Code '+ch.hpfCutoff));
+        tr.innerHTML = `<td>${fmtNum(ch.number||i+1)}</td>
+                        <td class="mono">${ch.name||''}</td>
+                        <td>${ch.enabled?'true':'false'}</td>
+                        <td>${ch.measureEnabled?'true':'false'}</td>
+                        <td>${sensor}</td>
+                        <td>${fmtNum(ch.sensorRangeVrms)} (Vrms code)</td>
+                        <td>${coupling}</td>
+                        <td>${hpf}</td>
+                        <td class="mono">${ch.unit}</td>`;
+        csetCh.appendChild(tr);
+      });
+    } else {
+      csetCommon.innerHTML = '<tr><td>情報</td><td>CSET は見つかりません</td></tr>';
+    }
+
+    // skipped
+    skipTbl.innerHTML='';
+    p.skipped.forEach((c,i)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${i+1}</td><td class="mono">${c.id}</td><td>${fmtNum(c.size)}</td><td>${fmtNum(c.dataOffset)}</td>`;
+      skipTbl.appendChild(tr);
+    });
+
+    // summary
+    const frames = (p.data && p.fmt)? Math.floor(p.data.size / p.fmt.nBlockAlign) : 0;
+    const dur = (p.fmt ? frames / p.fmt.nSamplesPerSec : NaN);
+    const rangeStr = p.cset ? (RANGE_CODE[p.cset.common.measureFreqRangeCode] ? RANGE_CODE[p.cset.common.measureFreqRangeCode]+' Hz' : '-') : '-';
+    const startStr = p.cset ? new Date(p.cset.common.startTimeMs).toLocaleString() : '-';
+    summary.innerHTML = `
+      <div>サンプルレート: <span class="chip">${p.fmt?fmtNum(p.fmt.nSamplesPerSec):'-'} Hz</span></div>
+      <div>レンジ: <span class="chip">${rangeStr}</span></div>
+      <div>使用機器: <span class="chip">${p.cset? (p.cset.common.unitName || p.cset.common.productType || '-') : '-'}</span></div>
+      <div>開始時刻: <span class="chip">${startStr}</span></div>
+      <div>長さ: <span class="chip">${toTime(dur)}</span></div>
+    `;
+
+    // validation
+    validation.innerHTML='';
+    const addVal=(ok,msg)=>{ const li=document.createElement('li'); li.innerHTML = (ok?'<span class="ok">OK</span> ':'<span class="bad">NG</span> ')+msg; validation.appendChild(li); };
+    addVal(p.header.riff==='RIFF', `'RIFF' ヘッダ`);
+    addVal(p.header.wave==='WAVE', `'WAVE' タイプ`);
+    addVal(!!p.fmt, '`fmt ` の存在');
+    if (p.fmt){ const computed = p.fmt.nChannels * p.fmt.wBitsPerSample / 8; addVal(p.fmt.nBlockAlign===computed, `nBlockAlign = nChannels × wBitsPerSample / 8 (${p.fmt.nBlockAlign} vs ${computed})`); }
+    addVal(!!p.data, '`data` の存在');
+    if (p.data && p.fmt){ addVal((p.data.size % p.fmt.nBlockAlign)===0, `data サイズが blockAlign の整数倍`); }
+
+    // channel selector
+    chSelect.innerHTML='';
+    if (p.fmt && p.data){
+      for(let i=0;i<p.fmt.nChannels;i++){ const opt=document.createElement('option'); opt.value=i; opt.textContent=`CH${i+1}`; chSelect.appendChild(opt); }
+      drawBtn.disabled=false;
+      drawBtn.onclick=()=>{
+        const ch=parseInt(chSelect.value,10)||0;
+        const w=Math.max(200, parseInt(el('#plotWidth').value,10)||1200);
+        const h=Math.max(120, parseInt(el('#plotHeight').value,10)||200);
+        canvasWrap.innerHTML='';
+        canvasWrap.appendChild(drawWaveform(p,{channelIndex:ch,width:w,height:h}));
+        firstSamplesPre.textContent = firstSamples(p,ch,16).map((v,i)=>`[${i}] ${v}`).join('\\n');
+      };
+    } else { drawBtn.disabled=true; canvasWrap.innerHTML=''; firstSamplesPre.textContent=''; }
+  }
+
+  async function handleFile(file){
+    fileInfo.textContent = `${file.name}（${fmtNum(file.size)} bytes）読み込み中…`;
+    const buf = await file.arrayBuffer();
+    parsed = parseWav(buf);
+    renderAll(parsed);
+    fileInfo.textContent = `${file.name} を解析しました。`;
+  }
+
+  drop.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+  drop.addEventListener('drop', (e)=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+  el('#file').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) handleFile(f); });
+})();
+</script>
+</body>
+</html>
