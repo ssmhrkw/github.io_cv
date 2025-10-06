@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reverberation Time (EDT/T20/T30) from Hand Clap</title>
+  <style>
+    :root{
+      --bg:#f7f8fb;
+      --card:#ffffff;
+      --ink:#1e293b;
+      --muted:#64748b;
+      --accent:#2563eb;
+      --accent-2:#0ea5e9;
+      --ok:#16a34a;
+      --warn:#eab308;
+      --err:#dc2626;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:0;
+      color:var(--ink); background:var(--bg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "ヒラギノ角ゴ ProN W3", "メイリオ", sans-serif;
+      line-height:1.5;
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      background:linear-gradient(90deg, #fff, #f5f9ff);
+      border-bottom:1px solid #e2e8f0;
+    }
+    .wrap{
+      max-width:1200px; margin:0 auto; padding:16px;
+    }
+    h1{font-size:clamp(20px, 2.4vw, 28px); margin:0 0 6px}
+    .sub{color:var(--muted); font-size:14px}
+    main{max-width:1200px; margin:18px auto; padding:0 16px 40px}
+    .grid{
+      display:grid; gap:16px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+    .card{
+      background:var(--card); border:1px solid #e5e7eb;
+      border-radius:18px; padding:16px; box-shadow: 0 6px 24px rgba(30,41,59,0.06);
+    }
+    .card h2{ margin:0 0 10px; font-size:18px }
+    .card h3{ margin:0 0 8px; font-size:16px }
+    .controls{
+      display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+    }
+    button{
+      appearance:none; border:0; border-radius:14px;
+      padding:10px 14px; font-weight:600; cursor:pointer;
+      background:var(--accent); color:white; box-shadow: 0 6px 16px rgba(37,99,235,0.2);
+    }
+    button.secondary{ background:#e2e8f0; color:#0f172a; }
+    button.ghost{ background:transparent; color:var(--accent); border:1px solid #c7d2fe}
+    button:disabled{ opacity:.6; cursor:not-allowed }
+    label{ font-size:14px; color:var(--muted) }
+    select, input[type="number"], input[type="text"]{
+      border:1px solid #e5e7eb; background:white; color:#0f172a;
+      border-radius:12px; padding:8px 10px; min-width:120px;
+    }
+    .pill{
+      display:inline-block; padding:2px 8px; border-radius:999px;
+      background:#eef2ff; color:#3730a3; font-weight:700; font-size:12px
+    }
+    .hint{font-size:12px; color:var(--muted)}
+    .ok{ color:var(--ok) } .warn{ color:var(--warn) } .err{ color:var(--err) }
+    table{ width:100%; border-collapse: collapse; }
+    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric: tabular-nums; }
+    th:first-child, td:first-child{ text-align:left }
+    .muted{ color: var(--muted); }
+    .footer-note{ font-size:12px; color:var(--muted); margin-top:8px }
+    canvas{ width:100%; height:260px; background:#fff; border-radius:12px; border:1px solid #e5e7eb }
+    .mono{ font-family: var(--mono); }
+    @media (max-width: 920px){
+      .grid{ grid-template-columns: repeat(6, 1fr);}
+    }
+    @media (max-width: 640px){
+      .grid{ grid-template-columns: repeat(4, 1fr);}
+      .controls{ gap:8px }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>手拍子から残響時間を推定（EDT / T20 / T30）</h1>
+    <div class="sub">Android / iPhone のブラウザで録音 → 1/1 オクターブ帯域でシュレーダー積分 → 直線回帰で T60 を外挿</div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+    <section class="card" style="grid-column: span 12;">
+      <h2>1) 測定と入力</h2>
+      <div class="controls">
+        <button id="btnRecord"><span id="recLabel">録音開始</span></button>
+        <button id="btnStop" class="secondary" disabled>停止</button>
+        <label>録音長（秒）
+          <input type="number" id="recSec" value="4" step="1" min="2" max="15" />
+        </label>
+        <button id="btnAnalyze" class="ghost" disabled>解析を実行</button>
+        <input type="file" id="fileInput" accept="audio/*" />
+        <span id="state" class="pill">idle</span>
+      </div>
+      <p class="hint">静かな部屋で、<b>ボタンを押して 1 秒後に 1 回だけ強く手を叩いてください</b>。ノイズ抑制／自動利得は可能なら無効化しています（端末依存）。</p>
+      <audio id="player" controls style="width:100%; display:none;"></audio>
+      <div id="envInfo" class="footer-note mono"></div>
+    </section>
+
+    <section class="card" style="grid-column: span 12;">
+      <h2>2) 解析設定</h2>
+      <div class="controls">
+        <label>帯域
+          <select id="bandType">
+            <option value="ob_125_4k" selected>1/1 Octave（125 Hz ～ 4 kHz）</option>
+            <option value="ob_31_4k">1/1 Octave（31.5 Hz ～ 4 kHz）</option>
+          </select>
+        </label>
+        <label>フィルタ次数（Biquad × N、概ね 2N 次）
+          <select id="bpOrder">
+            <option value="1">2 次（軽量）</option>
+            <option value="2" selected>4 次（推奨）</option>
+            <option value="3">6 次（重い）</option>
+          </select>
+        </label>
+        <label>回帰区間
+          <select id="rtMode">
+            <option value="ALL" selected>EDT / T20 / T30 をすべて算出</option>
+            <option value="EDT">EDT のみ（0 ～ -10 dB）</option>
+            <option value="T20">T20 のみ（-5 ～ -25 dB）</option>
+            <option value="T30">T30 のみ（-5 ～ -35 dB）</option>
+          </select>
+        </label>
+        <button id="btnDownloadCsv" class="ghost" disabled>CSVを保存</button>
+      </div>
+      <p class="hint">スマホ内蔵マイクは低域（～100 Hz）や超高域で感度が低いことがあります。帯域は 125 Hz～4 kHz が無難です。</p>
+    </section>
+
+    <section class="card" style="grid-column: span 12;">
+      <h2>3) 結果</h2>
+      <div id="resultsWrap">
+        <table id="results">
+          <thead>
+            <tr>
+              <th>中心周波数 [Hz]</th>
+              <th>EDT [s]</th>
+              <th>T20 [s]</th>
+              <th>T30 [s]</th>
+              <th>R²（例：T30）</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="footer-note">直線回帰で得た傾き a [dB/サンプル] から <span class="mono">T60 = -60 / (a · fs)</span> として外挿。十分な減衰が無い帯域は “—” と表示します。</div>
+      </div>
+    </section>
+
+    <section class="card" style="grid-column: span 12;">
+      <h2>4) 参考プロット（代表帯域）</h2>
+      <label>表示帯域
+        <select id="plotBand"></select>
+      </label>
+      <canvas id="plot"></canvas>
+      <div class="footer-note">プロットはシュレーダー曲線（相対 dB）。灰色が選択区間、点線が回帰直線です。</div>
+    </section>
+
+    <section class="card" style="grid-column: span 12;">
+      <h2>使い方のヒント / 制約</h2>
+      <ul>
+        <li>録音は <b>ユーザー操作後のみ</b> 可能（iOS / Android 共通のブラウザ仕様）。</li>
+        <li>解析はオフライン（端末内）で完結。音声データは外部送信しません。</li>
+        <li>端末側のノイズ抑制等が完全には無効化できない場合があります（特に iOS）。</li>
+        <li>厳密な残響時間測定には標準化された測定信号（バルーン、スピーカ、スイープ等）を推奨。本ツールは <b>手拍子の簡易推定</b> 用です。</li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  // ===== Utilities =====
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  function db10(x){ return 10 * Math.log10(x); }
+
+  function linreg(x, y){
+    // returns {a, b, r2}
+    const n = x.length;
+    if(n < 2) return {a: NaN, b: NaN, r2: NaN};
+    let sumx=0, sumy=0, sumxy=0, sumxx=0, sumyy=0;
+    for(let i=0;i<n;i++){
+      const xi = x[i], yi = y[i];
+      sumx += xi; sumy += yi; sumxy += xi*yi; sumxx += xi*xi; sumyy += yi*yi;
+    }
+    const denom = (n*sumxx - sumx*sumx);
+    if(Math.abs(denom) < 1e-12) return {a: NaN, b: NaN, r2: NaN};
+    const a = (n*sumxy - sumx*sumy) / denom;
+    const b = (sumy - a*sumx) / n;
+    // R^2
+    const ymean = sumy / n;
+    let ssTot = 0, ssRes = 0;
+    for(let i=0;i<n;i++){
+      const yi = y[i];
+      const yhat = a*x[i] + b;
+      ssTot += (yi - ymean)*(yi - ymean);
+      ssRes += (yi - yhat)*(yi - yhat);
+    }
+    const r2 = ssTot > 0 ? 1 - ssRes/ssTot : NaN;
+    return {a, b, r2};
+  }
+
+  function makeBands(kind){
+    if(kind === 'ob_31_4k'){
+      return [31.5, 63, 125, 250, 500, 1000, 2000, 4000];
+    }
+    // default
+    return [125, 250, 500, 1000, 2000, 4000];
+  }
+
+  function calcQ(fc){
+    const f1 = fc / Math.SQRT2;
+    const f2 = fc * Math.SQRT2;
+    const bw = f2 - f1;
+    return fc / bw;
+  }
+
+  function detectClapStart(samples, fs){
+    // find max peak and go 10 ms before it (guarded)
+    let maxAbs = 0, maxIdx = 0;
+    for(let i=0; i<samples.length; i++){
+      const a = Math.abs(samples[i]);
+      if(a > maxAbs){ maxAbs = a; maxIdx = i; }
+    }
+    const pre = Math.floor(0.01 * fs);
+    return Math.max(0, maxIdx - pre);
+  }
+
+  function sliceForAnalysis(samples, fs, startIdx){
+    const maxDur = 3.0; // seconds for analysis
+    const N = Math.min(samples.length - startIdx, Math.floor(maxDur * fs));
+    const out = new Float32Array(N);
+    // DC removal (simple high-pass via mean subtraction on slice)
+    let mean = 0;
+    for(let i=0;i<N;i++) mean += samples[startIdx + i];
+    mean /= N;
+    for(let i=0;i<N;i++) out[i] = samples[startIdx + i] - mean;
+    return out;
+  }
+
+  function schroederDB(filtered, eps=1e-12){
+    const N = filtered.length;
+    const e = new Float64Array(N);
+    for(let i=0;i<N;i++){
+      const v = filtered[i];
+      e[i] = v*v;
+    }
+    // reverse cumulative sum
+    for(let i=N-2; i>=0; i--){
+      e[i] += e[i+1];
+    }
+    // normalize & dB
+    const e0 = e[0] + eps;
+    const out = new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const ratio = Math.max(e[i] / e0, eps);
+      out[i] = 10*Math.log10(ratio);
+    }
+    return out; // starts near 0 dB and decays negative
+  }
+
+  function pickSegment(dBcurve, mode){
+    // returns [i0, i1] inclusive/exclusive indices for regression
+    let hi, lo;
+    if(mode === 'EDT'){ hi = 0; lo = -10; }
+    else if(mode === 'T20'){ hi = -5; lo = -25; }
+    else if(mode === 'T30'){ hi = -5; lo = -35; }
+    else { hi = 0; lo = -10; } // default EDT
+
+    // find first index below hi and first index below lo
+    const N = dBcurve.length;
+    let iStart = -1, iEnd = -1;
+    for(let i=0;i<N;i++){
+      if(dBcurve[i] < hi){ iStart = i; break; }
+    }
+    if(iStart < 0) return null;
+    for(let i=iStart;i<N;i++){
+      if(dBcurve[i] < lo){ iEnd = i; break; }
+    }
+    if(iEnd < 0 || iEnd - iStart < 100) return null; // need some points
+    return [iStart, iEnd];
+  }
+
+  function fitRT(dBcurve, fs, mode){
+    const seg = pickSegment(dBcurve, mode);
+    if(!seg) return {T: NaN, a: NaN, b: NaN, r2: NaN, seg: null};
+    const [i0, i1] = seg;
+    const n = i1 - i0;
+    const x = new Float64Array(n), y = new Float64Array(n);
+    for(let k=0;k<n;k++){
+      x[k] = i0 + k;
+      y[k] = dBcurve[i0 + k];
+    }
+    const {a, b, r2} = linreg(x, y);
+    if(!isFinite(a) || Math.abs(a) < 1e-12) return {T: NaN, a, b, r2, seg};
+    const T60 = -60 / (a * fs);
+    if(T60 <= 0 || T60 > 20) return {T: NaN, a, b, r2, seg}; // sanity
+    return {T: T60, a, b, r2, seg};
+  }
+
+  // Filter with OfflineAudioContext bandpass (cascade N)
+  async function bandpassFilter(samples, fs, fc, stages=2){
+    const N = samples.length;
+    const offline = new OfflineAudioContext(1, N, fs);
+    const buf = offline.createBuffer(1, N, fs);
+    buf.copyToChannel(samples, 0);
+    const src = offline.createBufferSource();
+    src.buffer = buf;
+
+    let node = src;
+    const Q = calcQ(fc);
+    for(let k=0;k<stages;k++){
+      const bp = offline.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = fc;
+      bp.Q.value = Q;
+      node.connect(bp);
+      node = bp;
+    }
+    node.connect(offline.destination);
+    src.start();
+    const rendered = await offline.startRendering();
+    return rendered.getChannelData(0);
+  }
+
+  // ===== App State =====
+  const stateEl = $('#state');
+  const envInfo = $('#envInfo');
+  const player = $('#player');
+  const btnRecord = $('#btnRecord');
+  const btnStop = $('#btnStop');
+  const btnAnalyze = $('#btnAnalyze');
+  const btnCsv = $('#btnDownloadCsv');
+  const bandType = $('#bandType');
+  const bpOrder = $('#bpOrder');
+  const rtMode = $('#rtMode');
+  const recSec = $('#recSec');
+  const fileInput = $('#fileInput');
+  const plotCanvas = $('#plot');
+  const plotBandSel = $('#plotBand');
+
+  let mediaRecorder = null;
+  let chunks = [];
+  let stream = null;
+  let recordedBlob = null;
+  let decoded = null; // {fs, data(Float32), length}
+  let lastAnalysis = null; // store results for CSV
+  let plotCache = {}; // store curves per band for plotting
+
+  function setState(txt){ stateEl.textContent = txt; }
+
+  function updateEnvInfo(extra=""){
+    const hasMR = !!window.MediaRecorder;
+    const ua = navigator.userAgent;
+    envInfo.textContent = `MediaRecorder: ${hasMR ? '✓' : '×'} | UA: ${ua} ${extra ? '| ' + extra : ''}`;
+  }
+
+  function pickMimeType(){
+    const prefs = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4;codecs=aac',
+      'audio/mp4',
+      'audio/ogg'
+    ];
+    for(const t of prefs){
+      if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+  }
+
+  async function startRecording(){
+    try{
+      updateEnvInfo();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1
+        }
+      });
+      const mimeType = pickMimeType();
+      mediaRecorder = new MediaRecorder(stream, mimeType ? {mimeType} : {});
+      chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if(e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        recordedBlob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+        btnAnalyze.disabled = false;
+        player.src = URL.createObjectURL(recordedBlob);
+        player.style.display = 'block';
+        setState('recorded');
+        // auto analyze after stop if desired
+      };
+      mediaRecorder.start();
+      setState('recording');
+      // auto-stop timer
+      const s = Math.max(2, Math.min(15, Number(recSec.value) || 4));
+      setTimeout(() => { if(mediaRecorder && mediaRecorder.state === 'recording'){ mediaRecorder.stop(); stopStream(); } }, s*1000);
+    }catch(err){
+      console.error(err);
+      setState('error');
+      alert('マイクアクセスに失敗しました。ブラウザの権限設定をご確認ください。\\n' + err.message);
+    }
+  }
+
+  function stopStream(){
+    if(stream){
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }
+
+  async function stopRecordingManual(){
+    try{
+      if(mediaRecorder && mediaRecorder.state === 'recording'){
+        mediaRecorder.stop();
+      }
+      stopStream();
+      setState('stopped');
+    }catch(_){}
+  }
+
+  async function decodeBlobToPCM(blob){
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const arr = await blob.arrayBuffer();
+    const audioBuf = await ac.decodeAudioData(arr);
+    const fs = audioBuf.sampleRate;
+    const N = audioBuf.length;
+    const ch0 = audioBuf.getChannelData(0);
+    // copy to plain Float32Array
+    const data = new Float32Array(N);
+    data.set(ch0);
+    ac.close();
+    return {fs, data, length: N};
+  }
+
+  function renderResultsTable(rows){
+    const tbody = $('#results tbody');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      function td(v, cls){
+        const e = document.createElement('td');
+        e.textContent = v; if(cls) e.className = cls;
+        return e;
+      }
+      tr.appendChild(td(r.fc.toFixed(1)));
+      tr.appendChild(td(isFinite(r.EDT) ? r.EDT.toFixed(3) : '—', isFinite(r.EDT)? '': 'muted'));
+      tr.appendChild(td(isFinite(r.T20) ? r.T20.toFixed(3) : '—', isFinite(r.T20)? '': 'muted'));
+      tr.appendChild(td(isFinite(r.T30) ? r.T30.toFixed(3) : '—', isFinite(r.T30)? '': 'muted'));
+      tr.appendChild(td(isFinite(r.R2) ? r.R2.toFixed(3) : '—', isFinite(r.R2)? '': 'muted'));
+      tbody.appendChild(tr);
+    });
+  }
+
+  function exportCSV(rows){
+    const header = ['fc_Hz','EDT_s','T20_s','T30_s','R2_Tsel'];
+    const lines = [header.join(',')];
+    rows.forEach(r => {
+      lines.push([r.fc, r.EDT, r.T20, r.T30, r.R2].map(v => (isFinite(v)? v : '')).join(','));
+    });
+    const blob = new Blob([lines.join('\\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'revtime_results.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function drawPlot(curve, fs, seg, fit, label){
+    const cv = plotCanvas;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0,0,W,H);
+    // padding
+    const padL = 40, padR = 10, padT = 10, padB = 24;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+    // time axis up to maybe 2.5 s
+    const tMax = Math.min(2.5, curve.length / fs);
+    const xToPx = (t) => padL + (t / tMax) * plotW;
+    // y axis from 0 to -45 dB
+    const yMin = -45, yMax = 0;
+    const yToPx = (dB) => padT + (yMax - dB) / (yMax - yMin) * plotH;
+
+    // axes
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    // grid horizontal
+    for(let d=0; d>=-45; d-=5){
+      const y = yToPx(d);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+      ctx.fillStyle = '#94a3b8'; ctx.font = '12px system-ui';
+      ctx.fillText(`${d}`, 6, y+3);
+    }
+    // grid vertical every 0.5 s
+    for(let t=0; t<=tMax; t+=0.5){
+      const x = xToPx(t);
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke();
+      ctx.fillStyle = '#94a3b8'; ctx.font = '12px system-ui';
+      ctx.fillText(`${t.toFixed(1)}`, x-6, H-6);
+    }
+
+    // plot curve
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    const N = Math.min(curve.length, Math.floor(tMax*fs));
+    for(let i=0;i<N;i++){
+      const x = xToPx(i/fs);
+      const y = yToPx(curve[i]);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // highlight segment
+    if(seg){
+      ctx.fillStyle = 'rgba(148,163,184,0.18)';
+      const x0 = xToPx(seg[0]/fs);
+      const x1 = xToPx(seg[1]/fs);
+      ctx.fillRect(x0, padT, x1-x0, plotH);
+    }
+
+    // regression line
+    if(fit && isFinite(fit.a)){
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath();
+      const i0 = seg? seg[0] : 0;
+      const i1 = seg? seg[1] : N;
+      const y0 = fit.a*i0 + fit.b;
+      const y1 = fit.a*i1 + fit.b;
+      ctx.moveTo(xToPx(i0/fs), yToPx(y0));
+      ctx.lineTo(xToPx(i1/fs), yToPx(y1));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // label
+      ctx.fillStyle = '#1f2937';
+      ctx.font = '12px system-ui';
+      const T60 = -60 / (fit.a * fs);
+      ctx.fillText(`${label}  回帰R²=${(fit.r2||0).toFixed(3)} / 推定T60=${(isFinite(T60)?T60.toFixed(2):'—')} s`, padL+8, padT+16);
+    }
+  }
+
+  function populatePlotBandSelect(bands){
+    plotBandSel.innerHTML = '';
+    bands.forEach((fc, idx) => {
+      const opt = document.createElement('option');
+      opt.value = String(fc);
+      opt.textContent = `${fc} Hz`;
+      if(idx === Math.floor(bands.length/2)) opt.selected = true;
+      plotBandSel.appendChild(opt);
+    });
+  }
+
+  async function analyze(){
+    try{
+      setState('analyzing');
+      const buf = decoded;
+      if(!buf){ alert('録音またはファイル選択を行ってください。'); setState('idle'); return; }
+      const {fs, data} = buf;
+
+      const startIdx = detectClapStart(data, fs);
+      const slice = sliceForAnalysis(data, fs, startIdx);
+
+      const bands = makeBands(bandType.value);
+      populatePlotBandSelect(bands);
+      const stages = Math.max(1, Math.min(3, Number(bpOrder.value)||2));
+
+      const want = rtMode.value; // 'ALL' or one mode
+      const rows = [];
+      plotCache = {};
+
+      for(const fc of bands){
+        const filtered = await bandpassFilter(slice, fs, fc, stages);
+        const curve = schroederDB(filtered);
+        // Compute modes
+        let EDT=NaN, T20=NaN, T30=NaN, R2=NaN;
+        let chosen=null, label='';
+        if(want==='ALL' || want==='EDT'){
+          const r = fitRT(curve, fs, 'EDT');
+          EDT = r.T; if(want==='EDT'){ chosen=r; label='EDT'; }
+        }
+        if(want==='ALL' || want==='T20'){
+          const r = fitRT(curve, fs, 'T20');
+          T20 = r.T; if(want==='T20'){ chosen=r; label='T20'; }
+        }
+        if(want==='ALL' || want==='T30'){
+          const r = fitRT(curve, fs, 'T30');
+          T30 = r.T; if(want==='T30'){ chosen=r; label='T30'; }
+        }
+        // Select a representative for R2/plot priority (prefer T30, then T20, then EDT)
+        let repr = fitRT(curve, fs, 'T30');
+        if(!isFinite(repr.T)) repr = fitRT(curve, fs, 'T20');
+        if(!isFinite(repr.T)) repr = fitRT(curve, fs, 'EDT');
+        if(isFinite(repr.r2)) R2 = repr.r2;
+
+        rows.push({fc, EDT, T20, T30, R2});
+
+        plotCache[fc] = {
+          curve, fs, seg: repr.seg, fit: {a: repr.a, b: repr.b, r2: repr.r2}
+        };
+      }
+
+      renderResultsTable(rows);
+      lastAnalysis = {rows, fs};
+      btnCsv.disabled = false;
+
+      // draw representative band
+      const fcShow = Number(plotBandSel.value);
+      const pc = plotCache[fcShow] || plotCache[bands[Math.floor(bands.length/2)]];
+      if(pc) drawPlot(pc.curve, pc.fs, pc.seg, pc.fit, '代表帯域');
+
+      setState('done');
+    }catch(err){
+      console.error(err);
+      setState('error');
+      alert('解析に失敗しました: ' + err.message);
+    }
+  }
+
+  // ===== Wire UI =====
+  btnRecord.addEventListener('click', async () => {
+    btnRecord.disabled = true;
+    btnStop.disabled = false;
+    btnAnalyze.disabled = true;
+    $('#recLabel').textContent = '録音中…';
+    await startRecording();
+    btnRecord.disabled = false;
+    btnStop.disabled = true;
+    $('#recLabel').textContent = '録音開始';
+  });
+
+  btnStop.addEventListener('click', stopRecordingManual);
+
+  btnAnalyze.addEventListener('click', async () => {
+    if(recordedBlob){
+      decoded = await decodeBlobToPCM(recordedBlob);
+      updateEnvInfo(`decoded fs=${decoded.fs}Hz, N=${decoded.length}`);
+      await analyze();
+    }else{
+      alert('録音データがありません。');
+    }
+  });
+
+  fileInput.addEventListener('change', async (e) => {
+    const f = e.target.files?.[0];
+    if(!f) return;
+    recordedBlob = f;
+    decoded = await decodeBlobToPCM(f);
+    player.src = URL.createObjectURL(f);
+    player.style.display = 'block';
+    btnAnalyze.disabled = false;
+    setState('file selected');
+    updateEnvInfo(`decoded fs=${decoded.fs}Hz, N=${decoded.length}`);
+  });
+
+  plotBandSel.addEventListener('change', () => {
+    const fc = Number(plotBandSel.value);
+    const pc = plotCache[fc];
+    if(pc) drawPlot(pc.curve, pc.fs, pc.seg, pc.fit, `${fc} Hz`);
+  });
+
+  btnCsv.addEventListener('click', () => {
+    if(lastAnalysis) exportCSV(lastAnalysis.rows);
+  });
+
+  // init
+  setState('idle');
+  updateEnvInfo();
+})();
+</script>
+</body>
+</html>
