@@ -106,6 +106,8 @@
             <label><input type="checkbox" id="showY"> |Y|</label>
             <label><input type="checkbox" id="logx" checked> log f</label>
             <label><input type="checkbox" id="db" checked> dB (20·log10)</label>
+            <!-- ★ 追加：1/1オクターブ背景のトグル -->
+            <label><input type="checkbox" id="bandbg" checked> 1/1オクターブ背景</label>
           </div>
         </div>
         <div class="row">
@@ -139,11 +141,15 @@
         <summary>計算式（MathJax）を表示</summary>
         <div>
           <p>薄板曲げ剛性：$D=\dfrac{E h^3}{12(1-\nu^2)}$，面密度：$m'=\rho h$</p>
-          <p>SSSS矩形板の固有角振動数：$ \omega_{mn}=\sqrt{\dfrac{D}{m'}} \left(\pi^2\left(\dfrac{m^2}{L_x^2}+\dfrac{n^2}{L_y^2}\right)\right)^2$，
-          $f_{mn}=\omega_{mn}/(2\pi)$</p>
-          <p>点モビリティ（モード和）：
-          $$Y(x_0,y_0,\omega)=\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}} \frac{4}{m' L_x L_y}\sin^2\frac{m\pi x_0}{L_x}\sin^2\frac{n\pi y_0}{L_y}\cdot \frac{j\omega}{\omega_{mn}^2-\omega^2+j\eta \omega_{mn}\omega}$$
-          $Z=1/Y$.</p>
+          <!-- ★ 修正：ωmn の式（k^2 を“さらに二乗”しない） -->
+          <p>SSSS矩形板の固有角振動数：$ \omega_{mn}=\sqrt{\dfrac{D}{m'}} \left(\pi^2\left(\dfrac{m^2}{L_x^2}+\dfrac{n^2}{L_y^2}\right)\right)$，
+          $f_{mn}=\dfrac{\omega_{mn}}{2\pi}$</p>
+          <!-- ★ 修正：モビリティは構造減衰 (1+iη) -->
+          <p>点モビリティ（モード和・構造減衰）：
+          $$Y(x_0,y_0,\omega)=\frac{4}{m' L_x L_y}\sum_{m=1}^{m_{\max}}\sum_{n=1}^{n_{\max}}
+          \frac{i\omega\,\sin^2\!\frac{m\pi x_0}{L_x}\,\sin^2\!\frac{n\pi y_0}{L_y}}
+          {(1+i\eta)\,\omega_{mn}^2-\omega^2},\qquad Z=\frac{1}{Y}.$$
+          </p>
           <p>無限長板（中心部加振, Cremer 等）: $$Z_\infty = 8\sqrt{D\,\rho h} = 2.3\,\rho\,c_{L,p}\,h^2 \quad(\text{実数, 周波数非依存})$$ </p>
         </div>
       </details>
