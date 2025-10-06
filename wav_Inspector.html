@@ -9,7 +9,7 @@
     --bg:#f8fafc; --panel:#fff; --text:#0f172a; --muted:#475569;
     --accent:#2563eb; --ok:#10b981; --warn:#f59e0b; --bad:#ef4444; --chip:#e2e8f0;
     --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  } catch(e){ showErr(e); }
+  }
   *{box-sizing:border-box}
   body{margin:0;padding:24px;background:var(--bg);color:var(--text);
        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo}
@@ -172,9 +172,11 @@
   const fourCC = (dv,o)=> String.fromCharCode(dv.getUint8(o), dv.getUint8(o+1), dv.getUint8(o+2), dv.getUint8(o+3));
   const readStr = (dv, off, len)=>{ let s=''; for(let i=0;i<len;i++){ const c=dv.getUint8(off+i); if(c===0) break; s+=String.fromCharCode(c); } return s.trim(); };
   const getI64 = (dv, off)=> Number(dv.getBigInt64(off, true));
-  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
   const hex2 = (n)=> n.toString(16).padStart(2,'0');
   const ver32 = (u32)=>{ const h=u32.toString(16).padStart(8,'0'); return `${h.slice(0,2)}.${h.slice(2,4)}.${h.slice(4,6)}${h.slice(6,8)}`; };
+
+  const errBox = el('#err');
+  const showErr = (e)=>{ try{ errBox.textContent = (e && e.message) ? e.message : String(e); console.error(e); }catch{} };
 
   function appendKV(tbody, k, v){ const tr=document.createElement('tr'); const th=document.createElement('th'); th.textContent=k; const td=document.createElement('td'); td.innerHTML=v; tr.appendChild(th); tr.appendChild(td); tbody.appendChild(tr); }
   function setTable(tbody, rows){ tbody.innerHTML=''; rows.forEach(r=>appendKV(tbody, r[0], r[1])); }
@@ -194,11 +196,11 @@
   function parseTYPE(dv, off){
     const csize=dv.getUint32(off+4,true); const dataOff=off+8;
     return {id:'TYPE', size:csize, dataOffset:dataOff, fileType: readStr(dv,dataOff,8), fileRev: dv.getUint16(dataOff+8,true)};
-  } catch(e){ showErr(e); }
+  }
   function parseWSET(dv, off){
     const csize=dv.getUint32(off+4,true); const dataOff=off+8;
     return {id:'WSET', size:csize, dataOffset:dataOff, pretime: dv.getInt16(dataOff+2, true)};
-  } catch(e){ showErr(e); }
+  }
   function parseCSET(dv, off){
     const csize=dv.getUint32(off+4,true); const dataOff=off+8; let p=dataOff;
     const common={};
@@ -259,22 +261,19 @@
       ch.overload     = dv.getUint16(q,true); q+=2;
       q+=2; q+=10; // reserved
       channels.push(ch);
-    } catch(e){ showErr(e); }
+    }
     return {id:'CSET', size:csize, dataOffset:dataOff, common, channels};
-  } catch(e){ showErr(e); }
+  }
   function parseCUE(dv, off){
-    // 'cue ' chunk: ref: RIFF spec
     const size=dv.getUint32(off+4,true); const dataOff=off+8;
     const num=dv.getUint32(dataOff,true);
     const points=[]; let p=dataOff+4;
     for(let i=0;i<num;i++){
       const id=dv.getUint32(p,true); const pos=dv.getUint32(p+4,true);
-      // skip rest 16 bytes (chunk ID etc.)
-      p+=24;
-      points.push({id, position:pos});
-    } catch(e){ showErr(e); }
+      p+=24; points.push({id, position:pos});
+    }
     return {id:'cue ', size, dataOffset:dataOff, points};
-  } catch(e){ showErr(e); }
+  }
   function parseLIST_ADTL(dv, off){
     const size=dv.getUint32(off+4,true); const dataOff=off+8;
     const listType = fourCC(dv,dataOff);
@@ -287,11 +286,11 @@
         const cuePointId=dv.getUint32(subOff,true);
         const txt=readStr(dv, subOff+4, subSize-4);
         items.push({type:subId, cuePointId, text:txt});
-      } catch(e){ showErr(e); }
+      }
       p = subOff + subSize + (subSize%2);
-    } catch(e){ showErr(e); }
+    }
     return {id:'LIST', size, dataOffset:dataOff, items};
-  } catch(e){ showErr(e); }
+  }
 
   function parseWav(buf){
     const dv=new DataView(buf); const bytes=dv.byteLength;
@@ -305,36 +304,35 @@
         const nSamplesPerSec=dv.getUint32(dataOffset+4,true), nAvgBytesPerSec=dv.getUint32(dataOffset+8,true);
         const nBlockAlign=dv.getUint16(dataOffset+12,true), wBitsPerSample=dv.getUint16(dataOffset+14,true);
         fmt={id,size,dataOffset,wFormatTag,nChannels,nSamplesPerSec,nAvgBytesPerSec,nBlockAlign,wBitsPerSample};
-      } catch(e){ showErr(e); }else if(id==='data'){
+      }else if(id==='data'){
         data={id,size,dataOffset};
-      } catch(e){ showErr(e); }else if(id==='TYPE'){ type=parseTYPE(dv,off);
-      } catch(e){ showErr(e); }else if(id==='WSET'){ wset=parseWSET(dv,off);
-      } catch(e){ showErr(e); }else if(id==='CSET'){ cset=parseCSET(dv,off);
-      } catch(e){ showErr(e); }else if(id==='cue '){ cue=parseCUE(dv,off);
-      } catch(e){ showErr(e); }else if(id==='LIST'){ adtl=parseLIST_ADTL(dv,off);
-      } catch(e){ showErr(e); }else{
+      }else if(id==='TYPE'){ type=parseTYPE(dv,off);
+      }else if(id==='WSET'){ wset=parseWSET(dv,off);
+      }else if(id==='CSET'){ cset=parseCSET(dv,off);
+      }else if(id==='cue '){ cue=parseCUE(dv,off);
+      }else if(id==='LIST'){ adtl=parseLIST_ADTL(dv,off);
+      }else{
         skipped.push({id,size,dataOffset, head:Array.from(new Uint8Array(dv.buffer, dataOffset, Math.min(64, size)))});
-      } catch(e){ showErr(e); }
+      }
       off = dataOffset + size + (size%2);
-    } catch(e){ showErr(e); }
+    }
     return {header, fmt, data, type, wset, cset, cue, adtl, skipped, dv};
-  } catch(e){ showErr(e); }
+  }
 
   // ====== Waveform / EU & dBFS ======
   function pcmIntToFloat(val, bits, fsOverride){
     const full = fsOverride>0 ? fsOverride : Math.pow(2, bits-1);
     return val / full;
-  } catch(e){ showErr(e); }
+  }
   function valToEU(v, chMeta){
-    // EU = v * valuePerBit + offsetValue (v is integer sample count for PCM, float value for IEEE? -> for float WAV, EU換算非適用)
-    return v * (chMeta?.valuePerBit ?? 1) + (chMeta?.offsetValue ?? 0);
-    // valuePerVolt/zeroDbEU は用途に応じて別の換算に使用
-  } catch(e){ showErr(e); }
+    return v * (chMeta && typeof chMeta.valuePerBit==='number' ? chMeta.valuePerBit : 1)
+           + (chMeta && typeof chMeta.offsetValue==='number' ? chMeta.offsetValue : 0);
+  }
   function toDbFS(v, bits, fsOverride){
     const full = fsOverride>0 ? fsOverride : Math.pow(2, bits-1);
     const x = Math.abs(v) / full;
     return (x>0) ? (20*Math.log10(x)) : -Infinity;
-  } catch(e){ showErr(e); }
+  }
   function drawWaveform(parsed,{channelIndex=0,width=1200,height=200, eu=false, dbfs=false, fsOverride=0}){
     const {dv,data,fmt,cset}=parsed;
     const canvas=document.createElement('canvas'); canvas.width=width; canvas.height=height;
@@ -345,7 +343,7 @@
     const bytesPerSample=fmt.wBitsPerSample/8, blockAlign=fmt.nBlockAlign, frames=Math.floor(data.size/blockAlign);
     const fmtTag=fmt.wFormatTag, samplesPerPx=Math.max(1,Math.floor(frames/width)); const ch=channelIndex;
     const bits=fmt.wBitsPerSample;
-    const chMeta = cset?.channels?.[ch] || null;
+    const chMeta = (cset && cset.channels && cset.channels[ch]) ? cset.channels[ch] : null;
 
     let frame=0;
     for(let x=0;x<width;x++){
@@ -358,24 +356,21 @@
           else if(bytesPerSample===2) v = dv.getInt16(off,true);
           else if(bytesPerSample===3){ const b0=dv.getUint8(off),b1=dv.getUint8(off+1),b2=dv.getUint8(off+2); let val=(b2<<16)|(b1<<8)|b0; if(val&0x800000) val|=0xff000000; v=val; }
           else if(bytesPerSample===4) v = dv.getInt32(off,true);
-          if (eu){ v = valToEU(v, chMeta); }
-          else if (dbfs){ v = pcmIntToFloat(v, bits, fsOverride); }
-          else { v = pcmIntToFloat(v, bits, fsOverride); } // normalize to ±1 for drawing
-        } catch(e){ showErr(e); }else if(fmtTag===0x0003){
+          if (eu){ v = valToEU(v, chMeta); } else { v = pcmIntToFloat(v, bits, fsOverride); }
+        }else if(fmtTag===0x0003){
           v = (bytesPerSample===4) ? dv.getFloat32(off,true) : (bytesPerSample===8? dv.getFloat64(off,true) : 0);
-          // For float WAV, EU変換は未適用（係数が整数カウント基準でないため）。描画は±1想定でスケーリング。
-        } catch(e){ showErr(e); }
+        }
         if(v<sMin) sMin=v; if(v>sMax) sMax=v;
-      } catch(e){ showErr(e); }
+      }
       const y1=mid - sMax*(height*0.48), y2=mid - sMin*(height*0.48);
       ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke();
-    } catch(e){ showErr(e); }
+    }
     return canvas;
-  } catch(e){ showErr(e); }
+  }
   function extractSamples(parsed, ch, N, eu=false, dbfs=false, fsOverride=0){
     const {dv,data,fmt,cset}=parsed;
     const bytesPerSample=fmt.wBitsPerSample/8, blockAlign=fmt.nBlockAlign, frames=Math.floor(data.size/blockAlign), fmtTag=fmt.wFormatTag, bits=fmt.wBitsPerSample;
-    const len=Math.min(N,frames), out=[]; const chMeta=cset?.channels?.[ch]||null;
+    const len=Math.min(N,frames), out=[]; const chMeta=(cset && cset.channels && cset.channels[ch]) ? cset.channels[ch] : null;
     for(let i=0;i<len;i++){
       const off=data.dataOffset + i*blockAlign + ch*bytesPerSample;
       let raw=0;
@@ -388,13 +383,13 @@
         const euv = eu ? valToEU(raw, chMeta) : null;
         const db = dbfs ? toDbFS(raw, bits, fsOverride) : null;
         out.push({raw, norm, eu:euv, dbfs:db});
-      } catch(e){ showErr(e); }else if(fmtTag===0x0003){
+      }else if(fmtTag===0x0003){
         const val = (bytesPerSample===4) ? dv.getFloat32(off,true) : (bytesPerSample===8? dv.getFloat64(off,true) : 0);
         out.push({raw:val, norm:val, eu:null, dbfs:null});
-      } catch(e){ showErr(e); }
-    } catch(e){ showErr(e); }
+      }
+    }
     return out;
-  } catch(e){ showErr(e); }
+  }
 
   // ====== UI elements ======
   const riffTbl=el('#riffTbl tbody'), fmtTbl=el('#fmtTbl tbody'), dataTbl=el('#dataTbl tbody');
@@ -431,7 +426,7 @@
         ['nBlockAlign', fmtNum(f.nBlockAlign)],
         ['wBitsPerSample', `${fmtNum(f.wBitsPerSample)} bit`],
       ]);
-    } catch(e){ showErr(e); } else setTable(fmtTbl,[['エラー','<span class="bad">fmt が見つかりません</span>']]);
+    } else setTable(fmtTbl,[['エラー','<span class="bad">fmt が見つかりません</span>']]);
 
     if(p.data){
       const f=p.fmt, d=p.data; const frames=f?Math.floor(d.size/f.nBlockAlign):0; const dur=f?frames/f.nSamplesPerSec:NaN;
@@ -444,7 +439,7 @@
         ['チャンネル数', f?fmtNum(f.nChannels):'Unknown'],
         ['量子化', f? `${f.wBitsPerSample} bit`:'Unknown'],
       ]);
-    } catch(e){ showErr(e); } else setTable(dataTbl,[['エラー','<span class="bad">data が見つかりません</span>']]);
+    } else setTable(dataTbl,[['エラー','<span class="bad">data が見つかりません</span>']]);
 
     // TYPE / WSET
     if(p.type){
@@ -455,7 +450,7 @@
         ['File Type', `<span class="mono">${t.fileType}</span>`],
         ['File Revision', `${fmtNum(t.fileRev)} <span class="chip">0x${t.fileRev.toString(16)}</span>`],
       ]);
-    } catch(e){ showErr(e); } else setTable(typeTbl,[['情報','TYPE は見つかりません']]);
+    } else setTable(typeTbl,[['情報','TYPE は見つかりません']]);
     if(p.wset){
       const w=p.wset;
       setTable(wsetTbl,[
@@ -463,7 +458,7 @@
         ['Chunk Size', `${fmtNum(w.size)} bytes`],
         ['プリトリガ秒 (Pre-time)', `${w.pretime} s（0 / -1 / -5 等）`],
       ]);
-    } catch(e){ showErr(e); } else setTable(wsetTbl,[['情報','WSET は見つかりません']]);
+    } else setTable(wsetTbl,[['情報','WSET は見つかりません']]);
 
     // Device info
     deviceTbl.innerHTML='';
@@ -477,14 +472,13 @@
         ['Equipped / Enabled CH', `${fmtNum(c.unitEquippedCh)} / ${fmtNum(c.totalEnabledCh)}`],
         ['Product Type', `<span class="mono">${c.productType}</span>`],
       ]);
-    } catch(e){ showErr(e); } else setTable(deviceTbl,[['情報','CSET 未検出のため装置情報は表示できません']]);
+    } else setTable(deviceTbl,[['情報','CSET 未検出のため装置情報は表示できません']]);
 
     // Time info + bar
     timeTbl.innerHTML='';
-    let startMs=null, actualMs=null, pre=0;
+    let pre=0;
     if(p.cset){
       const c=p.cset.common;
-      startMs=c.startTimeMs; actualMs=c.actualRecordTimeMs;
       const startLocal = new Date(c.startTimeMs);
       const startISO = new Date(c.startTimeMs).toISOString();
       const tStart = c.triggerStartDateTime ? new Date(c.triggerStartDateTime) : null;
@@ -496,11 +490,10 @@
         ['Trigger Stop', tStop? tStop.toLocaleString() : '—'],
         ['Trigger Interval (s)', fmtNum(c.triggerIntervalSec)],
       ]);
-    } catch(e){ showErr(e); } else {
+    } else {
       setTable(timeTbl,[['情報','CSET 未検出のため時刻情報は表示できません']]);
-    } catch(e){ showErr(e); }
+    }
     if(p.wset) pre = p.wset.pretime||0;
-    // draw time bar segment: pre (if negative) indicates pre-trigger window before 0
     const durSec = (p.fmt && p.data) ? Math.floor(p.data.size/p.fmt.nBlockAlign)/p.fmt.nSamplesPerSec : 0;
     const totalSec = durSec + Math.max(0, -pre);
     const leftPct = totalSec>0 ? (Math.max(0, -pre)/totalSec)*100 : 0;
@@ -523,6 +516,8 @@
       ]);
       p.cset.channels.forEach((ch,i)=>{
         const tr=document.createElement('tr');
+        const vpb = (typeof ch.valuePerBit==='number') ? ch.valuePerBit.toExponential(3) : (ch.valuePerBit ?? '');
+        const vpv = (typeof ch.valuePerVolt==='number') ? ch.valuePerVolt.toExponential(3) : (ch.valuePerVolt ?? '');
         tr.innerHTML = `<td>${fmtNum(ch.number||i+1)}</td>
                         <td class="mono">${ch.name||''}</td>
                         <td>${ch.enabled?'true':'false'}</td>
@@ -534,16 +529,16 @@
                         <td>${ch.ccld?'ON':'OFF'}</td>
                         <td>${ch.inversion?'true':'false'}</td>
                         <td class="mono">${ch.unit}</td>
-                        <td class="mono">${(typeof ch.valuePerBit==="number" ? ch.valuePerBit.toExponential(3) : (ch.valuePerBit??""))}</td>
-                        <td class="mono">${(typeof ch.valuePerVolt==="number" ? ch.valuePerVolt.toExponential(3) : (ch.valuePerVolt??""))}</td>
+                        <td class="mono">${vpb}</td>
+                        <td class="mono">${vpv}</td>
                         <td class="mono">${ch.offsetValue}</td>
                         <td class="mono">${ch.zeroDbEU}</td>
                         <td>${ch.overload? 'あり':'なし'}</td>`;
         csetCh.appendChild(tr);
-      } catch(e){ showErr(e); });
-    } catch(e){ showErr(e); } else {
+      });
+    } else {
       csetCommon.innerHTML='<tr><td>情報</td><td>CSET は見つかりません</td></tr>';
-    } catch(e){ showErr(e); }
+    }
 
     // Markers
     markerTbl.innerHTML='';
@@ -554,10 +549,10 @@
         const tr=document.createElement('tr');
         tr.innerHTML = `<td>${i+1}</td><td>${fmtNum(pt.position)}</td><td class="mono">${labels[pt.id]||''}</td>`;
         markerTbl.appendChild(tr);
-      } catch(e){ showErr(e); });
-    } catch(e){ showErr(e); } else {
+      });
+    } else {
       const tr=document.createElement('tr'); tr.innerHTML='<td colspan="3">対応マーカーチャンクが見つかりません（cue/adtl）</td>'; markerTbl.appendChild(tr);
-    } catch(e){ showErr(e); }
+    }
 
     // Skipped + hex
     skipTbl.innerHTML='';
@@ -566,9 +561,9 @@
       const hexHead = (c.head||[]).map(b=>hex2(b)).join(' ');
       tr.innerHTML = `<td>${i+1}</td><td class="mono">${c.id}</td><td>${fmtNum(c.size)}</td><td>${fmtNum(c.dataOffset)}</td><td><details><summary>表示</summary><div class="hex">${hexHead}</div></details></td>`;
       skipTbl.appendChild(tr);
-    } catch(e){ showErr(e); });
+    });
 
-    // Summary (no '-')
+    // Summary
     const frames = (p.data && p.fmt)? Math.floor(p.data.size/p.fmt.nBlockAlign):0;
     const dur = (p.fmt? frames/p.fmt.nSamplesPerSec : NaN);
     const rangeSummary = p.cset ? friendly(RANGE_CODE, p.cset.common.measureFreqRangeCode) : 'なし (CSET 未検出)';
@@ -593,26 +588,26 @@
       addVal(p.fmt.nBlockAlign===computed, `nBlockAlign = nChannels × wBitsPerSample / 8 (${p.fmt.nBlockAlign} vs ${computed})`);
       const nabps = p.fmt.nSamplesPerSec * p.fmt.nBlockAlign;
       addVal(p.fmt.nAvgBytesPerSec===nabps, `nAvgBytesPerSec = Fs × nBlockAlign (${p.fmt.nAvgBytesPerSec} vs ${nabps})`);
-    } catch(e){ showErr(e); }
+    }
     addVal(!!p.data, '`data` の存在');
     if(p.data && p.fmt){ addVal((p.data.size%p.fmt.nBlockAlign)===0, `data サイズが blockAlign の整数倍`); }
     if(p.cset && p.fmt && p.data){
-      const frames = Math.floor(p.data.size/p.fmt.nBlockAlign);
+      const frames2 = Math.floor(p.data.size/p.fmt.nBlockAlign);
       const estFrames = Math.round((p.cset.common.actualRecordTimeMs/1000) * p.fmt.nSamplesPerSec);
-      const diff = Math.abs(frames - estFrames);
+      const diff = Math.abs(frames2 - estFrames);
       const ok = (estFrames>0) ? (diff/estFrames <= 0.02) : false; // ±2%
-      addVal(ok, `frames と 実記録時間(×Fs) の整合 (${fmtNum(frames)} vs ${fmtNum(estFrames)}, 差 ${fmtNum(diff)})`);
-    } catch(e){ showErr(e); }
+      addVal(ok, `frames と 実記録時間(×Fs) の整合 (${fmtNum(frames2)} vs ${fmtNum(estFrames)}, 差 ${fmtNum(diff)})`);
+    }
 
     // CH selector & buttons
     chSelect.innerHTML='';
     if(p.fmt && p.data){
       for(let i=0;i<p.fmt.nChannels;i++){ const o=document.createElement('option'); o.value=i; o.textContent=`CH${i+1}`; chSelect.appendChild(o); }
       drawBtn.disabled=false; drawAllBtn.disabled=false;
-    } catch(e){ showErr(e); }else{
+    }else{
       drawBtn.disabled=true; drawAllBtn.disabled=true;
-    } catch(e){ showErr(e); }
-  } catch(e){ showErr(e); }
+    }
+  }
 
   // ====== Export ======
   function toJSON(p, fileName){
@@ -622,8 +617,8 @@
       type: p.type, wset: p.wset, cset: p.cset,
       markers: {cue: p.cue, adtl: p.adtl},
       skipped: p.skipped.map(s=>({id:s.id,size:s.size,offset:s.dataOffset}))
-    } catch(e){ showErr(e); };
-  } catch(e){ showErr(e); }
+    };
+  }
   function toCSVRow(p, fileName){
     const Fs = p.fmt?.nSamplesPerSec ?? '';
     const Ch = p.fmt?.nChannels ?? '';
@@ -634,110 +629,117 @@
     const Device = p.cset ? (p.cset.common.unitName || p.cset.common.productType || '') : '';
     const Start = p.cset ? new Date(p.cset.common.startTimeMs).toISOString() : '';
     return [fileName, Fs, Ch, Bits, dur.toFixed(3), Range, Device, Start];
-  } catch(e){ showErr(e); }
+  }
   function downloadText(name, text){
     const blob = new Blob([text], {type:'text/plain'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
-  } catch(e){ showErr(e); }
+  }
 
   // ====== Handlers ======
   async function handleFiles(files){
-    try {
-    parsedBatch=[]; batchTbl.innerHTML='';
-    if(!files || files.length===0) return;
-    if(files.length===1){
-      await handleFile(files[0]);
-    } catch(e){ showErr(e); } else {
-      fileInfo.textContent = `${files.length} ファイルを読み込み中…`;
-      for(const f of files){
-        const buf=await f.arrayBuffer(); const p=parseWav(buf);
-        parsedBatch.push({name:f.name, parsed:p});
-        // append batch row
-        const row = toCSVRow(p, f.name);
-        const tr=document.createElement('tr'); tr.innerHTML = `<td class="mono">${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td><td class="mono">${row[6]}</td><td class="mono">${row[7]}</td>`;
-        batchTbl.appendChild(tr);
-      } catch(e){ showErr(e); }
-      // also display details of the first file
-      currentFileName = files[0].name;
-      parsed = parsedBatch[0].parsed;
+    try{
+      errBox.textContent='';
+      parsedBatch=[]; batchTbl.innerHTML='';
+      if(!files || files.length===0) return;
+      if(files.length===1){
+        await handleFile(files[0]);
+      } else {
+        fileInfo.textContent = `${files.length} ファイルを読み込み中…`;
+        for(const f of files){
+          const buf=await f.arrayBuffer(); const p=parseWav(buf);
+          parsedBatch.push({name:f.name, parsed:p});
+          const row = toCSVRow(p, f.name);
+          const tr=document.createElement('tr'); tr.innerHTML = `<td class="mono">${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td><td class="mono">${row[6]}</td><td class="mono">${row[7]}</td>`;
+          batchTbl.appendChild(tr);
+        }
+        currentFileName = files[0].name;
+        parsed = parsedBatch[0].parsed;
+        renderAll(parsed);
+        exportJSON.disabled=false; exportCSV.disabled=false;
+        fileInfo.textContent = `最初の1件を詳細表示中：${files[0].name}`;
+      }
+    }catch(e){ showErr(e); }
+  }
+  async function handleFile(file){
+    try{
+      errBox.textContent='';
+      currentFileName = file.name;
+      fileInfo.textContent = `${file.name}（${fmtNum(file.size)} bytes）読み込み中…`;
+      const buf = await file.arrayBuffer();
+      parsed = parseWav(buf);
       renderAll(parsed);
       exportJSON.disabled=false; exportCSV.disabled=false;
-      fileInfo.textContent = `最初の1件を詳細表示中：${files[0].name}`;
-    } catch(e){ showErr(e); }
-    } catch(e){ showErr(e); } catch(e){ showErr(e); }
-  } catch(e){ showErr(e); }
-  async function handleFile(file){
-    try {
-    currentFileName = file.name;
-    fileInfo.textContent = `${file.name}（${fmtNum(file.size)} bytes）読み込み中…`;
-    const buf = await file.arrayBuffer();
-    parsed = parseWav(buf);
-    renderAll(parsed);
-    exportJSON.disabled=false; exportCSV.disabled=false;
-    fileInfo.textContent = `${file.name} を解析しました。`;
-    errBox.textContent = '';
-  } catch(e){ showErr(e); }
+      fileInfo.textContent = `${file.name} を解析しました。`;
+    }catch(e){ showErr(e); }
+  }
 
   // Draw buttons
   drawBtn.addEventListener('click', ()=>{
-    if(!parsed || !parsed.fmt || !parsed.data) return;
-    const ch=parseInt(chSelect.value,10)||0;
-    const w=Math.max(200, parseInt(el('#plotWidth').value,10)||1200);
-    const h=Math.max(120, parseInt(el('#plotHeight').value,10)||200);
-    const eu=el('#euToggle').checked, dbfs=el('#dbfsToggle').checked;
-    const fs = parseFloat(fsOverride.value)||0;
-    canvasWrap.innerHTML='';
-    canvasWrap.appendChild(drawWaveform(parsed,{channelIndex:ch,width:w,height:h,eu,dbfs,fsOverride:fs}));
-    const N=parseInt(firstN.value,10)||16;
-    const arr = extractSamples(parsed,ch,N,eu,dbfs,fs);
-    const lines = arr.map((o,i)=>{
-      let s=`[${i}] raw=${o.raw}`;
-      if(o.dbfs!==null) s += `, dbFS=${(o.dbfs===-Infinity?'-Inf':o.dbfs.toFixed(2))}`;
-      if(o.eu!==null) s += `, EU=${o.eu}`;
-      return s;
-    } catch(e){ showErr(e); }).join('\n');
-    firstSamplesPre.textContent = lines;
-  } catch(e){ showErr(e); });
-  drawAllBtn.addEventListener('click', ()=>{
-    if(!parsed || !parsed.fmt || !parsed.data) return;
-    const n=parsed.fmt.nChannels;
-    const cols = (n>=4)? 2 : 1;
-    const w=Math.max(200, parseInt(el('#plotWidth').value,10)||1200);
-    const h=Math.max(120, parseInt(el('#plotHeight').value,10)||200);
-    const eu=el('#euToggle').checked, dbfs=el('#dbfsToggle').checked;
-    const fs = parseFloat(fsOverride.value)||0;
-    canvasWrap.innerHTML='';
-    for(let ch=0; ch<n; ch++){
-      const title=document.createElement('div'); title.className='kicker'; title.textContent=`CH${ch+1}`;
-      canvasWrap.appendChild(title);
+    try{
+      if(!parsed || !parsed.fmt || !parsed.data) return;
+      const ch=parseInt(chSelect.value,10)||0;
+      const w=Math.max(200, parseInt(plotWidth.value,10)||1200);
+      const h=Math.max(120, parseInt(plotHeight.value,10)||200);
+      const eu=euToggle.checked, dbfs=dbfsToggle.checked;
+      const fs = parseFloat(fsOverride.value)||0;
+      canvasWrap.innerHTML='';
       canvasWrap.appendChild(drawWaveform(parsed,{channelIndex:ch,width:w,height:h,eu,dbfs,fsOverride:fs}));
-    } catch(e){ showErr(e); }
-  } catch(e){ showErr(e); });
+      const N=parseInt(firstN.value,10)||16;
+      const arr = extractSamples(parsed,ch,N,eu,dbfs,fs);
+      const lines = arr.map((o,i)=>{
+        let s=`[${i}] raw=${o.raw}`;
+        if(dbfs && o.dbfs!==null) s += `, dbFS=${(o.dbfs===-Infinity?'-Inf':o.dbfs.toFixed(2))}`;
+        if(eu && o.eu!==null) s += `, EU=${o.eu}`;
+        return s;
+      }).join('\n');
+      firstSamplesPre.textContent = lines;
+    }catch(e){ showErr(e); }
+  });
+  drawAllBtn.addEventListener('click', ()=>{
+    try{
+      if(!parsed || !parsed.fmt || !parsed.data) return;
+      const n=parsed.fmt.nChannels;
+      const w=Math.max(200, parseInt(plotWidth.value,10)||1200);
+      const h=Math.max(120, parseInt(plotHeight.value,10)||200);
+      const eu=euToggle.checked, dbfs=dbfsToggle.checked;
+      const fs = parseFloat(fsOverride.value)||0;
+      canvasWrap.innerHTML='';
+      for(let ch=0; ch<n; ch++){
+        const title=document.createElement('div'); title.className='kicker'; title.textContent=`CH${ch+1}`;
+        canvasWrap.appendChild(title);
+        canvasWrap.appendChild(drawWaveform(parsed,{channelIndex:ch,width:w,height:h,eu,dbfs,fsOverride:fs}));
+      }
+    }catch(e){ showErr(e); }
+  });
 
   // Export buttons
   exportJSON.addEventListener('click', ()=>{
-    if(parsedBatch.length>0){
-      const arr = parsedBatch.map(x=>toJSON(x.parsed, x.name));
-      downloadText('wav_inspect_batch.json', JSON.stringify(arr, null, 2));
-    } catch(e){ showErr(e); } else if(parsed){
-      downloadText((currentFileName||'wave')+'_inspect.json', JSON.stringify(toJSON(parsed, currentFileName), null, 2));
-    } catch(e){ showErr(e); }
-  } catch(e){ showErr(e); });
+    try{
+      if(parsedBatch.length>0){
+        const arr = parsedBatch.map(x=>toJSON(x.parsed, x.name));
+        downloadText('wav_inspect_batch.json', JSON.stringify(arr, null, 2));
+      } else if(parsed){
+        downloadText((currentFileName||'wave')+'_inspect.json', JSON.stringify(toJSON(parsed, currentFileName), null, 2));
+      }
+    }catch(e){ showErr(e); }
+  });
   exportCSV.addEventListener('click', ()=>{
-    let rows = [['File','Fs_Hz','Ch','Bits','Duration_s','Range','Device','Start_ISO']];
-    if(parsedBatch.length>0){
-      parsedBatch.forEach(x=>rows.push(toCSVRow(x.parsed, x.name)));
-    } catch(e){ showErr(e); } else if(parsed){
-      rows.push(toCSVRow(parsed, currentFileName||'wave'));
-    } catch(e){ showErr(e); }
-    const csv = rows.map(r=>r.map(v=>(String(v).includes(',')?`"${String(v).replace(/"/g,'""')}"`:String(v))).join(',')).join('\n');
-    downloadText('wav_inspect_summary.csv', csv);
-  } catch(e){ showErr(e); });
+    try{
+      let rows = [['File','Fs_Hz','Ch','Bits','Duration_s','Range','Device','Start_ISO']];
+      if(parsedBatch.length>0){
+        parsedBatch.forEach(x=>rows.push(toCSVRow(x.parsed, x.name)));
+      } else if(parsed){
+        rows.push(toCSVRow(parsed, currentFileName||'wave'));
+      }
+      const csv = rows.map(r=>r.map(v=>(String(v).includes(',')?`"${String(v).replace(/"/g,'""')}"`:String(v))).join(',')).join('\n');
+      downloadText('wav_inspect_summary.csv', csv);
+    }catch(e){ showErr(e); }
+  });
 
   // Drag & Drop & input
   drop.addEventListener('dragover', (e)=>{ e.preventDefault(); });
-  drop.addEventListener('drop', (e)=>{ e.preventDefault(); const files=e.dataTransfer.files; if(files?.length) handleFiles(files); });
-  fileInput.addEventListener('change', (e)=>{ const files=e.target.files; if(files?.length) handleFiles(files); });
+  drop.addEventListener('drop', (e)=>{ try{ e.preventDefault(); const files=e.dataTransfer.files; if(files?.length) handleFiles(files); }catch(er){ showErr(er); } });
+  fileInput.addEventListener('change', (e)=>{ try{ const files=e.target.files; if(files?.length) handleFiles(files); }catch(er){ showErr(er); } });
 
 })();
 </script>
