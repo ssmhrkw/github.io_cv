@@ -1,11 +1,11 @@
-/* plates.js — spatial averaging options */
+/* plates.js — spatial averaging + structural damping + 1/1-octave shading */
 (function(){
   "use strict";
   const $ = (id) => document.getElementById(id);
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const EPS = 1e-30;
 
-  function c(re, im){ return {re, im} }
+  function c(re, im){ return {re, im}; }
   function cdiv(a,b){ const d=b.re*b.re+b.im*b.im||EPS; return {re:(a.re*b.re+a.im*b.im)/d, im:(a.im*b.re-a.re*b.im)/d}; }
   function cinv(a){ const d=a.re*a.re+a.im*a.im||EPS; return {re:a.re/d, im:-a.im/d}; }
   const cabs = (z)=> Math.hypot(z.re, z.im);
@@ -20,6 +20,7 @@
     mx:30, ny:30,
     showZ:true, showY:false, logx:true, db:true,
     showOct:true, showInf:true, showModes:true,
+    bandBg:true
   };
 
   const presets = {
@@ -31,43 +32,57 @@
   const OCT_CENTERS = [16, 31.5, 63, 125, 250, 500, 1000, 2000];
   const BAND_FACTOR = Math.SQRT2;
 
-  function applyPreset(name){
-    const p = presets[name]; if(!p) return;
-    $("E").value = (p.E/1e9).toFixed(1);
-    $("rho").value = p.rho;
-    $("nu").value = p.nu.toFixed(2);
-    $("thick").value = p.h_mm;
-    pullFromUI();
+  function makeBandShapes(fmin, fmax){
+    const shapes = [];
+    let alt = true;
+    for(const fc of OCT_CENTERS){
+      const lo = fc/BAND_FACTOR, hi = fc*BAND_FACTOR;
+      if(hi < fmin || lo > fmax) continue;
+      shapes.push({
+        type:"rect", xref:"x", yref:"paper",
+        x0: Math.max(lo, fmin), x1: Math.min(hi, fmax),
+        y0: 0, y1: 1,
+        layer: "below",
+        fillcolor: alt ? "rgba(99,102,241,0.10)" : "rgba(16,185,129,0.10)",
+        line:{width:0}
+      });
+      alt = !alt;
+    }
+    return shapes;
   }
 
-  const D = (E,nu,h)=> E*h*h*h/(12*(1-nu*nu));
+  const D  = (E,nu,h)=> E*h*h*h/(12*(1-nu*nu));
   const mp = (rho,h)=> rho*h;
 
+  // --- 修正：ωmn = √(D/ρh) * k^2  （k^2 を“さらに二乗”しない）
   function fmn(m,n,Lx,Ly,E,nu,rho,h){
-    const lam2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly));
-    const omg = Math.sqrt(D(E,nu,h)/mp(rho,h)) * (lam2*lam2);
+    const lam2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly)); // k^2
+    const omg = Math.sqrt(D(E,nu,h)/mp(rho,h)) * lam2;            // ωmn
     return omg/(2*Math.PI);
   }
 
+  // --- 修正：構造減衰 (1+iη) → 分母 = (ωmn^2 - ω^2) + i(η ωmn^2)
   function mobilityAtPoint(freqs, params){
     const {E,nu,rho,h,Lx,Ly,x0,y0,eta,mx,ny} = params;
-    const C = 4/(rho*h*Lx*Ly);
+    const C = 4/(rho*h*Lx*Ly); // = 4/(ρ_s S)
     const Y = new Array(freqs.length).fill(0).map(()=>({re:0,im:0}));
     for(let m=1; m<=mx; m++){
-      const sx2 = Math.sin(m*Math.PI*x0/Lx);
-      const mm = m*m/(Lx*Lx);
+      const sx  = Math.sin(m*Math.PI*x0/Lx);
+      const sx2 = sx*sx;
       for(let n=1; n<=ny; n++){
-        const sy2 = Math.sin(n*Math.PI*y0/Ly);
-        const nn = n*n/(Ly*Ly);
-        const lam2 = Math.PI*Math.PI*(mm + nn);
-        const omg_mn = Math.sqrt(D(E,nu,h)/mp(rho,h)) * (lam2*lam2);
-        const phi2 = (sx2*sx2) * (sy2*sy2);
+        const sy  = Math.sin(n*Math.PI*y0/Ly);
+        const sy2 = sy*sy;
+        const lam2   = Math.PI*Math.PI*( (m*m)/(Lx*Lx) + (n*n)/(Ly*Ly) ); // k^2
+        const omg_mn = Math.sqrt(D(E,nu,h)/mp(rho,h)) * lam2;            // ωmn
+        const omg2   = omg_mn*omg_mn;
+        const phi2   = sx2 * sy2;
         for(let i=0;i<freqs.length;i++){
           const w = 2*Math.PI*freqs[i];
-          const den = {re:(omg_mn*omg_mn - w*w), im:(eta*omg_mn*w)};
-          const num = {re:0, im:w};
+          const den = {re:(omg2 - w*w), im:(eta*omg2)};   // (1+iη)ωmn^2 - ω^2
+          const num = {re:0, im:w};                       // iω
           const frac = cdiv(num, den);
-          Y[i] = {re: Y[i].re + C*phi2*frac.re, im: Y[i].im + C*phi2*frac.im};
+          Y[i].re += C*phi2*frac.re;
+          Y[i].im += C*phi2*frac.im;
         }
       }
     }
@@ -81,7 +96,8 @@
   function interpY(xarr, yarr, x){
     if(x<=xarr[0]) return yarr[0];
     if(x>=xarr[xarr.length-1]) return yarr[yarr.length-1];
-    let lo=0, hi=xarr.length-1; while(hi-lo>1){ const mid=(lo+hi)>>1; if(xarr[mid] > x) hi=mid; else lo=mid; }
+    let lo=0, hi=xarr.length-1;
+    while(hi-lo>1){ const mid=(lo+hi)>>1; if(xarr[mid] > x) hi=mid; else lo=mid; }
     const x0=xarr[lo], x1=xarr[hi], y0=yarr[lo], y1=yarr[hi];
     const t = (Math.log(x) - Math.log(x0))/(Math.log(x1)-Math.log(x0));
     return y0*(1-t)+y1*t;
@@ -154,8 +170,9 @@
     state.ny  = Math.max(1, parseInt($("ny").value));
     state.showZ = $("showZ").checked;
     state.showY = $("showY").checked;
-    state.logx = $("logx").checked;
-    state.db   = $("db").checked;
+    state.logx  = $("logx").checked;
+    state.db    = $("db").checked;
+    state.bandBg= $("bandbg") ? $("bandbg").checked : true;
     state.ptmode = $("pt_grid").checked ? "grid" : "single";
     state.avgMode = $("avg_db").checked ? "db" : "linear";
     enableGridInputs();
@@ -176,9 +193,9 @@
       if(v!=="custom"){ applyPreset(v); }
     });
     ["E","rho","nu","thick","Lx","Ly","x0mm","y0mm","Nx","Ny","eta","fmin","fmax","mx","ny",
-     "showZ","showY","logx","db","pt_single","pt_grid","avg_linear","avg_db"].forEach(id=>{
-      $(id).addEventListener("input", pullFromUI);
-      $(id).addEventListener("change", pullFromUI);
+     "showZ","showY","logx","db","bandbg","pt_single","pt_grid","avg_linear","avg_db"].forEach(id=>{
+      const el = $(id);
+      if(el){ el.addEventListener("input", pullFromUI); el.addEventListener("change", pullFromUI); }
     });
     $("toggleOct").addEventListener("click", ()=>{ state.showOct = !state.showOct; plot(); });
     $("toggleInf").addEventListener("click", ()=>{ state.showInf = !state.showInf; plot(); });
@@ -198,7 +215,8 @@
       $("mx").value = 30; $("ny").value = 30;
       $("showZ").checked=true; $("showY").checked=false;
       $("logx").checked=true; $("db").checked=true;
-      state.showOct = true; state.showInf = true; state.showModes = true;
+      if($("bandbg")) $("bandbg").checked=true;
+      state.showOct = true; state.showInf = true; state.showModes = true; state.bandBg = true;
       pullFromUI();
     });
   }
@@ -222,9 +240,7 @@
       yZ = toDB20(yZ, 1.0);
       yY = toDB20(yY, 1.0);
     }
-    if(!state.db && alreadyDB){
-      // cannot exactly invert dB average; keep as-is
-    }
+    // if !state.db && alreadyDB: 逆変換できないのでそのまま
 
     const traces = [];
     if(state.showZ){
@@ -238,7 +254,7 @@
 
     const primaryY = (state.showZ || !state.showY) ? yZ : yY;
 
-    // --- Octave stars at fixed centers ---
+    // ★ Octave means
     if(state.showOct){
       const xs=[], ys=[];
       for(const fc of OCT_CENTERS){
@@ -257,7 +273,7 @@
       }
     }
 
-    // --- Infinite-plate ● constant across centers ---
+    // ● Infinite-plate markers
     if(state.showInf){
       const zinf = Zinf_const(state.E,state.nu,state.rho,state.h);
       const val = state.db ? 20*Math.log10(zinf/1.0) : zinf;
@@ -272,7 +288,7 @@
       }
     }
 
-    // --- Mode markers ▲ fixed set
+    // ▲ Mode markers up to f32
     if(state.showModes){
       const modes = [[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]];
       const xm=[], ym=[], txt=[];
@@ -303,7 +319,8 @@
       },
       legend:{orientation:"h", x:0, y:1.06},
       plot_bgcolor:"#ffffff", paper_bgcolor:"#ffffff",
-      margin:{l:80,r:30,t:60,b:60}
+      margin:{l:80,r:30,t:60,b:60},
+      shapes: state.bandBg ? makeBandShapes(fmin, fmax) : []
     };
     Plotly.react("plot", traces, layout, {responsive:true, displaylogo:false});
   }
