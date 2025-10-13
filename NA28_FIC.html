@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RND Reader — 評価（等級図）/ OCT / 1/3OCT</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+  :root{--bg:#f8fafc;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--accent:#2563eb}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif}
+  .container{max-width:980px;margin:24px auto;padding:0 16px}
+  h1{font-size:20px;margin:0 0 12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .drop{flex:1 1 220px;min-width:220px;min-height:120px;text-align:center;padding:12px;border:2px dashed #cbd5e1;border-radius:12px;background:#f1f5f9}
+  .drop.drag{background:#e0e7ff;border-color:#93c5fd}
+  input[type="file"].hiddenInput{display:none}
+  .btn{display:inline-block;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:8px 12px;cursor:pointer}
+  .badge{display:inline-block;font-size:12px;color:#1f2937;background:#e5e7eb;border-radius:999px;padding:2px 8px;margin:0 4px 4px 0}
+  .files{font-size:13px;color:#6b7280;margin:8px 0}
+  .tabs{display:flex;gap:8px;margin-top:12px}
+  .tab{padding:8px 12px;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;background:#eef2ff;cursor:pointer}
+  .tab.active{background:#fff;border-color:#c7d2fe}
+  .panel{border:1px solid var(--line);border-radius:0 12px 12px 12px;background:#fff;padding:12px}
+  .seriesTabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}
+  .seriesTab{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#f3f4f6;cursor:pointer}
+  .seriesTab.active{background:#fff;border-color:#c7d2fe}
+  .plot{width:100%;height:640px}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
+  .ctrl{border:1px dashed #e5e7eb;border-radius:10px;padding:10px;background:#fafafa}
+  .ctrl h3{margin:4px 0 8px;font-size:14px}
+  .ctrl label{display:block;font-size:13px;margin:3px 0}
+  .note{font-size:12px;color:#6b7280}
+  table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}
+  th,td{border:1px solid #e5e7eb;padding:6px 8px}
+  th.sticky,td.sticky{position:sticky;left:0;background:#fff;z-index:1}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>RND Reader — 評価（等級図）/ OCT / 1/3OCT</h1>
+
+  <div class="row" id="dropRow"></div>
+  <div id="status" class="files"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="rating">評価（等級図）</div>
+    <div class="tab" data-tab="oct">OCT</div>
+    <div class="tab" data-tab="thirdoct">1/3 OCT</div>
+  </div>
+
+  <div id="rating" class="panel">
+    <div class="grid">
+      <div id="rating-plot" class="plot"></div>
+      <div class="ctrl">
+        <h3>評価設定</h3>
+        <label><input type="checkbox" id="tol2db" checked> 許容差 +2 dB</label>
+        <div class="note">※ チェック切替時のみ再計算します。</div>
+        <div id="rating-result" style="margin-top:8px"></div>
+        <div id="rating-table"></div>
+        <button id="csvBtn" class="btn" style="margin-top:6px;display:none">CSV書き出し</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="oct" class="panel" style="display:none">
+    <div class="seriesTabs" id="seriesTabs-oct"></div>
+    <div id="oct-content"></div>
+  </div>
+
+  <div id="thirdoct" class="panel" style="display:none">
+    <div class="seriesTabs" id="seriesTabs-thirdoct"></div>
+    <div id="thirdoct-content"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ===== 設定 =====
+  const SERIES_ORDER = ['Lmax','Leq','LE','Lmin','LN1','LN2','LN3','LN4','LN5'];
+  const GROUP_COUNT = 5;
+  const EXCLUDE_ROWS = new Set(['Lp Over','Lp Under']);
+  const LABEL_ROW_MAP = new Map([['Leq','Leq'],['LE','LE'],['Lmax','Lmax'],['Lmin','Lmin'],['LN1','LN1'],['LN2','LN2'],['LN3','LN3'],['LN4','LN4'],['LN5','LN5']]);
+
+  // 等級曲線（評価点 63–500、表示は 63–4k）
+  const EVAL_FREQS   = [63,125,250,500];
+  const CURVE_FREQS  = [63,125,250,500,1000,2000,4000];
+  // Lr-30 基準（-6 dB/oct で拡張）
+  const REF_DB_EXT   = [53,43,36,30,24,18,12];
+  const MAX_WIDTH = 500;
+
+  const groups = Array.from({length:GROUP_COUNT}, ()=>({files:[],data:[]}));
+  let activeBandTab = 'rating';
+  let activeSeries  = 'Lmax';
+
+  // ===== 入力UI =====
+  const dropRow = document.getElementById('dropRow');
+  for(let g=0; g<GROUP_COUNT; g++){
+    const idx=g+1, box=document.createElement('div');
+    box.className='drop';
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong>Group ${idx}</strong>
+        <label class="btn">追加
+          <input class="hiddenInput" id="fileInput${idx}" type="file" accept=".csv,.CSV,.rnd,.RND,.txt" multiple />
+        </label>
+      </div>
+      <div class="hint">ここにドラッグ＆ドロップ（Shift-JIS/CSV, コンマ区切り）</div>
+      <div class="files" id="files${idx}"></div>`;
+    ['dragenter','dragover'].forEach(ev=>box.addEventListener(ev,e=>{e.preventDefault();box.classList.add('drag');}));
+    ['dragleave','drop'].forEach(ev=>box.addEventListener(ev,e=>{e.preventDefault();box.classList.remove('drag');}));
+    box.addEventListener('drop', e=>handleFiles(g, e.dataTransfer.files));
+    box.querySelector(`#fileInput${idx}`).addEventListener('change', e=>handleFiles(g, e.target.files));
+    dropRow.appendChild(box);
+  }
+  const status = document.getElementById('status');
+
+  // ===== タブ =====
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      const id=t.dataset.tab; activeBandTab=id;
+      document.getElementById('rating').style.display = id==='rating'?'':'none';
+      document.getElementById('oct').style.display     = id==='oct'?'':'none';
+      document.getElementById('thirdoct').style.display= id==='thirdoct'?'':'none';
+      if(id==='rating'){ if(anyData()) calcAndDrawRating(); } else { renderBand(id); }
+      safeResize();
+    });
+  });
+
+  // ===== ファイル読込 =====
+  async function readRND(file){
+    const buf=await file.arrayBuffer();
+    let text=''; try{ text=new TextDecoder('shift_jis').decode(buf); } catch{ text=new TextDecoder('utf-8').decode(buf); }
+    const rows=text.replace(/\r\n?/g,'\n').split('\n').map(r=>r.split(','));
+    if(rows.length<21) return null;
+    const headOct = rows[7].slice(1,14).map(s=>s.trim());  // Sub, Main, 16Hz...16kHz
+    const head13  = rows[7].slice(14,47).map(s=>s.trim());
+    const seriesOct={}, series13={}; for(const k of SERIES_ORDER){ seriesOct[k]=[]; series13[k]=[]; }
+    for(let r=9;r<=20 && r<rows.length;r++){
+      const labelRaw=(rows[r][0]||'').trim();
+      if(EXCLUDE_ROWS.has(labelRaw)) continue;
+      if(!LABEL_ROW_MAP.has(labelRaw)) continue;
+      const k=LABEL_ROW_MAP.get(labelRaw);
+      seriesOct[k]=rows[r].slice(1,14).map(toNum);
+      series13[k]=rows[r].slice(14,47).map(toNum);
+    }
+    return {fileName:file.name, oct:{freqs:headOct,series:seriesOct}, thirdoct:{freqs:head13,series:series13}};
+  }
+  const toNum=s=>{const t=(s||'').trim(); if(!t||t==='-'||t==='-----') return NaN; const v=Number(t.replace(/[^0-9.+-]/g,'')); return Number.isFinite(v)?v:NaN;};
+  function handleFiles(groupIndex, filesLike){
+    const arr=[...filesLike||[]]; if(!arr.length) return;
+    groups[groupIndex].files.push(...arr);
+    Promise.all(arr.map(readRND)).then(res=>{
+      groups[groupIndex].data.push(...res.filter(Boolean));
+      document.getElementById(`files${groupIndex+1}`).innerHTML = groups[groupIndex].data.map(d=>`<span class="badge">${escapeHtml(d.fileName)}</span>`).join('');
+      const info=groups.map((gp,i)=>`G${i+1}:${gp.data.length}`).join('  '); status.textContent=`読み込み済みファイル数 → ${info}`;
+      if(activeBandTab==='rating') calcAndDrawRating(); else renderBand(activeBandTab);
+    });
+  }
+  const escapeHtml=s=>s.replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]));
+  const anyData=()=>groups.some(gp=>gp.data.length);
+
+  // ===== 平均 =====
+  function groupEnergyAvg(gi,kind,sname,opts={}){
+    const gp=groups[gi]; if(!gp||!gp.data.length) return {y:[],labels:[]};
+    const labels = gp.data[0][kind].freqs;
+    const omit = (opts.omitCols||[]).map(s=>s.toLowerCase());
+    const idxKeep = labels.map((lab,i)=>omit.includes(String(lab).toLowerCase())?null:i).filter(i=>i!==null);
+    const L=idxKeep.length, out=new Array(L).fill(NaN), outLabels=idxKeep.map(i=>labels[i]);
+    for(let k=0;k<L;k++){
+      const i = idxKeep[k];
+      const vals=gp.data.map(d=>(d[kind].series[sname]||[])[i]).filter(v=>Number.isFinite(v));
+      if(vals.length){ const lin=vals.map(db=>10**(db/10)); out[k]=10*Math.log10(lin.reduce((a,b)=>a+b,0)/lin.length); }
+    }
+    return {y:out, labels:outLabels};
+  }
+  function globalAvg(kind,sname,opts={}){
+    let labels=[]; for(const gp of groups){ if(gp.data.length){ labels=gp.data[0][kind].freqs; break; } }
+    const omit = (opts.omitCols||[]).map(s=>s.toLowerCase());
+    const idxKeep = labels.map((lab,i)=>omit.includes(String(lab).toLowerCase())?null:i).filter(i=>i!==null);
+    if(!idxKeep.length) return {y:[],labels:[]};
+    const out=new Array(idxKeep.length).fill(NaN);
+    for(let k=0;k<idxKeep.length;k++){
+      const i=idxKeep[k], vals=[];
+      for(let g=0; g<GROUP_COUNT; g++){
+        if(!groups[g].data.length) continue;
+        const gi = groupEnergyAvg(g,kind,sname,opts);
+        const pos = gi.labels.findIndex(l=>String(l)===String(labels[i]));
+        const v = gi.y[pos];
+        if(Number.isFinite(v)) vals.push(v);
+      }
+      if(vals.length) out[k]=vals.reduce((a,b)=>a+b,0)/vals.length;
+    }
+    return {y:out, labels:idxKeep.map(i=>labels[i])};
+  }
+  function groupEnergyAvgFull(gi,kind,sname){
+    const gp=groups[gi]; if(!gp||!gp.data.length) return [];
+    const L=gp.data[0][kind].freqs.length, out=new Array(L).fill(NaN);
+    for(let i=0;i<L;i++){
+      const vals=gp.data.map(d=>(d[kind].series[sname]||[])[i]).filter(v=>Number.isFinite(v));
+      if(vals.length){ const lin=vals.map(db=>10**(db/10)); out[i]=10*Math.log10(lin.reduce((a,b)=>a+b,0)/lin.length); }
+    }
+    return out;
+  }
+  function globalAvgFull(kind,sname){
+    let labels=[]; for(const gp of groups){ if(gp.data.length){ labels=gp.data[0][kind].freqs; break; } }
+    const L=labels.length, out=new Array(L).fill(NaN);
+    for(let i=0;i<L;i++){
+      const vals=[];
+      for(let g=0; g<GROUP_COUNT; g++){
+        if(!groups[g].data.length) continue;
+        const v=groupEnergyAvgFull(g,kind,sname)[i];
+        if(Number.isFinite(v)) vals.push(v);
+      }
+      if(vals.length) out[i]=vals.reduce((a,b)=>a+b,0)/vals.length;
+    }
+    return out;
+  }
+
+  // ===== 等級計算 =====
+  function computeShift(meas, ref, tol){ let need=-Infinity; for(let i=0;i<meas.length;i++) need=Math.max(need, meas[i]-ref[i]-tol); return Math.max(0,need); }
+  function roundLr(L, tol){
+  const threshold = (tol === 2) ? 2.0 : 2.5;   // 切り下げ許容
+  const base = Math.floor(L / 5) * 5;         // 例: L=62.x → base=60
+  return (L - base) <= threshold ? base : base + 5;
+}
+
+  const roundInt=x=>Math.round(x);
+  function pick(labels, values, targets){
+    const num=labels.map(s=>parseFloat(String(s).replace(/[^\d.]/g,'')));
+    const idxs=targets.map(f=>num.findIndex(x=>Math.round(x)===f));
+    if(idxs.some(i=>i<0)) return null;
+    return idxs.map(i=>values[i]);
+  }
+  function decisionFreqs(meas, ref, tol, freqs){
+    const diffs = meas.map((m,i)=>m - ref[i] - tol);
+    const maxv = Math.max(...diffs), eps=1e-9;
+    const idxs = diffs.map((v,i)=>Math.abs(v-maxv)<=eps?i:-1).filter(i=>i>=0);
+    return idxs.map(i=>freqs[i]);
+  }
+
+  // ===== 評価タブ =====
+  const tolEl = document.getElementById('tol2db');
+  tolEl.addEventListener('change', calcAndDrawRating);
+
+  function calcAndDrawRating(){
+    const fig = document.getElementById('rating-plot');
+    const resDiv = document.getElementById('rating-result');
+    const tableDiv = document.getElementById('rating-table');
+    const csvBtn = document.getElementById('csvBtn');
+
+    const any = groups.find(gp=>gp.data.length);
+    if(!any){ fig.innerHTML=''; resDiv.innerHTML=''; tableDiv.innerHTML='<div class="note">各グループにRND/CSVを読み込んでください。</div>'; csvBtn.style.display='none'; return; }
+
+    // Global（OCT/Lmax, Sub/Main 除外）
+    const gAvg = globalAvg('oct','Lmax',{omitCols:['Sub','Main']});
+    const labels = gAvg.labels;
+    const yGlobal = gAvg.y;
+
+    const yEval = pick(labels, yGlobal, EVAL_FREQS);
+    if(!yEval || yEval.some(v=>!Number.isFinite(v))){
+      fig.innerHTML=''; resDiv.innerHTML=''; tableDiv.innerHTML='<div class="note">評価不可：必要バンド（63/125/250/500 Hz）が欠落しています。</div>'; csvBtn.style.display='none'; return;
+    }
+
+    const tol = tolEl.checked ? 2 : 0;
+    const shift = computeShift(yEval, REF_DB_EXT.slice(0,4), tol);
+    const Lcont = 30 + shift;     // 連続量
+    const Lint  = roundInt(Lcont);// 表示は整数
+    const Lr    = roundLr(Lint, tol);
+
+    const refShiftEval = REF_DB_EXT.slice(0,4).map(v=>v+shift);
+    const diffs = yEval.map((m,i)=>m-refShiftEval[i]);
+    const decFreqs = decisionFreqs(yEval, REF_DB_EXT.slice(0,4), tol, EVAL_FREQS);
+
+    const width = Math.min(fig.parentElement.clientWidth, MAX_WIDTH);
+
+    // ---- プロット ----
+    const traces = [];
+    const shapes = [];
+    const textTraces = []; // ← ここで注記を text トレースとして描く
+    const DEC_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--accent')?.trim() || '#2563eb';
+
+    // (A) 等級曲線（薄い点線）63–4000
+    const FAMILY_FREQS = [63,125,250,500,1000,2000]; // ← 4k は描かない
+    for (let L = 30; L <= 80; L += 5) {
+      const s = L - 30;
+      traces.push({
+        x: FAMILY_FREQS,
+        y: REF_DB_EXT.map(v => v + s),
+        mode: 'lines',
+        line: { width: 2, dash: 'dot' },
+        hoverinfo: 'skip',
+        showlegend: false
+      });
+    }
+
+    // (B) Global ◆（評価4点のみ）
+    traces.push({
+      x: EVAL_FREQS, y: yEval,
+      mode: 'lines+markers',
+      line: { width: 3, color: 'black', dash: 'dot' },
+      marker: { symbol: 'diamond', size: 9, color: 'black' },
+      name: 'Global',
+      showlegend: false
+    });
+
+    // (C) 決定等級曲線（63–500 のみ実線）※ 500→4k のドット部は削除
+    const shiftPlot = (Lr - 30); // 丸め後 Lr 基準
+    traces.push({
+      x: EVAL_FREQS,
+      y: REF_DB_EXT.slice(0,4).map(v => v + shiftPlot),
+      mode: 'lines',
+      line: { width: 2, color: DEC_COLOR },
+      hoverinfo: 'True',
+      showlegend: false
+    });
+
+    // (D) 4 kHz 側の Lr ラベル（水平補助線 2k→4k ＋ text トレース / cliponaxis:false）
+    const LR_Y_OFFSET = 0.0;   // ← ラベル上下（dB）一括オフセット
+    const LR_X_TEXT   = 3995;  // ← 4 kHz 付近に配置（log軸なので 3990–3998 推奨）
+
+    const idx2k = CURVE_FREQS.indexOf(2000);
+    const yBase2k  = REF_DB_EXT[idx2k];
+    const lrX = [], lrY = [], lrText = [];
+
+    for (let L = 30; L <= 80; L += 5) {
+      const y = yBase2k  + (L - 30);
+
+      // 水平補助線（2000 → 4000）
+      shapes.push({
+        type: 'line',
+        x0: 2000, x1: 2300, y0: y, y1: y,
+        xref: 'x', yref: 'y',
+        line: { color: '#111', width: 1}
+      });
+
+      // ラベル位置（4 kHz 近辺に “Lr-XX”）
+      lrX.push(LR_X_TEXT);
+      lrY.push(y + LR_Y_OFFSET);
+      lrText.push(`Lr-${L}`);
+    }
+
+    // テキスト描画（クリップ回避のため cliponaxis:false）
+    textTraces.push({
+      x: lrX,
+      y: lrY,
+      text: lrText,
+      mode: 'text',
+      textposition: 'middle left',
+      textfont: { size: 11, color: '#000' },
+      hoverinfo: 'skip',
+      showlegend: false,
+      cliponaxis: false
+    });
+
+
+    // (E) Measured 500 Hz 点の終端ラベル（text トレース）
+    textTraces.push({
+      x: [900],
+      y: [yEval[3] + 0], // 少し上にオフセット
+      text: [`Lr-${Lr}`],
+      mode: 'text',
+      textposition: 'bottom left',
+      textfont: { size: 11, color: '#000' },
+      hoverinfo: 'skip',
+      showlegend: false,
+      cliponaxis: false
+    });
+
+    const layout = {
+      width, height: 640,
+      margin: { l: 90, r: 110, t: 16, b: 50 },
+      xaxis: {
+        type: 'log',
+        range: [Math.log10(31.5), Math.log10(4000)],
+        tickvals: [63,125,250,500,1000,2000,4000],
+        ticktext: ['63','125','250','500','1000','2000','4000'],
+        title: ''
+      },
+      yaxis: { range: [30,110], dtick: 10, title: '床衝撃音レベル (dB)' },
+      showlegend: false,
+      shapes
+    };
+
+    Plotly.newPlot('rating-plot', [...traces, ...textTraces], layout, { displaylogo:false, responsive:false });
+
+    // 結果表示
+    const decStr = decFreqs.map(f=>`${f} Hz`).join(', ');
+    resDiv.innerHTML = `評価結果：<span class="badge">Lr-${Lr}</span>　<span class="badge">L=${Lint}</span>（決定周波数：${decStr}、許容差=${tol} dB）`;
+
+    // 表とCSV（評価4点のみ）
+    let html='<table><thead><tr><th>Band (Hz)</th><th>Measured (dB)</th><th>Ref+shift (dB)</th><th>Diff</th></tr></thead><tbody>';
+    for(let i=0;i<EVAL_FREQS.length;i++){
+      html += `<tr><td>${EVAL_FREQS[i]}</td><td>${yEval[i].toFixed(1)}</td><td>${refShiftEval[i].toFixed(1)}</td><td>${diffs[i].toFixed(1)}</td></tr>`;
+    }
+    html+='</tbody></table>';
+    tableDiv.innerHTML = html;
+
+    document.getElementById('csvBtn').style.display='';
+    document.getElementById('csvBtn').onclick=()=>{
+      const lines=[
+        'Band,Measured_dB,RefShifted_dB,Diff_dB',
+        ...EVAL_FREQS.map((f,i)=>`${f},${yEval[i].toFixed(1)},${refShiftEval[i].toFixed(1)},${diffs[i].toFixed(1)}`),
+        `Result,Lr-${Lr},L,${Lint},Decision_Freqs,"${decStr}",Tol_dB,${tol},Shift_dB,${shift.toFixed(1)}`
+      ];
+      const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Global_Lmax_Rating_63-500.csv'; a.click(); URL.revokeObjectURL(a.href);
+    };
+  }
+
+  // ===== OCT/1/3OCT =====
+  makeSeriesTabs('oct'); makeSeriesTabs('thirdoct');
+  function makeSeriesTabs(kind){
+    const wrap=document.getElementById(`seriesTabs-${kind}`); wrap.innerHTML='';
+    SERIES_ORDER.forEach(name=>{
+      const t=document.createElement('div');
+      const isActive=(activeBandTab===kind && activeSeries===name);
+      t.className='seriesTab'+(isActive?' active':'');
+      t.textContent=name;
+      t.addEventListener('click',()=>{activeSeries=name; document.querySelectorAll('.seriesTab').forEach(x=>x.classList.remove('active')); t.classList.add('active'); renderBand(kind);});
+      wrap.appendChild(t);
+    });
+  }
+
+  function renderBand(kind){
+    let freqs=[]; for(const gp of groups){ if(gp.data.length){ freqs=gp.data[0][kind].freqs; break; } }
+    const mount=document.getElementById(`${kind}-content`);
+    if(!freqs.length){ mount.innerHTML='<div class="note">各グループにファイルを追加してください。</div>'; return; }
+
+    const omitCols = (kind==='oct') ? ['Sub','Main'] : [];
+    const traces=[], names=[];
+    let plotFreqs = [];
+    for(let g=0; g<GROUP_COUNT; g++){
+      if(!groups[g].data.length) continue;
+      const {y,labels} = groupEnergyAvg(g,kind,activeSeries,{omitCols});
+      if(!plotFreqs.length) plotFreqs = labels;
+      traces.push({x:labels,y,name:`G${g+1} ★`,mode:'lines+markers',marker:{symbol:'star',size:8}});
+      names.push(`G${g+1} ★`);
+    }
+    const gAvg = globalAvg(kind,activeSeries,{omitCols});
+    if(!plotFreqs.length) plotFreqs = gAvg.labels;
+    traces.push({x:gAvg.labels,y:gAvg.y,name:'Global ◆',mode:'lines+markers',line:{width:2,color:'black',dash:'dot'},marker:{symbol:'diamond',size:8,color:'black'}});
+
+    const plotDivId=`${kind}-plot`;
+    const plotDiv=document.createElement('div'); plotDiv.id=plotDivId; plotDiv.className='plot';
+    const tableWrap=document.createElement('div'); tableWrap.style.marginTop='8px';
+
+    mount.innerHTML=''; mount.appendChild(plotDiv); mount.appendChild(tableWrap);
+
+    const width = Math.min(plotDiv.parentElement.clientWidth, MAX_WIDTH);
+    Plotly.newPlot(plotDivId,traces,{
+      width, height:640,
+      margin:{l:60,r:40,t:30,b:50},
+      legend:{orientation:'h'},
+      xaxis:{type:'category',tickangle:-45,title:'Frequency'},
+      yaxis:{title:'dB'}},{responsive:false,displaylogo:false});
+
+    // 値テーブル
+    let html='<table><thead><tr><th class="sticky">Series / Hz</th>'+freqs.map(f=>`<th>${f}</th>`).join('')+'</tr></thead><tbody>';
+    for(let g=0; g<GROUP_COUNT; g++){
+      if(!groups[g].data.length) continue;
+      const full = groupEnergyAvgFull(g,kind,activeSeries);
+      html += `<tr><td class="sticky">G${g+1} ★</td>` + freqs.map((f,i)=>Number.isFinite(full[i])?full[i].toFixed(1):'').map(s=>`<td>${s}</td>`).join('') + '</tr>';
+    }
+    const fullG = globalAvgFull(kind,activeSeries);
+    html += `<tr><td class="sticky">Global ◆</td>` + freqs.map((f,i)=>Number.isFinite(fullG[i])?fullG[i].toFixed(1):'').map(s=>`<td>${s}</td>`).join('') + '</tr>';
+    html += '</tbody></table>';
+    tableWrap.innerHTML = html;
+  }
+
+  // 初回
+  if(anyData()) calcAndDrawRating();
+
+  // リサイズ
+  function safeResize(){
+    if(activeBandTab==='rating'){
+      const fig=document.getElementById('rating-plot');
+      if(fig && fig.data){ const w=Math.min(fig.parentElement.clientWidth, MAX_WIDTH); Plotly.relayout(fig,{width:w,height:640}); }
+    } else {
+      ['oct','thirdoct'].forEach(id=>{
+        const el=document.getElementById(`${id}-plot`);
+        if(el && el.data){ const w=Math.min(el.parentElement.clientWidth, MAX_WIDTH); Plotly.relayout(el,{width:w,height:640}); }
+      });
+    }
+  }
+  window.addEventListener('resize', safeResize);
+})();
+</script>
+</body>
+</html>
