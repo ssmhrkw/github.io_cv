@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer (ΔA, no ∞ tails)</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+  :root{ --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#94a3b8; --border:#1f2a44; --ok:#22c55e; --ng:#ef4444; }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',sans-serif;background:var(--bg);color:var(--text);margin:0}
+  .wrap{max-width:1220px;margin:14px auto;padding:12px}
+  h1{margin:0 0 10px 0;font-size:22px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
+  .grid{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:8px}
+  label{font-size:12px;color:var(--muted)}
+  select,input,button,textarea{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#0b1220;color:var(--text)}
+  button.primary{background:#1d4ed8}
+  .small{font-size:12px;color:var(--muted)}
+  textarea{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .pass{color:var(--ok);font-weight:700}
+  .fail{color:var(--ng);font-weight:700}
+  @media (max-width: 1040px){ .grid{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer</h1>
+
+  <div class="card">
+    <div class="grid">
+      <div><label>Bandwidth (1/n)</label>
+        <select id="b">
+          <option value="1">1 (Octave)</option>
+          <option value="3" selected>3 (1/3 Oct)</option>
+        </select>
+      </div>
+      <div><label>Center (exact) fm [Hz]</label><select id="fm"></select></div>
+      <div><label>Fs [Hz]</label><select id="fs"><option>48000</option><option>44100</option></select></div>
+      <div><label>Total band‑pass order</label>
+        <select id="order">
+          <option>3</option><option selected>6</option><option>12</option><option>24</option><option>36</option><option>72</option>
+
+        </select>
+      </div>
+      <div><label>IEC Class</label>
+        <select id="iec"><option value="0">Class 0</option><option value="1" selected>Class 1</option><option value="2">Class 2</option></select>
+      </div>
+      <div><label>ΔA axis range [dB]</label>
+        <select id="yr"><option>0,120</option><option selected>0,320</option></select>
+      </div>
+      <div style="align-self:end"><button class="primary" id="run">Design + Check</button></div>
+      <div class="small" style="grid-column:1/-1">
+        Filter = HP(f₁) × LP(f₂) via pre‑warped bilinear transform; orders split ⌊M/2⌋ (HP) and ⌈M/2⌉ (LP). Cascade gain normalized at fm.<br/>
+        Plot is in <b>ΔA space</b> (IEC 61260‑1 §4.4): ΔA(f) = −|H(f)| (dB) with |H(fm)| ≈ 0 dB. IEC minimum/maximum limits are drawn only where defined; +∞ regions are intentionally not drawn.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="plot" style="height:440px"></div>
+  </div>
+
+  <div class="card">
+    <h3>Summary</h3>
+    <div id="summary" class="small"></div>
+  </div>
+
+  <div class="card">
+    <h3>SOS (biquad / first‑order) coefficients</h3>
+    <div class="small">Per section: {b:[b0,b1,b2], a:[1,a1,a2]}. First‑order has b2=a2=0.</div>
+    <textarea id="sos" rows="10" spellcheck="false"></textarea>
+  </div>
+</div>
+
+<script>
+const G = Math.pow(10, 3/10);
+const dB = x => 20*Math.log10(Math.max(x,1e-16));
+
+function centers_1overn(b){
+  const arr=[]; for(let x=-40;x<=40;x++){
+    const fm = (b%2===1) ? 1000*Math.pow(G, x/b) : 1000*Math.pow(G, (2*x+1)/(2*b));
+    if(fm>=10 && fm<=20000) arr.push(fm);
+  } return arr;
+}
+function edges_from_fm(fm, b){ const g=Math.pow(G, 1/(2*b)); return [fm/g, fm*g]; }
+
+function d1_LP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:K/a0,b1:K/a0,b2:0, a1:(1-K)/a0,a2:0}; }
+function d1_HP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:1/a0,b1:-1/a0,b2:0, a1:(1-K)/a0,a2:0}; }
+function rbjLP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)),c=Math.cos(w0),s=Math.sin(w0),alpha=s/(2*Q);
+  const a0=1+alpha,a1=-2*c,a2=1-alpha,b0=(1-c)/2,b1=1-c,b2=(1-c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0,a1:a1/a0,a2:a2/a0}; }
+function rbjHP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)),c=Math.cos(w0),s=Math.sin(w0),alpha=s/(2*Q);
+  const a0=1+alpha,a1=-2*c,a2=1-alpha,b0=(1+c)/2,b1=-(1+c),b2=(1+c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0,a1:a1/a0,a2:a2/a0}; }
+function butterQ(n,k){ return 1/(2*Math.sin((2*k+1)*Math.PI/(2*n))); }
+function butterLP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2);
+  for(let k=0;k<p;k++) sos.push(rbjLP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_LP(fc,fs)); return sos; }
+function butterHP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2);
+  for(let k=0;k<p;k++) sos.push(rbjHP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_HP(fc,fs)); return sos; }
+function sosFreqz(sections, fs, fgrid){
+  const H = new Float64Array(fgrid.length);
+  for(let i=0;i<fgrid.length;i++){
+    const w = 2*Math.PI*fgrid[i]/fs;
+    let nr=1,ni=0, dr=1,di=0;
+    const c1=Math.cos(-w), s1=Math.sin(-w), c2=Math.cos(-2*w), s2=Math.sin(-2*w);
+    for(const s of sections){
+      const nre = s.b0 + s.b1*c1 + s.b2*c2;
+      const nim = s.b1*s1 + s.b2*s2;
+      const dre = 1 + s.a1*c1 + s.a2*c2;
+      const dim = s.a1*s1 + s.a2*s2;
+      const tnr = nr*nre - ni*nim, tni = nr*nim + ni*nre; nr=tnr; ni=tni;
+      const tdr = dr*dre - di*dim, tdi = dr*dim + di*dre; dr=tdr; di=tdi;
+    }
+    const den = dr*dr+di*di;
+    const Hr = (nr*dr + ni*di)/den, Hi = (ni*dr - nr*di)/den;
+    H[i] = Math.hypot(Hr,Hi);
+  }
+  return H;
+}
+function normalizeAt(sections, fs, fref){
+  const probe=[0.98*fref, fref, 1.02*fref];
+  const mags=sosFreqz(sections, fs, probe).slice().sort((a,b)=>a-b);
+  const H=mags[1]||1, K=Math.max(1, sections.length), g=Math.pow(1/(H||1), 1/K);
+  for(const s of sections){ s.b0*=g; s.b1*=g; s.b2*=g; }
+}
+
+// ΔA tables
+const OCT = [
+  {omega:1, min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.15,1:+0.30,2:+0.50}},
+  {omega:Math.pow(G,+1/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.20,1:+0.40,2:+0.60}},
+  {omega:Math.pow(G,-1/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.20,1:+0.40,2:+0.60}},
+  {omega:Math.pow(G,+1/4), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.40,1:+0.60,2:+0.80}},
+  {omega:Math.pow(G,-1/4), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.40,1:+0.60,2:+0.80}},
+  {omega:Math.pow(G,+3/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+1.10,1:+1.30,2:+1.60}},
+  {omega:Math.pow(G,-3/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+1.10,1:+1.30,2:+1.60}},
+  {omega:Math.pow(G,+0.5)*0.999, min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,-0.5)*1.001, min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,-0.5)*0.999, min:{0:+2.3,1:+2.0,2:+1.6}, max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,+0.5)*1.001, min:{0:+2.3,1:+2.0,2:+1.6}, max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,+1),   min:{0:+18.0,1:+17.5,2:+16.5}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-1),   min:{0:+18.0,1:+17.5,2:+16.5}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,+2),   min:{0:+42.5,1:+42.0,2:+41.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-2),   min:{0:+42.5,1:+42.0,2:+41.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,+3),   min:{0:+62.0,1:+61.0,2:+55.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-3),   min:{0:+62.0,1:+61.0,2:+55.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,+4),   min:{0:+75.0,1:+70.0,2:+60.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-4),   min:{0:+75.0,1:+70.0,2:+60.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
+];
+const THIRDP = [
+  [1.00000, [-0.15,+0.15], [-0.3,+0.3],  [-0.5,+0.5]],
+  [1.02667, [-0.15,+0.2],  [-0.3,+0.4],  [-0.5,+0.6]],
+  [0.97402, [-0.15,+0.2],  [-0.3,+0.4],  [-0.5,+0.6]],
+  [1.05575, [-0.15,+0.4],  [-0.3,+0.6],  [-0.5,+0.8]],
+  [0.94719, [-0.15,+0.4],  [-0.3,+0.6],  [-0.5,+0.8]],
+  [1.08746, [-0.15,+1.1],  [-0.3,+1.3],  [-0.5,+1.6]],
+  [0.91958, [-0.15,+1.1],  [-0.3,+1.3],  [-0.5,+1.6]],
+  [1.12202, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [0.89125, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [1.12203, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [0.89126, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [1.12201, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [0.89124, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [1.29437, [+18.0,Infinity],  [+17.5,Infinity],  [+16.5,Infinity]],
+  [0.77257, [+18.0,Infinity],  [+17.5,Infinity],  [+16.5,Infinity]],
+  [1.88173, [+42.5,Infinity],  [+42.0,Infinity],  [+41.0,Infinity]],
+  [0.53143, [+42.5,Infinity],  [+42.0,Infinity],  [+41.0,Infinity]],
+  [3.05365, [+62.0,Infinity],  [+61.0,Infinity],  [+55.0,Infinity]],
+  [0.32748, [+62.0,Infinity],  [+61.0,Infinity],  [+55.0,Infinity]],
+  [5.39195, [+75.0,Infinity],  [+70.0,Infinity],  [+60.0,Infinity]],
+  [0.18546, [+75.0,Infinity],  [+70.0,Infinity],  [+60.0,Infinity]],
+].map(r=>({omega:r[0], min:{0:r[1][0],1:r[2][0],2:r[3][0]}, max:{0:r[1][1],1:r[2][1],2:r[3][1]}}));
+function daRows(b, cls){
+  const src = (parseInt(b,10)===1) ? OCT : THIRDP;
+  return src.map(r=>({omega:r.omega, min:r.min[cls], max:r.max[cls]})).sort((a,b)=>a.omega-b.omega);
+}
+
+function run(){
+  const b = parseInt(document.getElementById('b').value,10);
+  const fm = parseFloat(document.getElementById('fm').value);
+  const fs = parseInt(document.getElementById('fs').value,10);
+  const M  = parseInt(document.getElementById('order').value,10);
+  const cls= parseInt(document.getElementById('iec').value,10);
+  const [f1,f2] = edges_from_fm(fm, b);
+  const hpOrd=Math.floor(M/2), lpOrd=Math.ceil(M/2);
+
+  const hp = butterHP_sos(f1, fs, hpOrd), lp = butterLP_sos(f2, fs, lpOrd);
+  const sections = hp.concat(lp);
+  normalizeAt(sections, fs, fm);
+
+  const fmin=10, fmax=fs/2, N=2000, fgrid=[];
+  for(let i=0;i<N;i++) fgrid.push(fmin*Math.pow(fmax/fmin, i/(N-1)));
+  const mag = Array.from(sosFreqz(sections, fs, fgrid), v => dB(v));
+  const dA  = mag.map(v => -v);
+
+  const rows = daRows(b, cls);
+  const rOmega = fgrid.map(f=>f/fm);
+  const yMax = new Array(N).fill(null);
+  const yMin = new Array(N).fill(null);
+
+  const log=(x)=>Math.log(x);
+  for(let i=0;i<rows.length-1;i++){
+    const a=rows[i], c=rows[i+1];
+    const finiteMax = Number.isFinite(a.max) && Number.isFinite(c.max);
+    for(let j=0;j<N;j++){
+      const r=rOmega[j];
+      if(r>=a.omega && r<=c.omega){
+        const t=(log(r)-log(a.omega))/(log(c.omega)-log(a.omega));
+        yMin[j] = (1-t)*a.min + t*c.min;
+        if(finiteMax){ yMax[j] = (1-t)*a.max + t*c.max; }
+      }
+    }
+  }
+
+  let worst={m:1e9, f:fm, DA:0, min:0, max:null};
+  const margins = dA.map((da,i)=>{
+    const lo=yMin[i], hi=yMax[i];
+    if(lo==null && hi==null) return Number.POSITIVE_INFINITY;
+    let mg;
+    if(hi==null || !isFinite(hi)){
+      mg = da - lo;
+    }else{
+      mg = Math.min(hi - da, da - lo);
+    }
+    if(mg < worst.m){ worst={m:mg, f:fgrid[i], DA:da, min:lo, max:hi}; }
+    return mg;
+  });
+  const pass = margins.every(m => m>=0 || m===Infinity);
+
+  const yr = document.getElementById('yr').value.split(',').map(Number);
+
+  Plotly.react('plot', [
+    {x:fgrid, y:dA,  mode:'lines', name:'ΔA(f)'},
+    {x:fgrid, y:yMax,mode:'lines', name:'IEC maximum (ΔA)', line:{dash:'dot'}},
+    {x:fgrid, y:yMin,mode:'lines', name:'IEC minimum (ΔA)', line:{dash:'dot'}},
+    {x:[worst.f], y:[worst.DA], mode:'markers', name:'Worst', marker:{size:8, color: pass?'#22c55e':'#ef4444'}}
+  ], {
+    margin:{l:58,r:10,t:10,b:36},
+    xaxis:{type:'log', title:'Frequency (Hz)'},
+    yaxis:{title:'ΔA (dB)', range:[yr[0], yr[1]], autorange:'reversed'},
+    legend:{orientation:'h'}
+  });
+
+  const sosObj = sections.map(s=>({b:[s.b0,s.b1,s.b2], a:[1,s.a1,s.a2]}));
+  document.getElementById('sos').value = JSON.stringify({
+    fs, b, fm_exact:fm, f1, f2, order_total:M, order_hp:hpOrd, order_lp:lpOrd, sos:sosObj
+  }, null, 2);
+
+  const limTxt = (w)=>{
+    const maxStr = (w.max==null || !isFinite(w.max)) ? '∞' : w.max.toFixed(2);
+    return `${w.min?.toFixed(2) ?? '—'}..${maxStr}`;
+  };
+  document.getElementById('summary').innerHTML =
+    `Bands: 1/${b}, fm=${fm.toFixed(3)} Hz, f1=${f1.toFixed(3)} Hz, f2=${f2.toFixed(3)} Hz<br/>
+     Orders: HP ${hpOrd}, LP ${lpOrd} (total ${M})<br/>
+     IEC class ${cls} ΔA check: <span class="${pass?'pass':'fail'}">${pass?'PASS':'FAIL'}</span> — worst margin ${worst.m.toFixed(2)} dB @ ${worst.f.toFixed(2)} Hz (ΔA=${worst.DA.toFixed(2)} dB; IEC min..max ${limTxt(worst)}).`;
+}
+
+function populateCenters(){
+  const b = parseInt(document.getElementById('b').value,10);
+  const sel = document.getElementById('fm'); sel.innerHTML='';
+  for(const f of centers_1overn(b)){ const o=document.createElement('option'); o.value=f; o.textContent=(Math.round(f*10)/10)+' Hz'; sel.appendChild(o); }
+  sel.value='1000';
+}
+
+document.getElementById('b').addEventListener('change', populateCenters);
+document.getElementById('run').addEventListener('click', run);
+document.getElementById('yr').addEventListener('change', run);
+populateCenters();
+run();
+</script>
+</body>
+</html>
