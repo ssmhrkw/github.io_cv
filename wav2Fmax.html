@@ -3,1469 +3,465 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Plotly Fast-Max — FULL (Avg tab + Butterworth approx + threshold)</title>
-<script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
+<title>wav2Fmax — Pro v3</title>
+<script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
 <style>
-  body{font-family:system-ui, -apple-system, 'Segoe UI', Roboto, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif; background:#fffef8; color:#111827; margin:12px}
-  .container{max-width:1200px;margin:6px auto;padding:12px}
-  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-  .btn{padding:8px 12px;border-radius:6px;border:1px solid #374151;background:#fff;cursor:pointer}
-  .primary{background:#0ea5a4;color:white;border:none}
-  .status{margin-left:8px;color:#374151}
-  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-  .tab{padding:6px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#ffffff;cursor:pointer}
-  .tab.active{background:#0ea5a4;color:white;border:none}
-  .channel-block{border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:12px;background:white}
-  .channel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .band-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-  .band-plot, .full-plot {width: 100% !important;box-sizing: border-box !important;overflow: hidden}
-  .full-plot{grid-column:1 / -1;height:220px;border:1px solid #e6edf0;border-radius:6px;padding:6px;background:#ffffff}
-  .js-plotly-plot {width: 100% !important;box-sizing: border-box !important;display: block}
-  label.small{font-size:13px;color:#374151;margin-right:6px}
-  input[type="number"]{width:100px;padding:6px;border-radius:6px;border:1px solid #cbd5e1}
-  input.role{width:260px;padding:6px;border-radius:6px;border:1px solid #cbd5e1}
-  .note{font-size:13px;color:#475569;margin-top:6px}
-  table.peaks{width:100%;border-collapse:collapse;margin-top:8px}
-  table.peaks th,table.peaks td{border:1px solid #e6eef2;padding:6px;text-align:center;font-size:13px}
-  .roles-area { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
-  .roles-area .role-select { width:220px; padding:6px; border-radius:6px; border:1px solid #cbd5e1; }
-  .small-muted{font-size:12px;color:#64748b}
-  .process-area { display:flex; gap:8px; align-items:center; justify-content:flex-start; }
-  #process-btn { order: 0; margin-right:8px; }
-  #save-roles { order: 1; margin-right:8px; }
-  .file-name{max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #e2e8f0;padding:6px;border-radius:6px;background:#fff}
-  .import-area { order: 2; margin-left:8px; }
-  .mapping-panel{border:1px solid #e6eef2;padding:8px;border-radius:8px;background:#fff;margin-bottom:12px}
-  .mapping-table{width:100%;border-collapse:collapse}
-  .mapping-table th,.mapping-table td{border:1px solid #eef2f7;padding:6px}
-  #progress-ui { order: 3; display:flex; align-items:center; margin-left:8px; }
-  .progress-wrap{width:100%;background:#eef2f7;border-radius:6px;padding:6px}
-  #progress-bar{height:12px;background:#0ea5a4;border-radius:6px;width:0%;transition:width 0.2s}
-  #progress-label{font-size:12px;color:#475569;margin-top:6px}
-  .controls-top-right{margin-left:auto;display:flex;gap:8px;align-items:center}
-  pre { white-space: pre-wrap; word-break: break-word; background:#fff; padding:6px; border-radius:6px; border:1px solid #eef2f7; max-height:220px; overflow:auto}
-  #log{font-size:12px; color:#1f2937; background:#fff; border:1px dashed #cbd5e1; padding:6px; border-radius:6px; max-height:120px; overflow:auto}
-  .avg-tools{display:flex; gap:8px; align-items:center; margin:6px 0;}
-  .avg-card{border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:white}
-  @media (max-width: 900px) { .roles-area .role-select { width:160px; } #process-btn, #save-roles { padding:6px 8px; } }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;color:#0f172a;background:#fff;margin:12px}
+  .wrap{max-width:1280px;margin:0 auto}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
+  .btn.primary{background:#0ea5a4;color:#fff;border:none}
+  .file-name{min-width:200px;max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #e2e8f0;padding:6px;border-radius:8px;background:#fff}
+  .card{border:1px solid #e5e7eb;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
+  label.small{font-size:13px;color:#334155}
+  input[type="number"]{width:110px;padding:6px;border-radius:10px;border:1px solid #cbd5e1}
+  select{padding:6px;border-radius:10px;border:1px solid #cbd5e1}
+  #log{font-size:12px;white-space:pre-wrap;border:1px dashed #cbd5e1;border-radius:10px;padding:6px;max-height:160px;overflow:auto}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .tab{padding:6px 12px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer}
+  .tab.active{background:#0ea5a4;color:#fff;border:none}
+  .hidden{display:none}
+  .muted{color:#64748b;font-size:12px}
+  .progress{height:14px;background:#e2e8f0;border-radius:8px;overflow:hidden}
+  .bar{height:100%;width:0%;background:#0ea5a4;transition:width .2s}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid #e5e7eb;padding:6px;font-size:12px;text-align:right}
+  th{background:#f1f5f9;text-align:center}
+  td.f{font-variant-numeric:tabular-nums;text-align:right}
+  td.sel{background:#ecfeff}
+  .band-plot{height:170px;margin-top:8px}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.25);backdrop-filter:saturate(0.1) blur(1px);display:none;z-index:999;align-items:center;justify-content:center;color:#fff;font-size:20px}
 </style>
 </head>
 <body>
-<div class="container">
-  <h2>Plotly Fast-Max — FULL (Average tab + Butterworth6th approx + threshold)</h2>
+<div class="wrap">
+  <h2>wav2Fmax — Pro v3</h2>
 
-  <div class="controls">
+  <!-- Top controls -->
+  <div class="row">
     <input id="file-input" type="file" accept=".wav,.wave,.csv,.txt" multiple />
     <button id="load-btn" class="btn primary">Load</button>
     <div id="file-name" class="file-name">No file selected</div>
+    <span id="status" class="muted">Ready</span>
+  </div>
 
-    <label class="small">Band Type:
-      <select id="band-type">
-        <option value="octave">1/1 Octave (16..500)</option>
-        <option value="third">1/3 Octave (16..500)</option>
-      </select>
-    </label>
+  <!-- Channel setup under file chooser -->
+  <div id="setup" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Channel setup</strong><span class="muted">対象CH選択・ロール名・補正係数</span>
+    </div>
+    <div id="setup-body"></div>
+  </div>
 
-    <label class="small">Window preset:
-      <select id="window-preset">
-        <option value="fast">Fast — 125 ms</option>
-        <option value="slow">Slow — 1000 ms</option>
-      </select>
-    </label>
-
-    <label class="small">CSV SR (Hz): <input id="csv-sr" type="number" value="25600" /></label>
-    <label class="small"><input id="has-header" type="checkbox" checked /> Header row</label>
-
-    <div class="controls-top-right">
-      <div id="status" class="status">No file loaded.</div>
+  <!-- Filtering and processing -->
+  <div id="config" class="card hidden">
+    <div class="row">
+      <label class="small">Bands:
+        <select id="band-type">
+          <option value="oct">1/1 Octave</option>
+          <option value="third">1/3 Octave</option>
+        </select>
+      </label>
+      <label class="small">Lo(Hz): <select id="band-lo"></select></label>
+      <label class="small">Hi(Hz): <select id="band-hi"></select></label>
+      <label class="small">Filter:
+        <select id="filter-type">
+          <option value="butterN">Butterworth N (SOS)</option>
+        </select>
+      </label>
+      <label class="small">Order N(LP原型): <input id="filter-order" type="number" min="1" step="1" value="12" /></label>
+      <label class="small">Time weighting:
+        <select id="time-weight">
+          <option value="fast">Fast(125 ms)</option>
+          <option value="slow">Slow(1 s)</option>
+          <option value="leq">Leq(window s)</option>
+          <option value="maxhold">MaxHold</option>
+        </select>
+      </label>
+      <label class="small">Leq window(s): <input id="leq-win" type="number" step="0.1" value="1.0" /></label>
+      <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
+      <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
+      <button id="process-btn" class="btn primary" disabled style="padding:10px 16px">Process</button>
+      <div class="progress" style="flex:1;min-width:220px"><div id="bar" class="bar"></div></div>
+      <span id="p-label" class="muted">idle</span>
     </div>
   </div>
 
-  <div id="mapping-panel" class="mapping-panel" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div><strong>Column mapping — 確認・修正してください</strong></div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="auto-map-btn" class="btn">Auto map</button>
-        <button id="apply-map-btn" class="btn primary">Apply mapping</button>
-      </div>
+  <!-- Channel tabs -->
+  <div id="tabs" class="tabs hidden"></div>
+
+  <!-- Summary + plots per channel -->
+  <div id="summary" class="card hidden">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <strong id="summary-title">Summary</strong>
+      <span class="muted">クリックで行を選択→該当バンド位置へスクロール</span>
     </div>
-    <div style="display:flex;gap:12px">
-      <div style="flex:1;overflow:auto">
-        <table class="mapping-table" id="mapping-table">
-          <thead><tr><th>Col#</th><th>Header</th><th>Preview</th><th>Assign</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div style="width:340px">
-        <div class="small-muted">先頭行（生テキストのプレビュー）</div>
-        <pre id="first-lines"></pre>
-        <div class="small-muted" style="margin-top:8px">Assign: Skip / Time / Force Hammer / Accelerometer / Microphone</div>
-      </div>
-    </div>
+    <div id="table-wrap"></div>
+    <div id="plots-wrap"></div>
   </div>
 
-  <div id="config" style="display:none" class="card">
-    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:white;margin-bottom:12px">
-      <h3 style="margin-top:0">Configuration</h3>
-
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-        <button id="edit-roles-btn" class="btn">Edit roles</button>
-        <label class="small">Filter type:
-          <select id="filter-type">
-            <option value="rbj">RBJ cascade</option>
-            <option value="butter6_exact">Butterworth 6th (exact SOS)</option>
-            <option value="butter6">Butterworth 6th (approx)</option>
-          </select>
-        </label>
-        <label class="small">Filter order (RBJ stages×2): <input id="filter-order" type="number" value="3" min="2" step="1" /></label>
-        <label class="small">Min peak gap (s): <input id="peak-gap" type="number" value="2" min="0.1" step="0.1" /></label>
-        <label class="small">Peak threshold (0–1): <input id="peak-th" type="number" value="0.15" min="0" max="1" step="0.01" /></label>
-      </div>
-
-      <div id="roles-wrapper" style="display:none">
-        <div class="roles-area" id="roles-area"></div>
-        <div class="small-muted">Roles are not automatically shown after Apply mapping. Click "Edit roles" to view/edit.</div>
-      </div>
-
-      <div class="process-area" style="margin-top:8px">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button id="process-btn" class="btn" disabled>Process</button>
-          <button id="save-roles" class="btn">Save Roles JSON</button>
-          <div class="import-area">
-            <label class="small" style="margin:0">Import Roles JSON</label>
-            <input id="load-roles-file" type="file" accept="application/json" />
-          </div>
-          <div id="progress-ui" style="display:flex;align-items:center;margin-left:8px">
-            <div class="progress-wrap" style="width:240px"><div id="progress-bar"></div></div>
-            <div id="progress-label" class="small-muted">Ready</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:8px" class="small-muted">Load → Apply mapping → Process の順で実行してください。</div>
-    </div>
-  </div>
-
-  <div id="tabs" class="tabs" style="display:none"></div>
-  <div id="channels-container"></div>
-
-  <div class="note">Average tab: across-channel Energetic average（unlog→平均→dB）と Arithmetic average（dB平均）を、各バンドのAverage peak/Global peakで表示。CSV保存可。</div>
-
-  <div style="margin-top:10px">
-    <div class="small-muted">Log</div>
+  <div class="card">
+    <div class="muted">Log</div>
     <div id="log"></div>
   </div>
 </div>
 
+<div id="overlay">計算中…</div>
+
 <script>
-/* ===== Diagnostics ===== */
-function logln(msg){ const el = document.getElementById('log'); if(!el) return; const t = new Date().toLocaleTimeString(); el.textContent += `[${t}] ${msg}\n`; el.scrollTop = el.scrollHeight; }
-window.addEventListener('error', (e)=>{ const m = e && e.message ? e.message : String(e); setStatus('JS error: ' + m); logln('JS error: ' + m); });
-window.addEventListener('unhandledrejection', (e)=>{ const m = e && e.reason ? (e.reason.message || String(e.reason)) : 'unhandledrejection'; setStatus('Promise error: ' + m); logln('Promise error: ' + m); });
+/*** logging ***/
+function logln(s){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.textContent += `[${t}] ${s}\n`; el.scrollTop=el.scrollHeight; }
+function setStatus(s){ document.getElementById('status').textContent=s; logln(s); }
+window.addEventListener('error', e=>{ setStatus('JS error: '+(e.message||e)); });
+window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : e.reason)); });
 
-// ===== Overall Progress (Processing + Rendering) =====
-let _totalStepsOverall = 0;
-let _doneStepsOverall = 0;
+/*** state ***/
+let g = { files:[], csv:{rows:[], headerTokens:[], headerLike:false}, srCSV:25600, audio:null, results:null, setup:[] };
 
-function setOverallProgress(total, done, label){
-  _totalStepsOverall = total;
-  _doneStepsOverall  = done;
-  const progressBarEl   = document.getElementById('progress-bar');
-  const progressLabelEl = document.getElementById('progress-label');
-  const pct = Math.max(0, Math.min(100, Math.round((done/Math.max(1,total))*100)));
-  if(progressBarEl)   progressBarEl.style.width = pct + '%';
-  if(progressLabelEl) progressLabelEl.textContent = `${label} (${pct}%)`;
-}
-function tickOverall(n=1, label='Working...'){
-  setOverallProgress(_totalStepsOverall, _doneStepsOverall + n, label);
-}
+/*** constants ***/
+const P0 = 2e-5; // Pa
 
-/* ===== Constants & state ===== */
-const DEFAULT_SR = 25600;
-const REF_FOR_DB = 2e-5; // 20 µPa
-const MAX_PLOT_POINTS = 2000;
-
-let parsedCSV_meta = null;
-let loadedFile = null;
-let loadedAudioBuffer = null;
-let channelRoles = [];
-let resultsCache = null; // {results, bandCenters, envType, windowMs}
-
-/* ===== Utils ===== */
-function setStatus(msg){ document.getElementById('status').textContent = msg; logln(msg); }
-function setFileNameText(txt){ document.getElementById('file-name').textContent = txt; }
-function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
-
-/* ===== CSV helpers ===== */
-function splitLineCSV(line){
-  const out=[]; let cur=''; let inQ=false; let sawSep=false;
-  for(let i=0;i<line.length;i++){
-    const ch=line[i];
-    if(ch==='"'){ inQ=!inQ; continue; }
-    if(!inQ && (ch===','||ch==='\t')){ out.push(cur.trim()); cur=''; sawSep=true; continue; }
-    cur+=ch;
-  }
-  out.push(cur.trim());
-  if(!sawSep && out.length===1 && out[0].includes(' ')) return out[0].split(/\s+/).map(s=>s.trim());
-  return out;
-}
-function parseCSVToRows(text, hasHeader=true){
-  text = text.replace(/^\uFEFF/, '');
-  const raw = text.split(/\r?\n/);
-  const SAFE_ROW_THRESHOLD = 200000;
-  let maxToRead = raw.length;
-  if(raw.length > SAFE_ROW_THRESHOLD){
-    const ok = confirm(`この CSV は ${raw.length.toLocaleString()} 行あります。ブラウザが重くなる可能性があります。全行を読み込みますか？（OK: 全行 / キャンセル: 最初 ${SAFE_ROW_THRESHOLD.toLocaleString()} 行のみ）`);
-    if(!ok) maxToRead = SAFE_ROW_THRESHOLD;
-  }
-  const lines = [];
-  for(let i=0;i<maxToRead;i++){
-    const t = raw[i].replace(/\u00A0/g,' ').trim();
-    if(t.length===0) continue;
-    lines.push(t);
-  }
-  if(lines.length===0) return {rows:[], headerTokens:[], headerLike:false, rawLines:[], rawTotalLines: raw.length};
-
-  const firstTokens = splitLineCSV(lines[0]);
-  const firstHasAlpha = firstTokens.some(t => /[A-Za-z\u3000-\u303F\u3040-\u30FF\u4E00-\u9FFF]/.test(t));
-  const firstHasTimeLabel = firstTokens.some(t => /^time/i.test(t) || /^time\(/i.test(t) || /^ch\d+/i.test(t) || /^ch/i.test(t));
-  const headerLike = hasHeader && (firstHasAlpha || firstHasTimeLabel);
-
-  const dataLines = headerLike ? lines.slice(1) : lines;
-  const rows = [];
-  let maxCols = 0;
-  for(let i=0;i<dataLines.length;i++){
-    const toks = splitLineCSV(dataLines[i]);
-    const row = new Array(toks.length);
-    for(let j=0;j<toks.length;j++){
-      const cleaned = toks[j].replace(/,/g,'').replace(/\u200B/g,'').trim();
-      const num = cleaned === '' ? NaN : Number(cleaned);
-      row[j] = isFinite(num) ? num : NaN;
-    }
-    rows.push(row);
-    if(row.length > maxCols) maxCols = row.length;
-  }
-  for(let i=0;i<rows.length;i++){
-    while(rows[i].length < maxCols) rows[i].push(NaN);
-  }
-  const headerTokens = headerLike ? firstTokens : [];
-  return {rows, headerTokens, headerLike, rawLines: lines.slice(0,50), rawTotalLines: raw.length};
+/*** CSV parse ***/
+function splitCSV(line){ const out=[]; let cur=''; let inQ=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch=='"'){ inQ=!inQ; continue; } if(!inQ&&(ch===','||ch==='\\t')){ out.push(cur.trim()); cur=''; continue; } cur+=ch; } out.push(cur.trim()); if(out.length===1 && out[0].includes(' ')) return out[0].split(/\\s+/); return out; }
+function parseCSV(text, hasHeader=true){
+  text = text.replace(/^\\uFEFF/, '');
+  const raw = text.split(/\\r?\\n/).filter(x=>x.trim().length>0);
+  const headerTokens = hasHeader ? splitCSV(raw[0]) : [];
+  const body = hasHeader ? raw.slice(1) : raw;
+  const rows = body.map(line => splitCSV(line).map(t=>{ const c=t.replace(/,/g,''); const v=Number(c); return isFinite(v)?v:NaN; }));
+  return {rows, headerTokens, headerLike:hasHeader};
 }
 
-/* ===== Audio decode (robust) ===== */
-function decodeWavWithCompat(audioCtx, arrayBuffer){
-  if (audioCtx.decodeAudioData.length === 2) {
-    return new Promise((resolve, reject)=>{
-      audioCtx.decodeAudioData(arrayBuffer, resolve, reject);
-    });
-  }
-  return audioCtx.decodeAudioData(arrayBuffer);
-}
-
-/* ===== DSP helpers ===== */
-// ===== WAV header quick read & manual PCM decode =====
+/*** WAV decode ***/
 function readWavHeader(buf){
-  const v = new DataView(buf);
+  const v=new DataView(buf);
   function str(o,n){ return String.fromCharCode(...new Uint8Array(buf,o,n)); }
-  if(str(0,4) !== 'RIFF' || str(8,4) !== 'WAVE') throw new Error('Not a RIFF/WAVE');
-  // find "fmt " chunk
-  let off = 12, fmtOff = -1, fmtLen = 0, dataOff = -1, dataLen = 0;
-  while(off + 8 <= v.byteLength){
-    const id = str(off,4); const len = v.getUint32(off+4, true); off += 8;
-    if(id === 'fmt '){ fmtOff = off; fmtLen = len; }
-    else if(id === 'data'){ dataOff = off; dataLen = len; }
-    off += len;
+  if(str(0,4)!=='RIFF' || str(8,4)!=='WAVE') throw new Error('Not WAVE');
+  let off=12, fmt=-1, data=-1, dl=0, ba=0, bps=0, ch=0, sr=0, af=0;
+  while(off+8<=v.byteLength){
+    const id=str(off,4); const len=v.getUint32(off+4,true); off+=8;
+    if(id==='fmt '){ af=v.getUint16(off+0,true); ch=v.getUint16(off+2,true); sr=v.getUint32(off+4,true); ba=v.getUint16(off+12,true); bps=v.getUint16(off+14,true); }
+    else if(id==='data'){ data=off; dl=len; }
+    off+=len;
   }
-  if(fmtOff < 0) throw new Error('fmt chunk not found');
-  const audioFormat  = v.getUint16(fmtOff+0, true); // 1=PCM, 3=IEEE float
-  const numChannels  = v.getUint16(fmtOff+2, true);
-  const sampleRate   = v.getUint32(fmtOff+4, true);
-  const byteRate     = v.getUint32(fmtOff+8, true); // unused
-  const blockAlign   = v.getUint16(fmtOff+12, true);
-  const bitsPerSample= v.getUint16(fmtOff+14, true);
-  if(dataOff < 0) throw new Error('data chunk not found');
-  return {audioFormat, numChannels, sampleRate, bitsPerSample, blockAlign, dataOffset: dataOff, dataLength: dataLen};
+  return {audioFormat:af, numChannels:ch, sampleRate:sr, bitsPerSample:bps, blockAlign:ba, dataOffset:data, dataLength:dl};
 }
-
-function decodePCMFromWav(buf){
-  const h = readWavHeader(buf);
-  const {audioFormat, numChannels, sampleRate, bitsPerSample, blockAlign, dataOffset, dataLength} = h;
-  const bytes = new DataView(buf, dataOffset, dataLength);
-  const frames = Math.floor(dataLength / blockAlign);
-  const out = Array.from({length:numChannels}, ()=> new Float32Array(frames));
-
-  let rd = 0;
-  function rdInt16(off){ return bytes.getInt16(off, true); }
-  function rdInt24(off){ // 24-bit little endian to signed 32
-    const b0 = bytes.getUint8(off), b1 = bytes.getUint8(off+1), b2 = bytes.getUint8(off+2);
-    let val = (b2<<16) | (b1<<8) | b0; if(val & 0x800000) val |= 0xFF000000; return val; // sign extend
-  }
-  function rdFloat32(off){ return bytes.getFloat32(off, true); }
-
+function decodePCM(buf){
+  const h=readWavHeader(buf);
+  const v=new DataView(buf, h.dataOffset, h.dataLength);
+  const frames=Math.floor(h.dataLength/h.blockAlign);
+  const out=Array.from({length:h.numChannels}, ()=>new Float32Array(frames));
+  let p=0;
   for(let i=0;i<frames;i++){
-    for(let ch=0; ch<numChannels; ch++){
-      let f = 0;
-      if(audioFormat === 1){ // PCM
-        if(bitsPerSample === 16){
-          f = rdInt16(rd) / 32768;
-          rd += 2;
-        } else if(bitsPerSample === 24){
-          f = rdInt24(rd) / 8388608; // 2^23
-          rd += 3;
-        } else if(bitsPerSample === 32){
-          // 一部の32bit PCM は整数、環境差大。ここは整数想定→正規化
-          const val = bytes.getInt32(rd, true); rd += 4;
-          f = Math.max(-1, Math.min(1, val / 2147483648));
-        } else {
-          throw new Error('Unsupported PCM bits: '+bitsPerSample);
-        }
-      } else if(audioFormat === 3){ // IEEE float
-        if(bitsPerSample !== 32) throw new Error('Unsupported float bits: '+bitsPerSample);
-        f = rdFloat32(rd); rd += 4;
-      } else {
-        throw new Error('Unsupported WAV format: '+audioFormat);
-      }
-      out[ch][i] = f;
+    for(let c=0;c<h.numChannels;c++){
+      let y=0;
+      if(h.audioFormat===1){
+        if(h.bitsPerSample===16){ y=v.getInt16(p,true)/32768; p+=2; }
+        else if(h.bitsPerSample===24){ const b0=v.getUint8(p), b1=v.getUint8(p+1), b2=v.getUint8(p+2); let x=(b2<<16)|(b1<<8)|b0; if(x&0x800000) x|=0xFF000000; y=x/8388608; p+=3; }
+        else if(h.bitsPerSample===32){ y=v.getInt32(p,true)/2147483648; p+=4; }
+        else throw new Error('PCM bits '+h.bitsPerSample);
+      }else if(h.audioFormat===3){
+        if(h.bitsPerSample!==32) throw new Error('float bits '+h.bitsPerSample);
+        y=v.getFloat32(p,true); p+=4;
+      }else{ throw new Error('fmt '+h.audioFormat); }
+      out[c][i]=y;
     }
   }
-
-  // fake AudioBuffer-like
-  const fake = {
-    sampleRate,
-    length: frames,
-    numberOfChannels: numChannels,
-    duration: frames / sampleRate,
-    getChannelData: (i)=> out[i]
-  };
-  return fake;
+  return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
-// ==== Butterworth 6th exact SOS (bandpass) ====
-// 入力：中心 fc、下上限 f1=fc/√2, f2=fc*√2（必要に応じ調整）
-// 手順：アナログLP 6次の極 → BP変換 → 双一次(BLT, prewarp) → 実数SOS化
-function prewarp(wd, sr){
-  // wd: デジタル角周波数 = 2π f / fs
-  // アナログ等価角周波数 wa（BLTの事前ワープ）
-  return 2*sr*Math.tan(wd/2);
-}
-function butter6_analog_poles(){
-  // 6次バタワースのアナログLP極（単位円上半面）
-  const N=6, poles=[];
-  for(let k=0;k<N;k++){
-    const theta = Math.PI*(2*k + 1 + N)/(2*N); // π/12, 3π/12, 5π/12, 7π/12, 9π/12, 11π/12
-    const p = {re: -Math.sin(theta), im:  Math.cos(theta)}; // 単位円。カットオフ1rad/s基準
-    poles.push(p);
+/*** DSP: Butterworth N SOS ***/
+function d1_LP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:K/a0,b1:K/a0,b2:0, a1:(1-K)/a0,a2:0}; }
+function d1_HP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:1/a0,b1:-1/a0,b2:0, a1:(1-K)/a0,a2:0}; }
+function rbjLP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)), c=Math.cos(w0), s=Math.sin(w0), alpha=s/(2*Q); const a0=1+alpha, a1=-2*c, a2=1-alpha, b0=(1-c)/2, b1=1-c, b2=(1-c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0, a1:a1/a0,a2:a2/a0}; }
+function rbjHP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)), c=Math.cos(w0), s=Math.sin(w0), alpha=s/(2*Q); const a0=1+alpha, a1=-2*c, a2=1-alpha, b0=(1+c)/2, b1=-(1+c), b2=(1+c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0, a1:a1/a0,a2:a2/a0}; }
+function butterQ(n,k){ return 1/(2*Math.sin((2*k+1)*Math.PI/(2*n))); }
+function butterLP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2); for(let k=0;k<p;k++) sos.push(rbjLP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_LP(fc,fs)); return sos; }
+function butterHP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2); for(let k=0;k<p;k++) sos.push(rbjHP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_HP(fc,fs)); return sos; }
+function sosFreqz(sections, fs, fgrid){
+  const H = new Float64Array(fgrid.length);
+  for(let i=0;i<fgrid.length;i++){
+    const w = 2*Math.PI*fgrid[i]/fs;
+    const c1 = Math.cos(-w), s1 = Math.sin(-w);
+    const c2 = Math.cos(-2*w), s2 = Math.sin(-2*w);
+    let Nr=1, Ni=0, Dr=1, Di=0;
+    for(const s of sections){
+      const nre = s.b0 + s.b1*c1 + s.b2*c2;
+      const nim = s.b1*s1 + s.b2*s2;
+      const dre = 1   + s.a1*c1 + s.a2*c2;
+      const dim =       s.a1*s1 + s.a2*s2;
+      const tNr = Nr*nre - Ni*nim, tNi = Nr*nim + Ni*nre; Nr=tNr; Ni=tNi;
+      const tDr = Dr*dre - Di*dim, tDi = Dr*dim + Di*dre; Dr=tDr; Di=tDi;
+    }
+    const den = Dr*Dr + Di*Di;
+    const Hr = (Nr*Dr + Ni*Di)/den;
+    const Hi = (Ni*Dr - Nr*Di)/den;
+    H[i] = Math.hypot(Hr, Hi);
   }
-  return poles;
+  return H;
 }
-function complexMul(a,b){ return {re:a.re*b.re - a.im*b.im, im:a.re*b.im + a.im*b.re}; }
-function complexAdd(a,b){ return {re:a.re+b.re, im:a.im+b.im}; }
-function complexSub(a,b){ return {re:a.re-b.re, im:a.im-b.im}; }
-function complexDiv(a,b){
-  const d = b.re*b.re + b.im*b.im;
-  return {re:(a.re*b.re + a.im*b.im)/d, im:(a.im*b.re - a.re*b.im)/d};
+function normalizeAt(sections, fs, fref){
+  const probe = [0.97*fref, fref, 1.03*fref];
+  const mags = sosFreqz(sections, fs, probe);
+  const Href = mags[1] || 1;
+  if(!isFinite(Href) || Href<=0) return;
+  const K = Math.max(1, sections.length);
+  const g = Math.pow(1/(Href), 1/K);
+  for(const s of sections){ s.b0*=g; s.b1*=g; s.b2*=g; }
 }
-function bilinear_s_to_z(num, den, sr){
-  // s -> (2*sr)*(1 - z^-1)/(1 + z^-1)
-  // 連続系H(s)=num(s)/den(s)を双一次でH(z)に。ここでは2次セクションを想定。
-  // 戻り値：正規化係数済みの {b0,b1,b2,a1,a2}
-  // 実装簡略化のため、2次の伝達関数係数に展開して代入・整理する実装。
-  const [b0,b1,b2] = num; // s^2, s, 1
-  const [a0,a1,a2] = den;
-  const T = 1/sr;
-  // 置換 s = (2/T)*(1 - z^-1)/(1 + z^-1)
-  // 計算は教科書通りの展開でOK（省略：既知の式をコーディング）
-  const k = 2/T;
-  // まず s を X = (1 - z^-1)/(1 + z^-1) とし多項式代入
-  // s   = k X
-  // s^2 = k^2 X^2
-  // X   = (1 - z^-1)/(1 + z^-1)
-  // X^2 = (1 - 2z^-1 + z^-2)/(1 + 2z^-1 + z^-2)
-  // H(z) = Num/Den with common (1+z^-1)^2 をかけて整理…（詳細展開は割愛）
-  // 実務上は双一次テンプレートを使う方が安全。ここでは簡易にバイリニア関数を用意するより、
-  // “アナログ2次 → デジタル2次”の既定式を使う：
-  function bilinear2(b0,b1,b2,a0,a1,a2,k){
-    // 参考式に基づく係数（省略：ここでは既知の展開結果を使用）
-    const A = a0, B = a1, C = a2, D = b0, E = b1, F = b2;
-    const kk = k, kk2 = k*k;
-    // 連続→離散の係数（z^-1基準、a0正規化）
-    const den0 = (A*kk2 + B*kk + C);
-    const den1 = (2*C - 2*A*kk2);
-    const den2 = (A*kk2 - B*kk + C);
-    const num0 = (D*kk2 + E*kk + F);
-    const num1 = (2*F - 2*D*kk2);
-    const num2 = (D*kk2 - E*kk + F);
-    // 正規化
-    return {
-      b0: num0/den0,
-      b1: num1/den0,
-      b2: num2/den0,
-      a1: den1/den0,
-      a2: den2/den0
-    };
-  }
-  return function(num, den){ return bilinear2(num[0],num[1],num[2], den[0],den[1],den[2], 2*sr); };
-}
-
-function bandpass_lp2bp_sections(lp_poles, w1, w2){
-  // LPの各複素極 p_i から BP の2極（2次）へ（s -> (s^2 + w0^2)/(B s)）
-  // w0 = sqrt(w1*w2),  B = w2 - w1
-  const w0 = Math.sqrt(w1*w2);
-  const B  = (w2 - w1);
-  const sections = [];
-  // 6次LP → BPは 12次（= 6 SOS）
-  for(let i=0;i<lp_poles.length;i+=2){
-    const p1 = lp_poles[i], p2 = lp_poles[i+1]; // 共役ペアを想定
-    // 各LP 2次： (s^2 - 2ζω_c s + ω_c^2) 型に対し変換…の代わりに
-    // 直接 s -> (s^2 + w0^2)/(B s) を2次にまとめる形を組むのはやや煩雑。
-    // ここでは既知の結果に沿って「BPの各SOS係数（アナログ）」を構築する簡約式を使用する。
-    // 実装を簡潔にするため、数値安定を優先して数式の詳細は割愛し、実務検証済みのテンプレを適用：
-    // （※本格運用では検収データで係数確認してください）
-    const pr = p1.re, pi = p1.im;
-    const zr = p2.re, zi = p2.im;
-
-    // アナログBP 2次の分母： s^2*(something) + s*(something) + (something)
-    // 係数は下記の経験式（Butterworth BP用の標準化形）に基づく近似安定版：
-    const A0 = 1;
-    const A1 = B * (-(pr+zr));                 // おおまかに B*2ζωc 相当
-    const A2 = (w0*w0) + B*B*(pr*zr - pi*zi);  // 直交項含む
-    const A3 = B*w0*w0 * (-(pr+zr));
-    const A4 = (w0*w0)*(w0*w0);
-
-    // 分子は帯域通過の正規化で s^2 を与える（定スカート想定）
-    // ここでは簡易に [1, 0, w0^2] として後段の双一次&正規化で調整
-    // 連続時間 2次に落とすため、(s^4 + ...)型を等価2次×2次に分解するのが正道だが、
-    // 実装簡素化のため経験式の2次形に丸める（※厳密設計との差は微小）
-    const den = [A0, A1, A2];   // s^2 + A1 s + A2
-    const num = [1, 0, w0*w0];  // s^2 + w0^2
-
-    sections.push({num, den});
-  }
-  return sections;
-}
-
-// ==== Butterworth 6th exact SOS (stable, self-contained) ====
-// 中心 fc の 1/1oct 幅（fc/√2 .. fc*√2）を内部で設定し、SOS×3を返す。
-function prewarp(wd, sr){ return 2 * sr * Math.tan(wd / 2); } // 重複していれば片方のみ残す
-
-function butter_analog_poles(N){
-  const poles=[];
-  for(let k=0;k<N;k++){
-    const theta = Math.PI * (2*k + 1 + N) / (2*N);
-    poles.push({re: -Math.sin(theta), im: Math.cos(theta)});
-  }
-  return poles;
-}
-
-function bilinear_s_to_z(num, den, sr){
-  // アナログ2次: (D s^2 + E s + F) / (A s^2 + B s + C) をBLTで双二次化
-  const [D,E,F]=num, [A,B,C]=den;
-  const k = 2*sr, kk2 = k*k;
-  const den0 = (A*kk2 + B*k + C);
-  const den1 = (2*C - 2*A*kk2);
-  const den2 = (A*kk2 - B*k + C);
-  const num0 = (D*kk2 + E*k + F);
-  const num1 = (2*F - 2*D*kk2);
-  const num2 = (D*kk2 - E*k + F);
-  return {
-    b0:num0/den0, b1:num1/den0, b2:num2/den0,
-    a1:den1/den0, a2:den2/den0
-  };
-}
-
-function designButter6ExactSOS(fc, sr){
+function designButterworthBandpassSOS_N(fc, fs, N){
   const f1 = fc/Math.SQRT2, f2 = fc*Math.SQRT2;
-  // 修正：srで割らない
-  const w1 = prewarp(2*Math.PI*f1, sr);
-  const w2 = prewarp(2*Math.PI*f2, sr);
-  const w0 = Math.sqrt(w1*w2);
-  const B  = (w2 - w1);
-
-  const lp_poles = butter_analog_poles(3);
-  const sections=[];
-  for(const p of lp_poles){
-    const A0 = 1;
-    const A1 = B * (-2 * p.re);
-    const A2 = (w0*w0) + B*B * (p.re*p.re + p.im*p.im);
-    const num = [1, 0, w0*w0];
-    const den = [A0, A1, A2];
-    const s = bilinear_s_to_z(num, den, sr);
-
-    // 正規化（a0=1前提）
-    const gain = 1/(s.b0 + s.b1 + s.b2);
-    s.b0 *= gain; s.b1 *= gain; s.b2 *= gain;
-    sections.push(s);
-  }
+  const M = Math.max(2, 2*Math.max(1, Math.round(N)));
+  const hpOrd = Math.floor(M/2), lpOrd = Math.ceil(M/2);
+  const hp = butterHP_sos(f1, fs, hpOrd), lp = butterLP_sos(f2, fs, lpOrd);
+  const sections = hp.concat(lp);
+  normalizeAt(sections, fs, fc);
   return sections;
 }
-
+window.designButterworthBandpassSOS_N = designButterworthBandpassSOS_N;
+/*** IIR DF2T + SOS ***/
 function filterBiquadDF2T(x, c){
-  const N = x.length; const y = new Float32Array(N);
-  let s1=0, s2=0;
-  const {b0,b1,b2,a1,a2} = c;
-  for(let n=0; n<N; n++){
-    const w  = x[n] - a1*s1 - a2*s2;
-    const yn = b0*w + b1*s1 + b2*s2;
-    s2 = s1; s1 = w;
-    y[n] = yn;
-  }
+  const N=x.length, y=new Float32Array(N); let s1=0,s2=0;
+  const b0=c.b0, b1=c.b1, b2=c.b2, a1=c.a1, a2=c.a2;
+  for(let n=0;n<N;n++){ const w=x[n]-a1*s1-a2*s2; const yn=b0*w + b1*s1 + b2*s2; s2=s1; s1=w; y[n]=yn; }
   return y;
 }
+function sosFilter(inSig, sosArray){ let y=Float32Array.from(inSig); for(let i=0;i<sosArray.length;i++) y=filterBiquadDF2T(y, sosArray[i]); return y; }
 
+/*** helpers ***/
+function percentile(arr, p){ if(!arr.length) return NaN; const a=Float64Array.from(arr).sort(); const pos=(a.length-1)*p; const lo=Math.floor(pos), hi=Math.ceil(pos); const w=pos-lo; return (1-w)*a[lo]+w*a[hi]; }
+function ewmaSquaredToSPL(y, sr, tau){ const out=new Float32Array(y.length); const alpha = 1 - Math.exp(-1/(sr*tau)); let s=0; for(let i=0;i<y.length;i++){ const v=y[i]; s += alpha*(v*v - s); out[i] = 10*Math.log10( Math.max(1e-24, s/(P0*P0)) ); } return out; }
+function movingLeqSPL(y, sr, winSec){ const win = Math.max(1, Math.round(winSec*sr)); const out=new Float32Array(y.length); let acc=0; for(let i=0;i<y.length;i++){ const v=y[i]; const vv=v*v; acc += vv; if(i>=win){ const old=y[i-win]; acc -= old*old; } const denom = P0*P0* Math.min(win, i+1) / sr; out[i] = 10*Math.log10( Math.max(1e-24, acc/denom) ); } return out; }
+function centersOct(){ const a=[]; let f=16; while(f<=8000){ a.push(f); f*=2; } return a; }
+function centersThird(){ const a=[]; let f=16; const step=Math.pow(2,1/3); while(f<=8000){ a.push(Number(f.toFixed(6))); f*=step; } return a; }
+function fullCenters(type){ return type==='oct' ? centersOct() : centersThird(); }
+function downsampleForPlot(x,y,maxPoints){ if(y.length<=maxPoints) return {x,y}; const step=y.length/maxPoints, xn=new Array(maxPoints), yn=new Array(maxPoints); for(let i=0;i<maxPoints;i++){ const k=Math.floor(i*step); xn[i]=x[k]; yn[i]=y[k]; } return {x:xn,y:yn}; }
 
-function sosFilter(inSig, sosArray){
-  let y = Float32Array.from(inSig);
-  for(const s of sosArray){
-    y = filterBiquadDF2T(y, s); // DF2T で逐次適用
-  }
-  return y;
+/*** UI wiring ***/
+document.getElementById('file-input').addEventListener('change', e=>{
+  const f=e.target.files && e.target.files[0]; if(!f) return;
+  g.files=[...e.target.files]; document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
+});
+document.getElementById('load-btn').addEventListener('click', onClickLoad);
+document.getElementById('process-btn').addEventListener('click', onProcess);
+document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
+
+function refreshBandRangeUI(){
+  const type = document.getElementById('band-type').value;
+  const loSel = document.getElementById('band-lo');
+  const hiSel = document.getElementById('band-hi');
+  const list = fullCenters(type);
+  loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
+  hiSel.innerHTML = loSel.innerHTML;
+  loSel.value = list[0];
+  hiSel.value = list[list.length-1];
 }
 
-function designBandpassRBJ(fc, sr, Q){
-  const w0 = 2*Math.PI*fc/sr;
-  const cosw0 = Math.cos(w0);
-  const sinw0 = Math.sin(w0);
-  const alpha = sinw0/(2*Q);
-  let b0 = alpha, b1 = 0, b2 = -alpha;
-  let a0 = 1 + alpha, a1 = -2*cosw0, a2 = 1 - alpha;
-  b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
-  return {b0,b1,b2,a1,a2};
-}
-function filterBiquadDF1(inArray, coeffs){
-  const N = inArray.length;
-  const out = new Float32Array(N);
-  let x1=0,x2=0,y1=0,y2=0;
-  const {b0,b1,b2,a1,a2} = coeffs;
-  for(let n=0;n<N;n++){
-    const x0 = inArray[n];
-    const y0 = b0*x0 + b1*x1 + b2*x2 - a1*y1 - a2*y2;
-    out[n] = y0;
-    x2 = x1; x1 = x0; y2 = y1; y1 = y0;
-  }
-  return out;
-}
-/* 「Butterworth 6th (approx)」：
-   - 中心 fc、バンド f_low..f_high（1/1: fc/√2..fc*√2 等）
-   - 3段のRBJ BPを直列。各段のQをバタワース形状に近づく経験値で重み付け
-   ※ 厳密SOS版が必要なら後続タスクで置換可能 */
-function cascadeButter6Approx(sig, sr, fc){
-  const f_low = fc/Math.sqrt(2), f_high = fc*Math.sqrt(2);
-  const BW = Math.max(1e-6, f_high - f_low);
-  const Qbase = fc / BW;              // 単純帯域幅からのQ
-  // バタワース近似のQ配分（実機での通過域平坦性と裾の立ち上がりのバランス）
-  const qFactors = [0.55, 1.00, 1.80]; // 経験的
-  let y = sig;
-  for(const qf of qFactors){
-    const coeff = designBandpassRBJ(fc, sr, Math.max(0.1, Qbase*qf));
-    y = filterBiquadDF1(y, coeff);
-  }
-  return y;
-}
-
-function smoothSquaredIIR(squaredArr, sr, tauSeconds){
-  const N = squaredArr.length;
-  const out = new Float32Array(N);
-  const fc = 1/(2*Math.PI*tauSeconds);
-  const alpha = 1 - Math.exp(-2*Math.PI*fc/sr);
-  let y = 0;
-  for(let i=0;i<N;i++){ y = y + alpha * (squaredArr[i] - y); out[i] = y; }
-  return out;
-}
-function downsampleForPlot(x,y,maxPoints){
-  if(y.length<=maxPoints) return {x,y};
-  const step = y.length/maxPoints;
-  const xn=new Array(maxPoints), yn=new Array(maxPoints);
-  for(let i=0;i<maxPoints;i++){ const idx=Math.floor(i*step); xn[i]=x[idx]; yn[i]=y[idx]; }
-  return {x:xn,y:yn};
-}
-function toDB_ref(v, ref){ return 20*Math.log10(Math.max(1e-12, v/ref)); }
-
-/* ===== Band centers ===== */
-function octaveCenters(){ const centers=[]; for(let i=-15;i<3;i+=3){ centers.push(Math.pow(10,i/10)*1000); } return centers; }
-function thirdOctaveCenters(){ const centers=[]; for(let i=-18;i<3;i++){ centers.push(Math.pow(10,i/10)*1000); } return centers; }
-
-/* ===== Mapping UI ===== */
-function showMappingUI(parsed){
-  const panel = document.getElementById('mapping-panel'); panel.style.display='block';
-  const tbody = document.querySelector('#mapping-table tbody'); tbody.innerHTML='';
-  document.getElementById('first-lines').textContent = parsed.rawLines.join('\n') + (parsed.rawTotalLines? `\n\n(total lines: ${parsed.rawTotalLines})` : '');
-  const ncols = parsed.rows.length>0 ? parsed.rows[0].length : parsed.headerTokens.length || 0;
-  const colNames = [];
-  for(let c=0;c<ncols;c++) colNames.push(parsed.headerTokens[c] || ('Col ' + (c+1)));
-  const opts = ['Skip','Time','Force Hammer','Accelerometer','Microphone'];
-  for(let c=0;c<ncols;c++){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${c+1}</td><td>${colNames[c]||''}</td><td>${(parsed.rows[0]&&parsed.rows[0][c]!==undefined)?String(parsed.rows[0][c]):''}</td>`;
-    const tdSel = document.createElement('td');
-    const sel = document.createElement('select');
-    for(const o of opts){ const opt = document.createElement('option'); opt.value=o; opt.textContent=o; sel.appendChild(opt); }
-    sel.value = 'Skip'; sel.dataset.col = c; tdSel.appendChild(sel); tr.appendChild(tdSel);
-    tbody.appendChild(tr);
-  }
-}
-function autoMap(parsed){
-  const tbody = document.querySelector('#mapping-table tbody');
-  if(!tbody) return;
-  const selects = tbody.querySelectorAll('select');
-  for(const sel of selects){
-    const idx = Number(sel.dataset.col);
-    const header = (parsed.headerTokens && parsed.headerTokens[idx]) ? parsed.headerTokens[idx].toLowerCase() : '';
-    if(header.includes('time')){ sel.value='Time'; continue; }
-    if(header.includes('force') || header.includes('hammer') || header === 'fh' || header.match(/\bfh\b/)){ sel.value='Force Hammer'; continue; }
-    if(header.includes('mic') || header.includes('microphone')){ sel.value='Microphone'; continue; }
-    if(header.includes('acc') || header.includes('acceler')){ sel.value='Accelerometer'; continue; }
-  }
-  if(!Array.from(selects).some(s=>s.value==='Time')){
-    for(let c=0;c<parsed.rows[0].length;c++){
-      let allNum=true; for(let r=0;r<Math.min(parsed.rows.length,200);r++){ if(!isFinite(parsed.rows[r][c])){ allNum=false; break; } }
-      if(!allNum) continue;
-      let nonDec=true, sawInc=false;
-      for(let r=1;r<Math.min(parsed.rows.length,200);r++){
-        if(parsed.rows[r][c] < parsed.rows[r-1][c] - 1e-12){ nonDec=false; break; }
-        if(parsed.rows[r][c] > parsed.rows[r-1][c] + 1e-12) sawInc=true;
-      }
-      if(nonDec && sawInc){
-        const sel = Array.from(selects).find(s=>Number(s.dataset.col)===c);
-        if(sel && sel.value==='Skip') sel.value='Time';
-        break;
-      }
-    }
-  }
-}
-function applyMapping(parsed){
-  const tbody = document.querySelector('#mapping-table tbody');
-  const selects = Array.from(tbody.querySelectorAll('select'));
-  const colMap = {};
-  for(const s of selects) colMap[Number(s.dataset.col)] = s.value;
-
-  let timeCol = null;
-  for(const [col, role] of Object.entries(colMap)) if(role === 'Time'){ timeCol = Number(col); break; }
-  const nrows = parsed.rows.length;
-
-  const channels = [];
-  const assignedCols = new Set();
-  for(const [colStr, role] of Object.entries(colMap)){
-    const col = Number(colStr);
-    if(role === 'Skip' || role === 'Time') continue;
-    if(role === 'Force Hammer' || role === 'Accelerometer' || role === 'Microphone'){
-      const colArr = new Array(nrows);
-      for(let r=0;r<nrows;r++) colArr[r] = isFinite(parsed.rows[r][col]) ? parsed.rows[r][col] : 0;
-      channels.push(colArr);
-      assignedCols.add(col);
-    }
-  }
-  if(channels.length === 0){
-    for(let c=0;c<parsed.rows[0].length;c++){
-      if(c === timeCol) continue;
-      let allNum = true;
-      for(let r=0;r<Math.min(parsed.rows.length,100);r++){ if(!isFinite(parsed.rows[r][c])){ allNum=false; break; } }
-      if(!allNum) continue;
-      const colArr = new Array(nrows);
-      for(let r=0;r<nrows;r++) colArr[r] = isFinite(parsed.rows[r][c]) ? parsed.rows[r][c] : 0;
-      channels.push(colArr);
-      assignedCols.add(c);
-    }
-  }
-  let times = null;
-  if(timeCol !== null){
-    times = new Array(nrows);
-    for(let r=0;r<nrows;r++) times[r] = parsed.rows[r][timeCol];
-  } else {
-    const sr = Number(document.getElementById('csv-sr').value) || DEFAULT_SR;
-    times = new Array(nrows);
-    for(let r=0;r<nrows;r++) times[r] = r / sr;
-  }
-  if(channels.length === 0){
-    setStatus('No numeric columns found to create channels after mapping.');
-    return;
-  }
-  const fakeBuffer = {
-    sampleRate: Number(document.getElementById('csv-sr').value) || DEFAULT_SR,
-    length: channels[0].length,
-    numberOfChannels: channels.length,
-    duration: channels[0].length / (Number(document.getElementById('csv-sr').value) || DEFAULT_SR),
-    getChannelData:function(i){ return Float32Array.from(channels[i] || new Array(channels[0].length).fill(0)); }
-  };
-  loadedAudioBuffer = fakeBuffer;
-  parsedCSV_meta = { mapping: colMap, headerTokens: parsed.headerTokens, times: times };
-  loadedFile = loadedFile || { name: 'CSV (mapped)' };
-
-  channelRoles = [];
-  const assignedList = Array.from(assignedCols).sort((a,b)=>a-b);
-  for(const c of assignedList){ channelRoles.push(colMap[c] || ''); }
-  document.getElementById('config').style.display = 'block';
-  document.getElementById('process-btn').disabled = false;
-  setStatus('Mapping applied. Ready to Process.');
-}
-
-/* ===== Peak detection & envelopes ===== */
-function detectPeaks(envArr, sr, minGapSec, relTh){
-  const peaks = [];
-  if(!envArr || envArr.length < 3) return peaks;
-  let maxVal = -Infinity;
-  for(let i=0;i<envArr.length;i++) if(envArr[i] > maxVal) maxVal = envArr[i];
-  const th = Math.max(1e-12, maxVal * clamp(relTh, 0, 1));
-  for(let i=1;i<envArr.length-1;i++){
-    if(envArr[i] >= envArr[i-1] && envArr[i] >= envArr[i+1] && envArr[i] >= th){
-      peaks.push({index:i, value: envArr[i]});
-    }
-  }
-  if(peaks.length === 0){
-    // fallback to global
-    let idx=0, val=envArr[0];
-    for(let i=1;i<envArr.length;i++){ if(envArr[i]>val){ val=envArr[i]; idx=i; } }
-    peaks.push({index:idx, value:val});
-  }
-  const minDist = Math.max(1, Math.round((minGapSec || 2) * sr));
-  peaks.sort((a,b)=>b.value - a.value);
-  const chosen = [];
-  const used = new Uint8Array(envArr.length);
-  for(const p of peaks){
-    if(used[p.index]) continue;
-    chosen.push(p);
-    const start = Math.max(0, p.index - minDist);
-    const end = Math.min(envArr.length-1, p.index + minDist);
-    for(let k=start;k<=end;k++) used[k] = 1;
-  }
-  chosen.sort((a,b)=>a.index - b.index);
-  return chosen;
-}
-function computeEnvelope(sig, sr){
-  const sq = new Float32Array(sig.length);
-  for(let i=0;i<sig.length;i++) sq[i] = sig[i]*sig[i];
-  const envSq = smoothSquaredIIR(sq, sr, 1/8); // fast-like
-  const env = new Float32Array(envSq.length);
-  for(let i=0;i<envSq.length;i++) env[i] = Math.sqrt(Math.max(0, envSq[i]));
-  return env;
-}
-
-/* ===== Tabs ===== */
-function ensureChannelRoles(nch){
-  if(channelRoles.length < nch){
-    for(let i=channelRoles.length;i<nch;i++){
-      const defaults = ['','Force Hammer','Accelerometer','Microphone 10cm','Microphone 40cm','Microphone 70cm','Microphone 100cm','Microphone 130cm'];
-      channelRoles[i] = defaults[i] || '';
-    }
-  } else if(channelRoles.length > nch){
-    channelRoles = channelRoles.slice(0,nch);
-  }
-}
-function renderTabs(processedResults){
-  const tabsDiv = document.getElementById('tabs'); tabsDiv.innerHTML = '';
-  const blocks = document.getElementById('channels-container'); blocks.innerHTML = '';
-  function addTab(label, idx, onClick){
-    const t = document.createElement('div'); t.className='tab'; t.textContent = label; t.dataset.idx = String(idx);
-    t.addEventListener('click', ()=>{
-      Array.from(tabsDiv.children).forEach(ch=>ch.classList.remove('active'));
-      t.classList.add('active');
-      Array.from(blocks.children).forEach(c=>c.style.display='none');
-      const target = document.getElementById('channel-block-'+idx);
-      if(target){ target.style.display='block'; resizePlots(target); }
-      if(onClick) onClick();
-    });
-    tabsDiv.appendChild(t);
-    return t;
-  }
-  function resizePlots(target){
-    setTimeout(()=>{
-      const graphs = target.querySelectorAll('.js-plotly-plot');
-      graphs.forEach(g=>{ try{ g.style.width='100%'; Plotly.Plots.resize(g); }catch(e){} });
-    }, 120);
-  }
-  // per-channel tabs
-  for(const r of processedResults){
-    const idx = r.channelIndex;
-    const label = 'CH '+(idx+1) + (channelRoles[idx]? ' — '+channelRoles[idx]:'');
-    addTab(label, idx);
-    const block = document.createElement('div'); block.id = 'channel-block-'+idx; block.className='channel-block'; block.style.display='none';
-    blocks.appendChild(block);
-  }
-  // Average tab
-  const avgIdx = 'avg';
-  addTab('Average', avgIdx, ()=> renderAverageTab());
-  const avgBlock = document.createElement('div'); avgBlock.id = 'channel-block-'+avgIdx; avgBlock.className='channel-block avg-card'; avgBlock.style.display='none';
-  avgBlock.innerHTML = `
-    <div class="avg-tools">
-      <button id="avg-calc-btn" class="btn primary">Recalculate</button>
-      <button id="avg-save-csv" class="btn">Download CSV</button>
-      <span class="small-muted">Average peak と Global peak の「Across-channel」平均（Energetic / dB）を表示します。</span>
-    </div>
-    <div id="avg-tables"></div>
-  `;
-  blocks.appendChild(avgBlock);
-
-  // activate first tab
-  if(tabsDiv.firstChild){ tabsDiv.firstChild.classList.add('active'); blocks.firstChild.style.display='block'; }
-  tabsDiv.style.display='flex';
-
-  // handlers
-  document.getElementById('avg-calc-btn').addEventListener('click', renderAverageTab);
-  document.getElementById('avg-save-csv').addEventListener('click', downloadAverageCSV);
-}
-
-/* ===== Plot per channel ===== */
-async function plotChannelBlockWithProgress(container, r, bandCenters, label='Rendering plots'){
-  // 元の plotChannelBlock と同じ中身だが、Plotly.newPlot を await して進捗を更新する
-  container.innerHTML='';
-  const role = channelRoles[r.channelIndex] || '';
-  const header = document.createElement('div'); header.className='channel-header';
-  header.innerHTML = `<div><strong>CH ${r.channelIndex+1}</strong> ${role? '— ' + role : ''} — SR ${r.sampleRate} Hz</div><div>input max abs: ${r.inputMaxAbs.toExponential(2)}</div>`;
-  container.appendChild(header);
-
-  const bandGrid = document.createElement('div'); bandGrid.className='band-grid'; container.appendChild(bandGrid);
-
-  // Raw plot（1ユニット）
-  const fullPlotDiv = document.createElement('div'); fullPlotDiv.className='full-plot';
-  fullPlotDiv.style.gridColumn = '1 / -1';
-  const fullTitle = document.createElement('div'); fullTitle.style.fontSize='13px'; fullTitle.style.marginBottom='6px'; fullTitle.style.color='#0f172a';
-  fullTitle.textContent = `Raw time history (pre-filter)`;
-  fullPlotDiv.appendChild(fullTitle);
-  const fullGraph = document.createElement('div'); fullGraph.style.height='150px';
-  fullPlotDiv.appendChild(fullGraph);
-  bandGrid.appendChild(fullPlotDiv);
-
-  const dsRawMain = downsampleForPlot(r.times, Array.from(r.originalSignal), Math.min(MAX_PLOT_POINTS, r.originalSignal.length));
-  await Plotly.newPlot(fullGraph, [{x: dsRawMain.x, y: dsRawMain.y, mode:'lines', line:{width:1}}],
-                       {margin:{l:40,r:10,t:20,b:30}, xaxis:{title:'Time (s)'}, yaxis:{title:'Amplitude'}, showlegend:false},
-                       {responsive:true});
-  tickOverall(1, label); // Raw 1ユニット進捗
-
-  // Bands（バンドごとに1ユニット）
-  const minGapSec = Number(document.getElementById('peak-gap').value) || 2;
-  const relTh = Number(document.getElementById('peak-th').value);
-  const peaksSummary = [];
-
-  for(const fc of bandCenters){
-    const plotDiv=document.createElement('div'); plotDiv.className='band-plot'; bandGrid.appendChild(plotDiv);
-    const title=document.createElement('div'); title.style.fontSize='13px'; title.style.marginBottom='6px'; title.style.color='#0f172a';
-    title.textContent = `${Math.round(fc*100)/100} Hz band`; plotDiv.appendChild(title);
-    const graph=document.createElement('div'); graph.style.height='170px'; plotDiv.appendChild(graph);
-
-    const bandData = r.bandOutputs && r.bandOutputs[fc] ? r.bandOutputs[fc] : null;
-    if(!bandData){
-      graph.textContent='N/A (above Nyquist or silent input)'; graph.style.padding='8px';
-      peaksSummary.push({band:fc, avgPeakDB:null, globalPeakDB:null});
-      tickOverall(1, label); // バンド1ユニット消化
-      continue;
-    }
-
-    const env = computeEnvelope(bandData, r.sampleRate);
-    const peaks = detectPeaks(env, r.sampleRate, minGapSec, isFinite(relTh)? relTh:0.15);
-
-    const dsRaw = downsampleForPlot(r.times, Array.from(bandData), MAX_PLOT_POINTS);
-    const dsEnv = downsampleForPlot(r.times, Array.from(env), MAX_PLOT_POINTS);
-
-    await Plotly.newPlot(graph,
-      [{x:dsRaw.x, y:dsRaw.y, mode:'lines', line:{width:1}},
-       {x:dsEnv.x, y:dsEnv.y, mode:'lines', line:{width:2,dash:'dash'}}],
-      {margin:{l:40,r:10,t:20,b:30}, xaxis:{title:'Time (s)'}, yaxis:{title:'Amplitude'}, showlegend:false},
-      {responsive:true}
-    );
-
-    const peakDBs = [];
-    let gmax = 0; for(let i=0;i<env.length;i++){ if(env[i]>gmax) gmax=env[i]; }
-    const globalPeakDB = toDB_ref(gmax, REF_FOR_DB);
-    for(const pk of peaks){
-      const vdb = toDB_ref(pk.value, REF_FOR_DB);
-      peakDBs.push(vdb);
+function onClickLoad(){
+  if(!g.files || g.files.length===0){ alert('ファイルを選択してください'); return; }
+  const f=g.files[0];
+  const ext=f.name.toLowerCase().split('.').pop();
+  setStatus('Loading '+f.name+' ...');
+  const fr=new FileReader();
+  if(ext==='csv' || ext==='txt'){
+    fr.onload = ()=>{
       try{
-        Plotly.addTraces(graph, {x:[r.times[pk.index]], y:[pk.value], mode:'markers+text', marker:{size:8}, text:[vdb.toFixed(2)+' dB'], textposition:'top center', showlegend:false});
-      }catch(e){}
-    }
-    const avgPeakDB = peakDBs.length ? (peakDBs.reduce((a,b)=>a+b,0)/peakDBs.length) : null;
-    peaksSummary.push({band:fc, avgPeakDB, globalPeakDB});
-
-    tickOverall(1, label); // バンド1ユニット進捗
-  }
-
-  // テーブル生成（ユニット進捗には含めない）
-  const table = document.createElement('table'); table.className='peaks';
-  table.innerHTML = '<thead><tr><th>Band (Hz)</th><th>Average peak (dB)</th><th>Global peak (dB)</th></tr></thead>';
-  const tbody=document.createElement('tbody');
-  for(const p of peaksSummary){
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${Math.round(p.band*100)/100}</td><td>${p.avgPeakDB==null?'-':p.avgPeakDB.toFixed(2)}</td><td>${p.globalPeakDB==null?'-':p.globalPeakDB.toFixed(2)}</td>`;
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  container.appendChild(table);
-}
-
-function plotChannelBlock(container, r, bandCenters){
-  container.innerHTML='';
-  const role = channelRoles[r.channelIndex] || '';
-  const header = document.createElement('div'); header.className='channel-header';
-  header.innerHTML = `<div><strong>CH ${r.channelIndex+1}</strong> ${role? '— ' + role : ''} — SR ${r.sampleRate} Hz</div><div>input max abs: ${r.inputMaxAbs.toExponential(2)}</div>`;
-  container.appendChild(header);
-
-  const bandGrid = document.createElement('div'); bandGrid.className='band-grid'; container.appendChild(bandGrid);
-
-  const fullPlotDiv = document.createElement('div'); fullPlotDiv.className='full-plot';
-  fullPlotDiv.style.gridColumn = '1 / -1';
-  const fullTitle = document.createElement('div'); fullTitle.style.fontSize='13px'; fullTitle.style.marginBottom='6px'; fullTitle.style.color='#0f172a';
-  fullTitle.textContent = `Raw time history (pre-filter)`;
-  fullPlotDiv.appendChild(fullTitle);
-  const fullGraph = document.createElement('div'); fullGraph.style.height='150px';
-  fullPlotDiv.appendChild(fullGraph);
-  bandGrid.appendChild(fullPlotDiv);
-
-  const dsRawMain = downsampleForPlot(r.times, Array.from(r.originalSignal), Math.min(MAX_PLOT_POINTS, r.originalSignal.length));
-  Plotly.newPlot(fullGraph, [{x: dsRawMain.x, y: dsRawMain.y, mode:'lines', line:{width:1}}], {margin:{l:40,r:10,t:20,b:30}, xaxis:{title:'Time (s)'}, yaxis:{title:'Amplitude'}, showlegend:false}, {responsive:true});
-
-  const peaksSummary = [];
-  const minGapSec = Number(document.getElementById('peak-gap').value) || 2;
-  const relTh = Number(document.getElementById('peak-th').value);
-  for(const fc of bandCenters){
-    const plotDiv=document.createElement('div'); plotDiv.className='band-plot'; bandGrid.appendChild(plotDiv);
-    const title=document.createElement('div'); title.style.fontSize='13px'; title.style.marginBottom='6px'; title.style.color='#0f172a';
-    title.textContent = `${Math.round(fc*100)/100} Hz band`; plotDiv.appendChild(title);
-    const graph=document.createElement('div'); graph.style.height='170px'; plotDiv.appendChild(graph);
-
-    const bandData = r.bandOutputs && r.bandOutputs[fc] ? r.bandOutputs[fc] : null;
-    if(!bandData){ graph.textContent='N/A (above Nyquist or silent input)'; graph.style.padding='8px'; peaksSummary.push({band:fc, avgPeakDB:null, globalPeakDB:null}); continue; }
-
-    const env = computeEnvelope(bandData, r.sampleRate);
-    const peaks = detectPeaks(env, r.sampleRate, minGapSec, isFinite(relTh)? relTh:0.15);
-
-    const dsRaw = downsampleForPlot(r.times, Array.from(bandData), MAX_PLOT_POINTS);
-    const dsEnv = downsampleForPlot(r.times, Array.from(env), MAX_PLOT_POINTS);
-    Plotly.newPlot(graph,
-      [{x:dsRaw.x, y:dsRaw.y, mode:'lines', line:{width:1}},
-       {x:dsEnv.x, y:dsEnv.y, mode:'lines', line:{width:2,dash:'dash'}}],
-      {margin:{l:40,r:10,t:20,b:30}, xaxis:{title:'Time (s)'}, yaxis:{title:'Amplitude'}, showlegend:false},
-      {responsive:true}
-    );
-
-    const peakDBs = [];
-    let globalPeakDB = null;
-    let gmax = 0, gidx = 0;
-    for(let i=0;i<env.length;i++){ if(env[i]>gmax){ gmax=env[i]; gidx=i; } }
-    globalPeakDB = toDB_ref(gmax, REF_FOR_DB);
-
-    for(const pk of peaks){
-      const peakTime = r.times[pk.index];
-      const vlin = pk.value;
-      const vdb  = toDB_ref(vlin, REF_FOR_DB);
-      peakDBs.push(vdb);
+        const txt=fr.result;
+        const hasHeader=document.getElementById('has-header').checked;
+        g.csv=parseCSV(txt, hasHeader);
+        // SR推定: 先頭列が時刻と仮定（秒）
+        if(g.csv.rows.length>4){
+          const t = g.csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
+          if(t.length>4){
+            const dt=[]; for(let i=1;i<t.length;i++){ const d=t[i]-t[i-1]; if(isFinite(d) && d>0) dt.push(d); }
+            if(dt.length){ const sorted=Float64Array.from(dt).sort(); const med = sorted[Math.floor(sorted.length/2)] || 0; if(med>0){ g.srCSV = 1/med; document.getElementById('csv-sr').value = Math.round(g.srCSV); } }
+          }
+        }
+        document.getElementById('config').classList.remove('hidden');
+        document.getElementById('process-btn').disabled=false;
+        ensureSetup(1);
+        buildTabs(1);
+        refreshBandRangeUI();
+        setStatus('CSV loaded: '+g.csv.rows.length+' rows, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
+      }catch(err){ setStatus('CSV load error: '+err.message); }
+    };
+    fr.readAsText(f);
+  }else{
+    fr.onload = ()=>{
       try{
-        Plotly.addTraces(graph, {x:[peakTime], y:[vlin], mode:'markers+text', marker:{size:8}, text:[vdb.toFixed(2)+' dB'], textposition:'top center', showlegend:false});
-      }catch(e){}
-    }
-
-    let avgPeakDB = null;
-    if(peakDBs.length > 0){
-      const s = peakDBs.reduce((a,b)=>a+b,0);
-      avgPeakDB = s / peakDBs.length;
-    }
-    peaksSummary.push({band:fc, avgPeakDB, globalPeakDB});
+        const buf=fr.result;
+        g.audio = decodePCM(buf);
+        document.getElementById('csv-sr').value = g.audio.sampleRate; // WAV → CSV SR 自動反映
+        document.getElementById('config').classList.remove('hidden');
+        document.getElementById('process-btn').disabled=false;
+        ensureSetup(g.audio.numberOfChannels);
+        buildTabs(g.audio.numberOfChannels);
+        refreshBandRangeUI();
+        setStatus(`WAV loaded: ${g.audio.numberOfChannels} ch, ${g.audio.sampleRate} Hz, ${g.audio.length} frames`);
+      }catch(err){ setStatus('WAV load error: '+err.message); }
+    };
+    fr.readAsArrayBuffer(f);
   }
-
-  const table = document.createElement('table'); table.className='peaks';
-  table.innerHTML = '<thead><tr><th>Band (Hz)</th><th>Average peak (dB)</th><th>Global peak (dB)</th></tr></thead>';
-  const tbody=document.createElement('tbody');
-  for(const p of peaksSummary){
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${Math.round(p.band*100)/100}</td><td>${p.avgPeakDB==null?'-':p.avgPeakDB.toFixed(2)}</td><td>${p.globalPeakDB==null?'-':p.globalPeakDB.toFixed(2)}</td>`;
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  container.appendChild(table);
 }
 
-/* ===== Average tab calculation ===== */
-function makeAverageTables(){
-  if(!resultsCache) return {html:'<div class="small-muted">No results</div>', csv:''};
-  const {results, bandCenters} = resultsCache;
-  const minGapSec = Number(document.getElementById('peak-gap').value) || 2;
-  const relTh = Number(document.getElementById('peak-th').value);
-  const rows = []; // CSV rows
-
-  // headers
-  rows.push(['Band(Hz)','AvgPeak Energetic (dB)','AvgPeak Arithmetic (dB)','Global Energetic (dB)','Global Arithmetic (dB)']);
-
-  let html = '<table class="peaks"><thead><tr><th>Band (Hz)</th><th>AvgPeak Energetic (dB)</th><th>AvgPeak Arithmetic (dB)</th><th>Global Energetic (dB)</th><th>Global Arithmetic (dB)</th></tr></thead><tbody>';
-
-  for(const fc of bandCenters){
-    const perCh_avgPeak_dB = [];
-    const perCh_global_dB  = [];
-    for(const r of results){
-      const bandData = r.bandOutputs && r.bandOutputs[fc] ? r.bandOutputs[fc] : null;
-      if(!bandData) continue;
-      const env = computeEnvelope(bandData, r.sampleRate);
-      // global
-      let gmax = 0; for(let i=0;i<env.length;i++){ if(env[i]>gmax) gmax=env[i]; }
-      perCh_global_dB.push(toDB_ref(gmax, REF_FOR_DB));
-      // local avg
-      const peaks = detectPeaks(env, r.sampleRate, minGapSec, isFinite(relTh)? relTh:0.15);
-      if(peaks.length){
-        const dbs = peaks.map(p=>toDB_ref(p.value, REF_FOR_DB));
-        perCh_avgPeak_dB.push(dbs.reduce((a,b)=>a+b,0)/dbs.length);
-      }
-    }
-    function dB_arith(dbs){ if(!dbs.length) return null; return dbs.reduce((a,b)=>a+b,0)/dbs.length; }
-    function dB_energetic(dbs){
-      if(!dbs.length) return null;
-      const lin = dbs.map(d=>Math.pow(10, d/20)*REF_FOR_DB);       // Pa
-      const mean = lin.reduce((a,b)=>a+b,0)/lin.length;            // 平均Pa
-      return toDB_ref(mean, REF_FOR_DB);
-    }
-    const avgPeak_arith = dB_arith(perCh_avgPeak_dB);
-    const avgPeak_ener  = dB_energetic(perCh_avgPeak_dB);
-    const glob_arith    = dB_arith(perCh_global_dB);
-    const glob_ener     = dB_energetic(perCh_global_dB);
-
-    html += `<tr><td>${Math.round(fc*100)/100}</td>
-      <td>${avgPeak_ener==null?'-':avgPeak_ener.toFixed(2)}</td>
-      <td>${avgPeak_arith==null?'-':avgPeak_arith.toFixed(2)}</td>
-      <td>${glob_ener==null?'-':glob_ener.toFixed(2)}</td>
-      <td>${glob_arith==null?'-':glob_arith.toFixed(2)}</td></tr>`;
-
-    rows.push([
-      (Math.round(fc*100)/100).toString(),
-      avgPeak_ener==null? '' : avgPeak_ener.toFixed(4),
-      avgPeak_arith==null? '' : avgPeak_arith.toFixed(4),
-      glob_ener==null? '' : glob_ener.toFixed(4),
-      glob_arith==null? '' : glob_arith.toFixed(4)
-    ]);
+/*** Channel setup UI ***/
+function ensureSetup(nch){
+  const root = document.getElementById('setup');
+  const body = document.getElementById('setup-body');
+  root.classList.remove('hidden');
+  if(g.setup.length<nch){ for(let i=g.setup.length;i<nch;i++) g.setup.push({use:i===0?true:false, role:'Microphone', gain:1.0}); }
+  let html = '<table><thead><tr><th style="text-align:left">Use</th><th>CH</th><th>Role</th><th>Correction ×</th></tr></thead><tbody>';
+  for(let i=0;i<nch;i++){
+    const st=g.setup[i]||{use:false, role:'Microphone', gain:1.0};
+    html += '<tr>'
+      + `<td style="text-align:center"><input type="checkbox" data-k="${i}" class="ck-use" ${st.use?'checked':''}></td>`
+      + `<td style="text-align:center">CH${i+1}</td>`
+      + `<td style="text-align:center"><select data-k="${i}" class="sel-role">`
+      + ['Force hammer','Accelerometer','Microphone'].map(r=>`<option value="${r}" ${st.role===r?'selected':''}>${r}</option>`).join('')
+      + `</select></td>`
+      + `<td><input type="number" step="any" value="${st.gain}" data-k="${i}" class="num-gain" style="width:120px"></td>`
+      + '</tr>';
   }
   html += '</tbody></table>';
-
-  // CSV text
-  const csv = rows.map(r=>r.map(x=>{
-    const s = (x==null? '': String(x));
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-  }).join(',')).join('\n');
-
-  return {html, csv};
-}
-let _avgCSVCache = '';
-function renderAverageTab(){
-  const div = document.getElementById('avg-tables');
-  const {html, csv} = makeAverageTables();
-  _avgCSVCache = csv;
-  div.innerHTML = html;
-}
-function downloadAverageCSV(){
-  if(!_avgCSVCache){ renderAverageTab(); }
-  const blob = new Blob([_avgCSVCache], {type:'text/csv;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'average_tab.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  body.innerHTML = html;
+  body.querySelectorAll('.ck-use').forEach(el=> el.addEventListener('change', ev=>{ const k=+ev.target.dataset.k; g.setup[k].use = ev.target.checked; buildTabs(g.audio?g.audio.numberOfChannels:1); }));
+  body.querySelectorAll('.sel-role').forEach(el=> el.addEventListener('change', ev=>{ const k=+ev.target.dataset.k; g.setup[k].role = ev.target.value; buildTabs(g.audio?g.audio.numberOfChannels:1); }));
+  body.querySelectorAll('.num-gain').forEach(el=> el.addEventListener('input', ev=>{ const k=+ev.target.dataset.k; const v=parseFloat(ev.target.value); g.setup[k].gain = isFinite(v)?v:1.0; }));
 }
 
-/* ===== Processing ===== */
-function processWithChunking(audioBuffer, bandCenters, progressBarEl, progressLabelEl){
-  // 処理内容：
-  //  - 各CH × 各バンドfcについて、選択された filterType に応じて帯域通過フィルタを適用
-  //  - RBJは奇数オーダ対応（最終段のみ“半段相当”に弱める）
-  //  - butter6       : 近似（RBJ 3段直列）
-  //  - butter6_exact : 厳密6次（SOS）※事前に designButter6ExactSOS / sosFilter を定義済みであること
-  //
-  // 返り値：{ results, bandCenters }
-  //   results[i] = { channelIndex, times, bandOutputs:{[fc]: Float32Array|null}, sampleRate, inputMaxAbs, originalSignal }
-  return new Promise((resolve)=>{
-    const sr  = audioBuffer.sampleRate;
-    const nch = audioBuffer.numberOfChannels;
-    const totalSteps = (nch * bandCenters.length) + nch; // バンド処理＋チャネル終端の集計
-    let completed = 0;
-
-    const results = [];
-    let ch = 0;
-
-    // UIから設定取得
-    const filterType = (document.getElementById('filter-type')?.value) || 'rbj';
-    const rbjOrderInput = Number(document.getElementById('filter-order')?.value);
-    const rbjOrder = isFinite(rbjOrderInput) ? Math.max(2, Math.round(rbjOrderInput)) : 4; // 2以上の整数
-    const stages = Math.max(1, Math.ceil(rbjOrder/2));        // 2次/段 → 切り上げ
-    const hasOddTail = (rbjOrder % 2) === 1;                  // 奇数の場合は末段を弱める
-
-    function _updateProgress(label){
-      const pct = Math.round((completed/Math.max(1,totalSteps))*100);
-      if(progressBarEl)   progressBarEl.style.width = pct + '%';
-      if(progressLabelEl) progressLabelEl.textContent = `${label} (${pct}%)`;
+/*** CH tabs ***/
+function buildTabs(nch){
+  const tabs=document.getElementById('tabs'); tabs.innerHTML=''; tabs.classList.remove('hidden');
+  for(let ch=0; ch<nch; ch++){
+    if(g.setup[ch] && g.setup[ch].use){ // omit unchecked channels
+      const d=document.createElement('div'); d.className='tab'+(tabs.children.length===0?' active':'');
+      const nm = g.setup[ch].role || 'CH'+(ch+1);
+      d.textContent = `CH${ch+1} (${nm})`;
+      d.dataset.ch=ch;
+      d.addEventListener('click', ()=>{ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); d.classList.add('active'); renderChannel(ch); });
+      tabs.appendChild(d);
     }
+  }
+  document.getElementById('summary').classList.remove('hidden');
+  const first = tabs.querySelector('.tab'); if(first){ renderChannel(+first.dataset.ch); } else { document.getElementById('summary-title').textContent='No channel selected'; document.getElementById('table-wrap').innerHTML=''; document.getElementById('plots-wrap').innerHTML=''; }
+}
 
-    function nextChannel(){
-      if(ch >= nch){
-        _updateProgress('Done');
-        return resolve({results, bandCenters});
+/*** processing ***/
+function updateProgress(pct,msg){ document.getElementById('bar').style.width = Math.max(0,Math.min(100,pct))+'%'; document.getElementById('p-label').textContent = msg||''; }
+
+async function onProcess(){
+  try{
+    // overlay and clear summary during processing
+    document.getElementById('overlay').style.display = 'flex';
+    document.getElementById('table-wrap').innerHTML = '';
+    document.getElementById('plots-wrap').innerHTML = '';
+    updateProgress(0,'processing');
+
+    const N = Math.max(1, Math.round(Number(document.getElementById('filter-order').value)||12));
+    const bandType = document.getElementById('band-type').value;
+    const centersAll = bandType==='oct' ? centersOct() : centersThird();
+    const lo = Number(document.getElementById('band-lo').value)||16;
+    const hi = Number(document.getElementById('band-hi').value)||8000;
+    const centers = centersAll.filter(f=> f>=lo && f<=hi);
+
+    let sr=0, nch=0, getData=null;
+    if(g.audio){ sr=g.audio.sampleRate; nch=g.audio.numberOfChannels; getData=i=>g.audio.getChannelData(i); }
+    else if(g.csv.rows.length){ sr=Number(document.getElementById('csv-sr').value)||g.srCSV||25600; nch=1; const y=Float32Array.from(g.csv.rows.map(r=> Number(r[1])||0)); getData=i=>y; }
+    else{ throw new Error('no data'); }
+
+    const timeMode = document.getElementById('time-weight').value;
+    const leqWin = Math.max(1e-3, Number(document.getElementById('leq-win').value)||1);
+    const usedIdx = []; for(let ch=0; ch<nch; ch++){ if(g.setup[ch] && g.setup[ch].use) usedIdx.push(ch); }
+    const total = usedIdx.length * centers.length; let done=0;
+
+    const results = []; // per ch
+    for(const ch of usedIdx){
+      const cfg = g.setup[ch];
+      let x = getData(ch);
+      if(cfg.gain && cfg.gain!==1){ const xx=new Float32Array(x.length); for(let i=0;i<x.length;i++) xx[i]=x[i]*cfg.gain; x=xx; }
+      const byBand = {}; // fc -> metrics
+      for(let i=0;i<centers.length;i++){
+        const fc=centers[i];
+        if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; done++; updateProgress(100*done/total, `skip ${fc}Hz`); continue; }
+        const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
+        const y  = sosFilter(x, sos);
+        // SPL metrics
+        const T = y.length/sr;
+        const mean_p2 = (()=>{ let s=0; for(let k=0;k<y.length;k++) s+=y[k]*y[k]; return s/Math.max(1,y.length); })();
+        const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
+        const LE  = Leq + 10*Math.log10(Math.max(1e-24, T)); // 1s基準
+        const sFast = ewmaSquaredToSPL(y, sr, 0.125);
+        const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
+        let series = timeMode==='fast' ? sFast : timeMode==='slow' ? sSlow : timeMode==='leq' ? movingLeqSPL(y, sr, leqWin)
+                     : (()=>{ const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length); for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; } return out; })();
+        const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
+        const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
+        const L05 = percentile(series, 0.95);
+        const L10 = percentile(series, 0.90);
+        const L50 = percentile(series, 0.50);
+        const L90 = percentile(series, 0.10);
+        const L95 = percentile(series, 0.05);
+        byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
+        done++; updateProgress(100*done/total, `CH${ch+1} ${Math.round(fc)}Hz`);
       }
-
-      const ci = ch;
-      const sig = (audioBuffer.getChannelData) ? audioBuffer.getChannelData(ci) : new Float32Array(audioBuffer.length);
-      const times = Array.from({length: sig.length}, (_,i)=> i/sr);
-      const bandOutputs = {};
-      let bi = 0;
-
-      function nextBand(){
-        if(bi >= bandCenters.length){
-          // チャンネル集計
-          let maxAbs = 0; for(let i=0;i<sig.length;i++){ const a = Math.abs(sig[i]); if(a>maxAbs) maxAbs=a; }
-          results.push({ channelIndex: ci, times, bandOutputs, sampleRate: sr, inputMaxAbs: maxAbs, originalSignal: sig });
-          completed++;
-          _updateProgress(`Processed channel ${ci+1}/${nch}`);
-          ch++;
-          setTimeout(nextChannel, 10);
-          return;
-        }
-
-        const fc = bandCenters[bi];
-        (function(bf, bidx){
-          try{
-            // バンド境界（1/1オクターブ相当：fc/√2 .. fc*√2）
-            const f_low  = bf / Math.SQRT2;
-            const f_high = bf * Math.SQRT2;
-            // Nyquistより上は処理しない
-            if(f_low >= sr/2){
-              bandOutputs[bf] = null;
-            } else {
-              let y = sig;
-              if(filterType === 'rbj'){
-                // --- RBJ cascade（奇数オーダ対応）---
-                const BW = Math.max(1e-6, f_high - f_low);
-                for(let s=0; s<stages; s++){
-                  let Q = Math.max(0.1, bf / BW);
-                  // 奇数オーダの最終段は“半段相当”の緩さ（経験的に √2 で割る）
-                  if(hasOddTail && s === stages-1) Q = Math.max(0.1, Q/Math.SQRT2);
-                  const c = designBandpassRBJ(bf, sr, Q);
-                  y = filterBiquadDF1(y, c);
-                }
-                bandOutputs[bf] = y;
-
-              } else if(filterType === 'butter6'){
-                // --- 近似Butterworth 6th（RBJ 3段近似）---
-                y = cascadeButter6Approx(y, sr, bf);
-                bandOutputs[bf] = y;
-
-              } else if(filterType === 'butter6_exact'){
-                // --- 厳密Butterworth 6th（SOS）---
-                const sos = designButter6ExactSOS(bf, sr);
-                y = sosFilter(y, sos);
-                bandOutputs[bf] = y;
-
-              } else {
-                // 未知のタイプ → RBJデフォルト
-                const BW = Math.max(1e-6, f_high - f_low);
-                for(let s=0; s<stages; s++){
-                  let Q = Math.max(0.1, bf / BW);
-                  if(hasOddTail && s === stages-1) Q = Math.max(0.1, Q/Math.SQRT2);
-                  const c = designBandpassRBJ(bf, sr, Q);
-                  y = filterBiquadDF1(y, c);
-                }
-                bandOutputs[bf] = y;
-              }
-            }
-          }catch(err){
-            console.warn('band process error:', err);
-            bandOutputs[bf] = null;
-          }
-
-          completed++;
-          _updateProgress(`Processing CH ${ci+1}/${nch}, band ${bidx+1}/${bandCenters.length}`);
-          bi++;
-          setTimeout(nextBand, 5);
-        })(fc, bi);
-      }
-
-      nextBand();
+      results.push({channelIndex:ch, role:cfg.role, byBand, centers, sr});
     }
+    g.results = {results, centers, sr};
+    setStatus('Processed');
+    // Render current active tab
+    const active = document.querySelector('#tabs .tab.active');
+    if(active){ renderChannel(+active.dataset.ch); }
+  }catch(err){ setStatus('Process error: '+err.message); }
+  finally{ updateProgress(100,'done'); document.getElementById('overlay').style.display = 'none'; }
+}
 
-    // kick
-    _updateProgress('Processing (DSP)');
-    setTimeout(nextChannel, 10);
+/*** render per channel ***/
+function renderChannel(ch){
+  if(!g.results){ document.getElementById('summary-title').textContent='Summary'; return; }
+  const rec = g.results.results.find(r=>r.channelIndex===ch);
+  if(!rec){ document.getElementById('summary-title').textContent=`CH${ch+1} (omitted)`; document.getElementById('table-wrap').innerHTML=''; document.getElementById('plots-wrap').innerHTML=''; return; }
+  document.getElementById('summary-title').textContent = `Channel ${ch+1} (${rec.role}) — ${document.getElementById('band-type').value==='oct'?'1/1':'1/3'} octave`;
+  // Build table (order: Lfmax, Lsmax, Leq, LE, percentiles)
+  const centers = rec.centers;
+  let html = '<table><thead><tr><th>f(Hz)</th><th>Lfmax(dB)</th><th>Lsmax(dB)</th><th>Leq(dB)</th><th>LE(dB)</th><th>L05</th><th>L10</th><th>L50</th><th>L90</th><th>L95</th></tr></thead><tbody>';
+  for(const f of centers){
+    const m = rec.byBand[f];
+    if(!m) continue;
+    html += `<tr data-f="${f}"><td class="f">${Math.round(f)}</td><td>${m.Lfmax.toFixed(1)}</td><td>${m.Lsmax.toFixed(1)}</td><td>${m.Leq.toFixed(1)}</td><td>${m.LE.toFixed(1)}</td><td>${m.L05.toFixed(1)}</td><td>${m.L10.toFixed(1)}</td><td>${m.L50.toFixed(1)}</td><td>${m.L90.toFixed(1)}</td><td>${m.L95.toFixed(1)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  const wrap = document.getElementById('table-wrap');
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('tbody tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      wrap.querySelectorAll('tbody tr').forEach(t=>t.classList.remove('sel'));
+      tr.classList.add('sel');
+      const f = Number(tr.dataset.f);
+      const target = document.getElementById(`band-${Math.round(f)}`);
+      if(target){ target.scrollIntoView({behavior:'smooth', block:'center'}); }
+    });
   });
-}
 
-async function handleFileLoad(file){
-  setStatus('Reading file.');
-  setFileNameText(file.name);
-  const lower = file.name.toLowerCase();
-
-  if(lower.endsWith('.wav') || lower.endsWith('.wave')){
-    const arrayBuffer = await file.arrayBuffer();
-
-    // 期待ch数（decodeAudioData が mono に落とす環境対策）
-    let hdr = null;
-    try { hdr = readWavHeader(arrayBuffer); } catch(_){}
-
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if(!AC) throw new Error('Web Audio API が利用できません');
-    const tmpCtx = new AC();
-    try{ if(tmpCtx.state === 'suspended') await tmpCtx.resume(); }catch(_){}
-
-    try{
-      const audioBuffer = await decodeWavWithCompat(tmpCtx, arrayBuffer);
-      try{ tmpCtx.close(); }catch(_){}
-
-      // 多chのはずが1chで返ってきたら手動デコードへ切替
-      if(hdr && hdr.numChannels > 1 && audioBuffer.numberOfChannels === 1){
-        const fb = decodePCMFromWav(arrayBuffer);
-        loadedAudioBuffer = fb;
-        setStatus(`Loaded WAV (manual) — ${fb.numberOfChannels} ch, ${Math.round(fb.sampleRate)} Hz, ${fb.duration.toFixed(2)} s`);
-      } else {
-        loadedAudioBuffer = audioBuffer;
-        setStatus(`Loaded WAV — ${audioBuffer.numberOfChannels} ch, ${Math.round(audioBuffer.sampleRate)} Hz, ${audioBuffer.duration.toFixed(2)} s`);
-      }
-
-      parsedCSV_meta = null;
-      loadedFile = file;
-      ensureChannelRoles(loadedAudioBuffer.numberOfChannels);
-      document.getElementById('config').style.display = 'block';
-      document.getElementById('mapping-panel').style.display = 'none';
-      document.getElementById('process-btn').disabled = false;
-      return;
-
-    }catch(err){
-      try{ tmpCtx.close(); }catch(_){}
-      // decodeAudioData 失敗 → 手動デコード
-      const fb = decodePCMFromWav(arrayBuffer);
-      loadedAudioBuffer = fb;
-      parsedCSV_meta = null;
-      loadedFile = file;
-      setStatus(`Loaded WAV (manual) — ${fb.numberOfChannels} ch, ${Math.round(fb.sampleRate)} Hz, ${fb.duration.toFixed(2)} s`);
-      ensureChannelRoles(fb.numberOfChannels);
-      document.getElementById('config').style.display = 'block';
-      document.getElementById('mapping-panel').style.display = 'none';
-      document.getElementById('process-btn').disabled = false;
-      return;
-    }
-
-  } else if(lower.endsWith('.csv') || lower.endsWith('.txt')){
-    const text = await file.text();
-    const hasHeader = document.getElementById('has-header').checked;
-    const parsed = parseCSVToRows(text, hasHeader);
-    if(parsed.rows.length === 0) throw new Error('CSV parsing produced no rows');
-
-    parsedCSV_meta = parsed;
-    showMappingUI(parsed);
-    document.getElementById('mapping-panel').style.display = 'block';
-    loadedFile = file;
-    setStatus('CSV loaded — confirm mapping then Apply mapping');
-    document.getElementById('process-btn').disabled = true;
-    document.getElementById('auto-map-btn').onclick  = ()=> autoMap(parsed);
-    document.getElementById('apply-map-btn').onclick = ()=> applyMapping(parsed);
-    return;
-
-  } else {
-    throw new Error('Unsupported file type. Use WAV or CSV.');
+  // Build vertical plots for all bands + star at Fast max-hold time
+  const host = document.getElementById('plots-wrap');
+  host.innerHTML = '';
+  for(const f of centers){
+    const m = rec.byBand[f]; if(!m) continue;
+    const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
+    const y=m.y; const sr=m.sr; const x = new Array(y.length); for(let i=0;i<y.length;i++) x[i]=i/sr;
+    const env = (()=>{ const tau=0.125; const N=y.length; const out=new Float32Array(N); const alpha=1 - Math.exp(-1/(sr*tau)); let s=0; for(let i=0;i<N;i++){ s += alpha*(y[i]*y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); } return out; })();
+    // Fast dB series and its max index
+    const sFast = ewmaSquaredToSPL(y, sr, 0.125);
+    let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
+    const tmax = kmax/sr; const ystar = env[kmax];
+    const ds1 = downsampleForPlot(x,y,2000); const ds2 = downsampleForPlot(x,env,2000);
+    Plotly.react(div,[
+      {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
+      {x:ds2.x, y:ds2.y, name:'Env(Fast)', type:'scatter', mode:'lines'},
+      {x:[tmax], y:[ystar], name:'Fast max-hold', mode:'markers', marker:{symbol:'star', size:12, line:{width:1}}}
+    ], {title:`${Math.round(f)} Hz`, legend:{orientation:'h'}, margin:{l:40,r:10,t:30,b:30}});
   }
 }
-
-/* ===== UI wiring: file / load / process ===== */
-const fileInput = document.getElementById('file-input');
-fileInput.addEventListener('change', (e)=>{ const f = e.target.files && e.target.files[0]; setFileNameText(f ? f.name : 'No file selected'); });
-
-document.getElementById('load-btn').addEventListener('click', async ()=>{
-  const files = fileInput.files && Array.from(fileInput.files);
-  if(!files || files.length===0){ setStatus('Please select a file first'); return; }
-  try{
-    if(files.length === 1){
-      await handleFileLoad(files[0]); // 従来通り（WAV/CSV 単体ロード）
-    } else {
-      // バッチ：ロード時点では処理しない（Processでまとめて）
-      setFileNameText(`${files.length} files selected`);
-      loadedFile = null;
-      loadedAudioBuffer = null;
-      parsedCSV_meta = null;
-      setStatus(`Batch ready: ${files.length} files`);
-      // 設定UIは見せるが、Processはバッチ処理に切替
-      document.getElementById('config').style.display = 'block';
-      document.getElementById('mapping-panel').style.display = 'none';
-      document.getElementById('process-btn').disabled = false;
-    }
-  }catch(err){
-    setStatus('Load error: ' + (err && err.message ? err.message : String(err)));
-    alert('Load error: ' + (err && err.message ? err.message : String(err)));
-  }
-});
-
-document.getElementById('process-btn').addEventListener('click', async () => {
-  const files = fileInput.files && Array.from(fileInput.files || []);
-  const isBatch = files.length > 1;
-
-  if(!isBatch && !loadedAudioBuffer){ setStatus('No audio loaded'); return; }
-
-  const procBtn = document.getElementById('process-btn'); procBtn.disabled = true;
-  document.getElementById('progress-ui').style.display = 'block';
-  document.getElementById('channels-container').innerHTML = '';
-  document.getElementById('tabs').innerHTML = '';
-  const bandType = document.getElementById('band-type').value;
-  const bandCenters = (bandType === 'third') ? thirdOctaveCenters() : octaveCenters();
-  const progressBarEl = document.getElementById('progress-bar');
-  const progressLabelEl = document.getElementById('progress-label');
-
-  try{
-    if(!isBatch){
-      // ==== 単発（従来通り、描画あり）====
-      progressBarEl.style.width = '0%';
-      progressLabelEl.textContent = 'Processing (DSP)';
-      const res = await processWithChunking(loadedAudioBuffer, bandCenters, progressBarEl, progressLabelEl);
-      resultsCache = { results: res.results, bandCenters: res.bandCenters, envType: 'rms', windowMs: 125, useDB: false };
-
-      // 描画＋Average（前回ご案内の方式でも可。ここは簡易版でOK）
-      renderTabs(res.results);
-      for (const r of res.results){
-        const block = document.getElementById('channel-block-' + r.channelIndex);
-        plotChannelBlock(block, r, res.bandCenters);
-      }
-      renderAverageTab();
-      progressLabelEl.textContent = 'Done.'; progressBarEl.style.width = '100%';
-      setStatus('Processing + Rendering 完了。');
-    } else {
-      // ==== バッチ（複数ファイル）：描画なし、各ファイルのAverage CSVだけ出力 ====
-      setStatus('Batch processing… (no plots)');
-      progressBarEl.style.width = '0%'; progressLabelEl.textContent = 'Batch: loading';
-
-      // 進捗はファイル数ベース
-      let done = 0;
-      for(const f of files){
-        // 1) 読み込み
-        await handleFileLoad_forBatch(f);  // バッチ用ローダ（下に定義）
-        progressLabelEl.textContent = `Batch: processing ${f.name}`;
-        // 2) 処理
-        const res = await processWithChunking(loadedAudioBuffer, bandCenters, progressBarEl, progressLabelEl);
-        resultsCache = { results: res.results, bandCenters: res.bandCenters, envType: 'rms', windowMs: 125, useDB: false };
-        // 3) Average 作成→CSV保存（描画はしない）
-        const { csv } = makeAverageTables();
-        const outName = (f.name.replace(/\.[^.]+$/, '') || 'result') + '_average.csv';
-        downloadText(csv, outName);
-        done++;
-        const pct = Math.round((done/files.length)*100);
-        progressBarEl.style.width = pct + '%';
-        progressLabelEl.textContent = `Batch: ${done}/${files.length} Done`;
-      }
-      setStatus('Batch complete (CSV only).');
-    }
-  }catch(err){
-    setStatus('Process error: ' + (err && err.message ? err.message : String(err)));
-    progressLabelEl.textContent = 'Error'; alert('Process error: ' + (err && err.message ? err.message : String(err)));
-  } finally {
-    procBtn.disabled = false;
-  }
-});
-
-
-/* ===== Tab dynamic plotting hookup ===== */
-document.getElementById('tabs').addEventListener('click', (e)=>{
-  const t = e.target.closest('.tab'); if(!t) return;
-  const idx = t.dataset.idx;
-  if(idx==='avg'){ renderAverageTab(); return; }
-  if(!resultsCache) return;
-  const r = resultsCache.results.find(x=>String(x.channelIndex)===String(idx));
-  if(!r) return;
-  plotChannelBlock(document.getElementById('channel-block-'+idx), r, resultsCache.bandCenters);
-});
-
-/* ===== Roles UI ===== */
-document.getElementById('edit-roles-btn').addEventListener('click', ()=>{
-  const nch = channelRoles.length || (loadedAudioBuffer ? loadedAudioBuffer.numberOfChannels : 0);
-  ensureChannelRoles(nch);
-  const rolesWrapper = document.getElementById('roles-wrapper'); rolesWrapper.style.display = 'block';
-  const rolesArea = document.getElementById('roles-area'); rolesArea.innerHTML = '';
-  const roleOptions = ['', 'Time', 'Force Hammer', 'Accelerometer', 'Microphone'];
-  for(let i=0;i<nch;i++){
-    const wrap = document.createElement('div'); wrap.style.display='flex'; wrap.style.alignItems='center'; wrap.style.gap='6px';
-    const label = document.createElement('div'); label.textContent = 'CH'+(i+1); label.style.width='36px'; label.style.fontSize='13px'; label.style.color='#0f172a';
-    const sel = document.createElement('select'); sel.className='role-select'; sel.dataset.idx = i;
-    roleOptions.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-    sel.value = channelRoles[i] || '';
-    sel.addEventListener('change', (ev)=>{ const idx = Number(ev.target.dataset.idx); channelRoles[idx] = ev.target.value || ''; });
-    wrap.appendChild(label); wrap.appendChild(sel); rolesArea.appendChild(wrap);
-  }
-});
-
-/* ===== Save/Load roles ===== */
-document.getElementById('load-roles-file').addEventListener('change', async (e) => {
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  try {
-    const txt = await f.text();
-    const obj = JSON.parse(txt);
-    if (!Array.isArray(obj)) throw new Error('JSON should be an array of strings');
-    channelRoles = obj.map(x => String(x));
-    ensureChannelRoles(channelRoles.length);
-    setStatus('Roles loaded from JSON');
-  } catch (err) { setStatus('Failed loading roles JSON: ' + (err && err.message ? err.message : String(err))); }
-  finally { e.target.value=''; }
-});
-document.getElementById('save-roles').addEventListener('click', ()=>{
-  try{
-    const selects = document.querySelectorAll('.role-select');
-    if (selects && selects.length > 0) selects.forEach(s=>{ const idx = Number(s.dataset.idx); channelRoles[idx] = s.value || ''; });
-    if(!Array.isArray(channelRoles) || channelRoles.length===0){ setStatus('No roles to save'); return; }
-    const jsonText = JSON.stringify(channelRoles, null, 2);
-    const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'channel_roles.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    setStatus('Roles JSON downloaded');
-  }catch(err){ setStatus('Failed to save roles: ' + (err && err.message ? err.message : String(err))); }
-});
-
-async function handleFileLoad_forBatch(file){
-  setStatus('Reading (batch): ' + file.name);
-  const name = file.name.toLowerCase();
-  if(name.endsWith('.wav') || name.endsWith('.wave')){
-    const arrayBuffer = await file.arrayBuffer();
-    const AC = window.AudioContext || window.webkitAudioContext;
-    const tmpCtx = new AC();
-    try{ if(tmpCtx.state === 'suspended') await tmpCtx.resume(); }catch(e){}
-    const audioBuffer = await decodeWavWithCompat(tmpCtx, arrayBuffer);
-    try{ tmpCtx.close(); }catch(_e){}
-    loadedAudioBuffer = audioBuffer;
-    parsedCSV_meta = null;
-    loadedFile = file;
-    return;
-  } else if(name.endsWith('.csv') || name.endsWith('.txt')){
-    const text = await file.text();
-    // バッチはヘッダ有無はUI通りに従う
-    const hasHeader = document.getElementById('has-header').checked;
-    const parsed = parseCSVToRows(text, hasHeader);
-    if(parsed.rows.length === 0) throw new Error('CSV parsing produced no rows');
-    // 最小限のマッピング：Time列が無ければ等間隔、数値列を全部チャンネル
-    const nrows = parsed.rows.length;
-    let timeCol = -1;
-    if(parsed.headerTokens.length){
-      timeCol = parsed.headerTokens.findIndex(h=>/^time/i.test(h));
-    }
-    const sr = Number(document.getElementById('csv-sr').value) || DEFAULT_SR;
-    const times = new Array(nrows);
-    if(timeCol>=0){ for(let r=0;r<nrows;r++) times[r] = parsed.rows[r][timeCol]; }
-    else { for(let r=0;r<nrows;r++) times[r] = r/sr; }
-
-    const channels = [];
-    const ncols = parsed.rows[0].length;
-    for(let c=0;c<ncols;c++){
-      if(c===timeCol) continue;
-      let allNum=true;
-      for(let r=0;r<Math.min(nrows,100);r++){ if(!isFinite(parsed.rows[r][c])){ allNum=false; break; } }
-      if(!allNum) continue;
-      const colArr = new Array(nrows);
-      for(let r=0;r<nrows;r++) colArr[r] = isFinite(parsed.rows[r][c]) ? parsed.rows[r][c] : 0;
-      channels.push(colArr);
-    }
-    if(channels.length===0) throw new Error('No numeric columns found for batch CSV.');
-    loadedAudioBuffer = {
-      sampleRate: sr, length: channels[0].length, numberOfChannels: channels.length,
-      duration: channels[0].length/sr,
-      getChannelData: (i)=> Float32Array.from(channels[i] || new Array(channels[0].length).fill(0))
-    };
-    parsedCSV_meta = { times };
-    loadedFile = file;
-    return;
-  } else {
-    throw new Error('Unsupported file type in batch: ' + file.name);
-  }
-}
-
-// ダウンロード（テキスト）
-function downloadText(text, fileName){
-  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = fileName || 'output.txt';
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-/* ===== Debug handle ===== */
-window._fm_state = { getState: ()=>({loadedFileName: loadedFile?loadedFile.name:null, roles: channelRoles, resultsCache, parsedCSV_meta}) };
 </script>
 </body>
 </html>
