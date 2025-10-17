@@ -254,7 +254,14 @@ function runCalc(){
     document.getElementById('grade').textContent=final;
 
     const lnum = calcLnum(Lavg);
-    document.getElementById('lnum').textContent = (lnum!==null)? `L-${lnum}` : '判定不可';
+    let llText = '判定不可';
+    if (lnum !== null) {
+      if (lnum >= 66) llText = 'LL-65以上';
+      else if (lnum <= 42) llText = 'LL-40以下';
+      else llText = `LL-${5 * Math.round(lnum / 5)}`;
+    }
+    document.getElementById('grade').textContent = llText;
+    document.getElementById('lnum').textContent  = (lnum!==null)? `L-${lnum}` : '判定不可';
 
   }catch(e){
     const box=document.getElementById('err'); box.style.display='block'; box.textContent='実行時エラー: '+e.message; console.error(e);
