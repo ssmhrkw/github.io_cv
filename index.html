@@ -66,9 +66,7 @@
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace}
 
     /* レイアウト */
-    .hero{display:grid;grid-template-columns:1.25fr .9fr;gap:20px}
-    @media (max-width:900px){.hero{grid-template-columns:1fr}}
-
+    .hero{display:grid;grid-template-columns:1fr;gap:20px} /* 右側Toolsカードを削除したため1カラム */
     .sidebar{position:sticky;top:18px;align-self:start}
 
     .sep{height:1px;background:var(--border);margin:18px 0}
@@ -89,15 +87,14 @@
       padding:4px 10px;border-radius:999px;color:#3a74e8;font-size:12px
     }
 
-    /* Tools */
-    .tools-vertical{display:flex;flex-direction:column;gap:12px}
+    /* Tools共通カード */
     .tool{
       background:var(--card);border:1px solid var(--border);border-radius:16px;
       padding:16px;display:flex;gap:12px;align-items:flex-start;justify-content:space-between
     }
     .tool:hover{box-shadow:0 6px 18px rgba(26,54,93,.12)}
-    .tool .info{max-width:72%}
-    .tool h4{margin:0 0 4px;font-size:16px;font-weight:800}
+    .tool .info{max-width:100%}
+    .tool h4{margin:0 0 6px;font-size:16px;font-weight:800}
     .tool .desc{
       color:var(--muted);font-size:14px;
       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
@@ -112,14 +109,25 @@
     }
     .btn:hover{background:var(--btnh);transform:translateY(-1px)}
 
+    /* 幅広ツールグリッド */
+    .tool-note{margin:4px 0 12px;font-size:13px;color:var(--muted)}
+    .tools-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:14px;
+    }
+    @media (max-width:900px){
+      .tools-grid{ grid-template-columns:1fr; }
+    }
+
     footer{margin-top:24px;text-align:center;color:#8da0b8;font-size:12px}
   </style>
 </head>
 
 <body>
   <div class="wrap">
+    <!-- Hero: プロフィールのみ（右のToolsカードは削除） -->
     <section class="hero">
-      <!-- 左：プロフィール -->
       <div class="card pad sidebar">
         <div class="badge mono">Building Acoustics · Impact Sound</div>
         <h1>Susumu Hirakawa / 平川 侑</h1>
@@ -156,107 +164,106 @@
           </div>
         </div>
       </div>
+    </section>
 
-      <!-- 右：Tools -->
-      <div class="card pad">
-        <h2>Tools / Calculators</h2>
-        <p class="tool-note">
-          本欄の各ツールは、日常で自分が使っているPythonコードをベースに、GUIで手早く扱えるよう
-          ChatGPT等で実装した試作版です。
-        </p>
-        <div class="tools-vertical">
-          <div class="tool">
-            <div class="info">
-              <h4>手をたたいて残響時間を算出しようツール</h4>
-              <div class="desc">よく建築音響の人が手をたたいて残響時間を推定する。これをブラウザで再現。</div>
-              <div class="filetag">/revtime_recorder.html</div>
-            </div>
-            <a class="btn" href="./revtime_recorder.html" target="_blank" rel="noopener">開く</a>
-          </div>
+    <!-- 幅広: Tools / Calculators（2列×4件） -->
+    <section class="card pad" style="margin-top:18px">
+      <h2>Tools / Calculators</h2>
+      <p class="tool-note">
+        本欄の各ツールは、日常で自分が使っているPythonコードをベースに、GUIで手早く扱えるよう ChatGPT等で実装した試作版です。
+      </p>
 
-          <div class="tool">
-            <div class="info">
-              <h4>床衝撃音レベルとしゃ音等級の予測</h4>
-              <div class="desc">実務的騒音対策指針（応用編）p188–202を参考に実装（完全一致ではない）。</div>
-              <div class="filetag">/Floorimpact.html</div>
-            </div>
-            <a class="btn" href="./Floorimpact.html" target="_blank" rel="noopener">開く</a>
+      <div class="tools-grid">
+        <!-- 1 -->
+        <div class="tool">
+          <div class="info">
+            <h4>手をたたいて残響時間を算出</h4>
+            <div class="desc">手拍子から残響時間を推定。ブラウザのみで動作。</div>
+            <div class="filetag">/revtime_recorder.html</div>
           </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>板の曲げ波・固有振動数</h4>
-              <div class="desc">SS-SS-SS-SS条件。スライダで共振周波数と加振点インピーダンス変化を可視化。</div>
-              <div class="filetag">/plates.html</div>
-            </div>
-            <a class="btn" href="./plates.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>IEC 61620 バンドパスフィルタ設計チェック</h4>
-              <div class="desc">Javascriptでフィルタ設計を確認するための補助ツール。</div>
-              <div class="filetag">/FilterDesign.html</div>
-            </div>
-            <a class="btn" href="./FilterDesign.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>NA-28 RNDから重量床衝撃音遮断性能</h4>
-              <div class="desc">ドラッグ＆ドロップで計算。現状は検証中。</div>
-              <div class="filetag">/NA28_FIC.html</div>
-            </div>
-            <a class="btn" href="./NA28_FIC.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>DA-20 wavヘッダ閲覧</h4>
-              <div class="desc">ヘッダ情報を素早く確認するためのビューア。</div>
-              <div class="filetag">/wav_Inspector.html</div>
-            </div>
-            <a class="btn" href="./wav_Inspector.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>DA-20 wavからの帯域計算</h4>
-              <div class="desc">対象Chを選択し、oct/1&frasl;3oct を計算。Fast-max対応。</div>
-              <div class="filetag">/wav2Fmax.html</div>
-            </div>
-            <a class="btn" href="./wav2Fmax.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>NA-28 RNDを開くツール</h4>
-              <div class="desc">RNDを素早く閲覧したいとき用。Excel起動を省略。</div>
-              <div class="filetag">/rnd_viewer.html</div>
-            </div>
-            <a class="btn" href="./rnd_viewer.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="tool">
-            <div class="info">
-              <h4>CSV Segmenter</h4>
-              <div class="desc">個人利用の簡易CSVセグメンタ。</div>
-              <div class="filetag">/CSV_Segmenter.html</div>
-            </div>
-            <a class="btn" href="./CSV_Segmenter.html" target="_blank" rel="noopener">開く</a>
-          </div>
-
-          <div class="chipline">
-            <span class="chip">Floor Impact Sound</span>
-            <span class="chip">Signal Processing</span>
-          </div>
+          <a class="btn" href="./revtime_recorder.html" target="_blank" rel="noopener">開く</a>
         </div>
+
+        <!-- 2 -->
+        <div class="tool">
+          <div class="info">
+            <h4>床衝撃音レベルと等級の予測</h4>
+            <div class="desc">実務的騒音対策指針（応用編）p188–202を参照した計算。</div>
+            <div class="filetag">/Floorimpact.html</div>
+          </div>
+          <a class="btn" href="./Floorimpact.html" target="_blank" rel="noopener">開く</a>
+        </div>
+
+        <!-- 3 -->
+        <div class="tool">
+          <div class="info">
+            <h4>板の曲げ波・固有振動数</h4>
+            <div class="desc">SS-SS-SS-SS条件で周波数とインピーダンスを可視化。</div>
+            <div class="filetag">/plates.html</div>
+          </div>
+          <a class="btn" href="./plates.html" target="_blank" rel="noopener">開く</a>
+        </div>
+
+        <!-- 4 -->
+        <div class="tool">
+          <div class="info">
+            <h4>IEC 61620 バンドパス設計</h4>
+            <div class="desc">JavaScriptでのバンドパスフィルタ設計確認。</div>
+            <div class="filetag">/FilterDesign.html</div>
+          </div>
+          <a class="btn" href="./FilterDesign.html" target="_blank" rel="noopener">開く</a>
+        </div>
+
+        <!-- 5 -->
+        <div class="tool">
+          <div class="info">
+            <h4>NA-28 RND→遮断性能計算</h4>
+            <div class="desc">RNDをドラッグ＆ドロップしてFICを推定。</div>
+            <div class="filetag">/NA28_FIC.html</div>
+          </div>
+          <a class="btn" href="./NA28_FIC.html" target="_blank" rel="noopener">開く</a>
+        </div>
+
+        <!-- 6 -->
+        <div class="tool">
+          <div class="info">
+            <h4>DA-20 wavヘッダ閲覧</h4>
+            <div class="desc">録音ファイルのヘッダメタ情報を即時表示。</div>
+            <div class="filetag">/wav_Inspector.html</div>
+          </div>
+          <a class="btn" href="./wav_Inspector.html" target="_blank" rel="noopener">開く</a>
+        </div>
+
+        <!-- 7 -->
+        <div class="tool">
+          <div class="info">
+            <h4>DA-20 wav→帯域計算</h4>
+            <div class="desc">対象Chのoct/1&#8260;3octおよびFast-max計算。</div>
+            <div class="filetag">/wav2Fmax.html</div>
+          </div>
+          <a class="btn" href="./wav2Fmax.html" target="_blank" rel="noopener">開く</a>
+        </div>
+
+        <!-- 8 -->
+        <div class="tool">
+          <div class="info">
+            <h4>NA-28 RNDビューア</h4>
+            <div class="desc">Excelを起動せずRNDを素早く確認。</div>
+            <div class="filetag">/rnd_viewer.html</div>
+          </div>
+          <a class="btn" href="./rnd_viewer.html" target="_blank" rel="noopener">開く</a>
+        </div>
+      </div>
+
+      <div class="chipline" style="margin-top:12px">
+        <span class="chip">Floor Impact Sound</span>
+        <span class="chip">Signal Processing</span>
       </div>
     </section>
 
     <!-- Publications -->
     <section class="card pad" style="margin-top:18px">
-      <h2>Recent Report / 最近のレポート</h2>
+      <h2>Recent Publications(non-paper) / 最近の成果</h2>
       <ul class="list">
         <li><a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1326.htm" target="_blank" rel="noopener">国総研資料 1326：鉄骨造・木造における実建物と実験室の重量床衝撃音遮断性能の比較</a> <span class="muted">（2025，国総研資料 第1326号）</span></li>
         <li><a href="https://www.nilim.go.jp/lab/bcg/siryou/tnn/tnn1263.htm" target="_blank" rel="noopener">国総研資料 1263：非RC造を対象とした標準重量衝撃源（ゴムボール）による遮断性能の調査</a> <span class="muted">（2024，国総研資料 第1263号）</span></li>
@@ -266,7 +273,7 @@
     </section>
 
     <section class="card pad" style="margin-top:18px">
-      <h2>Recent Peer-reviewed paper / 最近の査読付き論文</h2>
+      <h2>Recent Publications(non-paper) / 最近の査読付き論文</h2>
       <ul class="list">
         <li><a href="https://doi.org/10.3130/aije.88.154" target="_blank" rel="noopener">アンケート調査結果における分譲・賃貸集合住宅の遮音性能の現状と満足度（その１）：居住者や建築物属性の明確化および課題点の抽出</a> <span class="muted">（2023，日本建築学会環境系論文集 88巻805号）</span></li>
         <li><a href="https://doi.org/10.3130/AIJE.87.371" target="_blank" rel="noopener">小型T字・十字型接合部試験体によるCLTパネル工法建築物の側路伝搬音の影響に関する基礎的検討</a> <span class="muted">（2022，日本建築学会環境系論文集 87巻797号）</span></li>
@@ -274,7 +281,7 @@
     </section>
 
     <section class="card pad" style="margin-top:18px">
-      <h2>Recent Contributions / 最近の寄稿</h2>
+      <h2>Recent Publications(non-paper) / 最近の寄稿</h2>
       <ul class="list">
         <li><a href="https://ndlsearch.ndl.go.jp/books/R000000004-I033960599" target="_blank" rel="noopener">集合住宅の音環境に関する法制度の変遷と規格・基準の課題</a> <span class="muted">（2025，騒音制御 49巻1号）</span></li>
         <li><a href="https://ndlsearch.ndl.go.jp/books/R000000004-I033835442" target="_blank" rel="noopener">日本の集合住宅における音環境に関する基準類の変遷</a> <span class="muted">（2024，日本騒音制御工学会 秋季研究発表会講演論文集）</span></li>
