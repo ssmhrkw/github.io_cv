@@ -1,78 +1,141 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Susumu Hirakawa | Profile & Tools</title>
   <meta name="description" content="Susumu Hirakawa / 平川 侑 — NILIM. Building acoustics (impact sound) profile, publications, and calculators.">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#ffffff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;600;800&display=swap" rel="stylesheet">
+
   <style>
     :root{
-      --bg:#0b1220; --panel:#0f172a; --panel2:#111827; --card:#0b1324;
-      --text:#e5e7eb; --muted:#94a3b8; --border:#1f2937;
-      --btn:#0f172a; --btnb:#1e293b; --btnh:#1d283a;
-      --chip:#0b2540; --chip-b:#1e3a8a;
+      /* Pastel / Sherbet */
+      --bg:#f7fbff;
+      --panel:#ffffff;      /* 大きいカード */
+      --panel2:#ffffff;
+      --card:#ffffff;       /* 小カード */
+      --text:#1f2a44;
+      --muted:#6b7c93;
+      --border:#e6eef7;
+
+      --btn:#e9f4ff;        /* ボタン */
+      --btnb:#cfe6ff;
+      --btnh:#dff0ff;
+
+      --chip:#f0f7ff;       /* バッジ/チップ */
+      --chip-b:#cfe2ff;
+
+      --shadow:0 10px 24px rgba(26,54,93,.10);
+      --radius:18px;
     }
+
     *{box-sizing:border-box}
     body{
-      margin:0;background:linear-gradient(180deg,var(--bg),#0d1424 40%,#0e182a);
+      margin:0;
+      background:
+        radial-gradient(60% 80% at 10% -10%, #fff2f5 0%, transparent 60%),
+        radial-gradient(70% 80% at 110% 10%, #e9fff5 0%, transparent 60%),
+        linear-gradient(180deg, var(--bg), #ffffff 60%);
       color:var(--text);
-      font-family:'Inter','Noto Sans JP',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue','Noto Sans',Arial,sans-serif;line-height:1.75
+      font-family:'Inter','Noto Sans JP',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue','Noto Sans',Arial,sans-serif;
+      line-height:1.75;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
     }
-    a{color:#93c5fd;text-decoration:none} a:hover{text-decoration:underline}
+
+    a{color:#3a74e8;text-decoration:none}
+    a:hover{text-decoration:underline}
+
     .wrap{max-width:1100px;margin:0 auto;padding:28px 18px}
-    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
-      border:1px solid var(--border);border-radius:18px;box-shadow:0 30px 70px rgba(2,6,23,.36)}
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
     .pad{padding:22px}
+
     h1{margin:0 0 6px;font-weight:800;font-size:clamp(22px,3vw,36px)}
     h2{margin:0 0 8px;font-weight:800;font-size:clamp(18px,2.2vw,26px)}
     h3{margin:0 0 6px;font-weight:800;font-size:18px}
     .muted{color:var(--muted)}
-    .badge{display:inline-flex;align-items:center;gap:8px;background:var(--chip);
-      border:1px solid var(--chip-b);padding:4px 10px;border-radius:999px;color:#c7d2fe;font-size:12px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace}
+
+    /* レイアウト */
     .hero{display:grid;grid-template-columns:1.25fr .9fr;gap:20px}
     @media (max-width:900px){.hero{grid-template-columns:1fr}}
+
+    .sidebar{position:sticky;top:18px;align-self:start}
+
+    .sep{height:1px;background:var(--border);margin:18px 0}
+
     .list{list-style:none;margin:0;padding:0}
     .list li{margin:8px 0}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace}
-    .sep{height:1px;background:#1f2937;margin:18px 0}
 
-    /* Tools vertical */
+    /* バッジ/タグ */
+    .badge{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--chip);border:1px solid var(--chip-b);
+      padding:4px 10px;border-radius:999px;color:#3a74e8;font-size:12px
+    }
+    .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .chip{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--chip);border:1px solid var(--chip-b);
+      padding:4px 10px;border-radius:999px;color:#3a74e8;font-size:12px
+    }
+
+    /* Tools */
     .tools-vertical{display:flex;flex-direction:column;gap:12px}
-    .tool{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;
-          display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+    .tool{
+      background:var(--card);border:1px solid var(--border);border-radius:16px;
+      padding:16px;display:flex;gap:12px;align-items:flex-start;justify-content:space-between
+    }
+    .tool:hover{box-shadow:0 6px 18px rgba(26,54,93,.12)}
     .tool .info{max-width:72%}
     .tool h4{margin:0 0 4px;font-size:16px;font-weight:800}
-    .tool .desc{color:var(--muted);font-size:14px}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;
-         background:var(--btn);border:1px solid var(--btnb);border-radius:12px;color:#e5e7eb;
-         font-weight:700;white-space:nowrap}
+    .tool .desc{
+      color:var(--muted);font-size:14px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+    }
+    .filetag{margin-top:8px;color:#8da0b8;font-size:12px}
+
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;
+      padding:11px 14px;background:var(--btn);border:1px solid var(--btnb);
+      border-radius:12px;color:#21406e;font-weight:700;white-space:nowrap;
+      transition:transform .05s ease, background .15s ease
+    }
     .btn:hover{background:var(--btnh);transform:translateY(-1px)}
-    .filetag{margin-top:8px;color:#9ca3af;font-size:12px}
-    .chipline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);border:1px solid var(--chip-b);
-          padding:4px 10px;border-radius:999px;color:#c7d2fe;font-size:12px}
+
+    footer{margin-top:24px;text-align:center;color:#8da0b8;font-size:12px}
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <section class="hero">
-      <!-- Profile -->
-      <div class="card pad">
+      <!-- 左：プロフィール -->
+      <div class="card pad sidebar">
         <div class="badge mono">Building Acoustics · Impact Sound</div>
         <h1>Susumu Hirakawa / 平川 侑</h1>
         <div class="muted">Ministry of Land, Infrastructure, Transport and Tourism — National Institute for Land and Infrastructure Management</div>
         <div class="muted">国土交通省 国土技術政策総合研究所</div>
+
         <div class="sep"></div>
+
         <div>
           <h3>Role / 所属</h3>
           <div>Building Research Department, Equipment Standard Research Division — <b>Senior Researcher</b></div>
           <div>建築研究部 設備基準研究室 — <b>主任研究官</b></div>
         </div>
+
         <div class="sep"></div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div>
             <h3>Contact</h3>
@@ -94,15 +157,14 @@
         </div>
       </div>
 
-      <!-- 右側：Tools（縦並び） -->
+      <!-- 右：Tools -->
       <div class="card pad">
         <h2>Tools / Calculators</h2>
         <div class="tools-vertical">
-
           <div class="tool">
             <div class="info">
               <h4>手をたたいて残響時間を算出しようツール</h4>
-              <div class="desc">ほら、よく建築音響の人って手をたたいてｘ秒ていうじゃない？あれです。</div>
+              <div class="desc">よく建築音響の人が手をたたいて残響時間を推定する。これをブラウザで再現。</div>
               <div class="filetag">/revtime_recorder.html</div>
             </div>
             <a class="btn" href="./revtime_recorder.html" target="_blank" rel="noopener">開く</a>
@@ -111,7 +173,7 @@
           <div class="tool">
             <div class="info">
               <h4>床衝撃音レベルとしゃ音等級の予測</h4>
-              <div class="desc">実務的騒音対策指針（応用編）p188-202を参考に実装。（完全にはあっていない）</div>
+              <div class="desc">実務的騒音対策指針（応用編）p188–202を参考に実装（完全一致ではない）。</div>
               <div class="filetag">/Floorimpact.html</div>
             </div>
             <a class="btn" href="./Floorimpact.html" target="_blank" rel="noopener">開く</a>
@@ -120,7 +182,7 @@
           <div class="tool">
             <div class="info">
               <h4>板の曲げ波・固有振動数</h4>
-              <div class="desc">SS-SS-SS-SS条件のみ。スライダ式で共振周波数が変わったり加振点でインピーダンスが変わることを簡単に示したかった。</div>
+              <div class="desc">SS-SS-SS-SS条件。スライダで共振周波数と加振点インピーダンス変化を可視化。</div>
               <div class="filetag">/plates.html</div>
             </div>
             <a class="btn" href="./plates.html" target="_blank" rel="noopener">開く</a>
@@ -128,8 +190,8 @@
 
           <div class="tool">
             <div class="info">
-              <h4>IEC 61620のバンドパスフィルタ設計用確認ツール</h4>
-              <div class="desc">javascriptでバンドパスフィルタを設計したかった。確認するためのツール</div>
+              <h4>IEC 61620 バンドパスフィルタ設計チェック</h4>
+              <div class="desc">Javascriptでフィルタ設計を確認するための補助ツール。</div>
               <div class="filetag">/FilterDesign.html</div>
             </div>
             <a class="btn" href="./FilterDesign.html" target="_blank" rel="noopener">開く</a>
@@ -137,8 +199,8 @@
 
           <div class="tool">
             <div class="info">
-              <h4>NA-28のRNDから重量床衝撃音遮断性能の計算</h4>
-              <div class="desc">ドラッグアンドドロップで計算。まだ完璧にあわない・・・</div>
+              <h4>NA-28 RNDから重量床衝撃音遮断性能</h4>
+              <div class="desc">ドラッグ＆ドロップで計算。現状は検証中。</div>
               <div class="filetag">/NA28_FIC.html</div>
             </div>
             <a class="btn" href="./NA28_FIC.html" target="_blank" rel="noopener">開く</a>
@@ -146,47 +208,49 @@
 
           <div class="tool">
             <div class="info">
-              <h4>DA-20のwavファイルヘッダ情報閲覧ツール</h4>
-              <div class="desc">ヘッダの情報を閲覧するためだけのツール</div>
+              <h4>DA-20 wavヘッダ閲覧</h4>
+              <div class="desc">ヘッダ情報を素早く確認するためのビューア。</div>
               <div class="filetag">/wav_Inspector.html</div>
             </div>
             <a class="btn" href="./wav_Inspector.html" target="_blank" rel="noopener">開く</a>
           </div>
-          
+
           <div class="tool">
             <div class="info">
-              <h4>DA-20のwavファイルからの帯域計算</h4>
-              <div class="desc">Wavをいれて該当Chを選択してoct,1/3octの計算（Fast-max)も。結構あってると思う・・・</div>
+              <h4>DA-20 wavからの帯域計算</h4>
+              <div class="desc">対象Chを選択し、oct/1&frasl;3oct を計算。Fast-max対応。</div>
               <div class="filetag">/wav2Fmax.html</div>
             </div>
-            <a class="btn" href="./plates.html" target="_blank" rel="noopener">開く</a>
+            <a class="btn" href="./wav2Fmax.html" target="_blank" rel="noopener">開く</a>
           </div>
 
           <div class="tool">
             <div class="info">
-              <h4>NA-28のRNDを開くツール</h4>
-              <div class="desc">RNDひらくのにエクセル立ち上がるのが面倒だからパッとみたいときに使いたい/div>
+              <h4>NA-28 RNDを開くツール</h4>
+              <div class="desc">RNDを素早く閲覧したいとき用。Excel起動を省略。</div>
               <div class="filetag">/rnd_viewer.html</div>
             </div>
             <a class="btn" href="./rnd_viewer.html" target="_blank" rel="noopener">開く</a>
           </div>
-            
+
           <div class="tool">
             <div class="info">
               <h4>CSV Segmenter</h4>
-              <div class="desc">CSVsegmenter for 個人利用</div>
+              <div class="desc">個人利用の簡易CSVセグメンタ。</div>
               <div class="filetag">/CSV_Segmenter.html</div>
             </div>
             <a class="btn" href="./CSV_Segmenter.html" target="_blank" rel="noopener">開く</a>
           </div>
-            
-        <div class="chipline">
-          <span class="chip">Floor Impact Sound</span>
-          <span class="chip">Signal Processing</span>
+
+          <div class="chipline">
+            <span class="chip">Floor Impact Sound</span>
+            <span class="chip">Signal Processing</span>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- Publications -->
     <section class="card pad" style="margin-top:18px">
       <h2>Recent Publications(non-paper) / 最近の成果</h2>
       <ul class="list">
@@ -196,14 +260,14 @@
         <li><a href="https://livrepository.liverpool.ac.uk/3028540/" target="_blank" rel="noopener">Thesis (PhD): Prediction of impact sound transmission with heavy impact sources in heavyweight buildings</a> <span class="muted">（2018，University of Liverpool 博士論文）</span></li>
       </ul>
     </section>
-    
+
     <section class="card pad" style="margin-top:18px">
       <h2>Recent Publications(non-paper) / 最近の査読付き論文</h2>
       <ul class="list">
         <li><a href="https://doi.org/10.3130/aije.88.154" target="_blank" rel="noopener">アンケート調査結果における分譲・賃貸集合住宅の遮音性能の現状と満足度（その１）：居住者や建築物属性の明確化および課題点の抽出</a> <span class="muted">（2023，日本建築学会環境系論文集 88巻805号）</span></li>
       </ul>
     </section>
-    
+
     <section class="card pad" style="margin-top:18px">
       <h2>Recent Publications(non-paper) / 最近の寄稿</h2>
       <ul class="list">
@@ -214,7 +278,7 @@
       </ul>
     </section>
 
-    <footer style="margin-top:24px;text-align:center;color:#94a3b8;font-size:12px">© <span class="mono">ssmhrkw</span> — GitHub Pages</footer>
+    <footer>© <span class="mono">ssmhrkw</span> — GitHub Pages</footer>
   </div>
 </body>
 </html>
