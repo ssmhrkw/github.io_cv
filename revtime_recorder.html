@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hand-Clap RT (EDT/T20/T30) + SNR判定 v2</title>
+  <title>Hand-Clap RT (EDT/T10/T20/T30) + SNR判定 v2.2</title>
   <style>
     :root{
       --bg:#f7f8fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
@@ -26,9 +26,10 @@
     button.secondary{ background:#e2e8f0; color:#0f172a; }
     button.ghost{ background:transparent; color:var(--accent); border:1px solid #c7d2fe}
     button:disabled{ opacity:.6; cursor:not-allowed }
+    .danger{ background:#dc2626 !important; }
     label{ font-size:14px; color:var(--muted) }
     select, input[type="number"]{
-      border:1px solid #e5e7eb; background:white; color:#0f172a; border-radius:12px; padding:8px 10px; min-width:120px;
+      border:1px solid #e5e7eb; background:white; color:#0f172a; border-radius:12px; padding:8px 10px; min-width:100px;
     }
     .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:12px }
     .hint{ font-size:12px; color:var(--muted) }
@@ -51,7 +52,7 @@
 <header>
   <div class="wrap">
     <h1>手をたたいて残響時間を推定（コンセプト）</h1>
-    <div class="sub">録音 → 1/1オクターブBPF（含む63 Hz）→ シュレーダー積分 → 直線回帰（EDT/T20/T30）／ 事前暗騒音と比較したSNRでOK/NG</div>
+    <div class="sub">録音 → 1/1オクターブBPF（含む63 Hz）→ シュレーダー積分 → 直線回帰（EDT/T10/T20/T30）／ 事前暗騒音と比較したSNRでOK/NG</div>
   </div>
 </header>
 
@@ -63,13 +64,29 @@
         <button id="btnRecord"><span id="recLabel">録音開始</span></button>
         <button id="btnStop" class="secondary" disabled>停止</button>
         <label>録音長（秒）<input type="number" id="recSec" value="5" step="1" min="3" max="20" /></label>
-        <button id="btnAnalyze" class="ghost" disabled>解析を実行</button>
+
+        <label>測定点数
+          <select id="measCount">
+            <option value="1" selected>1</option>
+            <option value="3">3</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <label>トリガー閾値[dBFS]
+          <input type="number" id="trigDb" value="-20" step="1" min="-60" max="-1" />
+        </label>
+
+        <button id="btnAnalyze" class="ghost" disabled>解析する</button>
+        <button id="btnCommit" class="ghost" disabled>この測定を保存</button>
+        <button id="btnAvg" class="ghost" disabled>平均を計算</button>
+
         <input type="file" id="fileInput" accept="audio/*" />
         <span id="state" class="pill">idle</span>
       </div>
-      <p class="hint">静かな部屋で、<b>ボタンを押して約1秒後に1回だけ強く手を叩いてください</b>。iOS/AndroidのNR/AGCは可能な範囲で無効化していますが、端末依存です。</p>
+      <p class="hint">静かな部屋で、<b>ボタンを押して約1秒後に1回だけ強く手を叩いてください</b>。端末側のNR/AGCは無効化要求を出しますが、OS依存で完全には止まりません。</p>
       <audio id="player" controls style="width:100%; display:none;"></audio>
       <div id="envInfo" class="footer-note mono"></div>
+      <div class="footer-note">デバイス処理要求: echoCancellation=false / noiseSuppression=false / autoGainControl=false（適用可否は端末次第）</div>
     </section>
 
     <section class="card" style="grid-column: span 12;">
@@ -91,8 +108,9 @@
         </label>
         <label>回帰区間
           <select id="rtMode">
-            <option value="ALL" selected>EDT/T20/T30 すべて</option>
+            <option value="ALL" selected>EDT/T10/T20/T30 すべて</option>
             <option value="EDT">EDTのみ</option>
+            <option value="T10">T10のみ</option>
             <option value="T20">T20のみ</option>
             <option value="T30">T30のみ</option>
           </select>
@@ -105,10 +123,12 @@
           </select>
         </label>
         <label><input type="checkbox" id="snrInclude63" checked/> 判定に63 Hzも含める</label>
+        <label><input type="checkbox" id="noiseComp" checked/> BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）</label>
         <button id="btnDownloadCsv" class="ghost" disabled>CSVを保存</button>
       </div>
-      <p class="hint">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）です。中央値SNRがしきい値以上なら<b>OK</b>。</p>
+      <p class="hint">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）。中央値SNRがしきい値以上なら<b>OK</b>。</p>
       <div>全体判定：<span id="overallJudge" class="judge ng">NG</span> <span id="overallNote" class="mono" style="margin-left:8px;"></span></div>
+      <div class="footer-note">測定保存数: <span id="measSaved" class="mono">0</span> / <span id="measTarget" class="mono">1</span></div>
     </section>
 
     <section class="card" style="grid-column: span 12;">
@@ -119,6 +139,7 @@
             <tr>
               <th>中心周波数 [Hz]</th>
               <th>EDT [s]</th>
+              <th>T10 [s]</th>
               <th>T20 [s]</th>
               <th>T30 [s]</th>
               <th>R²（代表回帰）</th>
@@ -128,7 +149,7 @@
           </thead>
           <tbody></tbody>
         </table>
-        <div class="footer-note">シュレーダー曲線からの直線回帰（T30優先→T20→EDT）でT60を外挿。SNRはBPF後信号のパワー比で計算。</div>
+        <div class="footer-note">代表回帰＝T30優先→T20→T10→EDT。回帰直線ラベルに<b>EDT/T10/T20/T30</b>を明示。</div>
       </div>
     </section>
 
@@ -140,9 +161,16 @@
     </section>
 
     <section class="card" style="grid-column: span 12;">
+      <h2>5) 元信号の切り取り位置</h2>
+      <canvas id="wave" style="height:150px"></canvas>
+      <div class="footer-note">原波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓、灰帯＝解析用に切り出した範囲。</div>
+    </section>
+
+    <section class="card" style="grid-column: span 12;">
       <h2>注意・限界</h2>
       <ul>
         <li>スマホ内蔵マイクは低域（～100 Hz）で感度が低いことが多く、<b>63 Hz</b>はSNR不足になりがちです。</li>
+        <li>getUserMediaでechoCancellation/noiseSuppression/autoGainControlを<b>false</b>指定し、可能ならトラックにもapplyConstraintsします。iOS Safari等では完全に無効化できない場合があります。</li>
         <li>厳密測定には標準化手順・信号の使用を推奨。本ツールは簡易推定・事前チェック用です。</li>
       </ul>
     </section>
@@ -154,6 +182,7 @@
   const $ = (s)=>document.querySelector(s);
   const $$ = (s)=>Array.from(document.querySelectorAll(s));
   const db10 = (x)=>10*Math.log10(x);
+  const db20 = (x)=>20*Math.log10(Math.max(1e-12, Math.abs(x)));
   function linreg(x, y){
     const n = x.length; if(n<2) return {a:NaN,b:NaN,r2:NaN};
     let sx=0, sy=0, sxy=0, sxx=0, syy=0;
@@ -171,11 +200,13 @@
     return [63,125,250,500,1000,2000,4000]; // default
   }
   function calcQ(fc){ const f1=fc/Math.SQRT2, f2=fc*Math.SQRT2; return fc/(f2-f1); }
-  function detectClapStart(samples, fs){
+  function detectClapStart(samples, fs, trigDb){
     let maxAbs=0, maxIdx=0;
     for(let i=0;i<samples.length;i++){ const a=Math.abs(samples[i]); if(a>maxAbs){ maxAbs=a; maxIdx=i; } }
+    const peakDb = db20(maxAbs); // dBFS
+    if(peakDb < trigDb){ return {idx:-1, peakDb}; }
     const pre = Math.floor(0.01*fs);
-    return Math.max(0, maxIdx-pre);
+    return {idx: Math.max(0, maxIdx-pre), peakDb};
   }
   function sliceForAnalysis(samples, fs, startIdx){
     const maxDur=3.5;
@@ -194,9 +225,23 @@
     for(let i=0;i<N;i++){ const r=Math.max(e[i]/e0,1e-12); out[i]=10*Math.log10(r); }
     return out;
   }
+  function schroederDBNoiseComp(x, pbg){
+    const N=x.length; const e=new Float64Array(N);
+    let s=0;
+    for(let i=N-1;i>=0;i--){
+      const vi=x[i]; const pi=vi*vi - pbg;
+      s += Math.max(0, pi);
+      e[i]=s;
+    }
+    const e0 = e[0] + 1e-12;
+    const out=new Float32Array(N);
+    for(let i=0;i<N;i++){ const r=Math.max(e[i]/e0,1e-12); out[i]=10*Math.log10(r); }
+    return out;
+  }
   function pickSegment(dBcurve, mode){
     let hi, lo;
     if(mode==='EDT'){ hi=0; lo=-10; }
+    else if(mode==='T10'){ hi=-5; lo=-15; }
     else if(mode==='T20'){ hi=-5; lo=-25; }
     else if(mode==='T30'){ hi=-5; lo=-35; }
     else { hi=0; lo=-10; }
@@ -209,15 +254,15 @@
   }
   function fitRT(dBcurve, fs, mode){
     const seg = pickSegment(dBcurve, mode);
-    if(!seg) return {T:NaN,a:NaN,b:NaN,r2:NaN,seg:null};
+    if(!seg) return {T:NaN,a:NaN,b:NaN,r2:NaN,seg:null, used:null};
     const [i0,i1]=seg; const n=i1-i0;
     const x=new Float64Array(n), y=new Float64Array(n);
     for(let k=0;k<n;k++){ x[k]=i0+k; y[k]=dBcurve[i0+k]; }
     const {a,b,r2}=linreg(x,y);
-    if(!isFinite(a) || Math.abs(a)<1e-12) return {T:NaN,a,b,r2,seg};
+    if(!isFinite(a) || Math.abs(a)<1e-12) return {T:NaN,a,b,r2,seg, used:mode};
     const T60 = -60/(a*fs);
-    if(T60<=0 || T60>20) return {T:NaN,a,b,r2,seg};
-    return {T:T60,a,b,r2,seg};
+    if(T60<=0 || T60>20) return {T:NaN,a,b,r2,seg, used:mode};
+    return {T:T60,a,b,r2,seg, used:mode};
   }
   async function bandpassFilter(samples, fs, fc, stages=2){
     const N=samples.length;
@@ -230,7 +275,6 @@
     node.connect(offline.destination); src.start(); const rendered = await offline.startRendering();
     return rendered.getChannelData(0);
   }
-  // SNR: power ratio between post-clap window and pre-clap window (bandpassed)
   function computeBandSNR(bp, fs, startIdx){
     const preDur = 0.5, guard = 0.05, postDur = 0.2;
     const pre0 = Math.max(0, startIdx - Math.floor((preDur+guard)*fs));
@@ -239,24 +283,30 @@
     const post1 = Math.min(bp.length, startIdx + Math.floor(postDur*fs));
     const validPre = pre1 - pre0;
     const validPost = post1 - post0;
-    if(validPre < 0.25*fs || validPost < 0.05*fs) return {snr: NaN, bg: NaN, cl: NaN};
+    if(validPre < 0.25*fs || validPost < 0.05*fs) return {snr: NaN, bg: NaN, cl: NaN, pbg: NaN, pre0, pre1, post0, post1};
     let pbg=0, pcl=0;
     for(let i=pre0;i<pre1;i++){ const v=bp[i]; pbg += v*v; }
     for(let i=post0;i<post1;i++){ const v=bp[i]; pcl += v*v; }
     pbg /= Math.max(1, validPre); pcl /= Math.max(1, validPost);
     const snr = 10 * Math.log10((pcl+1e-18) / (pbg+1e-18));
-    return {snr, bg: Math.sqrt(pbg), cl: Math.sqrt(pcl)};
+    return {snr, bg: Math.sqrt(pbg), cl: Math.sqrt(pcl), pbg, pre0, pre1, post0, post1};
   }
 
   // ===== App State/Elements =====
   const stateEl = $('#state'), envInfo = $('#envInfo'), player = $('#player');
   const btnRecord=$('#btnRecord'), btnStop=$('#btnStop'), btnAnalyze=$('#btnAnalyze'), btnCsv=$('#btnDownloadCsv');
-  const bandType=$('#bandType'), bpOrder=$('#bpOrder'), rtMode=$('#rtMode'), snrThSel=$('#snrTh'), snrInclude63=$('#snrInclude63');
+  const btnCommit=$('#btnCommit'), btnAvg=$('#btnAvg');
+  const bandType=$('#bandType'), bpOrder=$('#bpOrder'), rtMode=$('#rtMode'), snrThSel=$('#snrTh'), snrInclude63=$('#snrInclude63'), noiseComp=$('#noiseComp');
   const recSec=$('#recSec'), fileInput=$('#fileInput'), plotCanvas=$('#plot'), plotBandSel=$('#plotBand');
+  const waveCanvas=$('#wave');
   const overallJudge=$('#overallJudge'), overallNote=$('#overallNote');
+  const measCountSel=$('#measCount'), measSavedEl=$('#measSaved'), measTargetEl=$('#measTarget');
+  const trigDbEl=$('#trigDb');
 
   let mediaRecorder=null, chunks=[], stream=null, recordedBlob=null, decoded=null;
   let lastAnalysis=null, plotCache={};
+  let measurements=[];
+  measTargetEl.textContent = measCountSel.value;
 
   function setState(t){ stateEl.textContent=t; }
   function updateEnvInfo(extra=""){
@@ -272,6 +322,8 @@
     try{
       updateEnvInfo();
       stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:1}});
+      const track = stream.getAudioTracks()[0];
+      try{ await track.applyConstraints({echoCancellation:false, noiseSuppression:false, autoGainControl:false}); }catch(_){}
       const mimeType = pickMimeType();
       mediaRecorder = new MediaRecorder(stream, mimeType? {mimeType}: {});
       chunks=[];
@@ -281,14 +333,15 @@
         btnAnalyze.disabled = false;
         player.src = URL.createObjectURL(recordedBlob); player.style.display='block';
         setState('recorded');
+        btnRecord.classList.remove('danger');
       };
-      mediaRecorder.start(); setState('recording');
+      mediaRecorder.start(); setState('recording'); btnRecord.classList.add('danger');
       const s = Math.max(3, Math.min(20, Number(recSec.value)||5));
       setTimeout(()=>{ if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); stopStream(); } }, s*1000);
-    }catch(err){ console.error(err); setState('error'); alert('マイクアクセスに失敗: '+err.message); }
+    }catch(err){ console.error(err); setState('error'); alert('マイクアクセスに失敗: '+err.message); btnRecord.classList.remove('danger'); }
   }
   function stopStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
-  async function stopRecordingManual(){ try{ if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); } stopStream(); setState('stopped'); }catch(_){ } }
+  async function stopRecordingManual(){ try{ if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); } stopStream(); setState('stopped'); btnRecord.classList.remove('danger'); }catch(_){ } }
   async function decodeBlobToPCM(blob){
     const ac = new (window.AudioContext || window.webkitAudioContext)();
     const arr = await blob.arrayBuffer();
@@ -304,6 +357,7 @@
       function td(v, cls){ const e=document.createElement('td'); e.textContent=v; if(cls) e.className=cls; return e; }
       tr.appendChild(td(r.fc.toFixed(1)));
       tr.appendChild(td(isFinite(r.EDT)? r.EDT.toFixed(3):'—', isFinite(r.EDT)?'':'muted'));
+      tr.appendChild(td(isFinite(r.T10)? r.T10.toFixed(3):'—', isFinite(r.T10)?'':'muted'));
       tr.appendChild(td(isFinite(r.T20)? r.T20.toFixed(3):'—', isFinite(r.T20)?'':'muted'));
       tr.appendChild(td(isFinite(r.T30)? r.T30.toFixed(3):'—', isFinite(r.T30)?'':'muted'));
       tr.appendChild(td(isFinite(r.R2)? r.R2.toFixed(3):'—', isFinite(r.R2)?'':'muted'));
@@ -312,12 +366,12 @@
       tbody.appendChild(tr);
     });
   }
-  function exportCSV(rows){
-    const header=['fc_Hz','EDT_s','T20_s','T30_s','R2_repr','SNR_dB','PASS'];
+  function exportCSV(rows, filename='revtime_results_v2.csv'){
+    const header=['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2_repr','SNR_dB','PASS'];
     const lines=[header.join(',')];
-    rows.forEach(r=>{ lines.push([r.fc, r.EDT, r.T20, r.T30, r.R2, r.SNR, r.pass?1:0].map(v=>isFinite(v)?v:'').join(',')); });
+    rows.forEach(r=>{ lines.push([r.fc, r.EDT, r.T10, r.T20, r.T30, r.R2, r.SNR, r.pass?1:0].map(v=>isFinite(v)?v:'').join(',')); });
     const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='revtime_results_v2.csv';
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   function drawPlot(curve, fs, seg, fit, label){
@@ -336,8 +390,23 @@
     if(fit && isFinite(fit.a)){ ctx.strokeStyle='#2563eb'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath();
       const i0=seg?seg[0]:0, i1=seg?seg[1]:N; const y0=fit.a*i0+fit.b, y1=fit.a*i1+fit.b;
       ctx.moveTo(xToPx(i0/fs), yToPx(y0)); ctx.lineTo(xToPx(i1/fs), yToPx(y1)); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle='#1f2937'; ctx.font='12px system-ui'; const T60=-60/(fit.a*fs); ctx.fillText(`${label}  R²=${(fit.r2||0).toFixed(3)} / T60=${(isFinite(T60)?T60.toFixed(2):'—')} s`, padL+8, padT+16);
+      ctx.fillStyle='#1f2937'; ctx.font='12px system-ui'; ctx.fillText(`${label}`, padL+8, padT+16);
     }
+  }
+  function drawWave(wave, fs, startIdx, sliceN, pre0, pre1, post0, post1){
+    const cv=waveCanvas, ctx=cv.getContext('2d'); const W=cv.width, H=cv.height;
+    ctx.clearRect(0,0,W,H);
+    const pad=10; const plotW=W-2*pad, plotH=H-2*pad;
+    const N=wave.length;
+    let amax=1e-9; for(let i=0;i<N;i++){ const a=Math.abs(wave[i]); if(a>amax) amax=a; }
+    const xToPx=(i)=> pad + (i/N)*plotW;
+    const yToPx=(v)=> pad + (0.5 - v/(2*amax))*plotH;
+    ctx.fillStyle='rgba(59,130,246,0.15)'; if(pre1>pre0) ctx.fillRect(xToPx(pre0), pad, xToPx(pre1)-xToPx(pre0), plotH);
+    ctx.fillStyle='rgba(16,185,129,0.15)'; if(post1>post0) ctx.fillRect(xToPx(post0), pad, xToPx(post1)-xToPx(post0), plotH);
+    ctx.fillStyle='rgba(148,163,184,0.18)'; if(sliceN>0) ctx.fillRect(xToPx(startIdx), pad, xToPx(startIdx+sliceN)-xToPx(startIdx), plotH);
+    ctx.strokeStyle='#111827'; ctx.lineWidth=1; ctx.beginPath();
+    for(let i=0;i<N;i++){ const x=xToPx(i); const y=yToPx(wave[i]); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke();
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=2; const xt=xToPx(startIdx); ctx.beginPath(); ctx.moveTo(xt,pad); ctx.lineTo(xt,H-pad); ctx.stroke();
   }
   function populatePlotBandSelect(bands){
     plotBandSel.innerHTML=''; bands.forEach((fc, i)=>{ const opt=document.createElement('option'); opt.value=String(fc); opt.textContent=`${fc} Hz`; if(i===Math.floor(bands.length/2)) opt.selected=true; plotBandSel.appendChild(opt); });
@@ -348,42 +417,50 @@
       setState('analyzing');
       const buf = decoded; if(!buf){ alert('録音またはファイル選択を行ってください。'); setState('idle'); return; }
       const {fs, data} = buf;
-      const startIdx = detectClapStart(data, fs);
+      const trigDb = Number(trigDbEl.value)||-20;
+      const det = detectClapStart(data, fs, trigDb);
+      if(det.idx<0){ alert(`トリガー未検出: peak=${det.peakDb.toFixed(1)} dBFS < 閾値 ${trigDb} dBFS`); setState('idle'); return; }
+      const startIdx = det.idx;
       const slice = sliceForAnalysis(data, fs, startIdx);
       const stages = Math.max(1, Math.min(3, Number(bpOrder.value)||2));
       const bands = makeBands(bandType.value); populatePlotBandSelect(bands);
       const want = rtMode.value; const rows=[]; plotCache={};
       const snrTH = Number(snrThSel.value)||20;
       const include63 = !!snrInclude63.checked;
+      const useNoiseComp = !!noiseComp.checked;
 
-      const snrForOverall = []; // candidate bands for overall judge
+      const snrForOverall = [];
+      let lastWin = {pre0:0, pre1:0, post0:0, post1:0};
 
       for(const fc of bands){
         const filtered = await bandpassFilter(slice, fs, fc, stages);
-        const curve = schroederDB(filtered);
-        let EDT=NaN, T20=NaN, T30=NaN, R2=NaN;
-        if(want==='ALL' || want==='EDT'){ const r=fitRT(curve, fs, 'EDT'); EDT=r.T; }
-        if(want==='ALL' || want==='T20'){ const r=fitRT(curve, fs, 'T20'); T20=r.T; }
-        if(want==='ALL' || want==='T30'){ const r=fitRT(curve, fs, 'T30'); T30=r.T; }
-        let repr=fitRT(curve, fs, 'T30'); if(!isFinite(repr.T)) repr=fitRT(curve, fs, 'T20'); if(!isFinite(repr.T)) repr=fitRT(curve, fs, 'EDT');
-        if(isFinite(repr.r2)) R2=repr.r2;
-
-        // SNR
         const filteredFull = await bandpassFilter(new Float32Array(data), fs, fc, stages);
         const snrPack = computeBandSNR(filteredFull, fs, startIdx);
         const SNR = snrPack.snr;
+        lastWin = snrPack;
+
+        const curve = useNoiseComp && isFinite(snrPack.pbg) ? schroederDBNoiseComp(filtered, snrPack.pbg) : schroederDB(filtered);
+
+        let EDT=NaN, T10=NaN, T20=NaN, T30=NaN, R2=NaN; let used='—', seg=null, fit=null;
+        if(want==='ALL' || want==='EDT'){ const r=fitRT(curve, fs, 'EDT'); EDT=r.T; }
+        if(want==='ALL' || want==='T10'){ const r=fitRT(curve, fs, 'T10'); T10=r.T; }
+        if(want==='ALL' || want==='T20'){ const r=fitRT(curve, fs, 'T20'); T20=r.T; }
+        if(want==='ALL' || want==='T30'){ const r=fitRT(curve, fs, 'T30'); T30=r.T; }
+        let repr=fitRT(curve, fs, 'T30'); if(!isFinite(repr.T)) repr=fitRT(curve, fs, 'T20'); if(!isFinite(repr.T)) repr=fitRT(curve, fs, 'T10'); if(!isFinite(repr.T)) repr=fitRT(curve, fs, 'EDT');
+        if(isFinite(repr.r2)) R2=repr.r2;
+        used = repr.used || '—'; seg=repr.seg; fit={a:repr.a,b:repr.b,r2:repr.r2, used};
 
         const pass = isFinite(SNR) ? (SNR >= snrTH) : false;
-
         const inJudge = include63 ? (fc>=63 && fc<=4000) : (fc>=125 && fc<=4000);
         if(inJudge && isFinite(SNR)) snrForOverall.push({fc, SNR});
 
-        rows.push({fc, EDT, T20, T30, R2, SNR, pass});
-        plotCache[fc] = { curve, fs, seg: repr.seg, fit:{a:repr.a,b:repr.b,r2:repr.r2} };
+        rows.push({fc, EDT, T10, T20, T30, R2, SNR, pass});
+        plotCache[fc] = { curve, fs, seg, fit };
       }
 
       renderResultsTable(rows);
-      lastAnalysis = {rows, fs}; btnCsv.disabled = true;
+      lastAnalysis = {rows, fs, data, startIdx, sliceN: slice.length, lastWin};
+      btnCsv.disabled = false; btnCommit.disabled = false;
 
       const snrVals = snrForOverall.map(o=>o.SNR).sort((a,b)=>a-b);
       let med = NaN;
@@ -393,14 +470,55 @@
       overallJudge.className = 'judge ' + (overallOK ? 'ok' : 'ng');
       overallNote.textContent = snrVals.length ? `中央値SNR=${med.toFixed(1)} dB（判定帯域: ${snrInclude63.checked? '63–4k': '125–4k'}）` : 'SNRを評価できません（前静音不足または解析失敗）';
 
-      btnCsv.disabled = false;
-
-      const fcShow = Number(plotBandSel.value);
+      const fcShow = Number(plotBandSel.value) || bands[Math.floor(bands.length/2)];
       const pc = plotCache[fcShow] || plotCache[bands[Math.floor(bands.length/2)]];
-      if(pc) drawPlot(pc.curve, pc.fs, pc.seg, pc.fit, `${fcShow||'代表'} Hz`);
+      if(pc) drawPlot(pc.curve, pc.fs, pc.seg, pc.fit, `${fcShow||'代表'} Hz｜代表回帰=${pc.fit.used}｜R²=${(pc.fit.r2||0).toFixed(3)}｜T60=${(isFinite(-60/(pc.fit.a*pc.fs))?(-60/(pc.fit.a*pc.fs)).toFixed(2):'—')} s`);
+
+      if(lastAnalysis){
+        const {data, startIdx, sliceN, lastWin} = lastAnalysis;
+        drawWave(data, fs, startIdx, sliceN, lastWin.pre0, lastWin.pre1, lastWin.post0, lastWin.post1);
+      }
 
       setState('done');
     }catch(err){ console.error(err); setState('error'); alert('解析失敗: '+err.message); }
+  }
+
+  function averageMeasurements(){
+    if(measurements.length===0){ alert('保存済み測定がありません。'); return; }
+    const rows0 = measurements[0].rows;
+    const byFc = new Map();
+    rows0.forEach(r=>byFc.set(r.fc, {EDT:[],T10:[],T20:[],T30:[],R2:[],SNR:[]}));
+    for(const m of measurements){
+      for(const r of m.rows){
+        const acc = byFc.get(r.fc); if(!acc) continue;
+        if(isFinite(r.EDT)) acc.EDT.push(r.EDT);
+        if(isFinite(r.T10)) acc.T10.push(r.T10);
+        if(isFinite(r.T20)) acc.T20.push(r.T20);
+        if(isFinite(r.T30)) acc.T30.push(r.T30);
+        if(isFinite(r.R2)) acc.R2.push(r.R2);
+        if(isFinite(r.SNR)) acc.SNR.push(r.SNR);
+      }
+    }
+    function mean(a){ return a.length? a.reduce((p,c)=>p+c,0)/a.length : NaN; }
+    function median(a){ if(!a.length) return NaN; const b=[...a].sort((x,y)=>x-y); const m=Math.floor(b.length/2); return b.length%2? b[m] : (b[m-1]+b[m])/2; }
+    const snrTH = Number(snrThSel.value)||20;
+    const out=[];
+    for(const [fc, acc] of byFc.entries()){
+      const r={
+        fc,
+        EDT: mean(acc.EDT),
+        T10: mean(acc.T10),
+        T20: mean(acc.T20),
+        T30: mean(acc.T30),
+        R2: mean(acc.R2),
+        SNR: median(acc.SNR)
+      };
+      r.pass = isFinite(r.SNR) ? (r.SNR >= snrTH) : false;
+      out.push(r);
+    }
+    out.sort((a,b)=>a.fc-b.fc);
+    renderResultsTable(out);
+    btnCsv.onclick = ()=> exportCSV(out, 'revtime_results_avg.csv');
   }
 
   const recLabel = $('#recLabel');
@@ -419,9 +537,18 @@
     setState('file selected'); updateEnvInfo(`decoded fs=${decoded.fs}Hz, N=${decoded.length}`);
   });
   plotBandSel.addEventListener('change', ()=>{
-    const fc=Number(plotBandSel.value); const pc=plotCache[fc]; if(pc) drawPlot(pc.curve, pc.fs, pc.seg, pc.fit, `${fc} Hz`);
+    const fc=Number(plotBandSel.value); const pc=plotCache[fc]; if(pc) drawPlot(pc.curve, pc.fs, pc.seg, pc.fit, `${fc} Hz｜代表回帰=${pc.fit.used}｜R²=${(pc.fit.r2||0).toFixed(3)}｜T60=${(isFinite(-60/(pc.fit.a*pc.fs))?(-60/(pc.fit.a*pc.fs)).toFixed(2):'—')} s`);
   });
   btnCsv.addEventListener('click', ()=>{ if(lastAnalysis) exportCSV(lastAnalysis.rows); });
+  btnCommit.addEventListener('click', ()=>{
+    if(!lastAnalysis){ alert('解析結果がありません。'); return; }
+    measurements.push({rows:lastAnalysis.rows});
+    measSavedEl.textContent = String(measurements.length);
+    const target = Number(measCountSel.value)||1;
+    if(measurements.length >= target){ btnAvg.disabled=false; }
+  });
+  btnAvg.addEventListener('click', averageMeasurements);
+  measCountSel.addEventListener('change', ()=>{ measTargetEl.textContent = measCountSel.value; btnAvg.disabled=true; measurements=[]; measSavedEl.textContent='0'; });
 
   setState('idle'); updateEnvInfo();
 })();
