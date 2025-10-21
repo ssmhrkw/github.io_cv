@@ -27,18 +27,6 @@
   .pass{color:var(--ok);font-weight:700}
   .fail{color:var(--ng);font-weight:700}
   @media (max-width: 1040px){ .grid{grid-template-columns:repeat(2,1fr)} }
-/* --- super simple popup --- */
-#todoPopup{
-  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.6);z-index:9999;
-}
-#todoBox{
-  background:var(--card);color:var(--text);
-  border:1px solid var(--border);border-radius:12px;
-  padding:14px;width:90%;max-width:500px;
-}
-#todoArea{width:100%;height:220px}
-
 </style>
 </head>
 <body>
@@ -284,20 +272,6 @@ document.getElementById('run').addEventListener('click', run);
 document.getElementById('yr').addEventListener('change', run);
 populateCenters();
 run();
-// --- simple startup popup ---
-const todoArea=document.getElementById('todoArea');
-todoArea.value=localStorage.getItem('todo_memo')||'';
-todoArea.addEventListener('input',()=>localStorage.setItem('todo_memo',todoArea.value));
-document.getElementById('todoClose').onclick=()=>document.getElementById('todoPopup').style.display='none';
-</script>
-<div id="todoPopup">
-  <div id="todoBox">
-    <h3>Todoメモ</h3>
-    <textarea id="todoArea" spellcheck="false" placeholder="・タスクを書く"></textarea>
-    <div style="text-align:right;margin-top:8px">
-      <button id="todoClose" class="primary">OK</button>
-    </div>
-  </div>
-</div>
+alert('あ');
 </body>
 </html>
