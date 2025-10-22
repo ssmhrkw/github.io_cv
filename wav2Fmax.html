@@ -16,13 +16,15 @@
   <!-- Custom ES module -->
   <script type="module">
     import {
-      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
-      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+      designButterworthBandpassSOS_N, sosFilter,
+      centersOct, centersThird, fullCenters,
+      ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
     } from "./acoustics-core.js";
 
     Object.assign(window, {
-      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
-      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+      designButterworthBandpassSOS_N, sosFilter,
+      centersOct, centersThird, fullCenters,
+      ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
     });
   </script>
 
@@ -159,16 +161,16 @@ function splitCSV(line){
   for(let i=0;i<line.length;i++){
     const ch=line[i];
     if(ch=='"'){ inQ=!inQ; continue; }
-    if(!inQ&&(ch===','||ch=== '\\t')){ out.push(cur.trim()); cur=''; continue; }
+    if(!inQ&&(ch===','||ch=== '\t')){ out.push(cur.trim()); cur=''; continue; }
     cur+=ch;
   }
   out.push(cur.trim());
-  if(out.length===1 && out[0].includes(' ')) return out[0].split(/\\s+/);
+  if(out.length===1 && out[0].includes(' ')) return out[0].split(/\s+/);
   return out;
 }
 function parseCSV(text, hasHeader=true){
-  text = text.replace(/^\\uFEFF/, '');
-  const raw = text.split(/\\r?\\n/).filter(x=>x.trim().length>0);
+  text = text.replace(/^\uFEFF/, '');
+  const raw = text.split(/\r?\n/).filter(x=>x.trim().length>0);
   const headerTokens = hasHeader ? splitCSV(raw[0]) : [];
   const body = hasHeader ? raw.slice(1) : raw;
   const rows = body.map(line => splitCSV(line).map(t=>{
@@ -239,7 +241,6 @@ function onClickLoad(){
         const txt=fr.result;
         const hasHeader=document.getElementById('has-header').checked;
         g.csv=parseCSV(txt, hasHeader);
-        // SR推定: 先頭列が時刻と仮定（秒）
         if(g.csv.rows.length>4){
           const t = g.csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
           if(t.length>4){
@@ -335,26 +336,17 @@ function buildTabs(nch){
   }
 }
 
-/* ボタン制御の保険 */
+/* ボタン制御（CSSに委譲） */
 function setBtnProcessing(on){
   const btn = document.getElementById('process-btn');
   if(!btn) return;
   if(on){
     btn.classList.add('processing');
     btn.disabled = true;
-    btn.style.setProperty('background','#dc2626','important');
-    btn.style.setProperty('color','#fff','important');
-    btn.style.setProperty('border','none','important');
-    btn.setAttribute('aria-busy','true');
   }else{
     btn.classList.remove('processing');
     btn.disabled = false;
-    btn.style.removeProperty('background');
-    btn.style.removeProperty('color');
-    btn.style.removeProperty('border');
-    btn.removeAttribute('aria-busy');
   }
-  logln(`btn processing=${on} class=${btn.classList.contains('processing')} disabled=${btn.disabled}`);
 }
 
 /* processing */
@@ -363,11 +355,14 @@ async function onProcess(){
     // 開始制御
     setBtnProcessing(true);
     showOverlay();
+
+    // 色反映を確定
+    await new Promise(requestAnimationFrame);
+
+    // UI初期化と重処理
     document.getElementById('table-wrap').innerHTML = '';
     document.getElementById('plots-wrap').innerHTML = '';
     setStatus('Processing...');
-    await Promise.resolve();
-    await new Promise(requestAnimationFrame);
 
     const N = 36;
     const bandType = document.getElementById('band-type').value;
@@ -391,8 +386,7 @@ async function onProcess(){
       let x = getData(ch);
       if(cfg.gain && cfg.gain!==1){ const xx=new Float32Array(x.length); for(let i=0;i<x.length;i++) xx[i]=x[i]*cfg.gain; x=xx; }
       const byBand = {};
-      for(let i=0;i<centers.length;i++){
-        const fc=centers[i];
+      for(const fc of centers){
         if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
         const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
         const y  = sosFilter(x, sos);
@@ -402,24 +396,16 @@ async function onProcess(){
         const LE  = Leq + 10*Math.log10(Math.max(1e-24, T));
         const sFast = ewmaSquaredToSPL(y, sr, 0.125);
         const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
-
-        let series =
+        const series =
           timeMode==='fast' || timeMode==='none' ? sFast :
           timeMode==='slow' ? sSlow :
           timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
-          (()=>{
-            const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length);
-            for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; }
-            return out;
-          })();
-
-        const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
-        const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
-        const L05 = percentile(series, 0.95);
-        const L10 = percentile(series, 0.90);
-        const L50 = percentile(series, 0.50);
-        const L90 = percentile(series, 0.10);
-        const L95 = percentile(series, 0.05);
+          (()=>{ let mx=-1e9, out=new Float32Array(sFast.length);
+                 for(let k=0;k<sFast.length;k++){ mx=Math.max(mx,sFast[k]); out[k]=mx; } return out; })();
+        const Lfmax=Math.max(...sFast), Lsmax=Math.max(...sSlow);
+        const L05=percentile(series,0.95), L10=percentile(series,0.90),
+              L50=percentile(series,0.50), L90=percentile(series,0.10),
+              L95=percentile(series,0.05);
         byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
       }
       results.push({channelIndex:ch, role:cfg.role, byBand, centers, sr});
