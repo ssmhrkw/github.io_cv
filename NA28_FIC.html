@@ -100,7 +100,7 @@
   const EVAL_FREQS=[63,125,250,500];
   const CURVE_FREQS=[63,125,250,500,1000,2000,4000];
   const REF_DB_EXT=[53,43,36,30,24,18,12];
-  const MAX_WIDTH=560;
+  const MAX_WIDTH_RATING=560;   // 評価タブのみ上限
 
   const groups = Array.from({length:GROUP_COUNT}, ()=>({files:[],data:[]}));
   let activeBandTab='rating';
@@ -311,7 +311,7 @@
     const diffs=yEval.map((m,i)=>m-refShiftEval[i]);
     const decFreqs=decisionFreqs(yEval,REF_DB_EXT.slice(0,4),tol,EVAL_FREQS);
 
-    const width=Math.min(fig.parentElement.clientWidth,MAX_WIDTH);
+    const width=Math.min(fig.parentElement.clientWidth,MAX_WIDTH_RATING);
     const traces=[], shapes=[], textTraces=[];
     const DEC_COLOR=getComputedStyle(document.documentElement).getPropertyValue('--accent')?.trim() || '#2563eb';
 
@@ -364,19 +364,23 @@
     if(!freqs.length){ mount.innerHTML='<div class="note">各グループにファイルを追加してください。</div>'; return; }
 
     const omitCols=(kind==='oct')?['Sub','Main']:[];
-    const rect=mount.getBoundingClientRect();
-    const width=Math.min((rect.width||mount.parentElement.clientWidth||MAX_WIDTH),MAX_WIDTH);
+    const cw = mount.getBoundingClientRect().width || mount.parentElement.clientWidth || 900;
+    const subplotW = cw/2;
+    const cellH = Math.max(240, Math.min(320, subplotW*0.9));
+    const width = Math.round(cw);
+    const height = Math.round(cellH*3 + 80);
 
-    // マウント
     const plotDivId=`${kind}-plot`;
     const plotDiv=document.createElement('div'); plotDiv.id=plotDivId; plotDiv.className='plot';
     const tableWrap=document.createElement('div'); tableWrap.style.marginTop='8px';
     mount.innerHTML=''; mount.appendChild(plotDiv); mount.appendChild(tableWrap);
 
     const traces=[];
-    const layout={ grid:{rows:3,columns:2,pattern:'independent'}, width,height:720, margin:{l:60,r:20,t:20,b:40}, showlegend:false };
+    const layout = {
+      grid:{rows:3,columns:2,pattern:'independent',roworder:'top left',xgap:0.06,ygap:0.14},
+      width,height, margin:{l:60,r:20,t:20,b:40}, showlegend:false
+    };
 
-    // 1〜5枠：G1..G5（各ファイル＋グループ平均）
     for(let g=0; g<GROUP_COUNT; g++){
       const xa=`x${g+1}`, ya=`y${g+1}`;
       const gp=groups[g];
@@ -384,31 +388,43 @@
         const labels=gp.data[0][kind].freqs;
         const omitLower=omitCols.map(s=>s.toLowerCase());
         const keepIdx=labels.map((lab,i)=>omitLower.includes(String(lab).toLowerCase())?null:i).filter(i=>i!==null);
+
         gp.data.forEach((d,idx)=>{
           const vec=correctedSeriesArray(kind,activeSeries,d);
-          const x=keepIdx.map(i=>labels[i]);
-          const y=keepIdx.map(i=>vec[i]);
-          traces.push({x,y,mode:'lines+markers',marker:{size:5},name:`G${g+1}-${idx+1}`,xaxis:xa,yaxis:ya});
+          traces.push({
+            x:keepIdx.map(i=>labels[i]),
+            y:keepIdx.map(i=>vec[i]),
+            mode:'lines+markers',
+            line:{width:2},
+            marker:{size:6},
+            name:`G${g+1}-${idx+1}`,
+            xaxis:xa,yaxis:ya
+          });
         });
+
         const gavg=groupEnergyAvg(g,kind,activeSeries,{omitCols});
-        traces.push({x:gavg.labels,y:gavg.y,mode:'lines+markers',line:{width:2,color:'black',dash:'dot'},marker:{symbol:'diamond',size:7,color:'black'},name:`G${g+1} エネルギー平均`,xaxis:xa,yaxis:ya});
+        traces.push({
+          x:gavg.labels,y:gavg.y,
+          mode:'lines+markers',
+          line:{width:3,color:'black',dash:'dot'},
+          marker:{symbol:'diamond',size:8,color:'black'},
+          name:`G${g+1} エネルギー平均`,
+          xaxis:xa,yaxis:ya
+        });
       }
-      layout[`xaxis${g+1}`]={type:'category',tickangle:-45,title:`G${g+1} (${activeSeries})`};
-      layout[`yaxis${g+1}`]={title:'dB'};
+      layout[`xaxis${g+1}`]={type:'category',tickangle:-35,automargin:true,title:`G${g+1} (${activeSeries})`,titlefont:{size:12}};
+      layout[`yaxis${g+1}`]={title:'dB',automargin:true,tickfont:{size:11}};
     }
 
-    // 6枠：各Gのエネルギー平均を重ね描画
-    { const xa='x6', ya='y6';
-      for(let g=0; g<GROUP_COUNT; g++){
-        if(!groups[g].data.length) continue;
-        const gavg=groupEnergyAvg(g,kind,activeSeries,{omitCols});
-        traces.push({x:gavg.labels,y:gavg.y,mode:'lines+markers',name:`G${g+1} エネルギー平均`,xaxis:xa,yaxis:ya});
-      }
-      layout['xaxis6']={type:'category',tickangle:-45,title:`G1–G5 エネルギー平均 (${activeSeries})`};
-      layout['yaxis6']={title:'dB'};
+    for(let g=0; g<GROUP_COUNT; g++){
+      if(!groups[g].data.length) continue;
+      const gavg=groupEnergyAvg(g,kind,activeSeries,{omitCols});
+      traces.push({x:gavg.labels,y:gavg.y,mode:'lines+markers',line:{width:2},marker:{size:6},name:`G${g+1} 平均`,xaxis:'x6',yaxis:'y6'});
     }
+    layout.xaxis6={type:'category',tickangle:-35,automargin:true,title:`G1–G5 エネルギー平均 (${activeSeries})`,titlefont:{size:12}};
+    layout.yaxis6={title:'dB',automargin:true,tickfont:{size:11}};
 
-    Plotly.newPlot(plotDivId,traces,layout,{responsive:false,displaylogo:false});
+    Plotly.newPlot(plotDivId,traces,layout,{responsive:true,displaylogo:false});
 
     // テーブル
     let html='<table><thead><tr><th class="sticky">Series / Hz</th>'+freqs.map(f=>`<th>${f}</th>`).join('')+'</tr></thead><tbody>';
@@ -431,14 +447,17 @@
   function safeResize(){
     if(activeBandTab==='rating'){
       const fig=document.getElementById('rating-plot');
-      if(fig && fig.data){ const w=Math.min(fig.parentElement.clientWidth,MAX_WIDTH); Plotly.relayout(fig,{width:w,height:640}); }
+      if(fig && fig.data){
+        const w=Math.min(fig.parentElement.clientWidth,MAX_WIDTH_RATING);
+        Plotly.relayout(fig,{width:w,height:640});
+      }
     } else {
       ['oct','thirdoct'].forEach(id=>{
         const el=document.getElementById(`${id}-plot`);
         if(el && el.data){
-          const rect=el.parentElement.getBoundingClientRect();
-          const w=Math.min((rect.width||el.parentElement.clientWidth||MAX_WIDTH),MAX_WIDTH);
-          Plotly.relayout(el,{width:w,height:720});
+          const cw=el.parentElement.getBoundingClientRect().width || el.parentElement.clientWidth || 900;
+          const subplotW=cw/2, cellH=Math.max(240, Math.min(320, subplotW*0.9));
+          Plotly.relayout(el,{width:Math.round(cw),height:Math.round(cellH*3+80)});
         }
       });
     }
