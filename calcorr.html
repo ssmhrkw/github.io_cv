@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Microphone Calibration Gain Calculator</title>
+  <style>
+    :root{
+      --bg:#0f1115; --card:#151923; --ink:#e6e8ef; --muted:#9aa3b2; --accent:#8ab4ff; --ok:#6ee7b7; --warn:#fbbf24;
+      --border:#232839; --input:#0c0f16;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif; background:var(--bg); color:var(--ink);}
+    .wrap{max-width:1100px; margin:24px auto; padding:0 16px;}
+    h1{font-size:24px; margin:0 0 12px;}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 10px 20px rgba(0,0,0,.25);}
+    .row{display:grid; grid-template-columns:1fr; gap:12px;}
+    @media(min-width:720px){ .row{ grid-template-columns: 1.4fr 1fr 1fr; } }
+    label{font-size:12px; color:var(--muted); display:block; margin-bottom:6px;}
+    select, input[type="text"], button{
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--input); color:var(--ink);
+    }
+    button{cursor:pointer; background:linear-gradient(180deg, #1e2535, #141a27); border-color:#2a3247;}
+    button.primary{background:linear-gradient(180deg, #2a3b68, #1d2b4a); border-color:#314270;}
+    button:disabled{opacity:.5; cursor:not-allowed;}
+    .grid{display:grid; gap:12px;}
+    .hint{font-size:12px; color:var(--muted);}
+    table{width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; border:1px solid var(--border);}
+    thead th{font-size:12px; color:var(--muted); background:#121625; text-align:left; padding:10px; border-bottom:1px solid var(--border);}
+    tbody td{padding:10px; border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums;}
+    tbody tr:last-child td{border-bottom:none;}
+    code.kv{background:#0b0f1a; padding:2px 6px; border-radius:6px; border:1px solid #1c2336; color:#b9cffb; font-size:12px;}
+    .inline{display:flex; gap:8px; align-items:center;}
+    .pill{font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted);}
+    .ok{color:var(--ok);}
+    .warn{color:var(--warn);}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Microphone Calibration Gain Calculator</h1>
+
+    <!-- 1) ファイルアップロード -->
+    <div class="card grid" style="margin-top:12px;">
+      <div class="grid" style="grid-template-columns: 1fr auto; gap:12px;">
+        <div>
+          <label>WAVファイルを選択する</label>
+          <input type="file" id="file-input" accept=".wav,.wave" />
+          <div class="hint">先頭 <code class="kv">0.5 s</code> を解析します。</div>
+        </div>
+        <div style="align-self:end;">
+          <button id="load-btn" class="primary">Load Cal File</button>
+        </div>
+      </div>
+      <div class="inline">
+        <span class="pill" id="file-meta">未読込</span>
+        <span class="pill">解析窓: 0.5 s</span>
+        <span class="pill">Filter: 1/1 Octave Butterworth, N=36</span>
+      </div>
+    </div>
+
+    <!-- 2) Cal設定 -->
+    <div class="card row" style="margin-top:12px;">
+      <div>
+        <label>Cal Level (dB)</label>
+        <select id="cal-level">
+          <option value="94" selected>94</option>
+          <option value="114">114</option>
+        </select>
+      </div>
+      <div>
+        <label>Cal Freq (Hz)</label>
+        <select id="cal-freq">
+          <option value="1000" selected>1000</option>
+          <option value="250">250</option>
+        </select>
+      </div>
+      <div style="align-self:end;">
+        <button id="calculate-btn" class="primary" disabled>Calculate Correction</button>
+      </div>
+    </div>
+
+    <!-- 3) 結果 -->
+    <div class="card" style="margin-top:12px;">
+      <div class="inline" style="justify-content:space-between; margin-bottom:8px;">
+        <div class="hint">ファイル読込後にチャンネル行が生成されます。</div>
+        <div class="hint">数値は小数点以下を適切に丸め表示。</div>
+      </div>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px;">CH#</th>
+              <th>Role</th>
+              <th>RMS Voltage (Vrms)</th>
+              <th>Filtered SPL (dB)</th>
+              <th>Target SPL (dB)</th>
+              <th>Correction Multiplier (Gain)</th>
+            </tr>
+          </thead>
+          <tbody id="results-body">
+            <!-- 動的生成 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 4) ロジック -->
+  <script type="module">
+    // 既存モジュールの流用
+    import { sosFilter, designButterworthBandpassSOS_N } from './acoustics-core.js';
+
+    // 定数と状態
+    const ANALYSIS_SEC = 0.5;      // 固定（UI非表示）
+    const ORDER_N = 36;            // 指定通り固定
+    const P0 = 2e-5;               // 参照音圧（差分計算ではキャンセルするが明示）
+
+    const els = {
+      fileInput: document.getElementById('file-input'),
+      loadBtn: document.getElementById('load-btn'),
+      calLevel: document.getElementById('cal-level'),
+      calFreq: document.getElementById('cal-freq'),
+      calcBtn: document.getElementById('calculate-btn'),
+      resultsBody: document.getElementById('results-body'),
+      meta: document.getElementById('file-meta'),
+    };
+
+    // グローバル状態
+    const g = {
+      fs: 0,
+      nch: 0,
+      // chData: Array<Float32Array>
+      chData: [],
+      // UIテーブル内のRole text要素参照
+      roles: [],
+    };
+
+    // WAVデコード（Web Audio API）
+    async function decodeWavFile(file){
+      const ab = await file.arrayBuffer();
+      // Safari対策で1コンテキスト使い捨て
+      const ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
+      // decodeAudioData は OfflineAudioContext に紐づかないので別途
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const audio = await ctx.decodeAudioData(ab.slice(0));
+      const sr = audio.sampleRate;
+      const nch = audio.numberOfChannels;
+      const data = [];
+      for(let ch=0; ch<nch; ch++){
+        data.push(audio.getChannelData(ch).slice()); // Float32Array コピー
+      }
+      ctx.close();
+      return { sr, nch, data };
+    }
+
+    function fmt(x, digits=4){
+      if(!Number.isFinite(x)) return '—';
+      return Number(x).toFixed(digits);
+    }
+    function fmtDb(x, digits=2){
+      if(!Number.isFinite(x)) return '—';
+      return Number(x).toFixed(digits);
+    }
+
+    function buildResultsTable(nch){
+      els.resultsBody.innerHTML = '';
+      g.roles = new Array(nch);
+      for(let ch=0; ch<nch; ch++){
+        const tr = document.createElement('tr');
+        // CH#
+        const td0 = document.createElement('td');
+        td0.textContent = String(ch+1);
+        // Role
+        const td1 = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.value = 'Microphone';
+        inp.placeholder = 'Role';
+        inp.style.width = '100%';
+        g.roles[ch] = inp;
+        td1.appendChild(inp);
+        // Vrms
+        const td2 = document.createElement('td'); td2.id = `vrms-${ch}`; td2.textContent = '—';
+        // Filtered SPL
+        const td3 = document.createElement('td'); td3.id = `lspl-${ch}`; td3.textContent = '—';
+        // Target
+        const td4 = document.createElement('td'); td4.id = `ltgt-${ch}`; td4.textContent = '—';
+        // Gain
+        const td5 = document.createElement('td'); td5.id = `gain-${ch}`; td5.textContent = '—';
+
+        tr.appendChild(td0);
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        tr.appendChild(td3);
+        tr.appendChild(td4);
+        tr.appendChild(td5);
+        els.resultsBody.appendChild(tr);
+      }
+    }
+
+    // Vrms
+    function rms(x){
+      let acc = 0;
+      for(let i=0;i<x.length;i++){ const v=x[i]; acc += v*v; }
+      return Math.sqrt(acc / x.length);
+    }
+
+    // 平均二乗からSPL (基準はP0) ※差分用途のため基準は任意でも可
+    function splFromSignal(x, fs){
+      // 区間平均 Mean(p^2)
+      let acc = 0;
+      for(let i=0;i<x.length;i++){ const v=x[i]; acc += v*v; }
+      const meanP2 = acc / x.length;
+      const ref2 = P0*P0;
+      const L = 10 * Math.log10( Math.max(1e-24, meanP2 / ref2) );
+      return L;
+    }
+
+    // 解析: 先頭0.5s切り出し → BPフィルタ → SPL → Gain
+    function analyzeAll(){
+      const fs = g.fs;
+      const nwin = Math.max(1, Math.round(ANALYSIS_SEC * fs));
+      const fcal = Number(els.calFreq.value);
+      const Ltarget = Number(els.calLevel.value);
+
+      for(let ch=0; ch<g.nch; ch++){
+        const xfull = g.chData[ch];
+        const xcal = xfull.subarray(0, Math.min(nwin, xfull.length));
+
+        // 前処理: Vrms (未フィルタ)
+        const vrms = rms(xcal);
+
+        // 1/1 Oct バンドパス N=36
+        const sos = designButterworthBandpassSOS_N(fcal, fs, ORDER_N);
+        const y = sosFilter(xcal, sos);
+
+        // Filtered SPL
+        const Lfiltered = splFromSignal(y, fs);
+
+        // 目標との差分で補正倍率 (線形ゲイン)
+        const gain = Math.pow(10, (Ltarget - Lfiltered)/20);
+
+        // 表示
+        document.getElementById(`vrms-${ch}`).textContent = fmt(vrms, 6);
+        document.getElementById(`lspl-${ch}`).textContent = fmtDb(Lfiltered, 2);
+        document.getElementById(`ltgt-${ch}`).textContent = fmtDb(Ltarget, 1);
+        document.getElementById(`gain-${ch}`).textContent = fmt(gain, 6);
+      }
+    }
+
+    // イベント
+    els.loadBtn.addEventListener('click', async ()=>{
+      const file = els.fileInput.files && els.fileInput.files[0];
+      if(!file){ alert('WAVファイルを選択してください。'); return; }
+      els.loadBtn.disabled = true;
+      try{
+        const { sr, nch, data } = await decodeWavFile(file);
+        g.fs = sr; g.nch = nch; g.chData = data;
+        els.meta.textContent = `Loaded: ${file.name} | Fs ${sr} Hz | CH ${nch}`;
+        buildResultsTable(nch);
+        els.calcBtn.disabled = false;
+      }catch(err){
+        console.error(err);
+        alert('デコードに失敗しました。WAV(PCM/float)を指定してください。');
+      }finally{
+        els.loadBtn.disabled = false;
+      }
+    });
+
+    els.calculate-btn?.addEventListener?.('click', ()=>{}); // 型安全用ダミー
+
+    els.calcBtn.addEventListener('click', ()=>{
+      if(!g.chData.length){ alert('先にファイルを読み込んでください。'); return; }
+      analyzeAll();
+    });
+
+    // 設定変更時は再計算しない（仕様）
+    ['change','input'].forEach(ev=>{
+      els.calLevel.addEventListener(ev, ()=>{/* no auto-calc */});
+      els.calFreq.addEventListener(ev, ()=>{/* no auto-calc */});
+    });
+  </script>
+</body>
+</html>
