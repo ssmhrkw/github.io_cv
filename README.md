@@ -9,3 +9,15 @@
 - 仕事上のコミュニケーションをとる上であったらいいな、とおもったものを対象。
 
 [index](https://ssmhrkw.github.io/github.io_cv/index.html).
+
+### Revtime_recorder
+flowchart LR
+  A[録音/ファイル読込] --> B[帯域通過 SoS BPF<br/>designButterworthBandpassSOS_N + sosFilter]
+  B --> C[シュレーダー積分<br/>(BG減算オプション)]
+  C --> D[回帰: EDT/T10/T20/T30]
+  A --> E[SNR計算<br/>前0.5s vs 直後0.2s]
+  D --> F[代表回帰選択<br/>(T30→T20→T10→EDT)]
+  E --> G[帯域ごとOK/NG]
+  F --> H[表とプロット更新]
+  G --> H
+  H --> I[全体判定]
