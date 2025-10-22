@@ -1,11 +1,12 @@
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hand-Clap RT (EDT/T10/T20/T30) + SNR判定 v2.4</title>
+  <title>Hand-Clap RT (EDT/T10/T20/T30) + SNR判定 v2.5</title>
 
-  <!-- Google Analytics (separate normal script) -->
+  <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -44,15 +45,26 @@
     .hint{ font-size:12px; color:var(--muted) }
     .ok{ color:var(--ok) } .warn{ color:var(--warn) } .err{ color:var(--err) }
     table{ width:100%; border-collapse:collapse; }
-    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric:tabular-nums; }
+    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric:tabular-nums; vertical-align:middle; }
     th:first-child, td:first-child{ text-align:left }
     .mono{ font-family:var(--mono); }
     .judge{ font-weight:800; padding:4px 10px; border-radius:999px; display:inline-block; }
     .judge.ok{ background:#ecfdf5; color:#065f46; border:1px solid #34d399; }
     .judge.ng{ background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+    .decay-plot-cell{ text-align:center; }
+    .decay-plot-cell canvas{ display:inline-block; width:160px; height:50px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; }
     @media (max-width:920px){ .grid{ grid-template-columns: repeat(6,1fr); } }
     @media (max-width:640px){ .grid{ grid-template-columns: repeat(4,1fr); } .controls{ gap:8px } }
-    canvas{ width:100%; height:260px; background:#fff; border-radius:12px; border:1px solid #e5e7eb }
+    canvas#wave{ width:100%; height:150px; background:#fff; border-radius:12px; border:1px solid #e5e7eb }
+    /* 録音状態フィードバック */
+    button.recording {
+      background: var(--err);
+      box-shadow: 0 6px 16px rgba(220,38,38,0.2);
+    }
+    button.recorded {
+      background: var(--muted);
+      box-shadow: 0 6px 16px rgba(100,116,139,0.2);
+    }
   </style>
 </head>
 <body>
@@ -80,7 +92,6 @@
           </select>
         </label>
 
-        <!-- 解析する ボタンは 2) の末尾へ移動 -->
         <button id="btnCommit" class="ghost" disabled>この測定を保存</button>
         <button id="btnAvg" class="ghost" disabled>平均を計算</button>
 
@@ -103,17 +114,13 @@
             <option value="ob_125_4k">1/1 Octave（125 Hz ～ 4 kHz）</option>
           </select>
         </label>
-        <!-- BPF段数 UI 削除 -->
-        <!-- 回帰区間 UI 削除 -->
-        <!-- OK判定SNRしきい値 UI 削除 -->
         <label><input type="checkbox" id="snrInclude63" checked/> 判定に63 Hzも含める</label>
         <label><input type="checkbox" id="noiseComp" checked/> BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）</label>
 
-        <!-- 解析するボタンをここへ配置（CSVの直前） -->
         <button id="btnAnalyze" class="ghost" disabled>解析する</button>
         <button id="btnDownloadCsv" class="ghost" disabled>CSVを保存</button>
       </div>
-      <p class="hint">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）。中央値SNRがしきい値以上なら<b>OK</b>。</p>
+      <p class="hint">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）。<span style="font-weight:700">中央値SNR</span>がしきい値以上なら<b>OK</b>。</p>
       <div>全体判定：<span id="overallJudge" class="judge ng">NG</span> <span id="overallNote" class="mono" style="margin-left:8px;"></span></div>
       <div class="footer-note">測定保存数: <span id="measSaved" class="mono">0</span> / <span id="measTarget" class="mono">1</span></div>
     </section>
@@ -132,6 +139,7 @@
               <th>R²（代表回帰）</th>
               <th>SNR [dB]</th>
               <th>判定</th>
+              <th>減衰曲線</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -141,16 +149,9 @@
     </section>
 
     <section class="card" style="grid-column: span 12;">
-      <h2>4) 参考プロット（代表帯域）</h2>
-      <label>表示帯域 <select id="plotBand"></select></label>
-      <canvas id="plot"></canvas>
-      <div class="footer-note">曲線＝シュレーダー（相対dB）。灰色が回帰区間、点線が回帰直線。</div>
-    </section>
-
-    <section class="card" style="grid-column: span 12;">
       <h2>5) 元信号の切り取り位置</h2>
-      <canvas id="wave" style="height:150px"></canvas>
-      <div class="footer-note">原波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓、灰帯＝解析用に切り出した範囲。</div>
+      <canvas id="wave"></canvas>
+      <div class="footer-note">解析に用いた切り出し範囲の原波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓。</div>
     </section>
 
     <section class="card" style="grid-column: span 12;">
@@ -164,7 +165,6 @@
   </div>
 </main>
 
-<!-- Main logic: single module script -->
 <script type="module">
 import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
 
@@ -180,7 +180,6 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
   const stopBtn = $('#btnStop');
   const analyzeBtn = $('#btnAnalyze');
   const csvBtn = $('#btnDownloadCsv');
-  const plotBandSel = $('#plotBand');
 
   let mediaStream = null;
   let recorder = null;
@@ -195,15 +194,10 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
 
   function pickRecorderMime(){
     const cands = [
-      'audio/mp4;codecs=aac',
-      'audio/aac',
-      'audio/mp4',
-      'audio/webm;codecs=opus',
-      'audio/webm'
+      'audio/mp4;codecs=aac','audio/aac','audio/mp4',
+      'audio/webm;codecs=opus','audio/webm'
     ];
-    for(const t of cands){
-      if(window.MediaRecorder && MediaRecorder.isTypeSupported?.(t)) return t;
-    }
+    for(const t of cands){ if(window.MediaRecorder && MediaRecorder.isTypeSupported?.(t)) return t; }
     return '';
   }
 
@@ -242,7 +236,6 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     return out;
   }
 
-  // Fixed noise-compensated Schroeder
   function schroederDBNoiseComp(x, pbg){
     const N = x.length;
     const e = new Float64Array(N);
@@ -301,7 +294,7 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     return {T:T60,a,b,r2,seg, used:mode};
   }
 
-  // ===== 元信号Zoom描画 =====
+  // 元信号Zoom描画
   function drawWave(canvas, data, fs, markers, i_start = 0, i_end = -1){
     const ctx=canvas.getContext('2d'); const W=canvas.width=canvas.clientWidth, H=canvas.height=canvas.clientHeight;
     ctx.clearRect(0,0,W,H); ctx.strokeStyle='#0f172a22'; ctx.strokeRect(0,0,W,H);
@@ -336,25 +329,34 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     }
   }
 
-  function drawDecay(canvas, dBcurve, fs, fit){
-    const ctx=canvas.getContext('2d'); const W=canvas.width=canvas.clientWidth, H=canvas.height=canvas.clientHeight;
-    ctx.clearRect(0,0,W,H); ctx.strokeStyle='#0f172a22'; ctx.strokeRect(0,0,W,H);
-    if(!dBcurve) return;
+  // インライン減衰プロット
+  function drawInlineDecay(div, dBcurve, fit){
+    const W=160, H=50;
+    const canvas=document.createElement('canvas'); canvas.width=W; canvas.height=H;
+    div.appendChild(canvas);
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,W,H);
     const N=dBcurve.length;
     const minY=-80, maxY=0;
     const x2px = (i)=> i/N*W;
     const y2px = (v)=> (1-(v-minY)/(maxY-minY))*H;
+
+    if(fit && fit.seg){
+      const [i0,i1]=fit.seg;
+      ctx.fillStyle='#9ca3af55';
+      ctx.fillRect(x2px(i0),0,x2px(i1)-x2px(i0),H);
+    }
+
     ctx.strokeStyle='#0f172a'; ctx.beginPath();
     for(let i=0;i<N;i++){
       const x=x2px(i), y=y2px(dBcurve[i]);
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
     ctx.stroke();
-    if(fit && fit.seg){
+
+    if(fit && fit.seg && isFinite(fit.a)){
       const [i0,i1]=fit.seg;
-      ctx.fillStyle='#9ca3af55';
-      ctx.fillRect(x2px(i0),0,x2px(i1)-x2px(i0),H);
-      ctx.strokeStyle='#0ea5e9'; ctx.setLineDash([6,6]); ctx.beginPath();
+      ctx.strokeStyle='#0ea5e9'; ctx.setLineDash([2,2]); ctx.lineWidth=1; ctx.beginPath();
       const y0 = fit.a*i0 + fit.b;
       const y1 = fit.a*(i1-1) + fit.b;
       ctx.moveTo(x2px(i0), y2px(y0)); ctx.lineTo(x2px(i1), y2px(y1)); ctx.stroke(); ctx.setLineDash([]);
@@ -397,6 +399,12 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     const mime = pickRecorderMime();
     recorder = new MediaRecorder(mediaStream, mime ? {mimeType:mime} : undefined);
     recordedChunks = [];
+
+    // ここでボタン状態を「録音中」に
+    recBtn.classList.remove('recorded');
+    recBtn.classList.add('recording');
+    $('#recLabel').textContent = '録音中';
+
     recorder.ondataavailable = e=>{ if(e.data && e.data.size>0) recordedChunks.push(e.data); };
     recorder.onstop = async ()=>{
       const type = mime || recordedChunks[0]?.type || 'audio/mp4';
@@ -409,6 +417,11 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
       lastBuffer = await decodeBlobToMonoFloat(blob);
       setState(`recorded @ ${lastBuffer.fs} Hz, ${lastBuffer.data.length} samples`);
       analyzeBtn.disabled = false;
+
+      // 完了時に「録音完了」へ
+      recBtn.classList.remove('recording');
+      recBtn.classList.add('recorded');
+      $('#recLabel').textContent = '録音完了';
     };
     recorder.start();
     enableDuringRecording(true); setState('recording…');
@@ -426,8 +439,6 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     if(recorder && recorder.state==='recording'){ recorder.stop(); }
     stopStream(); enableDuringRecording(false); setState('stopped');
   }
-
-  function pickSegmentWrap(dec, fs, mode){ return pickSegment(dec, mode); }
 
   function fitAll(dec, fs){
     const fits = {EDT:fitRT(dec, fs, 'EDT'), T10:fitRT(dec, fs, 'T10'), T20:fitRT(dec, fs, 'T20'), T30:fitRT(dec, fs, 'T30')};
@@ -454,8 +465,6 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     const postStart = clap.idx;
 
     const bands = makeBands($('#bandType').value);
-    plotBandSel.innerHTML = '';
-    for(const fc of bands){ const o=document.createElement('option'); o.value=fc; o.textContent=fc+' Hz'; plotBandSel.appendChild(o); }
 
     const results=[];
     const include63 = $('#snrInclude63').checked;
@@ -465,7 +474,6 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     for(let i=0;i<preN;i++){ const v=x[preStart+i]||0; pbg += v*v; }
     for(let i=0;i<postN;i++){ const v=x[postStart+i]||0; psig += v*v; }
     pbg/=preN; psig/=postN;
-    const baseSNR = db10(psig/(pbg||1e-24));
 
     for(const fc of bands){
       const y = await bandpassFilter(x, fs, fc);
@@ -492,54 +500,63 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
         repTag: tag,
         SNR,
         judge: (fc===63 && !include63)? '—' : (SNR >= 20.0 ? 'OK':'NG'),
-        decay: dec, fit: rep
+        decay: dec, fit: rep, fits
       });
     }
 
+    // テーブル描画
     const tbody = $('#results tbody'); tbody.innerHTML='';
     for(const r of results){
+      // RT信頼性判定（※付与）
+      let markT10='', markT20='', markT30='';
+      const rt10=r.fits.T10.T, rt20=r.fits.T20.T, rt30=r.fits.T30.T;
+      const rts = [rt10, rt20, rt30].filter(isFinite);
+      if (rts.length >= 2 && rts.every(t => t <= 1.0)) {
+        const maxDiff = Math.max(...rts) - Math.min(...rts);
+        if (maxDiff >= 0.3) {
+          if(isFinite(rt10)) markT10 = '※';
+          if(isFinite(rt20)) markT20 = '※';
+          if(isFinite(rt30)) markT30 = '※';
+        }
+      }
+
       const tr=document.createElement('tr');
       tr.innerHTML = `
         <td>${r.fc.toFixed(1)}</td>
         <td>${isFinite(r.EDT)?r.EDT.toFixed(3):''}</td>
-        <td>${isFinite(r.T10)?r.T10.toFixed(3):''}</td>
-        <td>${isFinite(r.T20)?r.T20.toFixed(3):''}</td>
-        <td>${isFinite(r.T30)?r.T30.toFixed(3):''}</td>
+        <td>${isFinite(r.T10)?r.T10.toFixed(3)+markT10:''}</td>
+        <td>${isFinite(r.T20)?r.T20.toFixed(3)+markT20:''}</td>
+        <td>${isFinite(r.T30)?r.T30.toFixed(3)+markT30:''}</td>
         <td>${r.R2}</td>
         <td>${r.SNR.toFixed(1)}</td>
-        <td>${r.judge}</td>`;
+        <td>${r.judge}</td>
+        <td class="decay-plot-cell" id="plot-${r.fc}"></td>`;
       tbody.appendChild(tr);
+
+      // 各行のインラインプロット描画
+      const plotDiv = tr.querySelector(`#plot-${r.fc}`);
+      if (plotDiv) drawInlineDecay(plotDiv, r.decay, r.fit);
     }
 
-    // 固定値：SNRしきい値
+    // Overall判定
     const th = 20.0;
-    const okList = results.filter(r => (r.fc!==63 || include63) && r.SNR>=th);
-    const overall = (okList.length >= Math.ceil(results.length*0.6)) ? 'OK' : 'NG';
+    const valid = results.filter(r => (r.fc!==63 || $('#snrInclude63').checked));
+    const okList = valid.filter(r => r.SNR>=th);
+    const overall = (okList.length >= Math.ceil(valid.length*0.6)) ? 'OK' : 'NG';
     $('#overallJudge').className = 'judge ' + (overall==='OK'?'ok':'ng');
     $('#overallJudge').textContent = overall;
-    $('#overallNote').textContent = `OK数 ${okList.length}/${results.length}`;
+    $('#overallNote').textContent = `OK数 ${okList.length}/${valid.length}`;
 
-    plotBandSel.onchange = ()=>{
-      const f = parseFloat(plotBandSel.value);
-      const r = results.find(v=>v.fc===f) || results[0];
-      drawDecay($('#plot'), r.decay, fs, r.fit);
-    };
-    plotBandSel.value = results[0]?.fc;
-    plotBandSel.onchange();
-
-    // ===== Zoom 範囲計算（手拍子検出前後を表示）=====
-    const zoomMargin = Math.floor(0.2 * fs); // 0.2秒のマージン
-    const zoomStart = Math.max(0, preStart - zoomMargin); // preStartの少し前
-    const zoomEnd = Math.min(x.length, clap.idx + xcut.length + zoomMargin); // 解析範囲終了の少し後
-
+    // 元信号プロット：解析に用いた灰帯のみを表示
     const markers = [
       {idx:0, color:'#999'},
       {idx:clap.idx, color:'#ef4444'},
       {idx:clap.idx, idx2:clap.idx+Math.floor(0.2*fs), color:'#16a34a', band:true},
       {idx:Math.max(0, clap.idx-Math.floor(0.5*fs)), idx2:clap.idx, color:'#0ea5e9', band:true}
     ];
-    drawWave($('#wave'), x, fs, markers, zoomStart, zoomEnd);
+    drawWave($('#wave'), x, fs, markers, clap.idx, clap.idx + xcut.length);
 
+    // CSV
     csvBtn.disabled=false;
     csvBtn.onclick = ()=>{
       const blob = makeCSV(results);
@@ -562,6 +579,7 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
     lastBuffer = await decodeBlobToMonoFloat(f);
     setState(`loaded file @ ${lastBuffer.fs} Hz`);
     analyzeBtn.disabled=false;
+    // ボタン状態はファイル読込では変更しない
   };
 
   $('#measTarget').textContent = $('#measCount').value;
@@ -570,3 +588,4 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
 </script>
 </body>
 </html>
+```
