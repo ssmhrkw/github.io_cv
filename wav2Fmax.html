@@ -118,19 +118,19 @@ Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos,
 <div id="overlay">計算中…</div>
 
 <script>
-/*** logging ***/
+/* logging */
 function logln(s){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.textContent += `[${t}] ${s}\n`; el.scrollTop=el.scrollHeight; }
 function setStatus(s){ document.getElementById('status').textContent=s; logln(s); }
 window.addEventListener('error', e=>{ setStatus('JS error: '+(e.message||e)); });
 window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : e.reason)); });
 
-/*** state ***/
+/* state */
 let g = { files:[], csv:{rows:[], headerTokens:[], headerLike:false}, srCSV:25600, audio:null, results:null, setup:[] };
 
-/*** constants ***/
+/* constants */
 const P0 = 2e-5; // Pa
 
-/*** CSV parse ***/
+/* CSV parse */
 function splitCSV(line){ const out=[]; let cur=''; let inQ=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch=='"'){ inQ=!inQ; continue; } if(!inQ&&(ch===','||ch==='\\t')){ out.push(cur.trim()); cur=''; continue; } cur+=ch; } out.push(cur.trim()); if(out.length===1 && out[0].includes(' ')) return out[0].split(/\\s+/); return out; }
 function parseCSV(text, hasHeader=true){
   text = text.replace(/^\\uFEFF/, '');
@@ -141,7 +141,7 @@ function parseCSV(text, hasHeader=true){
   return {rows, headerTokens, headerLike:hasHeader};
 }
 
-/*** WAV decode ***/
+/* WAV decode */
 function readWavHeader(buf){
   const v=new DataView(buf);
   function str(o,n){ return String.fromCharCode(...new Uint8Array(buf,o,n)); }
@@ -179,7 +179,7 @@ function decodePCM(buf){
   return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
-/*** UI wiring ***/
+/* UI wiring */
 /
 document.getElementById('file-input').addEventListener('change', e=>{
   const f=e.target.files && e.target.files[0]; if(!f) return;
@@ -247,7 +247,7 @@ function onClickLoad(){
   }
 }
 
-/*** Channel setup UI ***/
+/* Channel setup UI */
 function ensureSetup(nch){
   const root = document.getElementById('setup');
   const body = document.getElementById('setup-body');
@@ -272,7 +272,7 @@ function ensureSetup(nch){
   body.querySelectorAll('.num-gain').forEach(el=> el.addEventListener('input', ev=>{ const k=+ev.target.dataset.k; const v=parseFloat(ev.target.value); g.setup[k].gain = isFinite(v)?v:1.0; }));
 }
 
-/*** CH tabs ***/
+/* CH tabs */
 function buildTabs(nch){
   const tabs=document.getElementById('tabs'); tabs.innerHTML=''; tabs.classList.remove('hidden');
   for(let ch=0; ch<nch; ch++){
@@ -289,7 +289,7 @@ function buildTabs(nch){
   const first = tabs.querySelector('.tab'); if(first){ renderChannel(+first.dataset.ch); } else { document.getElementById('summary-title').textContent='No channel selected'; document.getElementById('table-wrap').innerHTML=''; document.getElementById('plots-wrap').innerHTML=''; }
 }
 
-/*** processing ***/
+/* processing */
 function updateProgress(pct,msg){ document.getElementById('bar').style.width = Math.max(0,Math.min(100,pct))+'%'; document.getElementById('p-label').textContent = msg||''; }
 
 async function onProcess(){
