@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hand-Clap RT (EDT/T10/T20/T30) + SNR判定 v2.7</title>
+  <title>Hand-Clap RT 20251022</title>
 
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
@@ -119,7 +119,7 @@
         <button id="btnAnalyze" class="ghost" disabled>解析する</button>
         <button id="btnDownloadCsv" class="ghost" disabled>CSVを保存</button>
       </div>
-      <p class="hint">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）。<span style="font-weight:700">中央値SNR</span>がしきい値以上なら<b>OK</b>。</p>
+      <p class="hint">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）。<span style="font-weight:700">中央値SNR</span>がしきい値(20 dB)以上なら<b>OK</b>。</p>
       <div>全体判定：<span id="overallJudge" class="judge ng">NG</span> <span id="overallNote" class="mono" style="margin-left:8px;"></span></div>
       <div class="footer-note">測定保存数: <span id="measSaved" class="mono">0</span> / <span id="measTarget" class="mono">1</span></div>
     </section>
@@ -160,7 +160,7 @@
         </label>
         <label>開始時間[s] <input type="number" id="zoomStart" value="0" step="0.05" min="0"></label>
         <label>終了時間[s] <input type="number" id="zoomEnd" value="1.0" step="0.05" min="0.1"></label>
-        <button id="applyZoom" class="ghost">ズーム適用</button>
+        <button id="applyZoom" class="ghost">開始時間と終了時間に対するズーム適用</button>
         <span class="note">曲線＝Schroeder（相対dB）。着色帯＝回帰区間。点線＝回帰直線。</span>
       </div>
       <div id="decayPlot" style="width:100%;height:420px;"></div>
@@ -170,7 +170,7 @@
     <section class="card" style="grid-column: span 12;">
       <h2>5) 元信号の切り取り位置</h2>
       <canvas id="wave"></canvas>
-      <div class="footer-note">解析に用いた切り出し範囲の原波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓。</div>
+      <div class="footer-note">解析に用いた切り出し範囲の元の波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓。</div>
     </section>
   </div>
 </main>
