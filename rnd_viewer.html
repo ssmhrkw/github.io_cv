@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="ja">
 <head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RND Reader — Octave / 1/3 Octave (Shift-JIS CSV)</title>
+
+<!-- GA -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -8,9 +13,7 @@
   gtag('js', new Date());
   gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
 </script>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>RND Viewer — Octave / 1/3 Octave (Shift-JIS CSV)</title>
+
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
   :root{--bg:#f8fafc;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--accent:#2563eb}
@@ -39,10 +42,50 @@
   .seriesTitle{font-weight:600;margin:16px 0 6px}
   .freqWrap{overflow:auto}
   .badge{display:inline-block;font-size:12px;color:#1f2937;background:#e5e7eb;border-radius:999px;padding:2px 8px;margin:2px 6px 0 0}
+
+  /* --- 注意勧告ゲート --- */
+  .gate-backdrop{
+    position:fixed;inset:0;background:rgba(17,24,39,.6);
+    display:flex;align-items:center;justify-content:center;z-index:9999;
+  }
+  .gate-modal{
+    width:min(640px,92vw);background:#fff;border-radius:16px;border:1px solid #e5e7eb;
+    box-shadow:0 10px 30px rgba(0,0,0,.2);padding:20px 18px;
+  }
+  .gate-title{font-size:18px;margin:0 0 8px}
+  .gate-body{font-size:14px;color:#374151;line-height:1.6;margin-bottom:16px;white-space:pre-wrap}
+  .gate-actions{display:flex;justify-content:flex-end;gap:8px}
+  .gate-btn{
+    appearance:none;border:1px solid #d1d5db;background:#111827;color:#fff;
+    padding:10px 14px;border-radius:10px;cursor:pointer
+  }
+  .gate-btn.secondary{background:#fff;color:#111827}
+  .gate-hidden{display:none}
 </style>
 </head>
 <body>
-<div class="container">
+<!-- 注意勧告ゲート（必要なら文言だけ差し替え） -->
+<div id="gate" class="gate-backdrop" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="gate-modal">
+    <h2 id="gate-title" class="gate-title">注意勧告</h2>
+    <div id="gate-text" class="gate-body">
+このツールは参考用です。結果の最終確認は利用者の責任で行ってください。
+ファイルをドラッグアンドドロップしますが、アップロードはされません計算はすべてローカルで行われます。
+既に分かっている問題、これからの改善点として以下のものがあります。このほかにもあれば作成者に連絡してください。
+□ みたいものだけ選択する（今は全表示）
+□ SUBとMain（1/1 OCT)に線がつながっているのでこれを変更する
+
+      「OK」を押すまで操作はできません。
+    </div>
+    <div class="gate-actions">
+      <!-- 残したければ「キャンセル」も可（例: location.href='about:blank'） -->
+      <!-- <button id="gate-cancel" class="gate-btn secondary" type="button">キャンセル</button> -->
+      <button id="gate-ok" class="gate-btn" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="container" aria-hidden="true" id="app-root">
   <h1>RND Reader <span class="u">— Octave / 1/3 Octave（Shift-JIS CSV・複数ファイル対応）</span></h1>
   <div class="row">
     <label class="btn" for="fileInput">ファイル選択（複数可）</label>
@@ -60,15 +103,48 @@
 </div>
 
 <script>
+/* 汎用：注意勧告ゲート。必要に応じて sessionStorage 記憶を有効化可 */
+(function(){
+  const gate = document.getElementById('gate');
+  const ok = document.getElementById('gate-ok');
+  const app = document.getElementById('app-root');
+
+  // 記憶したい場合は true にし、key を変えてページごとに管理
+  const rememberPerTab = false;               // タブ内で一度だけにする
+  const key = 'gate.accepted.v1';
+
+  function show(){
+    document.body.style.overflow = 'hidden';
+    gate.classList.remove('gate-hidden');
+    app.setAttribute('aria-hidden','true');
+    ok.focus();
+  }
+  function hide(){
+    gate.classList.add('gate-hidden');
+    document.body.style.overflow = '';
+    app.removeAttribute('aria-hidden');
+  }
+
+  ok.addEventListener('click', ()=>{
+    if(rememberPerTab) sessionStorage.setItem(key, '1');
+    hide();
+  });
+  gate.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){ e.preventDefault(); } // ESCで閉じられないよう抑止
+  });
+
+  // 初期表示
+  if(rememberPerTab && sessionStorage.getItem(key)==='1'){ hide(); }
+  else{ show(); }
+})();
+</script>
+
+<script>
 (() => {
-  // 対象系列（9つ：3×3サブプロット）
-  const SERIES_ORDER = [
-    'Leq','LE','Lmax',
-    'Lmin','LN1','LN2',
-    'LN3','LN4','LN5'
-  ];
-  const EXCLUDE_ROWS = new Set(['Lp Over','Lp Under']); // 除外
-  const LABEL_ROW_MAP = new Map([ // 表の左列（A列）に出る和文/略記ゆらぎケア（必要に応じ追加）
+  // ==== 既存アプリ本体（変更なし） ====
+  const SERIES_ORDER = ['Leq','LE','Lmax','Lmin','LN1','LN2','LN3','LN4','LN5'];
+  const EXCLUDE_ROWS = new Set(['Lp Over','Lp Under']);
+  const LABEL_ROW_MAP = new Map([
     ['Leq','Leq'],['LE','LE'],['Lmax','Lmax'],['Lmin','Lmin'],
     ['LN1','LN1'],['LN2','LN2'],['LN3','LN3'],['LN4','LN4'],['LN5','LN5'],
     ['Lp','Lp'],['Lp Over','Lp Over'],['Lp Under','Lp Under']
@@ -79,7 +155,6 @@
   const fileInput = document.getElementById('fileInput');
   const fileList = document.getElementById('fileList');
 
-  // タブ切替
   document.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click', ()=>{
       document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
@@ -90,7 +165,6 @@
     });
   });
 
-  // DnD
   ['dragenter','dragover'].forEach(ev=>{
     drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation();drop.classList.add('drag');});
   });
@@ -116,21 +190,16 @@
     fileList.innerHTML = '<span>読み込み済み：</span>' + state.files.map(f=>`<span class="badge">${escapeHtml(f.name)}</span>`).join('');
   }
 
-  // Shift-JIS 読込 → 解析
   async function readRND(file){
     const buf = await file.arrayBuffer();
-    // Shift-JIS優先、失敗時はUTF-8フォールバック
     let text = '';
-    try{
-      text = new TextDecoder('shift_jis').decode(buf);
-    }catch{ text = new TextDecoder('utf-8').decode(buf); }
+    try{ text = new TextDecoder('shift_jis').decode(buf); }
+    catch{ text = new TextDecoder('utf-8').decode(buf); }
     const rows = text.replace(/\r\n?/g,'\n').split('\n').map(r=>r.split(','));
-    // ヘッダ行（8行目, 0始まりでは index=7）
-    const headOct = rows[7].slice(1,14).map(s=>s.trim());       // B8:N8（13列）
-    const head13  = rows[7].slice(14,47).map(s=>s.trim());      // O8:AU8（34列）
+    const headOct = rows[7].slice(1,14).map(s=>s.trim());
+    const head13  = rows[7].slice(14,47).map(s=>s.trim());
 
-    // データ行 A10:A21（10行, index 9..20）
-    const wanted = new Set(SERIES_ORDER); // 9行分
+    const wanted = new Set(SERIES_ORDER);
     const seriesOct = {}, series13 = {};
     for(const k of SERIES_ORDER){ seriesOct[k]=[], series13[k]=[]; }
 
@@ -139,24 +208,18 @@
       const label = LABEL_ROW_MAP.get(labelRaw) || labelRaw;
       if(EXCLUDE_ROWS.has(label)) continue;
       if(!wanted.has(label)) continue;
-
-      const octVals = rows[r].slice(1,14).map(toNumOrNaN);   // B..N
-      const thVals  = rows[r].slice(14,47).map(toNumOrNaN);  // O..AU
+      const octVals = rows[r].slice(1,14).map(toNumOrNaN);
+      const thVals  = rows[r].slice(14,47).map(toNumOrNaN);
       seriesOct[label] = octVals;
       series13[label]  = thVals;
     }
-
-    return {
-      fileName: file.name,
-      oct: { freqs: headOct, series: seriesOct },
-      thirdoct: { freqs: head13, series: series13 }
-    };
+    return { fileName: file.name, oct: { freqs: headOct, series: seriesOct }, thirdoct: { freqs: head13, series: series13 } };
   }
 
   function toNumOrNaN(s){
     const t = (s||'').trim();
     if(!t || t==='-' || t==='-----') return NaN;
-    const v = Number(t.replace(/[^0-9.+-]/g,'')); // 末尾に単位や空白が来ても念のため削除
+    const v = Number(t.replace(/[^0-9.+-]/g,''));
     return Number.isFinite(v) ? v : NaN;
   }
 
@@ -165,67 +228,53 @@
     renderTab('thirdoct');
   }
 
-  function renderTab(kind){ // 'oct' or 'thirdoct'
+  function renderTab(kind){
     const mount = document.getElementById(kind);
     if(state.data.length===0){ mount.innerHTML='<div class="u">ファイルを読み込むと表示されます。</div>'; return; }
-    const freqs = state.data[0][kind].freqs; // 先頭ファイルを採用（全ファイル同一前提）
-    // ===== 3×3 サブプロット（系列ごと、トレース＝ファイル）=====
+    const freqs = state.data[0][kind].freqs;
+
     const traces = [];
     const layout = {
       grid:{rows:3,columns:3,pattern:'independent'},
       margin:{l:50,r:10,t:30,b:40},
       legend:{orientation:'h'},
-      showlegend:true
+      showlegend:true,
+      annotations:[]
     };
-    // 軸・タイトルの注釈
-    layout.annotations = [];
 
     SERIES_ORDER.forEach((seriesName, idx)=>{
       const r = Math.floor(idx/3)+1;
       const c = (idx%3)+1;
-      state.data.forEach((d,i)=>{
+      state.data.forEach((d)=>{
         const y = d[kind].series[seriesName] || [];
         traces.push({
-          x: freqs,
-          y: y,
-          name: i===0 ? d.fileName : d.fileName,
-          mode: 'lines+markers',
-          xaxis: `x${idx+1}`,
-          yaxis: `y${idx+1}`,
+          x: freqs, y: y, name: d.fileName, mode: 'lines+markers',
+          xaxis: `x${idx+1}`, yaxis: `y${idx+1}`,
           hovertemplate: `${seriesName} · %{x}: %{y:.1f} dB<extra>${d.fileName}</extra>`
         });
       });
       layout[`xaxis${idx+1}`] = {title:'Frequency',type:'category',tickangle:-45};
       layout[`yaxis${idx+1}`] = {title:'dB',rangemode:'tozero'};
-      layout.annotations.push({
-        text: seriesName, xref:`x${idx+1} domain`, yref:`y${idx+1} domain`,
-        x:0.02, y:0.98, showarrow:false, font:{size:12}
-      });
+      layout.annotations.push({ text: seriesName, xref:`x${idx+1} domain`, yref:`y${idx+1} domain`, x:0.02, y:0.98, showarrow:false, font:{size:12} });
     });
 
     const plotDivId = `${kind}-plot`;
     const plotDiv = document.createElement('div');
     plotDiv.id = plotDivId;
-    plotDiv.className = 'plot'; // 高さは個別指定
-    plotDiv.style.height = '900px'; // 3×3まとめて表示
-    // ===== テーブル（系列ごと：行＝ファイル、列＝周波数）=====
+    plotDiv.className = 'plot';
+    plotDiv.style.height = '900px';
+
     const tableWrap = document.createElement('div');
     SERIES_ORDER.forEach(seriesName=>{
-      const h = document.createElement('div');
-      h.className='seriesTitle';
-      h.textContent = `${seriesName}（dB）`;
+      const h = document.createElement('div'); h.className='seriesTitle'; h.textContent = `${seriesName}（dB）`;
       tableWrap.appendChild(h);
-
-      const freqDiv = document.createElement('div');
-      freqDiv.className='freqWrap';
+      const freqDiv = document.createElement('div'); freqDiv.className='freqWrap';
       const tbl = document.createElement('table');
       const thead = document.createElement('thead');
       const trh = document.createElement('tr');
       const th0 = document.createElement('th'); th0.className='sticky'; th0.textContent='File';
       trh.appendChild(th0);
-      freqs.forEach(f=>{
-        const th = document.createElement('th'); th.textContent=f; trh.appendChild(th);
-      });
+      freqs.forEach(f=>{ const th = document.createElement('th'); th.textContent=f; trh.appendChild(th); });
       thead.appendChild(trh); tbl.appendChild(thead);
       const tbody = document.createElement('tbody');
       state.data.forEach(d=>{
@@ -245,26 +294,18 @@
       tableWrap.appendChild(freqDiv);
     });
 
-    // ===== パネルに配置 =====
     mount.innerHTML = '';
-    // ファイル一覧（再掲）
     const badges = document.createElement('div');
     badges.className='files';
     badges.innerHTML = '<span>描画中のファイル：</span>' + state.data.map(d=>`<span class="badge">${escapeHtml(d.fileName)}</span>`).join('');
     mount.appendChild(badges);
 
-    const grid = document.createElement('div');
-    grid.className='card';
-    grid.appendChild(plotDiv);
-    mount.appendChild(grid);
+    const grid = document.createElement('div'); grid.className='card'; grid.appendChild(plotDiv); mount.appendChild(grid);
 
     const det = document.createElement('details');
-    const sum = document.createElement('summary');
-    sum.textContent = '表（系列ごと・行＝ファイル、列＝周波数）を表示';
+    const sum = document.createElement('summary'); sum.textContent = '表（系列ごと・行＝ファイル、列＝周波数）を表示';
     det.appendChild(sum);
-    const tableCard = document.createElement('div');
-    tableCard.className='card';
-    tableCard.appendChild(tableWrap);
+    const tableCard = document.createElement('div'); tableCard.className='card'; tableCard.appendChild(tableWrap);
     det.appendChild(tableCard);
     mount.appendChild(det);
 
@@ -272,7 +313,6 @@
   }
 
   function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])) }
-
 })();
 </script>
 </body>
