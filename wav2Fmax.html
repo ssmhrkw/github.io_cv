@@ -87,7 +87,7 @@
     <div id="setup-body"></div>
   </div>
 
-  <!-- Config: Filter削除、Progress削除、Time weightingにFastをデフォルト -->
+  <!-- Config: Order入力削除、Time weightingデフォルト=Fast -->
   <div id="config" class="card hidden">
     <div class="row">
       <label class="small">Bands:
@@ -98,7 +98,7 @@
       </label>
       <label class="small">Lo(Hz): <select id="band-lo"></select></label>
       <label class="small">Hi(Hz): <select id="band-hi"></select></label>
-      <!-- Order N(LP原型)入力は削除 -->
+      <!-- Order N(LP原型) は削除 -->
       <label class="small">Time weighting:
         <select id="time-weight">
           <option value="none">None</option>
@@ -112,7 +112,6 @@
       <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
       <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
       <button id="process-btn" class="btn primary" type="button" disabled style="padding:10px 16px">Process</button>
-      <!-- progress系DOMは削除 -->
     </div>
   </div>
 
@@ -121,7 +120,7 @@
   <div id="summary" class="card hidden">
     <div class="row" style="justify-content:space-between;align-items:center">
       <strong id="summary-title">Summary</strong>
-        <span class="muted">クリックで行を選択→該当バンド位置へスクロール</span>
+      <span class="muted">クリックで行を選択→該当バンド位置へスクロール</span>
     </div>
     <div id="table-wrap"></div>
     <div id="plots-wrap"></div>
@@ -230,7 +229,6 @@ function refreshBandRangeUI(){
   hiSel.innerHTML = loSel.innerHTML;
   loSel.value = list[0];
   hiSel.value = list[list.length-1];
-  /* Order自動設定は削除 */
 }
 
 function onClickLoad(){
@@ -345,13 +343,16 @@ function buildTabs(nch){
 async function onProcess(){
   const btn = document.getElementById('process-btn');
   try{
-    // 開始時のUI制御
+    // 開始時のUI制御（順序厳守）
     btn.classList.add('processing');
     btn.disabled = true;
     showOverlay();
     document.getElementById('table-wrap').innerHTML = '';
     document.getElementById('plots-wrap').innerHTML = '';
     setStatus('Processing...');
+
+    // 一度描画フレームを譲る（色変化を確実に反映）
+    await new Promise(requestAnimationFrame);
 
     const N = 36; // Order固定
     const bandType = document.getElementById('band-type').value;
@@ -418,7 +419,7 @@ async function onProcess(){
   }finally{
     hideOverlay();
     btn.classList.remove('processing');
-    btn.disabled = false; // 処理後に必ず有効化
+    btn.disabled = false; // 必ず復帰
   }
 }
 
@@ -461,7 +462,7 @@ function renderChannel(ch){
     const m = rec.byBand[f]; if(!m) continue;
     const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
     const y=m.y; const sr=m.sr;
-    const x = Array.from({length:y.length}, (_,i)=>i/sr); // 修正: x軸を正しく生成
+    const x = Array.from({length:y.length}, (_,i)=>i/sr); // 時間配列
     const env = (()=>{
       const tau=0.125; const N=m.y.length; const out=new Float32Array(N);
       const alpha=1 - Math.exp(-1/(sr*tau)); let s=0;
@@ -471,8 +472,8 @@ function renderChannel(ch){
     const sFast = ewmaSquaredToSPL(m.y, sr, 0.125);
     let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
     const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = downsampleForPlot(Array.from({length:m.y.length},(_,i)=>i/sr), m.y, 2000);
-    const ds2 = downsampleForPlot(Array.from({length:env.length},(_,i)=>i/sr), env, 2000);
+    const ds1 = downsampleForPlot(x, m.y, 2000);
+    const ds2 = downsampleForPlot(x, env, 2000);
 
     Plotly.react(div,[
       {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
@@ -489,7 +490,7 @@ function renderChannel(ch){
   }
 }
 
-/* 初期化: DOM構築後にハンドラ登録とオーバーレイ非表示 */
+/* 初期化 */
 window.addEventListener('DOMContentLoaded', ()=>{
   hideOverlay();
   document.getElementById('load-btn').addEventListener('click', onClickLoad);
