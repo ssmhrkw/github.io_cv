@@ -1,7 +1,3 @@
-ご依頼の JavaScript モジュール `acoustics-core.js` の内容に基づき、その機能と使い方を詳細に解説した Markdown ドキュメントを作成します。
-
----
-
 # `acoustics-core.js`: 共有 DSP およびユーティリティ
 
 このモジュールは、音響解析アプリケーション（`wav2Fmax`, `revtime_recorder`, `FilterDesign` など）で使用される、デジタル信号処理（DSP）および共通ユーティリティ関数を提供します。
