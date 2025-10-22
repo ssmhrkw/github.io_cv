@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <script type="module" async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q">import { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot } from "./acoustics-core.js";
-Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot });
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config','G-HFR5WYG42Q');
 </script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
-  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hand-Clap RT (EDT/T10/T20/T30) + SNR判定 v2.2</title>
@@ -273,13 +271,29 @@ Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos,
     if(T60<=0 || T60>20) return {T:NaN,a,b,r2,seg, used:mode};
     return {T:T60,a,b,r2,seg, used:mode};
   }
-  async function bandpassFilter(samples, fs, fc, stages=2){
-  const N = 2*stages;
+async function bandpassFilter(samples, fs, fc, stages = 2) {
+  // 総次数は既存ステージ×2
+  const N = 2 * Math.max(1, Math.round(stages));
   const sos = designButterworthBandpassSOS_N(fc, fs, N);
-  const y = sosFilter(samples, sos);
-  return y;
+  return sosFilter(samples, sos);
 }
 )();
+</script>
+<script type="module">
+import {
+  designButterworthBandpassSOS_N, sosFilter,
+  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
+  sosFreqz, normalizeAt,
+  centersOct, centersThird, fullCenters,
+  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+} from "./acoustics-core.js";
+Object.assign(window, {
+  designButterworthBandpassSOS_N, sosFilter,
+  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
+  sosFreqz, normalizeAt,
+  centersOct, centersThird, fullCenters,
+  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+});
 </script>
 </body>
 </html>
