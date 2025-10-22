@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>wav2Fmax — Pro v3</title>
+  <title>wav2Fmax</title>
 
   <!-- Google Analytics / gtag.js -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
@@ -89,7 +89,7 @@
       </label>
       <label class="small">Lo(Hz): <select id="band-lo"></select></label>
       <label class="small">Hi(Hz): <select id="band-hi"></select></label>
-      <!-- Filterブロックを完全削除 -->
+      <!-- Filterブロックは完全削除済み -->
       <label class="small">Order N(LP原型): <input id="filter-order" type="number" min="1" step="1" value="12" /></label>
       <label class="small">Time weighting:
         <select id="time-weight">
@@ -104,7 +104,7 @@
       <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
       <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
       <button id="process-btn" class="btn primary" disabled style="padding:10px 16px">Process</button>
-      <!-- progressとp-labelを完全削除 -->
+      <!-- progress系DOMは完全削除 -->
     </div>
   </div>
 
@@ -227,7 +227,7 @@ function refreshBandRangeUI(){
   loSel.value = list[0];
   hiSel.value = list[list.length-1];
 
-  // 追加: band-typeに応じてOrder Nのデフォルト値を設定
+  // Order Nの自動設定
   const orderEl = document.getElementById('filter-order');
   if(type === 'oct') orderEl.value = 36;
   else if(type === 'third') orderEl.value = 24;
@@ -271,7 +271,7 @@ function onClickLoad(){
       try{
         const buf=fr.result;
         g.audio = decodePCM(buf);
-        document.getElementById('csv-sr').value = g.audio.sampleRate; // WAV → CSV SR
+        document.getElementById('csv-sr').value = g.audio.sampleRate;
         document.getElementById('config').classList.remove('hidden');
         document.getElementById('process-btn').disabled=false;
         ensureSetup(g.audio.numberOfChannels);
@@ -387,12 +387,11 @@ async function onProcess(){
         const sFast = ewmaSquaredToSPL(y, sr, 0.125);
         const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
 
-        // timeMode処理: none は fast と同様に扱う
+        // timeMode: none は fast と同じ
         let series =
           timeMode==='fast' || timeMode==='none' ? sFast :
           timeMode==='slow' ? sSlow :
           timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
-          // maxhold
           (()=>{
             const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length);
             for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; }
@@ -417,7 +416,6 @@ async function onProcess(){
   }catch(err){
     setStatus('Process error: '+err.message);
   }finally{
-    // 終了時のUI制御
     document.getElementById('overlay').style.display = 'none';
     btn.classList.remove('processing');
     btn.disabled = false;
@@ -464,37 +462,3 @@ function renderChannel(ch){
     const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
     const y=m.y; const sr=m.sr; const x = new Array(y.length); for(let i=0;i<y.length;i++) x[i]=i/sr;
     const env = (()=>{
-      const tau=0.125; const N=y.length; const out=new Float32Array(N);
-      const alpha=1 - Math.exp(-1/(sr*tau)); let s=0;
-      for(let i=0;i<N;i++){ s += alpha*(y[i]*y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
-      return out;
-    })();
-    const sFast = ewmaSquaredToSPL(y, sr, 0.125);
-    let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
-    const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = downsampleForPlot(x,y,2000); const ds2 = downsampleForPlot(x,env,2000);
-
-    Plotly.react(div,[
-      {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
-      {x:ds2.x, y:ds2.y, name:'Env(Fast)', type:'scatter', mode:'lines'},
-      {x:[tmax], y:[ystar], name:'Fast max-hold', mode:'markers', marker:{symbol:'star', size:12, line:{width:1}}}
-    ], {
-      title:`${Math.round(f)} Hz`,
-      legend:{orientation:'h'},
-      margin:{l:40,r:10,t:30,b:30},
-      annotations: [
-        {
-          x: tmax,
-          y: ystar,
-          text: `${m.Lfmax.toFixed(1)} dB`,
-          showarrow: false,
-          yshift: -12,
-          font: {size:10}
-        }
-      ]
-    });
-  }
-}
-</script>
-</body>
-</html>
