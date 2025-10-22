@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>NA28 Floor Impact Sound Classifier — Octave / 1/3 Octave (Shift-JIS CSV)</title>
+<title>RND Reader — Octave / 1/3 Octave (Shift-JIS CSV)</title>
 
+<!-- GA -->
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-HFR5WYG42Q');
+  gtag('config', 'G-HFR5WYG42Q'); /* ページビュー自動送信 */
 </script>
 
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -40,30 +41,41 @@
   .freqWrap{overflow:auto}
   .badge{display:inline-block;font-size:12px;color:#1f2937;background:#e5e7eb;border-radius:999px;padding:2px 8px;margin:2px 6px 0 0}
 
+  /* --- 注意勧告ゲート --- */
   .gate-backdrop{position:fixed;inset:0;background:rgba(17,24,39,.6);display:flex;align-items:center;justify-content:center;z-index:9999}
   .gate-modal{width:min(640px,92vw);background:#fff;border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.2);padding:20px 18px}
   .gate-title{font-size:18px;margin:0 0 8px}
   .gate-body{font-size:14px;color:#374151;line-height:1.6;margin-bottom:16px;white-space:pre-wrap}
   .gate-actions{display:flex;justify-content:flex-end;gap:8px}
   .gate-btn{appearance:none;border:1px solid #d1d5db;background:#111827;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
+  .gate-btn.secondary{background:#fff;color:#111827}
   .gate-hidden{display:none}
 </style>
 </head>
 <body>
+<!-- 注意勧告ゲート -->
 <div id="gate" class="gate-backdrop" role="dialog" aria-modal="true" aria-labelledby="gate-title">
   <div class="gate-modal">
     <h2 id="gate-title" class="gate-title">注意勧告</h2>
     <div id="gate-text" class="gate-body">
 このツールは参考用です。結果の最終確認は利用者の責任で行ってください。
-ファイルは端末内で処理されます。
+ファイルをドラッグアンドドロップしますが、アップロードはされません。計算はすべてローカルで行われます。
+既に分かっている問題、これからの改善点として以下のものがあります。このほかにもあれば作成者に連絡してください。
+□ みたいものだけ選択する（今は全表示）
+□ SUBとMain（1/1 OCT)に線がつながっているのでこれを変更する
+
+      「OK」を押すまで操作はできません。
     </div>
-    <div class="gate-actions"><button id="gate-ok" class="gate-btn" type="button">OK</button></div>
+    <div class="gate-actions">
+      <button id="gate-ok" class="gate-btn" type="button">OK</button>
+    </div>
   </div>
 </div>
 
 <div class="container" aria-hidden="true" id="app-root">
-  <h1>NA28 Floor Impact Sound Classifier <span class="u">— Octave / 1/3 Octave（Shift-JIS CSV・複数ファイル対応）</span></h1>
+  <h1>RND Reader <span class="u">— Octave / 1/3 Octave（Shift-JIS CSV・複数ファイル対応）</span></h1>
 
+  <!-- ファイル入力 -->
   <div class="row">
     <label class="btn" for="fileInput">ファイル選択（複数可）</label>
     <input id="fileInput" type="file" accept=".csv,.CSV,.rnd,.RND,.txt" multiple>
@@ -71,18 +83,21 @@
   </div>
   <div id="fileList" class="files"></div>
 
+  <!-- 暗騒音補正 UI -->
   <div class="card" style="margin-top:12px;">
     <p style="margin-top:0;font-weight:600;">暗騒音補正の適用</p>
     <label><input type="radio" name="noiseCorrection" value="none" checked> 補正しない</label>
-    <label style="margin-left:15px;"><input type="radio" name="noiseCorrection" value="apply"> 補正する</label>
+    <label style="margin-left: 15px;"><input type="radio" name="noiseCorrection" value="apply"> 補正する</label>
+
     <div id="noiseFileControls" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:none;">
       <label class="btn" for="noiseFileInput" style="margin-bottom:8px;">暗騒音ファイル選択（RND/CSV）</label>
       <input id="noiseFileInput" type="file" accept=".csv,.CSV,.rnd,.RND,.txt">
       <div id="noiseFileName" class="files"></div>
-      <span class="u">Lmax列を含むファイルを選択</span>
+      <span class="u">（Lmax系列に対応する暗騒音レベル <i>L<sub>b</sub></i> を含むファイルを選択）</span>
     </div>
   </div>
 
+  <!-- タブ -->
   <div class="tabs">
     <div class="tab active" data-tab="oct">OCT</div>
     <div class="tab" data-tab="thirdoct">1/3 OCT</div>
@@ -93,79 +108,108 @@
 
 <script>
 /* 注意勧告ゲート */
-(()=>{const g=document.getElementById('gate'),ok=document.getElementById('gate-ok'),app=document.getElementById('app-root');
-function show(){document.body.style.overflow='hidden';g.classList.remove('gate-hidden');app.setAttribute('aria-hidden','true');ok.focus();}
-function hide(){g.classList.add('gate-hidden');document.body.style.overflow='';app.removeAttribute('aria-hidden');}
-ok.addEventListener('click',hide);g.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();}});
-show();})();
+(function(){
+  const gate = document.getElementById('gate');
+  const ok = document.getElementById('gate-ok');
+  const app = document.getElementById('app-root');
+  const rememberPerTab = false;
+  const key = 'gate.accepted.v1';
+  function show(){ document.body.style.overflow='hidden'; gate.classList.remove('gate-hidden'); app.setAttribute('aria-hidden','true'); ok.focus(); }
+  function hide(){ gate.classList.add('gate-hidden'); document.body.style.overflow=''; app.removeAttribute('aria-hidden'); }
+  ok.addEventListener('click', ()=>{ if(rememberPerTab) sessionStorage.setItem(key,'1'); hide(); });
+  gate.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.preventDefault(); }});
+  if(rememberPerTab && sessionStorage.getItem(key)==='1'){ hide(); } else { show(); }
+})();
 </script>
 
 <script>
-(()=>{
-  const SERIES_ORDER=['Leq','LE','Lmax','Lmin','LN1','LN2','LN3','LN4','LN5'];
-  const PLOT_SERIES = ['Leq','LE','Lmax','Lmin','LN1'];
-  const EXCLUDE_ROWS=new Set(['Lp Over','Lp Under']);
-  const LABEL_ROW_MAP=new Map([['Leq','Leq'],['LE','LE'],['Lmax','Lmax'],['Lmin','Lmin'],['LN1','LN1'],['LN2','LN2'],['LN3','LN3'],['LN4','LN4'],['LN5','LN5'],['Lp','Lp'],['Lp Over','Lp Over'],['Lp Under','Lp Under']]);
+(() => {
+  /* ====== 定数 ====== */
+  const SERIES_ORDER = ['Leq','LE','Lmax','Lmin','LN1','LN2','LN3','LN4','LN5'];
+  const PLOT_SERIES  = ['Leq','LE','Lmax','Lmin','LN1']; /* 先頭5系列を個別サブプロット */
+  const EXCLUDE_ROWS = new Set(['Lp Over','Lp Under']);
+  const LABEL_ROW_MAP = new Map([
+    ['Leq','Leq'],['LE','LE'],['Lmax','Lmax'],['Lmin','Lmin'],
+    ['LN1','LN1'],['LN2','LN2'],['LN3','LN3'],['LN4','LN4'],['LN5','LN5'],
+    ['Lp','Lp'],['Lp Over','Lp Over'],['Lp Under','Lp Under']
+  ]);
 
-  /* 表1（ΔL→Lc）。行=整数部6〜14，列=小数部0.0〜0.9。15以上は補正なし。 */
-  const LC_TABLE = {
-    6:[1.3,1.2,1.2,1.2,1.1,1.1,1.0,1.0,1.0,1.0],
-    7:[1.0,1.0,0.9,0.9,0.9,0.8,0.8,0.8,0.8,0.8],
-    8:[0.7,0.7,0.7,0.7,0.7,0.6,0.6,0.6,0.6,0.6],
-    9:[0.6,0.6,0.6,0.5,0.5,0.5,0.5,0.5,0.5,0.5],
-   10:[0.5,0.5,0.5,0.5,0.4,0.4,0.4,0.4,0.4,0.4],
-   11:[0.4,0.4,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3],
-   12:[0.3,0.3,0.3,0.3,0.3,0.3,0.2,0.2,0.2,0.2],
-   13:[0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.1,0.1],
-   14:[0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1]
+  /* 参照テーブル（ΔL → 補正量 Lc）。区間は線形補間。基準は一般的な騒音補正表に整合。 */
+  const NOISE_CORR_TABLE = [
+    {d:  3, c: 3.0},
+    {d:  4, c: 2.0},
+    {d:  5, c: 1.3},
+    {d:  6, c: 1.0},
+    {d:  7, c: 0.8},
+    {d:  8, c: 0.7},
+    {d:  9, c: 0.6},
+    {d: 10, c: 0.5},
+    {d: 11, c: 0.4},
+    {d: 12, c: 0.3},
+    {d: 13, c: 0.2},
+    {d: 14, c: 0.2},
+    {d: 15, c: 0.1},
+    {d: 16, c: 0.1},
+    {d: 17, c: 0.0}
+  ];
+
+  /* ====== 状態 ====== */
+  const state = {
+    files: [],          // File[]
+    data: [],           // [{fileName, oct:{freqs, series}, thirdoct:{freqs, series}}...]
+    noiseData: null,    // {oct:{freqs, Lb}, thirdoct:{freqs, Lb}} | null
+    noiseMode: 'none'   // 'none' | 'apply'
   };
 
-  const state={files:[],data:[],noiseData:null,noiseMode:'none'};
+  /* ====== 要素参照 ====== */
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('fileInput');
+  const fileList = document.getElementById('fileList');
+  const noiseControls = document.getElementById('noiseFileControls');
+  const noiseFileInput = document.getElementById('noiseFileInput');
+  const noiseFileName = document.getElementById('noiseFileName');
 
-  const drop=document.getElementById('drop');
-  const fileInput=document.getElementById('fileInput');
-  const fileList=document.getElementById('fileList');
-  const noiseControls=document.getElementById('noiseFileControls');
-  const noiseFileInput=document.getElementById('noiseFileInput');
-  const noiseFileName=document.getElementById('noiseFileName');
-
+  /* ====== UI イベント ====== */
   document.querySelectorAll('.tab').forEach(t=>{
-    t.addEventListener('click',()=>{
+    t.addEventListener('click', ()=>{
       document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
       t.classList.add('active');
-      const id=t.dataset.tab;
-      document.getElementById('oct').style.display=id==='oct'?'':'none';
-      document.getElementById('thirdoct').style.display=id==='thirdoct'?'':'none';
+      const id = t.dataset.tab;
+      document.getElementById('oct').style.display = id==='oct' ? '' : 'none';
+      document.getElementById('thirdoct').style.display = id==='thirdoct' ? '' : 'none';
     });
   });
 
   ['dragenter','dragover'].forEach(ev=>{
-    drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('drag');});
+    drop.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); drop.classList.add('drag'); });
   });
   ['dragleave','drop'].forEach(ev=>{
-    drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');});
+    drop.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); drop.classList.remove('drag'); });
   });
-  drop.addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
-  fileInput.addEventListener('change',e=>handleFiles(e.target.files));
+  drop.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+  fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
+  /* 暗騒音ラジオ */
   document.querySelectorAll('input[name="noiseCorrection"]').forEach(r=>{
-    r.addEventListener('change',()=>{
-      state.noiseMode=r.value;
-      noiseControls.style.display=state.noiseMode==='apply'?'':'none';
+    r.addEventListener('change', ()=>{
+      state.noiseMode = r.value;
+      noiseControls.style.display = state.noiseMode==='apply' ? '' : 'none';
       renderAll();
     });
   });
 
-  noiseFileInput.addEventListener('change',async e=>{
-    const f=e.target.files&&e.target.files[0];
-    if(!f){state.noiseData=null;noiseFileName.textContent='';renderAll();return;}
-    noiseFileName.innerHTML='<span>暗騒音：</span><span class="badge">'+escapeHtml(f.name)+'</span>';
-    state.noiseData=await readNoiseRND(f);
+  /* 暗騒音ファイル */
+  noiseFileInput.addEventListener('change', async e=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f){ state.noiseData=null; noiseFileName.textContent=''; renderAll(); return; }
+    noiseFileName.innerHTML = '<span>暗騒音：</span><span class="badge">'+escapeHtml(f.name)+'</span>';
+    state.noiseData = await readNoiseRND(f);
     renderAll();
   });
 
+  /* ====== ファイル処理 ====== */
   function handleFiles(fileListLike){
-    const arr=Array.from(fileListLike||[]);
+    const arr = Array.from(fileListLike || []);
     if(arr.length===0) return;
     state.files.push(...arr);
     renderFileList();
@@ -176,240 +220,310 @@ show();})();
   }
 
   function renderFileList(){
-    if(state.files.length===0){fileList.textContent='';return;}
-    const labels=state.files.map((f,i)=>`<span class="badge">G1-${i+1}：${escapeHtml(f.name)}</span>`);
-    fileList.innerHTML='<span>読み込み済み：</span>'+labels.join('');
+    if(state.files.length===0){ fileList.textContent = ''; return; }
+    const labels = state.files.map((f,i)=>`<span class="badge">G1-${i+1}：${escapeHtml(f.name)}</span>`);
+    fileList.innerHTML = '<span>読み込み済み：</span>' + labels.join('');
   }
 
   async function readRND(file){
-    const rows=await decodeToRows(file);
-    if(!rows||rows.length<10) return null;
-    const headOct=rows[7].slice(1,14).map(s=>s.trim());
-    const head13=rows[7].slice(14,47).map(s=>s.trim());
-    const seriesOct={},series13={};
-    for(const k of SERIES_ORDER){seriesOct[k]=[];series13[k]=[];}
-    for(let r=9;r<=20&&r<rows.length;r++){
-      const labelRaw=(rows[r][0]||'').trim();
-      const label=LABEL_ROW_MAP.get(labelRaw)||labelRaw;
+    const rows = await decodeToRows(file);
+    if(!rows || rows.length<10) return null;
+
+    const headOct = rows[7].slice(1,14).map(s=>s.trim());
+    const head13  = rows[7].slice(14,47).map(s=>s.trim());
+
+    const wanted = new Set(SERIES_ORDER);
+    const seriesOct = {}, series13 = {};
+    for(const k of SERIES_ORDER){ seriesOct[k]=[], series13[k]=[]; }
+
+    for(let r=9;r<=20 && r<rows.length;r++){
+      const labelRaw = (rows[r][0]||'').trim();
+      const label = LABEL_ROW_MAP.get(labelRaw) || labelRaw;
       if(EXCLUDE_ROWS.has(label)) continue;
-      if(!(label in seriesOct)) continue;
-      const octVals=rows[r].slice(1,14).map(toNumOrNaN);
-      const thVals =rows[r].slice(14,47).map(toNumOrNaN);
-      seriesOct[label]=octVals; series13[label]=thVals;
+      if(!wanted.has(label)) continue;
+      const octVals = rows[r].slice(1,14).map(toNumOrNaN);
+      const thVals  = rows[r].slice(14,47).map(toNumOrNaN);
+      seriesOct[label] = octVals;
+      series13[label]  = thVals;
     }
-    return {fileName:file.name,oct:{freqs:headOct,series:seriesOct},thirdoct:{freqs:head13,series:series13}};
+    return { fileName: file.name, oct: { freqs: headOct, series: seriesOct }, thirdoct: { freqs: head13, series: series13 } };
   }
 
   async function readNoiseRND(file){
-    const rows=await decodeToRows(file);
-    const headOct=rows[7].slice(1,14).map(s=>s.trim());
-    const head13=rows[7].slice(14,47).map(s=>s.trim());
-    let Lb_oct=new Array(headOct.length).fill(NaN);
-    let Lb_13 =new Array(head13.length).fill(NaN);
-    for(let r=9;r<=20&&r<rows.length;r++){
-      const label=(rows[r][0]||'').trim();
+    const rows = await decodeToRows(file);
+    const headOct = rows[7].slice(1,14).map(s=>s.trim());
+    const head13  = rows[7].slice(14,47).map(s=>s.trim());
+    let Lb_oct = new Array(headOct.length).fill(NaN);
+    let Lb_13  = new Array(head13.length).fill(NaN);
+
+    for(let r=9;r<=20 && r<rows.length;r++){
+      const label = (rows[r][0]||'').trim();
       if(label==='Lmax'){
-        Lb_oct=rows[r].slice(1,14).map(toNumOrNaN);
-        Lb_13 =rows[r].slice(14,47).map(toNumOrNaN);
+        Lb_oct = rows[r].slice(1,14).map(toNumOrNaN);
+        Lb_13  = rows[r].slice(14,47).map(toNumOrNaN);
         break;
       }
     }
-    return {oct:{freqs:headOct,Lb:Lb_oct},thirdoct:{freqs:head13,Lb:Lb_13}};
+    return { oct: { freqs: headOct, Lb: Lb_oct }, thirdoct: { freqs: head13, Lb: Lb_13 } };
   }
 
   async function decodeToRows(file){
-    const buf=await file.arrayBuffer();
-    let text='';
-    try{text=new TextDecoder('shift_jis').decode(buf);}catch{ text=new TextDecoder('utf-8').decode(buf); }
+    const buf = await file.arrayBuffer();
+    let text = '';
+    try{ text = new TextDecoder('shift_jis').decode(buf); }
+    catch{ text = new TextDecoder('utf-8').decode(buf); }
     return text.replace(/\r\n?/g,'\n').split('\n').map(r=>r.split(','));
   }
 
   function toNumOrNaN(s){
-    const t=(s||'').trim();
-    if(!t||t==='-'||t==='-----') return NaN;
-    const v=Number(t.replace(/[^0-9.+-]/g,''));
-    return Number.isFinite(v)?v:NaN;
+    const t = (s||'').trim();
+    if(!t || t==='-' || t==='-----') return NaN;
+    const v = Number(t.replace(/[^0-9.+-]/g,''));
+    return Number.isFinite(v) ? v : NaN;
   }
 
-  /* JIS Z 8401 最近接偶数丸め */
-  function roundHalfEven(x,digits){
-    const p=Math.pow(10,digits);
-    const y=x*p;
-    const f=Math.floor(y);
-    const frac=y-f;
-    if(Math.abs(frac-0.5)<1e-12){return ((f%2===0)?f:f+1)/p;}
+  /* ====== 補正・平均 ====== */
+
+  function interpolateLc(dL){
+    if(!Number.isFinite(dL)) return NaN;
+    if(dL <= NOISE_CORR_TABLE[0].d) return NOISE_CORR_TABLE[0].c; /* ΔL≤3 → 最大補正 */
+    for(let i=1;i<NOISE_CORR_TABLE.length;i++){
+      const a = NOISE_CORR_TABLE[i-1], b = NOISE_CORR_TABLE[i];
+      if(dL <= b.d){
+        const t = (dL - a.d) / (b.d - a.d);
+        return a.c + t*(b.c - a.c);
+      }
+    }
+    return 0.0; /* ΔL ≥ 17 → 補正0 */
+  }
+
+  function correctLmaxArray(Lf, Lb){
+    const out = new Array(Lf.length);
+    for(let i=0;i<Lf.length;i++){
+      const v = Lf[i], nb = Lb[i];
+      if(!Number.isFinite(v) || !Number.isFinite(nb)){ out[i]=NaN; continue; }
+      const dL = v - nb;
+      const Lc = interpolateLc(dL);
+      out[i] = v - Lc;
+    }
+    return out;
+  }
+
+  /* エネルギー平均（NaNは除外）。平均はJIS丸め(最近接偶数)で1桁表示用に丸める */
+  function energyAverageRows(rows){ /* rows: number[][] with same length */
+    if(rows.length===0) return [];
+    const nFreq = rows[0].length;
+    const out = new Array(nFreq).fill(NaN);
+    for(let k=0;k<nFreq;k++){
+      let sum = 0, m = 0;
+      for(let i=0;i<rows.length;i++){
+        const v = rows[i][k];
+        if(Number.isFinite(v)){ sum += Math.pow(10, v/10); m++; }
+      }
+      if(m>0){
+        const L = 10*Math.log10(sum/m);
+        out[k] = roundHalfEven(L, 1); /* 1桁へJIS丸め */
+      }else{
+        out[k] = NaN;
+      }
+    }
+    return out;
+  }
+
+  /* 最近接偶数丸め。digits=1なら0.1桁に丸める */
+  function roundHalfEven(x, digits){
+    const p = Math.pow(10, digits);
+    const y = x * p;
+    const f = Math.floor(y);
+    const frac = y - f;
+    if(Math.abs(frac - 0.5) < 1e-12){
+      /* ちょうど .5 の場合は偶数へ */
+      return ( (f % 2 === 0) ? f : f+1 ) / p;
+    }
     return Math.round(y)/p;
   }
-  function roundIntJIS(x){return roundHalfEven(x,0);}
 
-  /* 表1に従う Lc。ΔL<6は補正不可→NaN。15以上は0。中間値は0.1刻みで線形補間。 */
-  function lcFromDelta(dL){
-    if(!Number.isFinite(dL)) return NaN;
-    if(dL<6) return NaN;                 /* 添付 5.5 の扱い：6 dB未満は補正せず参考値 */
-    if(dL>=15) return 0.0;
-    const i0=Math.floor(dL);                      /* 6〜14 */
-    const i1=Math.min(i0+1,14);
-    const frac=dL-i0;
-
-    const col = Math.floor((dL - i0)*10);        /* 0〜9 */
-    const x0 = i0 + col/10;
-    const x1 = Math.min(i0 + (col+1)/10, i1);
-
-    const v0 = LC_TABLE[i0][col];
-    const v1 = (col===9)? LC_TABLE[i1][0] : LC_TABLE[i0][col+1];
-    /* 0.1区間内補間 */
-    const t = (dL - x0) / (x1 - x0 + 1e-12);
-    return v0 + t*(v1 - v0);
+  /* ====== 描画 ====== */
+  function renderAll(){
+    renderTab('oct');
+    renderTab('thirdoct');
   }
-
-  function correctLmaxArray(Lf,Lb){
-    const out=new Array(Lf.length);
-    for(let i=0;i<Lf.length;i++){
-      const v=Lf[i], nb=Lb[i];
-      if(!Number.isFinite(v)||!Number.isFinite(nb)){out[i]=NaN;continue;}
-      const d=v-nb;
-      const Lc=lcFromDelta(d);
-      if(!Number.isFinite(Lc)){ out[i]=NaN; } else { out[i]=v-Lc; }
-    }
-    return out;
-  }
-
-  /* エネルギー平均。入力ベクトル群 rows の各列で計算。NaNは無視。 */
-  function energyAverageRows(rows){
-    if(rows.length===0) return [];
-    const n=rows[0].length,out=new Array(n).fill(NaN);
-    for(let k=0;k<n;k++){
-      let sum=0,m=0;
-      for(let i=0;i<rows.length;i++){
-        const v=rows[i][k];
-        if(Number.isFinite(v)){sum+=Math.pow(10,v/10);m++;}
-      }
-      if(m>0){ out[k]=10*Math.log10(sum/m); }
-    }
-    return out;
-  }
-
-  /* 添付 5.6: 平均レベル Lfmax,k は整数。個々の測定値は0.1桁。 */
-  function applyRoundingForDisplay(seriesName, vec, kind){
-    if(seriesName==='Lmax' && kind){ /* Lfmax,k 用整数丸めに使う時は別途処理する */
-      return vec.map(v=>Number.isFinite(v)?roundIntJIS(v):NaN);
-    }
-    return vec.map(v=>Number.isFinite(v)?roundHalfEven(v,1):NaN);
-  }
-
-  function renderAll(){ renderTab('oct'); renderTab('thirdoct'); }
 
   function renderTab(kind){
-    const mount=document.getElementById(kind);
-    if(state.data.length===0){ mount.innerHTML='<div class="u">ファイルを読み込むと表示されます。</div>'; return; }
+    const mount = document.getElementById(kind);
+    if(state.data.length===0){
+      mount.innerHTML='<div class="u">ファイルを読み込むと表示されます。</div>';
+      return;
+    }
 
-    const freqs=state.data[0][kind].freqs;
-    const useCorrection=(state.noiseMode==='apply'&&state.noiseData&&state.noiseData[kind]&&Array.isArray(state.noiseData[kind].Lb));
+    const freqs = state.data[0][kind].freqs;
+    const correctedPerFile = []; /* Lmax補正後保持（平均に使用） */
+    const originalPerFile  = []; /* Lmax元値（表示用途） */
 
-    const seriesMatrix={}; SERIES_ORDER.forEach(s=>seriesMatrix[s]=[]);
-    const LmaxCorrected=[];
-    state.data.forEach((d,fi)=>{
-      SERIES_ORDER.forEach(s=>{ seriesMatrix[s].push(d[kind].series[s]||[]); });
-      const LmaxArr=d[kind].series['Lmax']||[];
-      LmaxCorrected.push(useCorrection?correctLmaxArray(LmaxArr,(state.noiseData[kind].Lb||[])):LmaxArr.slice());
-    });
+    /* Lmax 補正適用判定 */
+    const useCorrection = (state.noiseMode==='apply' && state.noiseData && state.noiseData[kind] && Array.isArray(state.noiseData[kind].Lb));
 
-    /* エネルギー平均（Lmaxは補正後で計算） */
-    const energyMeanBySeries={};
-    SERIES_ORDER.forEach(s=>{
-      const rows=(s==='Lmax')?LmaxCorrected:seriesMatrix[s];
-      const mean=energyAverageRows(rows);
-      if(s==='Lmax'){
-        energyMeanBySeries[s+'_int']=applyRoundingForDisplay('Lmax',mean,true); /* 整数表示用（Lfmax,k） */
-        energyMeanBySeries[s]=applyRoundingForDisplay('other',mean,false);       /* 図用に0.1表示も保持 */
+    /* 各系列ごとに全ファイル配列を収集 */
+    const seriesMatrix = {};  /* series -> number[][] （ファイルごと列） */
+    SERIES_ORDER.forEach(s=> seriesMatrix[s] = []);
+
+    state.data.forEach((d, idx)=>{
+      SERIES_ORDER.forEach(s=>{
+        const y = d[kind].series[s] || [];
+        seriesMatrix[s].push(y);
+      });
+      /* Lmax 補正用 */
+      const LmaxArr = d[kind].series['Lmax'] || [];
+      originalPerFile.push(LmaxArr);
+      if(useCorrection){
+        const Lb = state.noiseData[kind].Lb || [];
+        correctedPerFile.push( correctLmaxArray(LmaxArr, Lb) );
       }else{
-        energyMeanBySeries[s]=applyRoundingForDisplay('other',mean,false);
+        correctedPerFile.push(LmaxArr.slice());
       }
     });
 
-    /* 図: 3x2。1〜5に先頭5系列。6に全系列のエネルギー平均（Lmaxは0.1表示） */
-    const traces=[],layout={grid:{rows:3,columns:2,pattern:'independent'},margin:{l:50,r:10,t:30,b:40},legend:{orientation:'h'},showlegend:true,annotations:[]};
+    /* エネルギー平均の構築（系列ごと） */
+    const energyMeanBySeries = {};
+    SERIES_ORDER.forEach(s=>{
+      if(s==='Lmax'){
+        energyMeanBySeries[s] = energyAverageRows(correctedPerFile);
+      }else{
+        energyMeanBySeries[s] = energyAverageRows(seriesMatrix[s]);
+      }
+    });
 
-    PLOT_SERIES.forEach((seriesName,idx)=>{
-      const ax=idx+1;
-      state.data.forEach((d,fi)=>{
-        const label=`G1-${fi+1}`;
-        const y=(seriesName==='Lmax')?LmaxCorrected[fi]:(d[kind].series[seriesName]||[]);
-        traces.push({x:freqs,y:y,name:label,mode:'lines+markers',xaxis:`x${ax}`,yaxis:`y${ax}`,
-          hovertemplate:`${seriesName} · %{x}: %{y:.1f} dB<extra>${label}</extra>`});
+    /* === 図 === */
+    const traces = [];
+    const layout = {
+      grid:{rows:3,columns:2,pattern:'independent'},
+      margin:{l:50,r:10,t:30,b:40},
+      legend:{orientation:'h'},
+      showlegend:true,
+      annotations:[]
+    };
+
+    /* 先頭5系列をサブプロット1〜5に割り当て */
+    PLOT_SERIES.forEach((seriesName, idxPlot)=>{
+      const ax = idxPlot+1;
+      /* 各ファイルの系列 */
+      state.data.forEach((d, fi)=>{
+        const labelFile = `G1-${fi+1}`;
+        let y = d[kind].series[seriesName] || [];
+        if(seriesName==='Lmax' && useCorrection){
+          y = correctedPerFile[fi];
+        }
+        traces.push({
+          x: freqs, y: y, name: `${labelFile}`, mode: 'lines+markers',
+          xaxis: `x${ax}`, yaxis: `y${ax}`,
+          hovertemplate: `${seriesName} · %{x}: %{y:.1f} dB<extra>${labelFile}</extra>`
+        });
       });
-      layout[`xaxis${ax}`]={title:'Frequency',type:'category',tickangle:-45};
-      layout[`yaxis${ax}`]={title:'dB',rangemode:'tozero'};
-      layout.annotations.push({text:seriesName,xref:`x${ax} domain`,yref:`y${ax} domain`,x:0.02,y:0.98,showarrow:false,font:{size:12}});
+      layout[`xaxis${ax}`] = {title:'Frequency',type:'category',tickangle:-45};
+      layout[`yaxis${ax}`] = {title:'dB',rangemode:'tozero'};
+      layout.annotations.push({ text: seriesName, xref:`x${ax} domain`, yref:`y${ax} domain`, x:0.02, y:0.98, showarrow:false, font:{size:12} });
     });
 
-    const ax6=6;
+    /* 右下(6)に全系列エネルギー平均をプロット（系列ごと1本のトレース） */
+    const ax6 = 6;
     SERIES_ORDER.forEach(seriesName=>{
-      const y=(seriesName==='Lmax')?energyMeanBySeries['Lmax']:(energyMeanBySeries[seriesName]||[]);
-      traces.push({x:freqs,y:y,name:`${seriesName} 平均`,mode:'lines+markers',xaxis:`x${ax6}`,yaxis:`y${ax6}`,
-        hovertemplate:`Mean · %{x}: %{y:.1f} dB<extra>${seriesName}</extra>`});
+      const y = energyMeanBySeries[seriesName] || [];
+      traces.push({
+        x: freqs, y: y, name: `${seriesName} 平均`, mode: 'lines+markers',
+        xaxis: `x${ax6}`, yaxis: `y${ax6}`,
+        hovertemplate: `Mean · %{x}: %{y:.1f} dB<extra>${seriesName}</extra>`
+      });
     });
-    layout[`xaxis${ax6}`]={title:'Frequency',type:'category',tickangle:-45};
-    layout[`yaxis${ax6}`]={title:'dB',rangemode:'tozero'};
-    layout.annotations.push({text:'全系列 エネルギー平均',xref:`x${ax6} domain`,yref:`y${ax6} domain`,x:0.02,y:0.98,showarrow:false,font:{size:12}});
+    layout[`xaxis${ax6}`] = {title:'Frequency',type:'category',tickangle:-45};
+    layout[`yaxis${ax6}`] = {title:'dB',rangemode:'tozero'};
+    layout.annotations.push({ text: '全系列 エネルギー平均', xref:`x${ax6} domain`, yref:`y${ax6} domain`, x:0.02, y:0.98, showarrow:false, font:{size:12} });
 
-    const plotDivId=`${kind}-plot`;
-    const plotDiv=document.createElement('div'); plotDiv.id=plotDivId; plotDiv.className='plot'; plotDiv.style.height='900px';
+    const plotDivId = `${kind}-plot`;
+    const plotDiv = document.createElement('div');
+    plotDiv.id = plotDivId;
+    plotDiv.className = 'plot';
+    plotDiv.style.height = '900px';
 
-    /* 表 */
-    const tableWrap=document.createElement('div');
+    /* === 表 === */
+    const tableWrap = document.createElement('div');
+
     SERIES_ORDER.forEach(seriesName=>{
-      const h=document.createElement('div'); h.className='seriesTitle'; h.textContent=`${seriesName}（dB）`; tableWrap.appendChild(h);
-      const freqDiv=document.createElement('div'); freqDiv.className='freqWrap';
-      const tbl=document.createElement('table');
-      const thead=document.createElement('thead'); const trh=document.createElement('tr');
-      const th0=document.createElement('th'); th0.className='sticky'; th0.textContent='File'; trh.appendChild(th0);
-      freqs.forEach(f=>{const th=document.createElement('th'); th.textContent=f; trh.appendChild(th);});
+      const h = document.createElement('div'); h.className='seriesTitle'; h.textContent = `${seriesName}（dB）`;
+      tableWrap.appendChild(h);
+
+      const freqDiv = document.createElement('div'); freqDiv.className='freqWrap';
+      const tbl = document.createElement('table');
+
+      const thead = document.createElement('thead');
+      const trh = document.createElement('tr');
+      const th0 = document.createElement('th'); th0.className='sticky'; th0.textContent='File';
+      trh.appendChild(th0);
+      freqs.forEach(f=>{ const th = document.createElement('th'); th.textContent=f; trh.appendChild(th); });
       thead.appendChild(trh); tbl.appendChild(thead);
-      const tbody=document.createElement('tbody');
 
-      state.data.forEach((d,fi)=>{
-        const tr=document.createElement('tr');
-        const td0=document.createElement('td'); td0.className='sticky'; td0.textContent=`G1-${fi+1}`; tr.appendChild(td0);
-        let y=(seriesName==='Lmax')?LmaxCorrected[fi]:(d[kind].series[seriesName]||[]);
-        /* 個別の測定値は0.1桁 JIS丸め */
-        y=y.map(v=>Number.isFinite(v)?roundHalfEven(v,1):NaN);
+      const tbody = document.createElement('tbody');
+
+      /* 全ファイル行（G1-i 表示） */
+      state.data.forEach((d, fi)=>{
+        const tr = document.createElement('tr');
+        const td0 = document.createElement('td'); td0.className='sticky'; td0.textContent = `G1-${fi+1}`;
+        tr.appendChild(td0);
+
+        let y = d[kind].series[seriesName] || [];
+        if(seriesName==='Lmax' && useCorrection){
+          y = correctedPerFile[fi];
+        }
+
         for(let i=0;i<freqs.length;i++){
-          const td=document.createElement('td'); const v=y[i]; td.textContent=Number.isFinite(v)?v.toFixed(1):''; tr.appendChild(td);
+          const td = document.createElement('td');
+          const v = y[i];
+          td.textContent = Number.isFinite(v) ? v.toFixed(1) : '';
+          tr.appendChild(td);
         }
         tbody.appendChild(tr);
       });
 
-      const meanRow=document.createElement('tr'); meanRow.setAttribute('style','background-color:#fffacd;');
-      const tdTitle=document.createElement('td'); tdTitle.className='sticky'; tdTitle.textContent='エネルギー平均'; meanRow.appendChild(tdTitle);
-      const yMean=(seriesName==='Lmax')?energyMeanBySeries['Lmax_int']:energyMeanBySeries[seriesName];
+      /* エネルギー平均行（黄色） */
+      const meanRow = document.createElement('tr');
+      meanRow.setAttribute('style','background-color:#fffacd;');
+      const tdTitle = document.createElement('td'); tdTitle.className='sticky'; tdTitle.textContent='エネルギー平均';
+      meanRow.appendChild(tdTitle);
+      const yMean = energyMeanBySeries[seriesName] || [];
       for(let i=0;i<freqs.length;i++){
-        const td=document.createElement('td'); const v=yMean[i];
-        if(seriesName==='Lmax'){ td.textContent=Number.isFinite(v)?String(v):''; }
-        else{ td.textContent=Number.isFinite(v)?v.toFixed(1):''; }
+        const td = document.createElement('td');
+        const v = yMean[i];
+        td.textContent = Number.isFinite(v) ? v.toFixed(1) : '';
         meanRow.appendChild(td);
       }
       tbody.appendChild(meanRow);
 
-      tbl.appendChild(tbody); freqDiv.appendChild(tbl); tableWrap.appendChild(freqDiv);
+      tbl.appendChild(tbody);
+      freqDiv.appendChild(tbl);
+      tableWrap.appendChild(freqDiv);
     });
 
-    mount.innerHTML='';
-    const badges=document.createElement('div'); badges.className='files';
-    const labels=state.data.map((d,i)=>`<span class="badge">G1-${i+1}：${escapeHtml(d.fileName)}</span>`);
-    badges.innerHTML='<span>描画中のファイル：</span>'+labels.join('');
+    /* マウント */
+    mount.innerHTML = '';
+    const badges = document.createElement('div');
+    badges.className='files';
+    const labels = state.data.map((d,i)=>`<span class="badge">G1-${i+1}：${escapeHtml(d.fileName)}</span>`);
+    badges.innerHTML = '<span>描画中のファイル：</span>' + labels.join('');
     mount.appendChild(badges);
 
-    const grid=document.createElement('div'); grid.className='card'; grid.appendChild(plotDiv); mount.appendChild(grid);
-    const det=document.createElement('details'); const sum=document.createElement('summary'); sum.textContent='表（系列ごと・行＝ファイル、列＝周波数）を表示';
-    det.appendChild(sum); const tableCard=document.createElement('div'); tableCard.className='card'; tableCard.appendChild(tableWrap); det.appendChild(tableCard); mount.appendChild(det);
+    const grid = document.createElement('div'); grid.className='card'; grid.appendChild(plotDiv); mount.appendChild(grid);
 
-    Plotly.newPlot(plotDivId,traces,layout,{responsive:true,displaylogo:false});
+    const det = document.createElement('details');
+    const sum = document.createElement('summary'); sum.textContent = '表（系列ごと・行＝ファイル、列＝周波数）を表示';
+    det.appendChild(sum);
+    const tableCard = document.createElement('div'); tableCard.className='card'; tableCard.appendChild(tableWrap);
+    det.appendChild(tableCard);
+    mount.appendChild(det);
+
+    Plotly.newPlot(plotDivId, traces, layout, {responsive:true,displaylogo:false});
   }
 
-  function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])) }
 })();
 </script>
 </body>
 </html>
-
