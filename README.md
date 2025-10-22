@@ -14,7 +14,7 @@
 | ツール名 | ファイル名 (リンク) | 主な機能/概要 |
 | :--- | :--- | :--- |
 | **CSV Segmenter** | [CSV_Segmenter.html](CSV_Segmenter.html) | CSVファイルのセグメンテーション（区切り、分割）を行うツールです。 |
-| **Filter Design** | [FilterDesign.html](FilterDesign.html) | フィルタ設計を行うツールです。（HTML選択オプションのフォーマット修正履歴あり） |
+| **Filter Design** | [FilterDesign.html](FilterDesign.html) | フィルタ設計を行うツールです。 |
 | **Floor Impact** | [Floorimpact.html](Floorimpact.html) | 床衝撃音の解析、表示に関するツールです。 |
 | **Laminated Calc** | [Laminated-Calc.html](Laminated-Calc.html) | 積層構造に関する計算を行うツールです。 |
 | **NA28 FIC** | [NA28_FIC.html](NA28_FIC.html) | NA28_FIC規格に関連する解析ツールです。 |
