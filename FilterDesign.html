@@ -4,7 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer (ΔA, no ∞ tails)</title>
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script type="module" src="https://cdn.plot.ly/plotly-2.27.0.min.js">import { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot } from "./acoustics-core.js";
+Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot });
+</script>
 <style>
   :root{ --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#94a3b8; --border:#1f2a44; --ok:#22c55e; --ng:#ef4444; }
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',sans-serif;background:var(--bg);color:var(--text);margin:0}
@@ -83,44 +85,6 @@ function centers_1overn(b){
   } return arr;
 }
 function edges_from_fm(fm, b){ const g=Math.pow(G, 1/(2*b)); return [fm/g, fm*g]; }
-
-function d1_LP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:K/a0,b1:K/a0,b2:0, a1:(1-K)/a0,a2:0}; }
-function d1_HP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:1/a0,b1:-1/a0,b2:0, a1:(1-K)/a0,a2:0}; }
-function rbjLP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)),c=Math.cos(w0),s=Math.sin(w0),alpha=s/(2*Q);
-  const a0=1+alpha,a1=-2*c,a2=1-alpha,b0=(1-c)/2,b1=1-c,b2=(1-c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0,a1:a1/a0,a2:a2/a0}; }
-function rbjHP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)),c=Math.cos(w0),s=Math.sin(w0),alpha=s/(2*Q);
-  const a0=1+alpha,a1=-2*c,a2=1-alpha,b0=(1+c)/2,b1=-(1+c),b2=(1+c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0,a1:a1/a0,a2:a2/a0}; }
-function butterQ(n,k){ return 1/(2*Math.sin((2*k+1)*Math.PI/(2*n))); }
-function butterLP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2);
-  for(let k=0;k<p;k++) sos.push(rbjLP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_LP(fc,fs)); return sos; }
-function butterHP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2);
-  for(let k=0;k<p;k++) sos.push(rbjHP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_HP(fc,fs)); return sos; }
-function sosFreqz(sections, fs, fgrid){
-  const H = new Float64Array(fgrid.length);
-  for(let i=0;i<fgrid.length;i++){
-    const w = 2*Math.PI*fgrid[i]/fs;
-    let nr=1,ni=0, dr=1,di=0;
-    const c1=Math.cos(-w), s1=Math.sin(-w), c2=Math.cos(-2*w), s2=Math.sin(-2*w);
-    for(const s of sections){
-      const nre = s.b0 + s.b1*c1 + s.b2*c2;
-      const nim = s.b1*s1 + s.b2*s2;
-      const dre = 1 + s.a1*c1 + s.a2*c2;
-      const dim = s.a1*s1 + s.a2*s2;
-      const tnr = nr*nre - ni*nim, tni = nr*nim + ni*nre; nr=tnr; ni=tni;
-      const tdr = dr*dre - di*dim, tdi = dr*dim + di*dre; dr=tdr; di=tdi;
-    }
-    const den = dr*dr+di*di;
-    const Hr = (nr*dr + ni*di)/den, Hi = (ni*dr - nr*di)/den;
-    H[i] = Math.hypot(Hr,Hi);
-  }
-  return H;
-}
-function normalizeAt(sections, fs, fref){
-  const probe=[0.98*fref, fref, 1.02*fref];
-  const mags=sosFreqz(sections, fs, probe).slice().sort((a,b)=>a-b);
-  const H=mags[1]||1, K=Math.max(1, sections.length), g=Math.pow(1/(H||1), 1/K);
-  for(const s of sections){ s.b0*=g; s.b1*=g; s.b2*=g; }
-}
 
 // ΔA tables
 const OCT = [

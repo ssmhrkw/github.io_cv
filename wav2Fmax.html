@@ -1,7 +1,9 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
+<script type="module" async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q">import { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot } from "./acoustics-core.js";
+Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot });
+</script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -177,74 +179,8 @@ function decodePCM(buf){
   return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
-/*** DSP: Butterworth N SOS ***/
-function d1_LP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:K/a0,b1:K/a0,b2:0, a1:(1-K)/a0,a2:0}; }
-function d1_HP(fc, fs){ const K=Math.tan(Math.PI*fc/fs); const a0=1+K; return {b0:1/a0,b1:-1/a0,b2:0, a1:(1-K)/a0,a2:0}; }
-function rbjLP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)), c=Math.cos(w0), s=Math.sin(w0), alpha=s/(2*Q); const a0=1+alpha, a1=-2*c, a2=1-alpha, b0=(1-c)/2, b1=1-c, b2=(1-c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0, a1:a1/a0,a2:a2/a0}; }
-function rbjHP(fc, fs, Q){ const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)), c=Math.cos(w0), s=Math.sin(w0), alpha=s/(2*Q); const a0=1+alpha, a1=-2*c, a2=1-alpha, b0=(1+c)/2, b1=-(1+c), b2=(1+c)/2; return {b0:b0/a0,b1:b1/a0,b2:b2/a0, a1:a1/a0,a2:a2/a0}; }
-function butterQ(n,k){ return 1/(2*Math.sin((2*k+1)*Math.PI/(2*n))); }
-function butterLP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2); for(let k=0;k<p;k++) sos.push(rbjLP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_LP(fc,fs)); return sos; }
-function butterHP_sos(fc, fs, order){ if(order<=0) return []; const sos=[], p=Math.floor(order/2); for(let k=0;k<p;k++) sos.push(rbjHP(fc,fs,butterQ(order,k))); if(order%2===1) sos.push(d1_HP(fc,fs)); return sos; }
-function sosFreqz(sections, fs, fgrid){
-  const H = new Float64Array(fgrid.length);
-  for(let i=0;i<fgrid.length;i++){
-    const w = 2*Math.PI*fgrid[i]/fs;
-    const c1 = Math.cos(-w), s1 = Math.sin(-w);
-    const c2 = Math.cos(-2*w), s2 = Math.sin(-2*w);
-    let Nr=1, Ni=0, Dr=1, Di=0;
-    for(const s of sections){
-      const nre = s.b0 + s.b1*c1 + s.b2*c2;
-      const nim = s.b1*s1 + s.b2*s2;
-      const dre = 1   + s.a1*c1 + s.a2*c2;
-      const dim =       s.a1*s1 + s.a2*s2;
-      const tNr = Nr*nre - Ni*nim, tNi = Nr*nim + Ni*nre; Nr=tNr; Ni=tNi;
-      const tDr = Dr*dre - Di*dim, tDi = Dr*dim + Di*dre; Dr=tDr; Di=tDi;
-    }
-    const den = Dr*Dr + Di*Di;
-    const Hr = (Nr*Dr + Ni*Di)/den;
-    const Hi = (Ni*Dr - Nr*Di)/den;
-    H[i] = Math.hypot(Hr, Hi);
-  }
-  return H;
-}
-function normalizeAt(sections, fs, fref){
-  const probe = [0.97*fref, fref, 1.03*fref];
-  const mags = sosFreqz(sections, fs, probe);
-  const Href = mags[1] || 1;
-  if(!isFinite(Href) || Href<=0) return;
-  const K = Math.max(1, sections.length);
-  const g = Math.pow(1/(Href), 1/K);
-  for(const s of sections){ s.b0*=g; s.b1*=g; s.b2*=g; }
-}
-function designButterworthBandpassSOS_N(fc, fs, N){
-  const f1 = fc/Math.SQRT2, f2 = fc*Math.SQRT2;
-  const M = Math.max(2, 2*Math.max(1, Math.round(N)));
-  const hpOrd = Math.floor(M/2), lpOrd = Math.ceil(M/2);
-  const hp = butterHP_sos(f1, fs, hpOrd), lp = butterLP_sos(f2, fs, lpOrd);
-  const sections = hp.concat(lp);
-  normalizeAt(sections, fs, fc);
-  return sections;
-}
-window.designButterworthBandpassSOS_N = designButterworthBandpassSOS_N;
-/*** IIR DF2T + SOS ***/
-function filterBiquadDF2T(x, c){
-  const N=x.length, y=new Float32Array(N); let s1=0,s2=0;
-  const b0=c.b0, b1=c.b1, b2=c.b2, a1=c.a1, a2=c.a2;
-  for(let n=0;n<N;n++){ const w=x[n]-a1*s1-a2*s2; const yn=b0*w + b1*s1 + b2*s2; s2=s1; s1=w; y[n]=yn; }
-  return y;
-}
-function sosFilter(inSig, sosArray){ let y=Float32Array.from(inSig); for(let i=0;i<sosArray.length;i++) y=filterBiquadDF2T(y, sosArray[i]); return y; }
-
-/*** helpers ***/
-function percentile(arr, p){ if(!arr.length) return NaN; const a=Float64Array.from(arr).sort(); const pos=(a.length-1)*p; const lo=Math.floor(pos), hi=Math.ceil(pos); const w=pos-lo; return (1-w)*a[lo]+w*a[hi]; }
-function ewmaSquaredToSPL(y, sr, tau){ const out=new Float32Array(y.length); const alpha = 1 - Math.exp(-1/(sr*tau)); let s=0; for(let i=0;i<y.length;i++){ const v=y[i]; s += alpha*(v*v - s); out[i] = 10*Math.log10( Math.max(1e-24, s/(P0*P0)) ); } return out; }
-function movingLeqSPL(y, sr, winSec){ const win = Math.max(1, Math.round(winSec*sr)); const out=new Float32Array(y.length); let acc=0; for(let i=0;i<y.length;i++){ const v=y[i]; const vv=v*v; acc += vv; if(i>=win){ const old=y[i-win]; acc -= old*old; } const denom = P0*P0* Math.min(win, i+1) / sr; out[i] = 10*Math.log10( Math.max(1e-24, acc/denom) ); } return out; }
-function centersOct(){ const a=[]; let f=16; while(f<=8000){ a.push(f); f*=2; } return a; }
-function centersThird(){ const a=[]; let f=16; const step=Math.pow(2,1/3); while(f<=8000){ a.push(Number(f.toFixed(6))); f*=step; } return a; }
-function fullCenters(type){ return type==='oct' ? centersOct() : centersThird(); }
-function downsampleForPlot(x,y,maxPoints){ if(y.length<=maxPoints) return {x,y}; const step=y.length/maxPoints, xn=new Array(maxPoints), yn=new Array(maxPoints); for(let i=0;i<maxPoints;i++){ const k=Math.floor(i*step); xn[i]=x[k]; yn[i]=y[k]; } return {x:xn,y:yn}; }
-
 /*** UI wiring ***/
+/
 document.getElementById('file-input').addEventListener('change', e=>{
   const f=e.target.files && e.target.files[0]; if(!f) return;
   g.files=[...e.target.files]; document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
