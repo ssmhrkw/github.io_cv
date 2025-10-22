@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config','G-HFR5WYG42Q');
-</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hand-Clap RT (EDT/T10/T20/T30) + SNR判定 v2.2</title>
+
+  <!-- GA: 通常スクリプトとして分離 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date()); gtag('config','G-HFR5WYG42Q');
+  </script>
+
   <style>
     :root{
       --bg:#f7f8fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
@@ -19,7 +21,7 @@
     }
     *{box-sizing:border-box}
     body{ margin:0; color:var(--ink); background:var(--bg);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "ヒラギノ角ゴ ProN W3", "メイリオ", sans-serif; line-height:1.55; }
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic","ヒラギノ角ゴ ProN W3","メイリオ",sans-serif; line-height:1.55; }
     header{ position:sticky; top:0; z-index:10; background:linear-gradient(90deg,#fff,#f5f9ff); border-bottom:1px solid #e2e8f0; }
     .wrap{ max-width:1200px; margin:0 auto; padding:16px; }
     h1{ font-size:clamp(20px,2.4vw,28px); margin:0 0 6px; }
@@ -29,7 +31,7 @@
     .card{ background:var(--card); border:1px solid #e5e7eb; border-radius:18px; padding:16px; box-shadow: 0 6px 24px rgba(30,41,59,0.06); }
     .card h2{ margin:0 0 10px; font-size:18px }
     .controls{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
-    button{ appearance:none; border:0; border-radius:14px; padding:10px 14px; font-weight:600; cursor:pointer; background:var(--accent); color:white; box-shadow: 0 6px 16px rgba(37,99,235,0.2); }
+    button{ appearance:none; border:0; border-radius:14px; padding:10px 14px; font-weight:600; cursor:pointer; background:var(--accent); color:white; box-shadow:0 6px 16px rgba(37,99,235,0.2); }
     button.secondary{ background:#e2e8f0; color:#0f172a; }
     button.ghost{ background:transparent; color:var(--accent); border:1px solid #c7d2fe}
     button:disabled{ opacity:.6; cursor:not-allowed }
@@ -42,17 +44,15 @@
     .hint{ font-size:12px; color:var(--muted) }
     .ok{ color:var(--ok) } .warn{ color:var(--warn) } .err{ color:var(--err) }
     table{ width:100%; border-collapse:collapse; }
-    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric: tabular-nums; }
+    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric:tabular-nums; }
     th:first-child, td:first-child{ text-align:left }
-    .muted{ color: var(--muted); }
-    .footer-note{ font-size:12px; color:var(--muted); margin-top:8px }
-    canvas{ width:100%; height:260px; background:#fff; border-radius:12px; border:1px solid #e5e7eb }
-    .mono{ font-family: var(--mono); }
+    .mono{ font-family:var(--mono); }
     .judge{ font-weight:800; padding:4px 10px; border-radius:999px; display:inline-block; }
-    .judge.ok{ background: #ecfdf5; color: #065f46; border:1px solid #34d399; }
-    .judge.ng{ background: #fef2f2; color: #991b1b; border:1px solid #fca5a5; }
+    .judge.ok{ background:#ecfdf5; color:#065f46; border:1px solid #34d399; }
+    .judge.ng{ background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
     @media (max-width:920px){ .grid{ grid-template-columns: repeat(6,1fr); } }
     @media (max-width:640px){ .grid{ grid-template-columns: repeat(4,1fr); } .controls{ gap:8px } }
+    canvas{ width:100%; height:260px; background:#fff; border-radius:12px; border:1px solid #e5e7eb }
   </style>
 </head>
 <body>
@@ -184,37 +184,54 @@
   </div>
 </main>
 
-<script>
+<!-- 本体ロジック：モジュール1個だけ -->
+<script type="module">
+import {
+  designButterworthBandpassSOS_N, sosFilter
+} from "./acoustics-core.js";
+
 (() => {
   const $ = (s)=>document.querySelector(s);
   const $$ = (s)=>Array.from(document.querySelectorAll(s));
-  const db10 = (x)=>10*Math.log10(x);
+  const db10 = (x)=>10*Math.log10(Math.max(1e-24, x));
   const db20 = (x)=>20*Math.log10(Math.max(1e-12, Math.abs(x)));
-  function linreg(x, y){
-    const n = x.length; if(n<2) return {a:NaN,b:NaN,r2:NaN};
-    let sx=0, sy=0, sxy=0, sxx=0, syy=0;
-    for(let i=0;i<n;i++){ const xi=x[i], yi=y[i]; sx+=xi; sy+=yi; sxy+=xi*yi; sxx+=xi*xi; syy+=yi*yi; }
-    const denom = n*sxx - sx*sx; if(Math.abs(denom)<1e-12) return {a:NaN,b:NaN,r2:NaN};
-    const a = (n*sxy - sx*sy)/denom; const b=(sy - a*sx)/n;
-    const ym = sy/n; let ssT=0, ssR=0;
-    for(let i=0;i<n;i++){ const yi=y[i], yh=a*x[i]+b; ssT+=(yi-ym)**2; ssR+=(yi-yh)**2; }
-    const r2 = ssT>0? 1-ssR/ssT : NaN;
-    return {a,b,r2};
-  }
+
+  const player = $('#player');
+  const stateEl = $('#state');
+  const recBtn = $('#btnRecord');
+  const stopBtn = $('#btnStop');
+  const analyzeBtn = $('#btnAnalyze');
+  const csvBtn = $('#btnDownloadCsv');
+  const plotBandSel = $('#plotBand');
+
+  let mediaStream = null;
+  let recorder = null;
+  let recordedChunks = [];
+  let lastBuffer = null;  // {fs, data: Float32Array}
+
   function makeBands(kind){
-    if(kind==='ob_31_4k') return [31.5, 63,125,250,500,1000,2000,4000];
+    if(kind==='ob_31_4k') return [31.5,63,125,250,500,1000,2000,4000];
     if(kind==='ob_125_4k') return [125,250,500,1000,2000,4000];
-    return [63,125,250,500,1000,2000,4000]; // default
+    return [63,125,250,500,1000,2000,4000];
   }
   function calcQ(fc){ const f1=fc/Math.SQRT2, f2=fc*Math.SQRT2; return fc/(f2-f1); }
+  function edges_from_fc(fc){ const f1=fc/Math.SQRT2, f2=fc*Math.SQRT2; return [f1,f2]; }
+
+  async function bandpassFilter(samples, fs, fc, stages=2){
+    const N = 2*Math.max(1, Math.round(stages));
+    const sos = designButterworthBandpassSOS_N(fc, fs, N);
+    return sosFilter(samples, sos);
+  }
+
   function detectClapStart(samples, fs, trigDb){
     let maxAbs=0, maxIdx=0;
     for(let i=0;i<samples.length;i++){ const a=Math.abs(samples[i]); if(a>maxAbs){ maxAbs=a; maxIdx=i; } }
-    const peakDb = db20(maxAbs); // dBFS
-    if(peakDb < trigDb){ return {idx:-1, peakDb}; }
+    const peakDb = db20(maxAbs);
+    if(peakDb < trigDb) return {idx:-1, peakDb};
     const pre = Math.floor(0.01*fs);
     return {idx: Math.max(0, maxIdx-pre), peakDb};
   }
+
   function sliceForAnalysis(samples, fs, startIdx){
     const maxDur=3.5;
     const N = Math.min(samples.length-startIdx, Math.floor(maxDur*fs));
@@ -223,6 +240,7 @@
     for(let i=0;i<N;i++) out[i] = samples[startIdx+i]-mean;
     return out;
   }
+
   function schroederDB(x){
     const N=x.length; const e=new Float64Array(N);
     for(let i=0;i<N;i++){ const v=x[i]; e[i]=v*v; }
@@ -232,19 +250,21 @@
     for(let i=0;i<N;i++){ const r=Math.max(e[i]/e0,1e-12); out[i]=10*Math.log10(r); }
     return out;
   }
+
   function schroederDBNoiseComp(x, pbg){
-    const N=x.length; const e=new Float64Array(N);
+    const N=x.length; const out=new Float32Array(N);
     let s=0;
     for(let i=N-1;i>=0;i--){
-      const vi=x[i]; const pi=vi*vi - pbg;
+      const pi = x[i]*x[i] - pbg;
       s += Math.max(0, pi);
-      e[i]=s;
+      out[i] = 10*Math.log10(Math.max(s/(s||1), 1e-12)); // 相対化は後でやるのでここでは形だけ
     }
-    const e0 = e[0] + 1e-12;
-    const out=new Float32Array(N);
-    for(let i=0;i<N;i++){ const r=Math.max(e[i]/e0,1e-12); out[i]=10*Math.log10(r); }
+    // 正規化
+    const maxv = out[0];
+    for(let i=0;i<N;i++) out[i] = out[i] - maxv;
     return out;
   }
+
   function pickSegment(dBcurve, mode){
     let hi, lo;
     if(mode==='EDT'){ hi=0; lo=-10; }
@@ -259,6 +279,19 @@
     if(i1<0 || i1-i0<100) return null;
     return [i0,i1];
   }
+
+  function linreg(x, y){
+    const n = x.length; if(n<2) return {a:NaN,b:NaN,r2:NaN};
+    let sx=0, sy=0, sxy=0, sxx=0, syy=0;
+    for(let i=0;i<n;i++){ const xi=x[i], yi=y[i]; sx+=xi; sy+=yi; sxy+=xi*yi; sxx+=xi*xi; syy+=yi*yi; }
+    const denom = n*sxx - sx*sx; if(Math.abs(denom)<1e-12) return {a:NaN,b:NaN,r2:NaN};
+    const a = (n*sxy - sx*sy)/denom; const b=(sy - a*sx)/n;
+    const ym = sy/n; let ssT=0, ssR=0;
+    for(let i=0;i<n;i++){ const yi=y[i], yh=a*x[i]+b; ssT+=(yi-ym)**2; ssR+=(yi-yh)**2; }
+    const r2 = ssT>0? 1-ssR/ssT : NaN;
+    return {a,b,r2};
+  }
+
   function fitRT(dBcurve, fs, mode){
     const seg = pickSegment(dBcurve, mode);
     if(!seg) return {T:NaN,a:NaN,b:NaN,r2:NaN,seg:null, used:null};
@@ -271,28 +304,251 @@
     if(T60<=0 || T60>20) return {T:NaN,a,b,r2,seg, used:mode};
     return {T:T60,a,b,r2,seg, used:mode};
   }
-async function bandpassFilter(samples, fs, fc, stages = 2) {
-  // 総次数は既存ステージ×2
-  const N = 2 * Math.max(1, Math.round(stages));
-  const sos = designButterworthBandpassSOS_N(fc, fs, N);
-  return sosFilter(samples, sos);
-};
-</script>
-<script type="module">
-import {
-  designButterworthBandpassSOS_N, sosFilter,
-  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
-  sosFreqz, normalizeAt,
-  centersOct, centersThird, fullCenters,
-  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-} from "./acoustics-core.js";
-Object.assign(window, {
-  designButterworthBandpassSOS_N, sosFilter,
-  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
-  sosFreqz, normalizeAt,
-  centersOct, centersThird, fullCenters,
-  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-});
+
+  function drawWave(canvas, data, fs, markers){
+    const ctx=canvas.getContext('2d'); const W=canvas.width=canvas.clientWidth, H=canvas.height=canvas.clientHeight;
+    ctx.clearRect(0,0,W,H); ctx.strokeStyle='#0f172a22'; ctx.strokeRect(0,0,W,H);
+    if(!data) return;
+    ctx.strokeStyle='#0f172a'; ctx.beginPath();
+    const N=data.length; const step=Math.max(1, Math.floor(N/W));
+    for(let x=0,i=0;x<W;x++,i+=step){
+      const y=data[i]; const yy=H*(0.5-0.45*y);
+      if(x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+    }
+    ctx.stroke();
+    if(markers){
+      for(const m of markers){
+        const x = Math.floor((m.idx/N)*W);
+        ctx.strokeStyle=m.color; ctx.beginPath();
+        ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+        if(m.band){ ctx.fillStyle=m.color+'33'; const x2=Math.floor((m.idx2/N)*W); ctx.fillRect(Math.min(x,x2),0,Math.abs(x2-x),H); }
+      }
+    }
+  }
+
+  function drawDecay(canvas, dBcurve, fs, fit){
+    const ctx=canvas.getContext('2d'); const W=canvas.width=canvas.clientWidth, H=canvas.height=canvas.clientHeight;
+    ctx.clearRect(0,0,W,H); ctx.strokeStyle='#0f172a22'; ctx.strokeRect(0,0,W,H);
+    if(!dBcurve) return;
+    const N=dBcurve.length;
+    const minY=-80, maxY=0;
+    const x2px = (i)=> i/N*W;
+    const y2px = (v)=> (1-(v-minY)/(maxY-minY))*H;
+    ctx.strokeStyle='#0f172a'; ctx.beginPath();
+    for(let i=0;i<N;i++){
+      const x=x2px(i), y=y2px(dBcurve[i]);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    if(fit && fit.seg){
+      const [i0,i1]=fit.seg;
+      ctx.fillStyle='#9ca3af55';
+      ctx.fillRect(x2px(i0),0,x2px(i1)-x2px(i0),H);
+      // 回帰直線
+      ctx.strokeStyle='#0ea5e9'; ctx.setLineDash([6,6]); ctx.beginPath();
+      const y0 = fit.a*i0 + fit.b;
+      const y1 = fit.a*(i1-1) + fit.b;
+      ctx.moveTo(x2px(i0), y2px(y0)); ctx.lineTo(x2px(i1), y2px(y1)); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  function makeCSV(rows){
+    const head=['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','Judge'];
+    const lines=[head.join(',')];
+    for(const r of rows){
+      lines.push([r.fc.toFixed(1), ...['EDT','T10','T20','T30'].map(k=>isFinite(r[k])?r[k].toFixed(3):''), (r.R2??'').toString(), r.SNR.toFixed(1), r.judge].join(','));
+    }
+    return new Blob([lines.join('\n')], {type:'text/csv'});
+  }
+
+  async function decodeBlobToMonoFloat(blob){
+    const ac = new AudioContext({sampleRate:48000});
+    const arrbuf = await blob.arrayBuffer();
+    const audioBuf = await ac.decodeAudioData(arrbuf);
+    const fs = audioBuf.sampleRate;
+    const ch0 = audioBuf.getChannelData(0);
+    const out = new Float32Array(ch0.length);
+    out.set(ch0);
+    ac.close();
+    return {fs, data:out};
+  }
+
+  function enableDuringRecording(v){
+    recBtn.disabled=v; stopBtn.disabled=!v; analyzeBtn.disabled=true; csvBtn.disabled=true;
+  }
+
+  function setState(s){ stateEl.textContent=s; }
+
+  async function startRecording(){
+    const recSec = Math.max(1, Math.min(20, parseInt($('#recSec').value,10) || 5));
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio:{
+        echoCancellation:false, noiseSuppression:false, autoGainControl:false
+      }
+    });
+    recorder = new MediaRecorder(mediaStream);
+    recordedChunks = [];
+    recorder.ondataavailable = e=>{ if(e.data && e.data.size>0) recordedChunks.push(e.data); };
+    recorder.onstop = async ()=>{
+      const blob = new Blob(recordedChunks, {type:'audio/webm'});
+      player.src = URL.createObjectURL(blob);
+      player.style.display='block';
+      lastBuffer = await decodeBlobToMonoFloat(blob);
+      setState(`recorded @ ${lastBuffer.fs} Hz, ${lastBuffer.data.length} samples`);
+      analyzeBtn.disabled = false;
+    };
+    recorder.start();
+    enableDuringRecording(true); setState('recording…');
+    setTimeout(()=>{ if(recorder && recorder.state==='recording') recorder.stop(); stopStream(); enableDuringRecording(false); }, recSec*1000);
+  }
+
+  function stopStream(){
+    if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  }
+
+  function stopRecording(){
+    if(recorder && recorder.state==='recording'){ recorder.stop(); }
+    stopStream(); enableDuringRecording(false); setState('stopped');
+  }
+
+  async function analyze(){
+    if(!lastBuffer){ setState('no audio'); return; }
+    const fs = lastBuffer.fs, x = lastBuffer.data;
+    const trigDb = parseFloat($('#trigDb').value)||-20;
+    const clap = detectClapStart(x, fs, trigDb);
+    if(clap.idx<0){ setState(`clap not detected (peak ${clap.peakDb.toFixed(1)} dBFS < ${trigDb} dBFS)`); return; }
+    const xcut = sliceForAnalysis(x, fs, clap.idx);
+
+    // SNR用窓
+    const preN  = Math.max(1, Math.floor(0.5*fs));
+    const postN = Math.max(1, Math.floor(0.2*fs));
+    const preStart  = Math.max(0, clap.idx - preN);
+    const postStart = clap.idx;
+
+    // 帯域
+    const bands = makeBands($('#bandType').value);
+    plotBandSel.innerHTML = '';
+    for(const fc of bands){ const o=document.createElement('option'); o.value=fc; o.textContent=fc+' Hz'; plotBandSel.appendChild(o); }
+
+    // 解析
+    const results=[];
+    const include63 = $('#snrInclude63').checked;
+    const noiseComp = $('#noiseComp').checked;
+    const stages = parseInt($('#bpOrder').value,10)||2;
+
+    for(const fc of bands){
+      const y = await bandpassFilter(x, fs, fc, stages);
+      // SNR
+      let pbg=0, psig=0;
+      for(let i=0;i<preN;i++){ const v=x[preStart+i]||0; pbg += v*v; }
+      for(let i=0;i<postN;i++){ const v=x[postStart+i]||0; psig += v*v; }
+      pbg/=preN; psig/=postN;
+      const SNR = db10(psig/(pbg||1e-24));
+
+      // 解析対象は切り出し→帯域通過
+      const ycut = await bandpassFilter(xcut, fs, fc, stages);
+      let dec;
+      if(noiseComp) dec = schroederDBNoiseComp(ycut, pbg);
+      else{
+        dec = schroederDB(ycut);
+        const shift = dec[0]; for(let i=0;i<dec.length;i++) dec[i] = dec[i]-shift; // 0dB起点化
+      }
+
+      const modeSel = $('#rtMode').value;
+      const modes = modeSel==='ALL' ? ['EDT','T10','T20','T30'] : [modeSel];
+      const fits = {};
+      for(const m of ['EDT','T10','T20','T30']){ fits[m]=fitRT(dec, fs, m); }
+
+      // 代表回帰
+      let rep = fits.T30; let tag='T30';
+      if(!isFinite(rep.T)) { rep=fits.T20; tag='T20'; }
+      if(!isFinite(rep.T)) { rep=fits.T10; tag='T10'; }
+      if(!isFinite(rep.T)) { rep=fits.EDT; tag='EDT'; }
+
+      results.push({
+        fc,
+        EDT: fits.EDT.T, T10:fits.T10.T, T20:fits.T20.T, T30:fits.T30.T,
+        R2: isFinite(rep.r2)?rep.r2.toFixed(3):'',
+        repTag: tag,
+        SNR,
+        judge: (fc===63 && !include63)? '—' : (SNR >= parseFloat($('#snrTh').value)? 'OK':'NG'),
+        decay: dec, fit: rep
+      });
+    }
+
+    // 表
+    const tbody = $('#results tbody'); tbody.innerHTML='';
+    for(const r of results){
+      const tr=document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.fc.toFixed(1)}</td>
+        <td>${isFinite(r.EDT)?r.EDT.toFixed(3):''}</td>
+        <td>${isFinite(r.T10)?r.T10.toFixed(3):''}</td>
+        <td>${isFinite(r.T20)?r.T20.toFixed(3):''}</td>
+        <td>${isFinite(r.T30)?r.T30.toFixed(3):''}</td>
+        <td>${r.R2}</td>
+        <td>${r.SNR.toFixed(1)}</td>
+        <td>${r.judge}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    // 全体判定
+    const th = parseFloat($('#snrTh').value);
+    const okList = results.filter(r => (r.fc!==63 || include63) && r.SNR>=th);
+    const overall = (okList.length >= Math.ceil(results.length*0.6)) ? 'OK' : 'NG';
+    $('#overallJudge').className = 'judge ' + (overall==='OK'?'ok':'ng');
+    $('#overallJudge').textContent = overall;
+    $('#overallNote').textContent = `OK数 ${okList.length}/${results.length}`;
+
+    // プロット選択
+    plotBandSel.onchange = ()=>{
+      const f = parseFloat(plotBandSel.value);
+      const r = results.find(v=>v.fc===f) || results[0];
+      drawDecay($('#plot'), r.decay, fs, r.fit);
+    };
+    plotBandSel.value = results[0]?.fc;
+    plotBandSel.onchange();
+
+    // 波形表示
+    const markers = [
+      {idx:0, color:'#999'}, // 先頭
+      {idx:clap.idx, color:'#ef4444'},
+      {idx:clap.idx, idx2:clap.idx+Math.floor(0.2*fs), color:'#16a34a', band:true},
+      {idx:Math.max(0, clap.idx-Math.floor(0.5*fs)), idx2:clap.idx, color:'#0ea5e9', band:true}
+    ];
+    drawWave($('#wave'), x, fs, markers);
+
+    // CSV
+    csvBtn.disabled=false;
+    csvBtn.onclick = ()=>{
+      const blob = makeCSV(results);
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='revtime_results.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    setState('analyzed');
+  }
+
+  // 録音UI
+  recBtn.onclick = startRecording;
+  stopBtn.onclick = stopRecording;
+  analyzeBtn.onclick = analyze;
+
+  // ファイル解析（任意）
+  $('#fileInput').onchange = async (e)=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    lastBuffer = await decodeBlobToMonoFloat(f);
+    setState(`loaded file @ ${lastBuffer.fs} Hz`);
+    analyzeBtn.disabled=false;
+  };
+
+  // 初期化
+  $('#measTarget').textContent = $('#measCount').value;
+  setState('idle');
+})();
 </script>
 </body>
 </html>
