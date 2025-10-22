@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>wav2Fmax — Pro v3</title>
 
-  <!-- Google Analytics / gtag.js (外部読み込みのみ。インラインは入れない) -->
+  <!-- Google Analytics / gtag.js -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){ dataLayer.push(arguments); }
     gtag('js', new Date());
-    gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
+    gtag('config', 'G-HFR5WYG42Q');
   </script>
 
-  <!-- カスタムESモジュールは独立したmoduleブロックで -->
+  <!-- Custom ES module -->
   <script type="module">
     import {
       designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ,
@@ -38,6 +38,8 @@
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
     .btn.primary{background:#0ea5a4;color:#fff;border:none}
+    /* 処理中スタイル */
+    #process-btn.processing{background:#dc2626;color:#fff}
     .file-name{min-width:200px;max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #e2e8f0;padding:6px;border-radius:8px;background:#fff}
     .card{border:1px solid #e5e7eb;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
     label.small{font-size:13px;color:#334155}
@@ -49,8 +51,6 @@
     .tab.active{background:#0ea5a4;color:#fff;border:none}
     .hidden{display:none}
     .muted{color:#64748b;font-size:12px}
-    .progress{height:14px;background:#e2e8f0;border-radius:8px;overflow:hidden}
-    .bar{height:100%;width:0%;background:#0ea5a4;transition:width .2s}
     table{border-collapse:collapse;width:100%}
     th,td{border:1px solid #e5e7eb;padding:6px;font-size:12px;text-align:right}
     th{background:#f1f5f9;text-align:center}
@@ -78,6 +78,7 @@
     <div id="setup-body"></div>
   </div>
 
+  <!-- Config: Filter削除、Progress削除、Time weightingにNone追加 -->
   <div id="config" class="card hidden">
     <div class="row">
       <label class="small">Bands:
@@ -88,14 +89,11 @@
       </label>
       <label class="small">Lo(Hz): <select id="band-lo"></select></label>
       <label class="small">Hi(Hz): <select id="band-hi"></select></label>
-      <label class="small">Filter:
-        <select id="filter-type">
-          <option value="butterN">Butterworth N (SOS)</option>
-        </select>
-      </label>
+      <!-- Filterブロックを完全削除 -->
       <label class="small">Order N(LP原型): <input id="filter-order" type="number" min="1" step="1" value="12" /></label>
       <label class="small">Time weighting:
         <select id="time-weight">
+          <option value="none">None</option>
           <option value="fast">Fast(125 ms)</option>
           <option value="slow">Slow(1 s)</option>
           <option value="leq">Leq(window s)</option>
@@ -106,8 +104,7 @@
       <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
       <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
       <button id="process-btn" class="btn primary" disabled style="padding:10px 16px">Process</button>
-      <div class="progress" style="flex:1;min-width:220px"><div id="bar" class="bar"></div></div>
-      <span id="p-label" class="muted">idle</span>
+      <!-- progressとp-labelを完全削除 -->
     </div>
   </div>
 
@@ -229,6 +226,11 @@ function refreshBandRangeUI(){
   hiSel.innerHTML = loSel.innerHTML;
   loSel.value = list[0];
   hiSel.value = list[list.length-1];
+
+  // 追加: band-typeに応じてOrder Nのデフォルト値を設定
+  const orderEl = document.getElementById('filter-order');
+  if(type === 'oct') orderEl.value = 36;
+  else if(type === 'third') orderEl.value = 24;
 }
 
 function onClickLoad(){
@@ -269,7 +271,7 @@ function onClickLoad(){
       try{
         const buf=fr.result;
         g.audio = decodePCM(buf);
-        document.getElementById('csv-sr').value = g.audio.sampleRate; // WAV → CSV SR 自動反映
+        document.getElementById('csv-sr').value = g.audio.sampleRate; // WAV → CSV SR
         document.getElementById('config').classList.remove('hidden');
         document.getElementById('process-btn').disabled=false;
         ensureSetup(g.audio.numberOfChannels);
@@ -340,17 +342,16 @@ function buildTabs(nch){
 }
 
 /* processing */
-function updateProgress(pct,msg){
-  document.getElementById('bar').style.width = Math.max(0,Math.min(100,pct))+'%';
-  document.getElementById('p-label').textContent = msg||'';
-}
-
 async function onProcess(){
+  const btn = document.getElementById('process-btn');
   try{
+    // 開始時のUI制御
+    btn.classList.add('processing');
+    btn.disabled = true;
     document.getElementById('overlay').style.display = 'flex';
     document.getElementById('table-wrap').innerHTML = '';
     document.getElementById('plots-wrap').innerHTML = '';
-    updateProgress(0,'processing');
+    setStatus('Processing...');
 
     const N = Math.max(1, Math.round(Number(document.getElementById('filter-order').value)||12));
     const bandType = document.getElementById('band-type').value;
@@ -367,7 +368,6 @@ async function onProcess(){
     const timeMode = document.getElementById('time-weight').value;
     const leqWin = Math.max(1e-3, Number(document.getElementById('leq-win').value)||1);
     const usedIdx = []; for(let ch=0; ch<nch; ch++){ if(g.setup[ch] && g.setup[ch].use) usedIdx.push(ch); }
-    const total = usedIdx.length * centers.length; let done=0;
 
     const results = [];
     for(const ch of usedIdx){
@@ -377,7 +377,7 @@ async function onProcess(){
       const byBand = {};
       for(let i=0;i<centers.length;i++){
         const fc=centers[i];
-        if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; done++; updateProgress(100*done/total, `skip ${fc}Hz`); continue; }
+        if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
         const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
         const y  = sosFilter(x, sos);
         const T = y.length/sr;
@@ -386,8 +386,19 @@ async function onProcess(){
         const LE  = Leq + 10*Math.log10(Math.max(1e-24, T)); // 1s基準
         const sFast = ewmaSquaredToSPL(y, sr, 0.125);
         const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
-        let series = timeMode==='fast' ? sFast : timeMode==='slow' ? sSlow : timeMode==='leq' ? movingLeqSPL(y, sr, leqWin)
-                     : (()=>{ const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length); for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; } return out; })();
+
+        // timeMode処理: none は fast と同様に扱う
+        let series =
+          timeMode==='fast' || timeMode==='none' ? sFast :
+          timeMode==='slow' ? sSlow :
+          timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
+          // maxhold
+          (()=>{
+            const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length);
+            for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; }
+            return out;
+          })();
+
         const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
         const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
         const L05 = percentile(series, 0.95);
@@ -396,7 +407,6 @@ async function onProcess(){
         const L90 = percentile(series, 0.10);
         const L95 = percentile(series, 0.05);
         byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
-        done++; updateProgress(100*done/total, `CH${ch+1} ${Math.round(fc)}Hz`);
       }
       results.push({channelIndex:ch, role:cfg.role, byBand, centers, sr});
     }
@@ -404,10 +414,13 @@ async function onProcess(){
     setStatus('Processed');
     const active = document.querySelector('#tabs .tab.active');
     if(active){ renderChannel(+active.dataset.ch); }
-  }catch(err){ setStatus('Process error: '+err.message); }
-  finally{
-    updateProgress(100,'done');
+  }catch(err){
+    setStatus('Process error: '+err.message);
+  }finally{
+    // 終了時のUI制御
     document.getElementById('overlay').style.display = 'none';
+    btn.classList.remove('processing');
+    btn.disabled = false;
   }
 }
 
@@ -460,11 +473,26 @@ function renderChannel(ch){
     let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
     const tmax = kmax/sr; const ystar = env[kmax];
     const ds1 = downsampleForPlot(x,y,2000); const ds2 = downsampleForPlot(x,env,2000);
+
     Plotly.react(div,[
       {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
       {x:ds2.x, y:ds2.y, name:'Env(Fast)', type:'scatter', mode:'lines'},
       {x:[tmax], y:[ystar], name:'Fast max-hold', mode:'markers', marker:{symbol:'star', size:12, line:{width:1}}}
-    ], {title:`${Math.round(f)} Hz`, legend:{orientation:'h'}, margin:{l:40,r:10,t:30,b:30}});
+    ], {
+      title:`${Math.round(f)} Hz`,
+      legend:{orientation:'h'},
+      margin:{l:40,r:10,t:30,b:30},
+      annotations: [
+        {
+          x: tmax,
+          y: ystar,
+          text: `${m.Lfmax.toFixed(1)} dB`,
+          showarrow: false,
+          yshift: -12,
+          font: {size:10}
+        }
+      ]
+    });
   }
 }
 </script>
