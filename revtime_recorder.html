@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hand-Clap RT 20251022</title>
+  <title>RT Cal 20251022</title>
 
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
@@ -255,13 +255,23 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
       waveNote:"Original waveform used for analysis. Red=clap, Blue=pre-noise, Green=200 ms after."
     }
   };
+  
   function applyLang(lang){
     const dict = L[lang];
     $$('[data-i18n]').forEach(el=>{
       const key = el.getAttribute('data-i18n');
-      if(dict[key]!=null) el.innerHTML = dict[key];
+      if (dict[key] == null) return;
+      // 子要素を壊さない。先頭テキストノードだけ更新。
+      const tn = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+      if (tn) {
+        tn.textContent = dict[key];
+      } else if (el.children.length === 0) {
+        // 子が無い純テキスト要素のみ textContent 置換
+        el.textContent = dict[key];
+      }
     });
   }
+
   $('#btnJP').onclick=()=>applyLang('jp');
   $('#btnEN').onclick=()=>applyLang('en');
 
@@ -571,7 +581,8 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
 
   async function startRecording(){
     if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
-    const recSec = Math.max(1, Math.min(20, parseInt($('#recSec').value,10) || 5));
+    const recSecEl = $('#recSec');
+    const recSec = Math.max(1, Math.min(20, parseInt(recSecEl?.value,10) || 5));
     mediaStream = await navigator.mediaDevices.getUserMedia({
       audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false }
     });
