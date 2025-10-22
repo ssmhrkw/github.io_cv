@@ -230,5 +230,22 @@ document.getElementById('yr').addEventListener('change', run);
 populateCenters();
 run();
 </script>
+
+<script type="module">
+import {
+  designButterworthBandpassSOS_N, sosFilter,
+  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
+  sosFreqz, normalizeAt,
+  centersOct, centersThird, fullCenters,
+  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+} from "./acoustics-core.js";
+Object.assign(window, {
+  designButterworthBandpassSOS_N, sosFilter,
+  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
+  sosFreqz, normalizeAt,
+  centersOct, centersThird, fullCenters,
+  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+});
+</script>
 </body>
 </html>
