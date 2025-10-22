@@ -11,8 +11,8 @@
 [index](https://ssmhrkw.github.io/github.io_cv/index.html).
 
 ### Revtime_recorder
-A[録音/ファイル読込] -->
-B[帯域通過 SoS BPF<br/>designButterworthBandpassSOS_N + sosFilter]
+A[録音/ファイル読込] <br>
+B[帯域通過 SoS BPF designButterworthBandpassSOS_N + sosFilter]
 C[シュレーダー積分<br/>(BG減算オプション)]
 D[回帰: EDT/T10/T20/T30]
 E[SNR計算<br/>前0.5s vs 直後0.2s]
