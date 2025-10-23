@@ -20,11 +20,11 @@
   .tabs{display:flex;gap:8px;margin-top:12px}
   .tab{padding:8px 12px;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;background:#eef2ff;cursor:pointer}
   .tab.active{background:#fff;border-color:#c7d2fe}
-  .panel{border:1px solid var(--line);border-radius:0 12px 12px 12px;background:#fff;padding:12px}
+  .panel{border:1px solid var(--line);border-radius:0 12px 12px 12px;background:#fff;padding:12px;overflow:auto}
   .seriesTabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}
   .seriesTab{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#f3f4f6;cursor:pointer}
   .seriesTab.active{background:#fff;border-color:#c7d2fe}
-  .plot{width:100%;height:720px}
+  .plot{width:100%} /* 高さはレイアウトで制御 */
   .grid{display:grid;grid-template-columns:1fr 360px;gap:12px}
   .ctrl{border:1px dashed #e5e7eb;border-radius:10px;padding:10px;background:#fafafa}
   .ctrl h3{margin:4px 0 8px;font-size:14px}
@@ -217,18 +217,15 @@
   const anyData=()=>groups.some(gp=>gp.data.length);
 
   // ===== 丸め(JIS 小数1桁) =====
-  function roundJIS1(x){
-    return Math.round(x*10)/10;
-  }
+  function roundJIS1(x){ return Math.round(x*10)/10; }
   const roundInt = x => Math.round(x);
 
   // ===== 暗騒音補正（Lmax のみ。ロジック変更なし） =====
   function correctedSeriesArray(kind, seriesName, dataObj){
-    // 既存ロジックを前提（ここでは補正しないまま据え置き）
     return (dataObj[kind].series[seriesName]||[]).slice();
   }
 
-  // ===== エネルギー平均（本体は据え置き。丸めは呼び出し側で制御） =====
+  // ===== エネルギー平均 =====
   function energyMean(values){
     const val=values.filter(v=>Number.isFinite(v));
     if(!val.length) return NaN;
@@ -238,12 +235,10 @@
 
   // ===== Group内エネ平均 → Group間算術平均（丸め選択対応） =====
   function globalAvgForRating_Oct_Lmax(roundingMode, evalFreqs){
-    // 周波数→インデックス
     let labels=[]; for(const gp of groups){ if(gp.data.length){ labels=gp.data[0].oct.freqs.map(Number); break; } }
     const idxOf=f=>labels.findIndex(x=>Number(x)===Number(f));
     if(!labels.length) return {labels:[], y:[]};
 
-    // k段階（各Groupのエネルギー平均）
     const kPerGroup = Array.from({length:GROUP_COUNT}, (_,gi)=>{
       const gp=groups[gi]; if(!gp.data.length) return evalFreqs.map(()=>NaN);
       return evalFreqs.map(f=>{
@@ -262,12 +257,11 @@
       });
     });
 
-    // i段階（Group間算術平均）
     const y = evalFreqs.map((_,fi)=>{
       const arr = kPerGroup.map(a=>a[fi]).filter(v=>Number.isFinite(v));
       if(!arr.length) return NaN;
       const i = arr.reduce((a,b)=>a+b,0)/arr.length;
-      return roundJIS1(i); // 最終のみ小数1位
+      return roundJIS1(i);
     });
     return {labels:evalFreqs, y};
   }
@@ -291,12 +285,6 @@
     return {FAMILY_FREQS,EVAL_FREQS,REF_SLICE};
   }
 
-  function pick(labels,values,targets){
-    const idxs = targets.map(f=>labels.findIndex(x=>Number(x)===Number(f)));
-    if(idxs.some(i=>i<0)) return null;
-    return idxs.map(i=>values[i]);
-  }
-
   function calcAndDrawRating(){
     const fig=document.getElementById('rating-plot');
     const resDiv=document.getElementById('rating-result');
@@ -315,7 +303,7 @@
 
     const tol=tolEl.checked?2:0;
     const shift=computeShift(yEval,REF_SLICE,tol);
-    const Lint = roundLr(30+shift); // 既存仕様に準拠
+    const Lint = roundLr(30+shift);
     const refShiftEval=REF_SLICE.map(v=>v+shift);
 
     const width=Math.min(fig.parentElement.clientWidth,MAX_WIDTH_RATING);
@@ -350,7 +338,7 @@
     };
   }
 
-  // ===== シリーズタブ（元のまま） =====
+  // ===== シリーズタブ =====
   makeSeriesTabs('oct'); makeSeriesTabs('thirdoct');
   function makeSeriesTabs(kind){
     const wrap=document.getElementById(`seriesTabs-${kind}`); if(!wrap) return;
@@ -365,7 +353,7 @@
     });
   }
 
-  // ===== OCT / 1/3OCT：描画（既存スタイル踏襲、非評価部は変更なし） =====
+  // ===== OCT / 1/3OCT =====
   function groupEnergyAvg(gi,kind,sname){
     const gp=groups[gi]; if(!gp.data.length) return {y:[],labels:[]};
     const labels=gp.data[0][kind].freqs;
@@ -384,7 +372,7 @@
 
     const plotDivId=`${kind}-plot`;
     const plotDiv=document.createElement('div'); plotDiv.id=plotDivId; plotDiv.className='plot';
-    const tableWrap=document.createElement('div'); tableWrap.style.marginTop='8px';
+    const tableWrap=document.createElement('div'); tableWrap.style.marginTop='8px'; tableWrap.style.overflowX='auto';
     mount.innerHTML=''; mount.appendChild(plotDiv); mount.appendChild(tableWrap);
 
     const traces=[];
