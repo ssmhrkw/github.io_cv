@@ -107,12 +107,10 @@
   const EXCLUDE_ROWS = new Set(['Lp Over','Lp Under']);
   const LABEL_ROW_MAP = new Map([['Leq','Leq'],['LE','LE'],['Lmax','Lmax'],['Lmin','Lmin'],['LN1','LN1'],['LN2','LN2'],['LN3','LN3'],['LN4','LN4'],['LN5','LN5']]);
 
-  // Rating 用参照
   const CURVE_FREQS=[63,125,250,500,1000,2000,4000];
   const REF_DB_EXT=[53,43,36,30,24,18,12];
   const MAX_WIDTH_RATING=720;
 
-  // 規定の中心周波数（表示順保持）
   const OCT_CENTER = ['16 Hz','31.5 Hz','63 Hz','125 Hz','250 Hz','500 Hz','1 kHz','2 kHz','4 kHz','8 kHz','16 kHz'];
   const THIRDOCT_CENTER = ['12.5 Hz','16 Hz','20 Hz','25 Hz','31.5 Hz','40 Hz','50 Hz','63 Hz','80 Hz','100 Hz','125 Hz','160 Hz','200 Hz','250 Hz','315 Hz','400 Hz','500 Hz','630 Hz','800 Hz','1 kHz','1.25 kHz','1.6 kHz','2 kHz','2.5 kHz','3.15 kHz','4 kHz','5 kHz','6.3 kHz','8 kHz','10 kHz','12.5 kHz','16 kHz','20 kHz'];
 
@@ -217,7 +215,7 @@
   const escapeHtml=s=>s.replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]));
   const anyData=()=>groups.some(gp=>gp.data.length);
 
-  // ===== 周波数正規化（"1,000", "1.0k" 等を数値Hzへ） =====
+  // ===== 周波数正規化 =====
   function parseHz(str){
     if(str==null) return NaN;
     const s=String(str).trim().toLowerCase().replace(/,/g,'').replace(/\s+/g,'');
@@ -228,18 +226,20 @@
     const unit=s.includes('k') ? 1000 : 1;
     return v*unit;
   }
-  function hzLabel(hz){
-    if(!Number.isFinite(hz)) return '';
-    if(hz>=1000) {
-      const k=hz/1000;
-      // 1, 2, 4, 8, 16 などは整数表示
-      return (Number.isInteger(k)?`${k} kHz`:`${k} kHz`);
-    }
-    // 31.5 等の小数はそのまま
-    return (Math.round(hz*10)/10).toString().replace(/\.0$/,'')+' Hz';
+
+  function filterFreqsFor(kind, freqs){
+    const centers = (kind==='oct') ? OCT_CENTER : THIRDOCT_CENTER;
+    const labelsNum = freqs.map(parseHz);
+    const outLabels=[], keep=[];
+    centers.forEach(lbl=>{
+      const hz=parseHz(lbl);
+      const idx=labelsNum.findIndex(v=>v===hz);
+      if(idx>=0){ outLabels.push(lbl); keep.push(idx); }
+    });
+    return {labels:outLabels, indices:keep};
   }
 
-  // ===== 丸め(JIS 小数1桁: 偶数丸め) =====
+  // ===== 丸め（既存ロジックを保持） =====
   function roundJIS1(x){
     if(!Number.isFinite(x)) return x;
     const s=Math.sign(x)||1, ax100=Math.abs(x)*100;
@@ -251,7 +251,29 @@
   }
   const roundInt = x => Math.round(x);
 
-  // ===== 暗騒音補正 Lc(表1+線形補間) =====
+  // Ver別丸め適用
+  // level: 'file' | 'groupIn' | 'display'
+  function applyRoundingForVersion(values, level, version){
+    return values.map(v=>{
+      if(!Number.isFinite(v)) return v;
+      if(version==='v1'){
+        if(level==='file') return Math.round(v);
+        if(level==='groupIn') return roundJIS1(v);
+        if(level==='display') return roundJIS1(v);
+      }else if(version==='v2'){
+        if(level==='file') return roundJIS1(v);
+        if(level==='groupIn') return roundJIS1(v);
+        if(level==='display') return roundJIS1(v);
+      }else{ // v3
+        if(level==='file') return v;
+        if(level==='groupIn') return v;
+        if(level==='display') return roundJIS1(v);
+      }
+      return v;
+    });
+  }
+
+  // ===== 暗騒音補正 =====
   const LC_TABLE={
     6:[1.3,1.3,1.2,1.2,1.2,1.2,1.1,1.1,1.1,1.1],
     7:[1.0,1.0,1.0,0.9,0.9,0.9,0.9,0.9,0.8,0.8],
@@ -274,7 +296,7 @@
     return y0 + (frac - c/10)/0.1 * (y1 - y0);
   }
 
-  // 測定配列に暗騒音補正を適用（Lmaxのみ）
+  // 測定配列に暗騒音補正（Lmaxのみ）
   function correctedSeriesArray(kind, seriesName, dataObj){
     const arr=(dataObj[kind].series[seriesName]||[]).slice();
     if(seriesName!=='Lmax' || noiseMode!=='apply') return arr;
@@ -295,12 +317,49 @@
     return 10*Math.log10(lin.reduce((a,b)=>a+b,0)/lin.length);
   }
 
-  // ===== Group内エネ平均 → Group間算術平均 =====
+  // Group内エネ平均（Ver丸め対応）
+  function groupEnergyAvgVersioned(gi,kind,sname,version){
+    const gp=groups[gi]; if(!gp.data.length) return {y:[],labels:[]};
+    const labels=gp.data[0][kind].freqs;
+    const N=labels.length;
+    const result=new Array(N).fill(NaN);
+    for(let i=0;i<N;i++){
+      const vals = gp.data.map(d=>correctedSeriesArray(kind,sname,d)[i]);
+      const valsRounded = applyRoundingForVersion(vals,'file',version);
+      const mean = energyMean(valsRounded);
+      result[i] = (version==='v3') ? mean : roundJIS1(mean); // Ver1/2はgroupInでJIS
+    }
+    return {y:result,labels};
+  }
+
+  // ===== Rating（既存仕様＋1dBガイド） =====
+  const tolEl=document.getElementById('tol2db');
+  const roundingEl=document.getElementById('roundingMode');
+  const srcEls=document.getElementsByName('srcKind');
+  tolEl.addEventListener('change', onEvalInputsChanged);
+  roundingEl.addEventListener('change', onEvalInputsChanged);
+  srcEls.forEach(r=>r.addEventListener('change', onEvalInputsChanged));
+
+  function onEvalInputsChanged(){
+    calcAndDrawRating();
+    if(anyData()){ renderBand('oct'); renderBand('thirdoct'); }
+  }
+
+  function computeShift(meas,ref,tol){ let need=-Infinity; for(let i=0;i<meas.length;i++) need=Math.max(need,meas[i]-ref[i]-tol); return Math.max(0,need); }
+  function roundLr(L,tol){ const th=(tol===2)?2.0:2.5; const base=Math.floor(L/5)*5; return (L-base)<=th?base:base+5; }
+
+  function currentEvalConfig(){
+    const kind = document.querySelector('input[name="srcKind"]:checked').value;
+    const FAMILY_FREQS = [63,125,250,500,1000,2000];
+    const EVAL_FREQS   = (kind==='heavy') ? [63,125,250,500] : [125,250,500,1000,2000];
+    const REF_SLICE    = (kind==='heavy') ? REF_DB_EXT.slice(0,4) : REF_DB_EXT.slice(1,6);
+    return {FAMILY_FREQS,EVAL_FREQS,REF_SLICE};
+  }
+
   function globalAvgForRating_Oct_Lmax(roundingMode, evalFreqs){
     let freqsStr=[]; for(const gp of groups){ if(gp.data.length){ freqsStr=gp.data[0].oct.freqs; break; } }
     if(!freqsStr.length) return {labels:[], y:[]};
     const labelsNum=freqsStr.map(s=>parseHz(s));
-
     const idxOf=f=>labelsNum.findIndex(x=>x===f);
 
     const kPerGroup = Array.from({length:GROUP_COUNT}, (_,gi)=>{
@@ -312,7 +371,7 @@
           if(!Number.isFinite(v)) return NaN;
           if(roundingMode==='v1') return Math.round(v);
           if(roundingMode==='v2') return roundJIS1(v);
-          return v; // v3
+          return v;
         }).filter(v=>Number.isFinite(v));
         if(!jVals.length) return NaN;
         let k = energyMean(jVals);
@@ -328,25 +387,6 @@
       return roundJIS1(i);
     });
     return {labels:evalFreqs, y};
-  }
-
-  // ===== 評価タブ =====
-  const tolEl=document.getElementById('tol2db');
-  const roundingEl=document.getElementById('roundingMode');
-  const srcEls=document.getElementsByName('srcKind');
-  tolEl.addEventListener('change', calcAndDrawRating);
-  roundingEl.addEventListener('change', calcAndDrawRating);
-  srcEls.forEach(r=>r.addEventListener('change', calcAndDrawRating));
-
-  function computeShift(meas,ref,tol){ let need=-Infinity; for(let i=0;i<meas.length;i++) need=Math.max(need,meas[i]-ref[i]-tol); return Math.max(0,need); }
-  function roundLr(L,tol){ const th=(tol===2)?2.0:2.5; const base=Math.floor(L/5)*5; return (L-base)<=th?base:base+5; }
-
-  function currentEvalConfig(){
-    const kind = document.querySelector('input[name="srcKind"]:checked').value; // heavy or light
-    const FAMILY_FREQS = [63,125,250,500,1000,2000];
-    const EVAL_FREQS   = (kind==='heavy') ? [63,125,250,500] : [125,250,500,1000,2000];
-    const REF_SLICE    = (kind==='heavy') ? REF_DB_EXT.slice(0,4) : REF_DB_EXT.slice(1,6);
-    return {FAMILY_FREQS,EVAL_FREQS,REF_SLICE};
   }
 
   function calcAndDrawRating(){
@@ -369,8 +409,8 @@
     const tol=tolEl.checked?2:0;
     const shift=computeShift(yEval,REF_SLICE,tol);
     const Lcont = 30 + shift;
-    const Lint = roundInt(Lcont);     // 1 dB刻みの評価量
-    const Lr = roundLr(Lint, tol);    // 5 dBステップの決定等級
+    const Lint = roundInt(Lcont);
+    const Lr = roundLr(Lint, tol);
 
     const width=Math.min(fig.parentElement.clientWidth,MAX_WIDTH_RATING);
     const traces=[];
@@ -382,11 +422,8 @@
       });
       traces.push({x:FAMILY_FREQS,y:yref,mode:'lines',line:{width:2,dash:'dot'},hoverinfo:'skip',showlegend:false});
     }
-    // Global 実測
     traces.push({x:EVAL_FREQS,y:yEval,mode:'lines+markers',line:{width:3,color:'black',dash:'dot'},marker:{symbol:'diamond',size:9,color:'black'},name:'Global',showlegend:false});
-    // 決定等級線 Lr（青 実線）
     traces.push({x:FAMILY_FREQS,y:FAMILY_FREQS.map(f=>{const i=CURVE_FREQS.indexOf(f); return (i>=0?REF_DB_EXT[i]:NaN)+(Lr-30);}),mode:'lines',line:{width:2,color:'#2563eb'},hoverinfo:'skip',showlegend:false});
-    // 1 dBガイド Lint（薄灰 破線）
     traces.push({x:FAMILY_FREQS,y:FAMILY_FREQS.map(f=>{const i=CURVE_FREQS.indexOf(f); return (i>=0?REF_DB_EXT[i]:NaN)+(Lint-30);}),mode:'lines',line:{width:1,color:'#9ca3af',dash:'dot'},hoverinfo:'skip',showlegend:false});
 
     const layout={ width, height:540, margin:{l:90,r:40,t:16,b:50},
@@ -395,11 +432,9 @@
 
     Plotly.react('rating-plot',traces,layout,{displaylogo:false,responsive:false});
 
-    // 評価対象バンドのみの簡易表（Global Lmax）
     const rows = EVAL_FREQS.map((f,i)=>`<tr><td>${f}</td><td>${yEval[i].toFixed(1)}</td></tr>`).join('');
     tableDiv.innerHTML = `<table><thead><tr><th>Band (Hz)</th><th>Global Lmax</th></tr></thead><tbody>${rows}</tbody></table>`;
 
-    // 結果表示
     resDiv.innerHTML=`評価結果：<span class="badge">Lr-${Lr}</span>（L=${Lint}, shift=${shift.toFixed(2)} dB, 許容=${tol} dB）`;
   }
 
@@ -419,35 +454,13 @@
   }
 
   // ===== OCT / 1/3OCT =====
-  function groupEnergyAvg(gi,kind,sname){
-    const gp=groups[gi]; if(!gp.data.length) return {y:[],labels:[]};
-    const labels=gp.data[0][kind].freqs;
-    const out=labels.map((_,i)=>energyMean(gp.data.map(d=>correctedSeriesArray(kind,sname,d)[i])));
-    return {y:out,labels};
-  }
-
-  function filterFreqsFor(kind, freqs){
-    const centers = (kind==='oct') ? OCT_CENTER : THIRDOCT_CENTER;
-    // 入力ヘッダを数値化し、中心周波数のうちヘッダに存在するものだけを順序通り採用
-    const labelsNum = freqs.map(parseHz);
-    const outLabels=[], keep=[];
-    centers.forEach(lbl=>{
-      const hz=parseHz(lbl);
-      const idx=labelsNum.findIndex(v=>v===hz);
-      if(idx>=0){
-        outLabels.push(lbl);
-        keep.push(idx);
-      }
-    });
-    return {labels:outLabels, indices:keep};
-  }
-
   function renderBand(kind){
     let freqs=[]; for(const gp of groups){ if(gp.data.length){ freqs=gp.data[0][kind].freqs; break; } }
     const mount=document.getElementById(`${kind}-content`);
     if(!freqs.length){ mount.innerHTML='<div class="note">各グループにファイルを追加してください。</div>'; return; }
 
     const {labels:validFreqs, indices:keepIndices} = filterFreqsFor(kind, freqs);
+    const version = document.getElementById('roundingMode').value;
 
     const cw = mount.getBoundingClientRect().width || mount.parentElement.clientWidth || 900;
     const subplotW = cw/2;
@@ -462,44 +475,71 @@
 
     const traces=[];
     const layout = { grid:{rows:3,columns:2,pattern:'independent',roworder:'top left',xgap:0.06,ygap:0.14}, width,height, margin:{l:60,r:20,t:20,b:40}, showlegend:false };
+
     for(let g=0; g<GROUP_COUNT; g++){
       const xa=`x${g+1}`, ya=`y${g+1}`;
       const gp=groups[g];
       if(gp.data.length){
+        // 各ファイル（fileレベル丸めを適用）
         gp.data.forEach((d,idx)=>{
-          const vec=correctedSeriesArray(kind,activeSeries,d);
-          traces.push({x:validFreqs,y:keepIndices.map(i=>vec[i]),mode:'lines+markers',line:{width:2},marker:{size:6},name:`G${g+1}-${idx+1}`,xaxis:xa,yaxis:ya});
+          const vecRaw = correctedSeriesArray(kind,activeSeries,d);
+          const vecRounded = applyRoundingForVersion(vecRaw,'file',version);
+          traces.push({
+            x:validFreqs,
+            y:keepIndices.map(i=>vecRounded[i]),
+            mode:'lines+markers',line:{width:2},marker:{size:6},
+            name:`G${g+1}-${idx+1}`,xaxis:xa,yaxis:ya
+          });
         });
-        const gavg=groupEnergyAvg(g,kind,activeSeries);
-        traces.push({x:validFreqs,y:keepIndices.map(i=>gavg.y[i]),mode:'lines+markers',line:{width:3,color:'black',dash:'dot'},marker:{symbol:'diamond',size:8,color:'black'},name:`G${g+1} エネルギー平均`,xaxis:xa,yaxis:ya});
+        // Group内エネ平均（groupIn丸めを適用）
+        const gavg=groupEnergyAvgVersioned(g,kind,activeSeries,version);
+        const yavg = keepIndices.map(i=>gavg.y[i]);
+        // 表示レベルの丸め（Ver3のみdisplay時JIS）
+        const yavgDisp = (version==='v3') ? applyRoundingForVersion(yavg,'display',version) : yavg;
+        traces.push({
+          x:validFreqs,y:yavgDisp,mode:'lines+markers',
+          line:{width:3,color:'black',dash:'dot'},marker:{symbol:'diamond',size:8,color:'black'},
+          name:`G${g+1} エネルギー平均`,xaxis:xa,yaxis:ya
+        });
       }
       layout[`xaxis${g+1}`]={type:'category',tickangle:-35,automargin:true,title:`G${g+1} (${activeSeries})`,titlefont:{size:12}};
       layout[`yaxis${g+1}`]={title:'dB',automargin:true,tickfont:{size:11}};
     }
+
+    // 右下: G1–G5のエネ平均系列（groupOutの概念は不要。groupIn結果の表示丸めのみ）
     for(let g=0; g<GROUP_COUNT; g++){
       if(!groups[g].data.length) continue;
-      const gavg=groupEnergyAvg(g,kind,activeSeries);
-      traces.push({x:validFreqs,y:keepIndices.map(i=>gavg.y[i]),mode:'lines+markers',line:{width:2},marker:{size:6},name:`G${g+1} 平均`,xaxis:'x6',yaxis:'y6'});
+      const gavg=groupEnergyAvgVersioned(g,kind,activeSeries,version);
+      const yavg = keepIndices.map(i=>gavg.y[i]);
+      const yavgDisp = (version==='v3') ? applyRoundingForVersion(yavg,'display',version) : yavg;
+      traces.push({x:validFreqs,y:yavgDisp,mode:'lines+markers',line:{width:2},marker:{size:6},name:`G${g+1} 平均`,xaxis:'x6',yaxis:'y6'});
     }
     layout.xaxis6={type:'category',tickangle:-35,automargin:true,title:`G1–G5 エネルギー平均 (${activeSeries})`,titlefont:{size:12}};
     layout.yaxis6={title:'dB',automargin:true,tickfont:{size:11}};
     Plotly.react(plotDivId,traces,layout,{responsive:true,displaylogo:false});
 
-    // テーブル（同じフィルタを適用）
+    // テーブル
     let html='<table><thead><tr><th class="sticky">Series / Hz</th>'+validFreqs.map(f=>`<th>${f}</th>`).join('')+'</tr></thead><tbody>';
     for(let g=0; g<GROUP_COUNT; g++){
       const gp=groups[g]; if(!gp.data.length) continue;
+      // 各ファイル（fileレベル丸め適用）
       gp.data.forEach((d,idx)=>{
-        const vec=correctedSeriesArray(kind,activeSeries,d);
-        html += `<tr><td class="sticky">G${g+1}-${idx+1}</td>` + keepIndices.map(i=>Number.isFinite(vec[i])?roundJIS1(vec[i]).toFixed(1):'').map(s=>`<td>${s}</td>`).join('') + '</tr>';
+        const vecRaw=correctedSeriesArray(kind,activeSeries,d);
+        const vecRounded=applyRoundingForVersion(vecRaw,'file',version);
+        html += `<tr><td class="sticky">G${g+1}-${idx+1}</td>` +
+          keepIndices.map(i=>Number.isFinite(vecRounded[i])?roundJIS1(vecRounded[i]).toFixed(1):'').map(s=>`<td>${s}</td>`).join('') + '</tr>';
       });
-      const full=groupEnergyAvg(g,kind,activeSeries);
-      html += `<tr class="avg-row"><td class="sticky">G${g+1} エネルギー平均</td>` + keepIndices.map(i=>Number.isFinite(full.y[i])?roundJIS1(full.y[i]).toFixed(1):'').map(s=>`<td>${s}</td>`).join('') + '</tr>';
+      // Group平均（groupIn→display）
+      const full=groupEnergyAvgVersioned(g,kind,activeSeries,version);
+      const yavg = keepIndices.map(i=>full.y[i]);
+      const yavgDisp = (version==='v3') ? applyRoundingForVersion(yavg,'display',version) : yavg;
+      html += `<tr class="avg-row"><td class="sticky">G${g+1} エネルギー平均</td>` +
+        yavgDisp.map(v=>Number.isFinite(v)?roundJIS1(v).toFixed(1):'').map(s=>`<td>${s}</td>`).join('') + '</tr>';
     }
     html+='</tbody></table>'; tableWrap.innerHTML=html;
   }
 
-  // ===== リサイズ（デバウンス付き） =====
+  // ===== リサイズ =====
   const debounce=(fn,ms)=>{let t;return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);} };
   const safeResize=debounce(function(){
     if(activeBandTab==='rating'){
@@ -527,5 +567,3 @@
 </script>
 </body>
 </html>
-```
-
