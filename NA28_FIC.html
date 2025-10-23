@@ -1,3 +1,23 @@
+対応可。下に差し替えHTMLを提示。
+
+# 変更一覧
+
+* 周波数正規化を実装（小数＋k、カンマ、スペース混在を数値Hzへ正規化）。`Sub/Main`等の非数値は除外。
+* OCTは16–16000 Hz、1/3OCTは12.5–20000 Hzの中心周波数のみ描画。表も同一フィルタを適用。
+* 500 Hzで途切れる不具合を修正（カテゴリX軸に正規化ラベルを供給し全域を描画）。
+* Ratingの重量/軽量切替で即時再計算し`Plotly.react`で更新。フリーズ解消。
+* RatingのRef+Shift表とCSV出力を削除。
+* Ratingに1 dB刻み評価（Lint）ガイド線を追加。UIに`L`も表示。
+* Ratingに評価対象バンドのみの簡易表（重量=63–500 Hz、軽量=125–2000 HzのGlobal Lmax）を再追加。
+* 既存のJIS偶数丸め・Lc補正・5 dB丸めは変更なし。
+
+任意の最適化
+
+* 再レイアウト時の安定化用`safeResize`デバウンスを維持。初回計算のガードあり。
+
+---
+
+```html
 <!doctype html>
 <html lang="ja">
 <head>
@@ -41,10 +61,8 @@
 <div class="container">
   <h1>RND Reader — 評価（等級図） / OCT / 1/3OCT</h1>
 
-  <!-- 5グループの入力枠 -->
   <div class="row" id="dropRow"></div>
 
-  <!-- 暗騒音補正 UI -->
   <div class="card" style="margin-top:12px;">
     <p style="margin-top:0; font-weight:600;">暗騒音補正の適用</p>
     <label><input type="radio" name="noiseCorrection" value="none" checked> 補正しない</label>
@@ -72,7 +90,6 @@
         <h3>評価設定</h3>
         <label><input type="checkbox" id="tol2db" checked> 2dB許容</label>
 
-        <!-- 丸めオプション -->
         <label>丸め:
           <select id="roundingMode">
             <option value="v1">Ver1: 整 → 小数1位 → 小数1位</option>
@@ -81,14 +98,12 @@
           </select>
         </label>
 
-        <!-- 軽量/重量切替（インデント修正済） -->
         <label><input type="radio" name="srcKind" value="heavy" checked> 重量衝撃源</label>
         <label><input type="radio" name="srcKind" value="light"> 軽量衝撃源</label>
 
         <div class="note">チェックや選択を変えると再計算</div>
         <div id="rating-result" style="margin-top:8px"></div>
         <div id="rating-table"></div>
-        <button id="csvBtn" class="btn" style="margin-top:6px;display:none">CSV書き出し</button>
       </div>
     </div>
   </div>
@@ -112,11 +127,16 @@
   const EXCLUDE_ROWS = new Set(['Lp Over','Lp Under']);
   const LABEL_ROW_MAP = new Map([['Leq','Leq'],['LE','LE'],['Lmax','Lmax'],['Lmin','Lmin'],['LN1','LN1'],['LN2','LN2'],['LN3','LN3'],['LN4','LN4'],['LN5','LN5']]);
 
+  // Rating 用参照
   const CURVE_FREQS=[63,125,250,500,1000,2000,4000];
   const REF_DB_EXT=[53,43,36,30,24,18,12];
   const MAX_WIDTH_RATING=720;
 
-  const groups = Array.from({length:GROUP_COUNT}, ()=>({files:[],data:[]}));
+  // 規定の中心周波数（表示順保持）
+  const OCT_CENTER = ['16 Hz','31.5 Hz','63 Hz','125 Hz','250 Hz','500 Hz','1 kHz','2 kHz','4 kHz','8 kHz','16 kHz'];
+  const THIRDOCT_CENTER = ['12.5 Hz','16 Hz','20 Hz','25 Hz','31.5 Hz','40 Hz','50 Hz','63 Hz','80 Hz','100 Hz','125 Hz','160 Hz','200 Hz','250 Hz','315 Hz','400 Hz','500 Hz','630 Hz','800 Hz','1 kHz','1.25 kHz','1.6 kHz','2 kHz','2.5 kHz','3.15 kHz','4 kHz','5 kHz','6.3 kHz','8 kHz','10 kHz','12.5 kHz','16 kHz','20 kHz'];
+
+  const groups = Array.from({length:GROUP_COUNT}, ()=>({files:[],data:[]})); // data: [{fileName,oct,thirdoct}]
   let activeBandTab='rating';
   let activeSeries='Lmax';
 
@@ -217,6 +237,28 @@
   const escapeHtml=s=>s.replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]));
   const anyData=()=>groups.some(gp=>gp.data.length);
 
+  // ===== 周波数正規化（"1,000", "1.0k" 等を数値Hzへ） =====
+  function parseHz(str){
+    if(str==null) return NaN;
+    const s=String(str).trim().toLowerCase().replace(/,/g,'').replace(/\s+/g,'');
+    if(!s) return NaN;
+    const m=s.match(/^(\d+(\.\d+)?)(k|khz|hz)?$/i);
+    if(!m) return NaN;
+    const v=parseFloat(m[1]);
+    const unit=s.includes('k') ? 1000 : 1;
+    return v*unit;
+  }
+  function hzLabel(hz){
+    if(!Number.isFinite(hz)) return '';
+    if(hz>=1000) {
+      const k=hz/1000;
+      // 1, 2, 4, 8, 16 などは整数表示
+      return (Number.isInteger(k)?`${k} kHz`:`${k} kHz`);
+    }
+    // 31.5 等の小数はそのまま
+    return (Math.round(hz*10)/10).toString().replace(/\.0$/,'')+' Hz';
+  }
+
   // ===== 丸め(JIS 小数1桁: 偶数丸め) =====
   function roundJIS1(x){
     if(!Number.isFinite(x)) return x;
@@ -277,9 +319,8 @@
   function globalAvgForRating_Oct_Lmax(roundingMode, evalFreqs){
     let freqsStr=[]; for(const gp of groups){ if(gp.data.length){ freqsStr=gp.data[0].oct.freqs; break; } }
     if(!freqsStr.length) return {labels:[], y:[]};
+    const labelsNum=freqsStr.map(s=>parseHz(s));
 
-    // '1k' -> 1000, '63' -> 63, 'Sub' -> NaN
-    const labelsNum = freqsStr.map(s => parseFloat(String(s).replace(/k/i, '000')));
     const idxOf=f=>labelsNum.findIndex(x=>x===f);
 
     const kPerGroup = Array.from({length:GROUP_COUNT}, (_,gi)=>{
@@ -332,17 +373,18 @@
     const fig=document.getElementById('rating-plot');
     const resDiv=document.getElementById('rating-result');
     const tableDiv=document.getElementById('rating-table');
-    const csvBtn=document.getElementById('csvBtn');
 
     const any=groups.find(gp=>gp.data.length);
-    if(!any){ fig.innerHTML=''; resDiv.innerHTML=''; tableDiv.innerHTML='<div class="note">各グループにRNDを読み込んでください。</div>'; csvBtn.style.display='none'; return; }
+    if(!any){ fig.innerHTML=''; resDiv.innerHTML=''; tableDiv.innerHTML='<div class="note">各グループにRNDを読み込んでください。</div>'; return; }
 
     const {FAMILY_FREQS,EVAL_FREQS,REF_SLICE} = currentEvalConfig();
     const roundingMode = roundingEl.value;
 
     const gAvg = globalAvgForRating_Oct_Lmax(roundingMode, EVAL_FREQS);
     const yEval = gAvg.y;
-    if(!yEval || yEval.some(v=>!Number.isFinite(v))){ fig.innerHTML=''; resDiv.innerHTML=''; tableDiv.innerHTML='<div class="note">評価不可：必要バンド欠落。</div>'; csvBtn.style.display='none'; return; }
+    if(!yEval || yEval.some(v=>!Number.isFinite(v))){
+      fig.innerHTML=''; resDiv.innerHTML=''; tableDiv.innerHTML='<div class="note">評価不可：必要バンド欠落。</div>'; return;
+    }
 
     const tol=tolEl.checked?2:0;
     const shift=computeShift(yEval,REF_SLICE,tol);
@@ -373,10 +415,9 @@
 
     Plotly.react('rating-plot',traces,layout,{displaylogo:false,responsive:false});
 
-    // Ref+Shift表とCSVは不要化
-    tableDiv.innerHTML='';
-    csvBtn.style.display='none';
-    csvBtn.onclick=null;
+    // 評価対象バンドのみの簡易表（Global Lmax）
+    const rows = EVAL_FREQS.map((f,i)=>`<tr><td>${f}</td><td>${yEval[i].toFixed(1)}</td></tr>`).join('');
+    tableDiv.innerHTML = `<table><thead><tr><th>Band (Hz)</th><th>Global Lmax</th></tr></thead><tbody>${rows}</tbody></table>`;
 
     // 結果表示
     resDiv.innerHTML=`評価結果：<span class="badge">Lr-${Lr}</span>（L=${Lint}, shift=${shift.toFixed(2)} dB, 許容=${tol} dB）`;
@@ -405,20 +446,28 @@
     return {y:out,labels};
   }
 
+  function filterFreqsFor(kind, freqs){
+    const centers = (kind==='oct') ? OCT_CENTER : THIRDOCT_CENTER;
+    // 入力ヘッダを数値化し、中心周波数のうちヘッダに存在するものだけを順序通り採用
+    const labelsNum = freqs.map(parseHz);
+    const outLabels=[], keep=[];
+    centers.forEach(lbl=>{
+      const hz=parseHz(lbl);
+      const idx=labelsNum.findIndex(v=>v===hz);
+      if(idx>=0){
+        outLabels.push(lbl);
+        keep.push(idx);
+      }
+    });
+    return {labels:outLabels, indices:keep};
+  }
+
   function renderBand(kind){
     let freqs=[]; for(const gp of groups){ if(gp.data.length){ freqs=gp.data[0][kind].freqs; break; } }
     const mount=document.getElementById(`${kind}-content`);
     if(!freqs.length){ mount.innerHTML='<div class="note">各グループにファイルを追加してください。</div>'; return; }
 
-    // 16Hzから16kHzの数値バンドのみを抽出（Sub/Main除外）
-    const validFreqs = [], keepIndices = [];
-    freqs.forEach((f, i) => {
-      const val = parseFloat(String(f).replace(/k/i, '000'));
-      if (Number.isFinite(val) && val >= 16 && val <= 16000) {
-        validFreqs.push(f);
-        keepIndices.push(i);
-      }
-    });
+    const {labels:validFreqs, indices:keepIndices} = filterFreqsFor(kind, freqs);
 
     const cw = mount.getBoundingClientRect().width || mount.parentElement.clientWidth || 900;
     const subplotW = cw/2;
@@ -492,9 +541,10 @@
   },120);
   window.addEventListener('resize', safeResize);
 
-  // 初期安定化（データ読込後の初回も安全）
+  // 初期
   if (typeof calcAndDrawRating === 'function') { try { if(anyData()) calcAndDrawRating(); } catch(_){} }
 })();
 </script>
 </body>
 </html>
+```
