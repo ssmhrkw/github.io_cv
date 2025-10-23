@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TSEA Web (Single HTML)</title>
+<style>
+:root { color-scheme: light; --fg:#0f172a; --bg:#fff; --muted:#64748b; }
+*{ box-sizing:border-box }
+html,body{ margin:0; font-family:system-ui,"Noto Sans JP",sans-serif; color:var(--fg); background:var(--bg); }
+header{ padding:12px 16px; border-bottom:1px solid #e2e8f0; }
+main{ padding:12px 16px; max-width:980px; margin:0 auto; }
+#controls{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; align-items:end; }
+label{ display:flex; flex-direction:column; font-size:12px; color:var(--muted) }
+input,select,button{ padding:6px 8px; font-size:14px }
+#perf{ margin:10px 0; display:flex; gap:16px; color:var(--muted); font-size:13px }
+#plot{ width:100%; height:auto; border:1px solid #e2e8f0; touch-action:none; background:#fff }
+#log{ margin-top:10px; background:#f8fafc; padding:8px; border:1px solid #e2e8f0; max-height:180px; overflow:auto; white-space:pre-wrap }
+.small{ font-size:12px; color:var(--muted) }
+</style>
+</head>
+<body>
+<header><h1>TSEA Web（単一HTML）</h1></header>
+<main>
+  <section id="controls">
+    <label>fkey<select id="fkey"><option>OB</option><option>TOB</option></select></label>
+    <label>numfreq<input id="numfreq" type="number" min="1" max="256" value="31"></label>
+    <label>numsub<input id="numsub" type="number" min="1" max="64" value="4"></label>
+    <label>fs_In<input id="fs_In" type="number" min="1" max="10000" value="1024"></label>
+    <label>numtimetemp<input id="numtimetemp" type="number" min="1" max="100000" value="1024"></label>
+    <label>duration[s]<input id="duration" type="number" step="0.001" min="0.001" value="1.0"></label>
+    <label>deltaTFD<select id="deltaTFD"><option>Y</option><option>N</option></select></label>
+    <label>PInType<select id="PInType"><option>1</option><option>2</option></select></label>
+    <label>PInsub<input id="PInsub" type="number" min="1" max="64" value="1"></label>
+    <label>FTIvalue<input id="FTIvalue" type="number" min="1" max="4096" value="3"></label>
+    <button id="run">Run</button>
+    <button id="savepng">Save PNG</button>
+    <button id="exportjson">Export JSON</button>
+    <input id="file" type="file" accept=".json">
+    <span class="small">行列はJSONで読み込み可</span>
+  </section>
+
+  <section id="perf">
+    <span>status: <b id="status">idle</b></span>
+    <span>time: <b id="time">-</b> ms</span>
+  </section>
+
+  <canvas id="plot" width="960" height="420"></canvas>
+  <pre id="log"></pre>
+</main>
+
+<script>
+"use strict";
+
+/* ===== acoustics-core: ewmaSquaredToSPL ===== */
+const P0 = 2e-5;
+function ewmaSquaredToSPL(yFloat32, sr, tau){
+  const N = yFloat32.length|0;
+  const out = new Float32Array(N);
+  const alpha = 1 - Math.exp(-1/(sr*tau));
+  let s = 0;
+  for(let i=0;i<N;i++){
+    const v = yFloat32[i];
+    s += alpha*(v*v - s);
+    const d = Math.max(1e-24, s/(P0*P0));
+    out[i] = 10*Math.log10(d);
+  }
+  return out;
+}
+
+/* ===== TSEA core (純JS) ===== */
+const EPS = 1e-300;
+function su_nextpow2(n){
+  if(!(n>0)) throw new Error("su_nextpow2: n must be >0");
+  return Math.ceil(Math.log2(n));
+}
+function round2(x){ return Math.round(x*100)/100; }
+function clampPos(x){ return Number.isFinite(x)&&x>0 ? x : EPS; }
+
+function fgrid_OB(numfreq){
+  const f = new Float64Array(numfreq);
+  let base = 31.25;
+  for(let i=0;i<numfreq;i++) f[i] = base*Math.pow(2,i);
+  return f;
+}
+function fgrid_TOB(numfreq){
+  const f = new Float64Array(numfreq);
+  let base = 25.0, k = Math.pow(2, 1/3);
+  for(let i=0;i<numfreq;i++) f[i] = base*Math.pow(k,i);
+  return f;
+}
+function makeFreqs(fkey,numfreq){ return fkey==="OB" ? fgrid_OB(numfreq) : fgrid_TOB(numfreq); }
+
+function validateInputs(p){
+  const req = ["fs_In","numfreq","numsub","numtimetemp","duration","FTIvalue","PInsub","fkey","deltaTFD","PInType","subTYPE","ILF","TLF","CLF","tmfp","mass","volume"];
+  for(const k of req){ if(!(k in p)) throw new Error("missing "+k); }
+  if(!(p.fs_In>0&&p.numfreq>0&&p.numsub>0&&p.numtimetemp>0&&p.duration>0&&p.FTIvalue>0)) throw new Error("positive scalars required");
+  if(!["OB","TOB"].includes(p.fkey)) throw new Error("fkey OB/TOB");
+  if(!["Y","N"].includes(p.deltaTFD)) throw new Error("deltaTFD Y/N");
+  if(!(p.PInType===1||p.PInType===2)) throw new Error("PInType 1/2");
+  if(p.PInsub<1||p.PInsub>p.numsub) throw new Error("PInsub range");
+  const ns=p.numsub, nf=p.numfreq;
+  const sh2=(A)=>Array.isArray(A)&&A.length===ns&&Array.isArray(A[0])&&A[0].length===nf;
+  if(!sh2(p.ILF)||!sh2(p.TLF)||!sh2(p.tmfp)) throw new Error("ILF/TLF/tmfp shape");
+  if(!(Array.isArray(p.CLF)&&p.CLF.length===ns&&p.CLF[0]?.length===ns&&p.CLF[0][0]?.length===nf)) throw new Error("CLF shape");
+  if(!(Array.isArray(p.subTYPE)&&p.subTYPE.length===ns)) throw new Error("subTYPE len");
+  if(!(Array.isArray(p.mass)&&p.mass.length===ns)) throw new Error("mass len");
+  if(!(Array.isArray(p.volume)&&p.volume.length===ns)) throw new Error("volume len");
+  if(p.PInType===2 && !(Array.isArray(p.PIn)&&p.PIn.length===nf)) throw new Error("PIn len");
+  let seenNonSpace=false;
+  for(const s of p.subTYPE){
+    if(s!=="space"&&s!=="struc") throw new Error("subTYPE items");
+    if(s!=="space") seenNonSpace=true; else if(seenNonSpace) throw new Error("space must be contiguous at beginning");
+  }
+  for(let i=0;i<ns;i++){
+    if(p.subTYPE[i]==="struc" && !(p.mass[i]>0)) throw new Error(`mass[${i}]>0 for struc`);
+    if(p.subTYPE[i]==="space" && !(p.volume[i]>0)) throw new Error(`volume[${i}]>0 for space`);
+  }
+  for(let i=0;i<ns;i++){
+    for(let m=0;m<nf;m++){
+      if(p.ILF[i][m]<0||p.TLF[i][m]<0||p.tmfp[i][m]<0) throw new Error("coeff >=0");
+      for(let j=0;j<ns;j++) if(p.CLF[i][j][m]<0) throw new Error("CLF >=0");
+    }
+  }
+}
+
+function su_TSEA(p){
+  validateInputs(p);
+  const nf=p.numfreq|0, ns=p.numsub|0;
+  const f = makeFreqs(p.fkey, nf);
+  const w = new Float64Array(nf); for(let m=0;m<nf;m++) w[m]=2*Math.PI*f[m];
+
+  const ILF = p.ILF.map(r=>Float64Array.from(r));
+  const TLF = p.TLF.map(r=>Float64Array.from(r));
+  const CLF = Array.from({length:ns},(_,i)=>Array.from({length:ns},(_,j)=>Float64Array.from(p.CLF[i][j])));
+  const mass = Float64Array.from(p.mass);
+  const volume = Float64Array.from(p.volume);
+
+  for(let m=0;m<nf;m++){
+    for(let i=0;i<ns;i++){
+      if(TLF[i][m]===0){
+        let sum=0; for(let k=0;k<ns;k++) sum+=Math.abs(CLF[k][i][m]);
+        TLF[i][m]=ILF[i][m]+sum; CLF[i][i][m]=TLF[i][m];
+      }else if(ILF[i][m]===0){
+        let sum=0; for(let k=0;k<ns;k++) sum+=Math.abs(CLF[k][i][m]);
+        ILF[i][m]=TLF[i][m]-sum; CLF[i][i][m]=TLF[i][m];
+      }
+    }
+  }
+
+  const deltaT_sys=Array.from({length:ns},()=>new Float64Array(nf));
+  for(let i=0;i<ns;i++) for(let m=0;m<nf;m++) deltaT_sys[i][m] = 1/(p.FTIvalue*w[m]*clampPos(TLF[i][m]));
+  const deltaT=new Float64Array(nf);
+  if(p.deltaTFD==="Y"){
+    for(let m=0;m<nf;m++){
+      let minv=Infinity; for(let i=0;i<ns;i++) if(deltaT_sys[i][m]<minv) minv=deltaT_sys[i][m];
+      const d=Math.round(minv*1e6)/1e6;
+      deltaT[m]=1/Math.pow(2,su_nextpow2(1/d));
+    }
+  }else{
+    let g=Infinity; for(let i=0;i<ns;i++) for(let m=0;m<nf;m++) if(deltaT_sys[i][m]<g) g=deltaT_sys[i][m];
+    const d=Math.round(g*1e6)/1e6;
+    const base=1/Math.pow(2,su_nextpow2(1/d));
+    deltaT.fill(base);
+  }
+  const fs=new Int32Array(nf); for(let m=0;m<nf;m++) fs[m]=Math.max(2,Math.floor(1/deltaT[m]));
+  const Dp=p.numtimetemp/p.fs_In; const numdp=new Int32Array(nf); for(let m=0;m<nf;m++) numdp[m]=Math.ceil(Dp*fs[m]);
+
+  const fsMax = fs.reduce((a,b)=>Math.max(a,b),0);
+  const E = Array.from({length:ns},()=>new Float64Array(fsMax));
+  const LFmax = Array.from({length:ns},()=>new Float64Array(nf));
+
+  const t0=performance.now();
+  for(let m=0;m<nf;m++){
+    const fm=fs[m]; for(let i=0;i<ns;i++) E[i].fill(0);
+    for(let n=0;n<fm-1;n++){
+      const Pin = new Float64Array(ns);
+      if(p.PInType===1){ if(n===1) Pin[p.PInsub-1]=1.0; }
+      else{ if(n<numdp[m]) Pin[p.PInsub-1]=Number(p.PIn[m])||0; }
+
+      const Psubgain=new Float64Array(ns);
+      for(let i=0;i<ns;i++){
+        let acc=0;
+        for(let j=0;j<ns;j++){ if(i!==j) acc += w[m]*CLF[i][j][m]*E[j][n]||0; }
+        Psubgain[i]=acc;
+      }
+      for(let i=0;i<ns;i++){
+        const Pgain=Pin[i]+Psubgain[i];
+        const Ploss=w[m]*TLF[i][m]*E[i][n];
+        const eNext=E[i][n]+deltaT[m]*(Pgain-Ploss);
+        E[i][n+1]= eNext>0 ? eNext : 0;
+      }
+    }
+    for(let i=0;i<ns;i++){
+      const isSpace = p.subTYPE[i]==="space";
+      const lin=new Float64Array(fm);
+      if(isSpace){
+        const denom=clampPos(volume[i]);
+        for(let n=0;n<fm;n++){
+          const prms=Math.sqrt(Math.max(E[i][n]*1.21*(343**2)/denom, EPS));
+          lin[n]=prms;
+        }
+      }else{
+        const denom=clampPos(mass[i]);
+        for(let n=0;n<fm;n++){
+          const vrms=Math.sqrt(Math.max(E[i][n]/denom, EPS));
+          lin[n]=vrms*2e5*1e-9;
+        }
+      }
+      const spl = ewmaSquaredToSPL(Float32Array.from(lin,Number), fs[m], 0.01);
+      let maxdB=-Infinity; for(let k=0;k<spl.length;k++) if(spl[k]>maxdB) maxdB=spl[k];
+      LFmax[i][m]=round2(maxdB);
+    }
+  }
+  const t1=performance.now();
+
+  return {
+    f: Array.from(f,Number),
+    LFmax: LFmax.map(r=>Array.from(r,Number)),
+    fs: Array.from(fs,Number),
+    E_shape: [p.numsub, fsMax, nf],
+    meta: { time_ms: Math.round((t1-t0)*10)/10 }
+  };
+}
+
+/* ===== 簡易デモ行列 ===== */
+function demoMatrices(ns,nf){
+  const ILF = Array.from({length:ns}, ()=>Array(nf).fill(0.01));
+  const TLF = Array.from({length:ns}, ()=>Array(nf).fill(0.05));
+  const CLF = Array.from({length:ns},(_,i)=>Array.from({length:ns},(_,j)=>Array(nf).fill(0)));
+  for(let m=0;m<nf;m++) for(let i=0;i<ns-1;i++){ CLF[i+1][i][m]=0.005; CLF[i][i+1][m]=0.005; }
+  const tmfp = Array.from({length:ns}, ()=>Array(nf).fill(0.1));
+  const subTYPE = Array.from({length:ns}, (_,i)=> i<Math.floor(ns/2) ? "struc":"space");
+  const mass = Array.from({length:ns}, (_,i)=> subTYPE[i]==="struc"?10:0);
+  const volume = Array.from({length:ns}, (_,i)=> subTYPE[i]==="space"?50:0);
+  const PIn = Array(nf).fill(1);
+  return {ILF,TLF,CLF,tmfp,subTYPE,mass,volume,PIn};
+}
+
+/* ===== 描画（Canvas, ピンチ/ホイールズーム） ===== */
+function attachPlot(canvas){
+  const ctx = canvas.getContext("2d");
+  let data = { f:[], y:[] };
+  let xRange=null, yRange=null;
+
+  function computeRanges(){
+    const xf=data.f, yf=data.y;
+    const minx = Math.log10(Math.max(1e-6, Math.min(...xf)));
+    const maxx = Math.log10(Math.max(...xf));
+    const miny = Math.min(...yf)-3, maxy = Math.max(...yf)+3;
+    xRange = xRange || [minx,maxx];
+    yRange = yRange || [miny,maxy];
+  }
+  function sx(x){ const w=canvas.width, pad=40; return ((Math.log10(x)-xRange[0])/(xRange[1]-xRange[0]))*(w-2*pad)+pad; }
+  function sy(y){ const h=canvas.height, pad=20; return (1-((y-yRange[0])/(yRange[1]-yRange[0])))*(h-2*pad)+pad; }
+
+  function draw(){
+    if(!data.f.length) return;
+    computeRanges();
+    const w=canvas.width,h=canvas.height;
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle="#e2e8f0"; ctx.lineWidth=1; ctx.beginPath();
+    for(let gx=10; gx<=20000; gx*=10){ const X=sx(gx); ctx.moveTo(X,10); ctx.lineTo(X,h-10); }
+    ctx.stroke();
+    ctx.strokeStyle="#111827"; ctx.lineWidth=1.5; ctx.beginPath();
+    for(let i=0;i<data.f.length;i++){
+      const x=sx(data.f[i]), y=sy(data.y[i]);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+
+  canvas.addEventListener('wheel', (ev)=>{
+    ev.preventDefault();
+    const factor = ev.deltaY<0 ? 0.9 : 1.1;
+    const midx=(xRange[0]+xRange[1])/2, midy=(yRange[0]+yRange[1])/2;
+    xRange=[midx+(xRange[0]-midx)*factor, midx+(xRange[1]-midx)*factor];
+    yRange=[midy+(yRange[0]-midy)*factor, midy+(yRange[1]-midy)*factor];
+    draw();
+  }, {passive:false});
+
+  let lastDist=null;
+  const dist=(a,b)=>Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+  canvas.addEventListener('touchstart', (e)=>{ if(e.touches.length===2) lastDist=dist(e.touches[0],e.touches[1]); }, {passive:false});
+  canvas.addEventListener('touchmove', (e)=>{
+    if(e.touches.length===2 && lastDist){
+      e.preventDefault();
+      const d=dist(e.touches[0],e.touches[1]);
+      const factor=d>lastDist?0.95:1.05;
+      const midx=(xRange[0]+xRange[1])/2, midy=(yRange[0]+yRange[1])/2;
+      xRange=[midx+(xRange[0]-midx)*factor, midx+(xRange[1]-midx)*factor];
+      yRange=[midy+(yRange[0]-midy)*factor, midy+(yRange[1]-midy)*factor];
+      lastDist=d; draw();
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', ()=>{ lastDist=null; });
+
+  return {
+    setData(f,y){ data={f:Array.from(f), y:Array.from(y)}; xRange=null; yRange=null; draw(); },
+    savePNG(name="tsea_plot.png"){ const a=document.createElement("a"); a.href=canvas.toDataURL("image/png"); a.download=name; a.click(); }
+  };
+}
+
+/* ===== JSON I/O ===== */
+function downloadJSON(obj, name="tsea_result.json"){
+  const blob = new Blob([JSON.stringify(obj,null,2)], {type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+}
+
+/* ===== UI配線 ===== */
+const $ = (id)=>document.getElementById(id);
+const plot = attachPlot($("plot"));
+const statusEl = $("status"), timeEl = $("time"), logEl = $("log");
+function log(s){ logEl.textContent += s + "\n"; }
+
+function gather(){
+  return {
+    fkey: $("fkey").value,
+    numfreq: parseInt($("numfreq").value,10),
+    numsub: parseInt($("numsub").value,10),
+    fs_In: parseInt($("fs_In").value,10),
+    numtimetemp: parseInt($("numtimetemp").value,10),
+    duration: parseFloat($("duration").value),
+    deltaTFD: $("deltaTFD").value,
+    PInType: parseInt($("PInType").value,10),
+    PInsub: parseInt($("PInsub").value,10),
+    FTIvalue: parseInt($("FTIvalue").value,10)
+  };
+}
+
+let lastMatrices = null; // 読み込みがあれば上書き
+
+$("file").onchange = async (e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  try{
+    const text = await f.text();
+    const obj = JSON.parse(text);
+    lastMatrices = obj;
+    log("Loaded JSON keys: "+ Object.keys(obj).join(", "));
+  }catch(err){ log("ERROR JSON: "+err.message); }
+};
+
+async function run(){
+  try{
+    statusEl.textContent="running";
+    const par = gather();
+    const ns = par.numsub, nf = par.numfreq;
+    let mats = lastMatrices;
+    if(!mats){ mats = demoMatrices(ns,nf); }
+    const p = { ...par, ...mats };
+    const t0 = performance.now();
+    const out = su_TSEA(p);
+    const t1 = performance.now();
+    timeEl.textContent = (t1-t0).toFixed(1);
+    plot.setData(out.f, out.LFmax[0]);
+    log(`max fs = ${Math.max(...out.fs)}, shape E=${out.E_shape.join("x")}`);
+    statusEl.textContent="ready";
+    return out;
+  }catch(e){
+    statusEl.textContent="error";
+    log("ERROR: "+ e.message);
+  }
+}
+
+$("run").onclick = run;
+$("savepng").onclick = ()=> plot.savePNG("tsea_plot.png");
+$("exportjson").onclick = async ()=>{ const out = await run(); if(out) downloadJSON(out); };
+</script>
+</body>
+</html>
