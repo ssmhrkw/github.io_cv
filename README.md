@@ -18,13 +18,12 @@
 | **Filter Design** | [FilterDesign.html](https://ssmhrkw.github.io/github.io_cv/FilterDesign.html) | フィルタ設計を行うツールです。 |
 | **Floor Impact** | [Floorimpact.html](https://ssmhrkw.github.io/github.io_cv/Floorimpact.html) | 床衝撃音の解析、表示に関するツールです。 |
 | **Laminated Calc** | [Laminated-Calc.html](https://ssmhrkw.github.io/github.io_cv/Laminated-Calc.html) | 積層構造に関する計算を行うツールです。 |
-| **NA28 FIC** | [NA28_FIC.html](https://ssmhrkw.github.io/github.io_cv/NA28_FIC.html) | NA28_FIC規格に関連する解析ツールです。 |
-| **Plates** | [plates.html](https://ssmhrkw.github.io/github.io_cv/plates.html) | プレート（板）の解析に関連するツールです。 |
-| **Revtime Recorder** | [revtime_recorder.html](https://ssmhrkw.github.io/github.io_cv/revtime_recorder.html) | 残響時間測定・記録を行うツールです。 |
+| **NA28 FIC** | [NA28_FIC.html](https://ssmhrkw.github.io/github.io_cv/NA28_FIC.html) | NA-28で測定したRNDファイルを読み込んで、床衝撃音遮断性能を評価し、等価曲線でLH,Lr評価を行うツールです。 |
+| **Plates** | [plates.html](https://ssmhrkw.github.io/github.io_cv/plates.html) | SS-SS-SS-SSのインピーダンスを有限長・無限長の２種類で計算するツールです。 |
+| **Revtime Recorder** | [revtime_recorder.html](https://ssmhrkw.github.io/github.io_cv/revtime_recorder.html) | 残響時間測定・記録を行うツールです。端末によっては勝手に信号処理されます。 |
 | **RND Viewer** | [rnd_viewer.html](https://ssmhrkw.github.io/github.io_cv/rnd_viewer.html) | RNDファイルの内容を表示・確認するビューアツールです。 |
 | **wav2Fmax** | [wav2Fmax.html](https://ssmhrkw.github.io/github.io_cv/wav2Fmax.html) | WAVファイルを解析し、Fmax（最大周波数）などの値を取得するツールです。 |
 | **WAV Inspector** | [wav_inspector.html](https://ssmhrkw.github.io/github.io_cv/wav_inspector.html) | WAVファイルの情報を詳細に検査するツールです。 |
-| **Cal Corr** | [calcorr.html](https://ssmhrkw.github.io/github.io_cv/calcorr.html) | キャリブレーション（校正）や補正に関する計算ツールです。 |
 
 ## 📄 ドキュメント (Markdown Files)
 
@@ -33,9 +32,9 @@
 | ドキュメント名 | ファイル名 (リンク) | 概要 |
 | :--- | :--- | :--- |
 | **HTML Filter Check** | [HTMLFilterCheck.md](HTMLFilterCheck.md) | HTMLフィルタのチェックに関するドキュメントです。 |
-| **NA28 FIC** | [NA28_FIC.md](NA28_FIC.md) | NA28_FICツールに関する補足ドキュメントです。 |
+| **NA28 FIC** | [NA28_FIC.md](NA28_FIC.md) | NA-28で測定したRNDファイルを読み込んで、床衝撃音遮断性能を評価し、等価曲線でLH,Lr評価を行うツールに関する補足ドキュメントです。 |
 | **acoustics-core** | [acoustics-core.md](acoustics-core.md) | 音響解析の核となる`acoustics-core.js`ライブラリに関するドキュメントです。 |
-| **Plates** | [plates.md](plates.md) | プレート解析ツールの補足ドキュメントです。 |
+| **Plates** | [plates.md](plates.md) | SS-SS-SS-SSのインピーダンスを有限長・無限長の２種類で計算するツールの補足ドキュメントです。 |
 | **Revtime Recorder** | [revtime_recorder.md](revtime_recorder.md) | 残響時間レコーダーに関する補足ドキュメントです。 |
 | **RND Viewer** | [rnd_viewer.md](rnd_viewer.md) | RNDビューアに関する補足ドキュメントです。 |
 | **WAV Inspector** | [wav_inspector.md](wav_inspector.md) | WAVインスペクターに関する補足ドキュメントです。 |
