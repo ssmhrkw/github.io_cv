@@ -1,537 +1,440 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Slab FDTD — Complete (Worker fallback, Presets, Recording, FFT)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>スラブ平板 v/F 可視化（dB, モード選択, アニメ）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,"Noto Sans JP"}
-.wrap{max-width:1200px;margin:12px auto;padding:12px}
-.grid{display:grid;grid-template-columns:380px 1fr;gap:12px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans JP",system-ui,Roboto}
+.wrap{max-width:1200px;margin:14px auto;padding:12px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
 .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
 label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
 input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px;box-sizing:border-box}
-.modeToggle{display:flex;gap:8px;margin-bottom:8px}
-.modeToggle button{flex:1;padding:8px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}
-.modeToggle button.active{background:#eef6ff;border-color:var(--accent)}
-#drawCanvas{width:100%;height:220px;border-radius:6px;background:#fff;touch-action:none}
-#heatCanvas{width:100%;height:480px;background:#fff;display:block;border-radius:6px}
+.row{margin-bottom:8px}
+.btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
 .small{font-size:13px;color:var(--muted)}
-.inline{display:flex;gap:8px}
-.controls-row{display:flex;gap:8px;align-items:center}
-.playbar{display:flex;gap:8px;align-items:center}
-.btn{background:var(--accent);color:#fff;border:none;padding:8px;border-radius:8px;cursor:pointer}
+#plot{height:78vh;min-height:520px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.inline{display:flex;gap:8px;align-items:center}
+.mode-list{max-height:250px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
+.footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
+.control-row{display:flex;gap:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>Slab FDTD — Complete (Worker fallback, Presets, Recording, FFT)</h2>
+  <h2>スラブ平板 v/F 可視化（dB対応・モード選択・アニメ）</h2>
   <div class="grid">
     <div class="card">
-      <div><strong>描画モード</strong></div>
-      <div class="modeToggle">
-        <button id="modeVertex">Vertex</button>
-        <button id="modeFree" class="active">Freehand</button>
+      <div class="row">
+        <label>材料プリセット</label>
+        <select id="material">
+          <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400)</option>
+          <option value="custom">カスタム</option>
+        </select>
       </div>
-      <canvas id="drawCanvas" width=800 height=320></canvas>
-      <div class="inline">
-        <button id="clearBtn">Clear</button>
-        <button id="closeBtn">Close (vertex)</button>
-        <button id="smoothFillBtn">Smooth & Fill</button>
-        <button id="rectBtn">Full Rect</button>
-      </div>
-
-      <div style="margin-top:8px">
-        <label>プリセット多角形（中心・回転0）</label>
-        <div style="display:flex;gap:8px">
-          <select id="presetPolygon">
-            <option value="3">Triangle (3)</option>
-            <option value="4" selected>Square (4)</option>
-            <option value="5">Pentagon (5)</option>
-            <option value="6">Hexagon (6)</option>
-            <option value="7">Heptagon (7)</option>
-            <option value="8">Octagon (8)</option>
-          </select>
-          <button id="applyPreset">Apply</button>
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>E [Pa]</label>
+          <input id="E" type="number" value="30000000000">
         </div>
-        <div class="small">プリセットはキャンバス中央に正多角形を生成します。サイズはキャンバスに合わせ自動調整。</div>
-      </div>
-
-      <hr/>
-      <div><strong>モデル & 解析</strong></div>
-      <div class="controls-row">
-        <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
-        <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
-      </div>
-      <div class="controls-row">
-        <div style="flex:1"><label>Material</label>
-          <select id="material">
-            <option value="concrete">Concrete (E=30e9,ν=0.2,ρ=2400)</option>
-            <option value="light">Light (E=2e9,ν=0.25,ρ=1200)</option>
-            <option value="custom">Custom</option>
-          </select>
+        <div style="flex:1">
+          <label>ν</label>
+          <input id="nu" type="number" step="0.01" value="0.20">
         </div>
-        <div style="flex:1"><label>h [m]</label><input id="h" type="number" step="0.01" value="0.15"></div>
       </div>
-
-      <div class="controls-row">
-        <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" value="64" min="24" max="160"></div>
-        <div style="flex:1"><label>Frames (saved)</label><input id="Nframes" type="number" value="96" min="8" max="512"></div>
-      </div>
-
-      <div class="controls-row">
-        <div style="flex:1"><label>speedFactor (安定性)</label><input id="speedFactor" type="number" step="0.05" value="0.18"></div>
-        <div style="flex:1"><label>dx override (0 = auto)</label><input id="dx" type="number" step="0.01" value="0"></div>
-      </div>
-
-      <div class="inline">
-        <button id="runBtn" class="btn">Run</button>
-        <button id="stopBtn">Stop</button>
-        <button id="snapshotBtn">Snapshot PNG</button>
-      </div>
-
-      <hr/>
-      <div><strong>Playback & Recording</strong></div>
-      <div class="playbar" style="margin-top:6px">
-        <button id="playBtn">Play</button>
-        <button id="pauseBtn">Pause</button>
-        <button id="prevBtn">◀</button>
-        <button id="nextBtn">▶</button>
-        <input id="frameSlider" class="slider" type="range" min="0" value="0" style="flex:1">
-      </div>
-      <div style="margin-top:6px" class="inline">
-        <button id="startRec" class="btn">Start Recording</button>
-        <button id="stopRec">Stop Recording</button>
-        <a id="recDownload" style="display:inline-block;margin-left:8px"></a>
-      </div>
-
-      <hr/>
-      <div><strong>Probe & FFT</strong></div>
-      <div class="controls-row">
-        <div style="flex:1"><label>Probe x [m]</label><input id="px" type="number" step="0.01" value="2.50"></div>
-        <div style="flex:1"><label>Probe y [m]</label><input id="py" type="number" step="0.01" value="2.00"></div>
-      </div>
-      <div class="controls-row">
-        <div style="flex:1"><label>Choice</label>
-          <select id="vfChoice"><option value="v_over_F">v / F</option><option value="F_over_v">F / v</option></select>
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>ρ [kg/m³]</label>
+          <input id="rho" type="number" value="2400">
         </div>
-        <div style="flex:1"><label>Window</label><select id="winType"><option value="none">none</option><option value="hann">hann</option></select></div>
-      </div>
-      <div class="inline">
-        <button id="analyzeBtn">Analyze (Probe FFT)</button>
-        <select id="peakSelect"><option value="">--peaks--</option></select>
-        <button id="showMode">Show Mode Map</button>
+        <div style="flex:1">
+          <label>h [m]</label>
+          <input id="h" type="number" step="0.01" value="0.15">
+        </div>
       </div>
 
-      <div style="margin-top:8px" class="small">
-        <strong>注意</strong>: 近似スキームです。dx小→精度↑ but 計算↑。ワーカーが無い環境ではメインスレッドで実行します（UIが一時的に重くなります）。
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00">
+        </div>
+        <div style="flex:1">
+          <label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00">
+        </div>
+      </div>
+
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5">
+        </div>
+        <div style="flex:1">
+          <label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5">
+        </div>
+      </div>
+
+      <div class="row">
+        <label>周波数 f [Hz]（空欄で第1モード）</label>
+        <input id="freq" type="number" step="0.01" value="">
+      </div>
+
+      <div class="row">
+        <label>加振点プリセット</label>
+        <select id="sourcePreset">
+          <option value="center">中心 (Lx/2, Ly/2)</option>
+          <option value="dice5">サイコロ5の目 (中心＋4)</option>
+          <option value="diag1">対角1 (0.0,0.0)</option>
+          <option value="diag2">対角2 (Lx,0.0)</option>
+          <option value="diag3">対角3 (0.0,Ly)</option>
+          <option value="diag4">対角4 (Lx,Ly)</option>
+        </select>
+        <div class="small">プロットをクリックして加振点をセットできます（2D モード時）。</div>
+      </div>
+
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>x0 [m]</label><input id="x0" type="number" step="0.01" value="2.50">
+        </div>
+        <div style="flex:1">
+          <label>y0 [m]</label><input id="y0" type="number" step="0.01" value="2.00">
+        </div>
+      </div>
+
+      <div class="row">
+        <label>表示</label>
+        <select id="displayChoice">
+          <option value="v_over_F">v / F （m/s per N）</option>
+          <option value="F_over_v">F / v （N per (m/s)）</option>
+        </select>
+      </div>
+
+      <div class="row inline">
+        <label><input type="checkbox" id="useDb"> dB 表示（10·log10, ref=1）</label>
+        <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
+        <label><input type="checkbox" id="show3d"> 3D</label>
+      </div>
+
+      <div class="row">
+        <label>モード一覧（選択するとそのモードをアニメで確認可）</label>
+        <div class="mode-list" id="modeList"></div>
+      </div>
+
+      <div class="row control-row">
+        <button id="renderBtn" class="btn">描画 / 更新</button>
+        <button id="snapBtn">スナップショット</button>
+      </div>
+
+      <div class="row">
+        <label>モードアニメーション</label>
+        <div class="inline">
+          <button id="modePlay" class="btn">再生</button>
+          <button id="modePause">停止</button>
+          <label style="margin-left:8px"><input type="checkbox" id="animShowVel"> 速度を着色（瞬時速度）</label>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Ngrid</label>
+        <input id="Ngrid" type="number" step="8" min="32" value="120">
+      </div>
+
+      <div class="footer">
+        <div><strong>式</strong></div>
+        <div>D = E h³ / [12(1-ν²)],  ω_mn = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ], φ_mn = sin(mπx/Lx)·sin(nπy/Ly)</div>
+        <div>W = Σ η_mn φ_mn, η_mn = F φ_mn(x0,y0) / [M (ω_mn² - ω² + i ω ω_mn/Q)]</div>
+        <div>v = ω |W|（静解析では振幅）。dB = 10·log10(value)（ref=1）</div>
       </div>
     </div>
 
     <div class="card">
-      <canvas id="heatCanvas" width=800 height=480></canvas>
-      <div id="plotFFT" style="height:240px;margin-top:10px"></div>
+      <div id="plot"></div>
     </div>
   </div>
 </div>
 
 <script>
-/* ---------- Utilities ---------- */
-const $ = id => document.getElementById(id);
-function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+(() => {
+  const $ = id => document.getElementById(id);
+  // complex helpers (minimal)
+  const cdiv = (a,b)=>{ const d=b.re*b.re+b.im*b.im; return {re:(a.re*b.re + a.im*b.im)/d, im:(a.im*b.re - a.re*b.im)/d};};
+  const cabs = a=>Math.hypot(a.re,a.im);
 
-/* ---------- Drawing (vertex + freehand + presets) ---------- */
-const drawCanvas = $('drawCanvas'), dctx = drawCanvas.getContext('2d');
-let mode='free', vertices=[], closed=false, freePath=[], isDrawing=false, mask=null;
-$('modeVertex').onclick = ()=>{ mode='vertex'; $('modeVertex').classList.add('active'); $('modeFree').classList.remove('active'); };
-$('modeFree').onclick = ()=>{ mode='free'; $('modeFree').classList.add('active'); $('modeVertex').classList.remove('active'); };
+  function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
+  function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
+  function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
 
-function redraw(){
-  dctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
-  dctx.fillStyle='#fff'; dctx.fillRect(0,0,drawCanvas.width,drawCanvas.height);
-  if(freePath.length>0){
-    dctx.strokeStyle='#e11'; dctx.lineWidth=2; dctx.beginPath();
-    dctx.moveTo(freePath[0][0], freePath[0][1]);
-    for(let i=1;i<freePath.length;i++) dctx.lineTo(freePath[i][0], freePath[i][1]);
-    dctx.stroke();
-  }
-  if(vertices.length>0){
-    dctx.strokeStyle='#2563eb'; dctx.lineWidth=2; dctx.beginPath();
-    dctx.moveTo(vertices[0][0], vertices[0][1]);
-    for(let i=1;i<vertices.length;i++) dctx.lineTo(vertices[i][0], vertices[i][1]);
-    if(closed) dctx.closePath();
-    dctx.stroke();
-    for(const p of vertices){ dctx.fillStyle='#2563eb'; dctx.beginPath(); dctx.arc(p[0],p[1],3,0,Math.PI*2); dctx.fill(); }
-  }
-}
-drawCanvas.addEventListener('pointerdown', (ev)=>{
-  const r = drawCanvas.getBoundingClientRect();
-  const x = ev.clientX - r.left, y = ev.clientY - r.top;
-  if(mode==='free'){ isDrawing=true; freePath.push([x,y]); drawCanvas.setPointerCapture(ev.pointerId); }
-  else { if(!closed) vertices.push([x,y]); }
-  redraw();
-});
-drawCanvas.addEventListener('pointermove', (ev)=>{
-  if(mode!=='free' || !isDrawing) return;
-  const r = drawCanvas.getBoundingClientRect();
-  const x = ev.clientX - r.left, y = ev.clientY - r.top;
-  freePath.push([x,y]); const L = freePath.length;
-  if(L>1){ dctx.strokeStyle='#e11'; dctx.lineWidth=2; dctx.beginPath(); dctx.moveTo(freePath[L-2][0], freePath[L-2][1]); dctx.lineTo(freePath[L-1][0], freePath[L-1][1]); dctx.stroke(); }
-});
-drawCanvas.addEventListener('pointerup', (ev)=>{ if(mode!=='free') return; isDrawing=false; drawCanvas.releasePointerCapture(ev.pointerId); });
-
-$('clearBtn').onclick = ()=>{ vertices=[]; closed=false; freePath=[]; mask=null; redraw(); showMaskPreview(); };
-$('closeBtn').onclick = ()=>{ if(vertices.length>2){ closed=true; redraw(); } };
-$('rectBtn').onclick = ()=>{ vertices=[[10,10],[drawCanvas.width-10,10],[drawCanvas.width-10,drawCanvas.height-10],[10,drawCanvas.height-10]]; closed=true; freePath=[]; createMaskFromVertices(vertices); redraw(); showMaskPreview(); };
-
-/* RDP simplify */
-function rdp(points, eps){
-  if(points.length < 3) return points.slice();
-  const distToSeg = (p,a,b)=>{
-    const px=p[0], py=p[1], ax=a[0], ay=a[1], bx=b[0], by=b[1];
-    const dx=bx-ax, dy=by-ay;
-    if(dx===0 && dy===0) return Math.hypot(px-ax,py-ay);
-    const t = ((px-ax)*dx + (py-ay)*dy) / (dx*dx+dy*dy);
-    if(t<0) return Math.hypot(px-ax,py-ay);
-    if(t>1) return Math.hypot(px-bx,py-by);
-    const projx = ax+t*dx, projy = ay+t*dy;
-    return Math.hypot(px-projx,py-projy);
-  };
-  let maxd=0, idx=0;
-  for(let i=1;i<points.length-1;i++){
-    const d = distToSeg(points[i], points[0], points[points.length-1]);
-    if(d>maxd){ maxd=d; idx=i; }
-  }
-  if(maxd > eps){
-    const l = rdp(points.slice(0, idx+1), eps);
-    const r = rdp(points.slice(idx), eps);
-    return l.slice(0,-1).concat(r);
-  } else return [points[0], points[points.length-1]];
-}
-
-/* mask creation */
-function createMaskFromVertices(verts){
-  const Ngrid = Math.max(24, Math.min(160, parseInt($('Ngrid').value||64)));
-  const W = Ngrid, H = Math.max(8, Math.round(Ngrid * drawCanvas.height / drawCanvas.width));
-  const arr = new Uint8Array(W*H);
-  for(let j=0;j<H;j++){
-    for(let i=0;i<W;i++){
-      const cx = i*(drawCanvas.width/W) + drawCanvas.width/(2*W);
-      const cy = j*(drawCanvas.height/H) + drawCanvas.height/(2*H);
-      if(pointInPoly(cx,cy,verts)) arr[j*W+i]=1;
+  // build modes list
+  function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
+    const D = D_of(E,h,nu);
+    const modes=[];
+    for(let m=1;m<=mmax;m++){
+      for(let n=1;n<=nmax;n++){
+        const k2 = Math.pow(m*Math.PI/Lx,2) + Math.pow(n*Math.PI/Ly,2);
+        const omega = Math.sqrt(D/(rho*h)) * k2;
+        modes.push({m,n,omega,f:omega/(2*Math.PI)});
+      }
     }
+    modes.sort((a,b)=>a.f-b.f);
+    return modes;
   }
-  mask = {w:W,h:H,arr};
-}
-function pointInPoly(x,y,poly){
-  let inside=false;
-  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-    const xi=poly[i][0], yi=poly[i][1], xj=poly[j][0], yj=poly[j][1];
-    const intersect = ((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
-    if(intersect) inside=!inside;
-  }
-  return inside;
-}
-$('smoothFillBtn').onclick = ()=>{ const pts = freePath.length>10 ? freePath.slice() : vertices.slice(); if(pts.length<6) return alert('もっとしっかり描いてください'); pts.push(pts[0]); const simp = rdp(pts,2.0); vertices = simp.map(p=>[p[0],p[1]]); closed=true; freePath=[]; createMaskFromVertices(vertices); redraw(); showMaskPreview(); };
 
-/* Preset polygons */
-function regularPolygonVertices(sides,padding=28){
-  const cx = drawCanvas.width/2, cy = drawCanvas.height/2;
-  const maxR = Math.min(drawCanvas.width, drawCanvas.height)/2 - padding;
-  const verts = [];
-  for(let k=0;k<sides;k++){
-    const ang = -Math.PI/2 + 2*Math.PI*k/sides;
-    verts.push([cx + maxR*Math.cos(ang), cy + maxR*Math.sin(ang)]);
-  }
-  return verts;
-}
-$('applyPreset').onclick = ()=>{ const n = parseInt($('presetPolygon').value); const verts = regularPolygonVertices(n,28); vertices = verts; closed=true; freePath=[]; createMaskFromVertices(vertices); redraw(); showMaskPreview(); };
+  function computeStaticField(opts){
+    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb} = opts;
+    const omega = 2*Math.PI*freq;
+    const Mmn = modalMass(rho,h,Lx,Ly);
+    const Nx = Ngrid, Ny = Ngrid;
+    const xs = new Array(Nx); const ys = new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i] = Lx * i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j] = Ly * j/(Ny-1);
 
-/* Mask preview */
-const heatCanvas = $('heatCanvas'), hctx = heatCanvas.getContext('2d');
-function showMaskPreview(){
-  const Nx = mask?mask.w:Math.max(24,parseInt($('Ngrid').value||64));
-  const Ny = mask?mask.h:Math.max(8,Math.round(Nx*drawCanvas.height/drawCanvas.width));
-  const img = hctx.createImageData(Nx,Ny);
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      const v = mask ? (mask.arr[j*Nx+i]?200:255) : 255;
-      const p = (j*Nx + i)*4;
-      img.data[p]=v; img.data[p+1]=v; img.data[p+2]=v; img.data[p+3]=255;
+    // accumulate complex displacement W
+    const W = new Array(Ny*Nx).fill(0).map(()=>({re:0,im:0}));
+    const F = 1.0;
+    const Q = 1e8; // effectively no damping for amplitude mapping
+    for(const md of modes){
+      if(md.m>mmax || md.n>nmax) continue;
+      const omega_m = md.omega;
+      const phi0 = phi(md.m,md.n,x0,y0,Lx,Ly);
+      const num = {re: F * phi0, im: 0};
+      const real = Mmn * (omega_m*omega_m - omega*omega);
+      const imag = Mmn * (omega * omega_m / Q);
+      const eta = cdiv(num, {re:real,im:imag});
+      // add
+      for(let j=0;j<Ny;j++){
+        const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
+        for(let i=0;i<Nx;i++){
+          const cx = Math.sin(md.m * Math.PI * xs[i] / Lx);
+          const idx = j*Nx + i;
+          const ph = cx * cy;
+          W[idx].re += eta.re * ph;
+          W[idx].im += eta.im * ph;
+        }
+      }
     }
+    // velocity amplitude |v| = ω * |W|
+    const V = new Float64Array(Ny*Nx);
+    for(let k=0;k<W.length;k++){
+      V[k] = omega * cabs(W[k]);
+    }
+    const out = new Float64Array(Ny*Nx);
+    if(displayChoice === 'v_over_F'){
+      for(let k=0;k<out.length;k++) out[k] = V[k];
+    }else{
+      for(let k=0;k<out.length;k++) out[k] = (V[k] > 0 ? 1.0 / V[k] : 0);
+    }
+    // dB conversion if requested, ref = 1, avoid -Inf
+    if(useDb){
+      const eps = 1e-20;
+      for(let k=0;k<out.length;k++) out[k] = 10 * Math.log10(Math.max(out[k], eps));
+    }
+    return {xs,ys,Z:out,rawV:V};
   }
-  const tmp = document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny; tmp.getContext('2d').putImageData(img,0,0);
-  hctx.clearRect(0,0,heatCanvas.width,heatCanvas.height);
-  hctx.drawImage(tmp,0,0,heatCanvas.width,heatCanvas.height);
-}
 
-/* ---------- Worker code (Blob) ---------- */
-const workerCode = `self.onmessage = function(e){
-  const cfg = e.data;
-  const Lx = cfg.Lx, Ly=cfg.Ly, E=cfg.E, nu=cfg.nu, rho=cfg.rho, h=cfg.h;
-  const Ngrid = cfg.Ngrid, Nframes = cfg.Nframes, speedFactor=cfg.speedFactor;
-  const mask = cfg.mask;
-  const dx = cfg.dx>0 ? cfg.dx : Math.max(Lx/(Ngrid-1), Ly/(Ngrid-1));
-  const Nx = Ngrid, Ny = Ngrid;
-  const mass = rho*h;
-  const D = E * Math.pow(h,3) / (12*(1 - nu*nu));
-  const dt = Math.max(1e-8, speedFactor * dx*dx * Math.sqrt(mass/D));
-  const totalSteps = Nframes;
-  const size = Nx*Ny;
-  let w = new Float32Array(size), wprev = new Float32Array(size), wnext = new Float32Array(size);
-  const maskArr = new Uint8Array(size);
-  if(mask){
+  // build DOM mode list
+  function populateModeList(modes){
+    const div = $('modeList');
+    div.innerHTML = '';
+    modes.forEach((md,idx)=>{
+      const el = document.createElement('div');
+      el.className='mode-row';
+      el.style.padding='6px';
+      el.style.borderBottom='1px solid #f1f5f9';
+      el.style.cursor='pointer';
+      el.innerHTML = `<span style="font-weight:600">#${idx+1}</span> (m,n)=(${md.m},${md.n})  f=${md.f.toFixed(3)} Hz`;
+      el.onclick = ()=> {
+        // set freq to modal freq and highlight
+        $('freq').value = md.f.toFixed(6);
+        // store selected mode index
+        div.querySelectorAll('.mode-row').forEach(x=>x.style.background='');
+        el.style.background='#eef6ff';
+      };
+      div.appendChild(el);
+    });
+  }
+
+  // convert flat to 2D array for plotly
+  function to2D(arr,Nx,Ny){
+    const z = new Array(Ny);
     for(let j=0;j<Ny;j++){
+      const row = new Array(Nx);
+      for(let i=0;i<Nx;i++) row[i] = arr[j*Nx + i];
+      z[j]=row;
+    }
+    return z;
+  }
+
+  // animation of a single mode (displacement)
+  let animId = null;
+  function animateMode(mode, Lx,Ly,Ngrid,show3d,show2d,useDb,displayChoice,plotKind){
+    // precompute φ on grid normalized
+    const Nx=Ngrid, Ny=Ngrid;
+    const xs=new Array(Nx), ys=new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
+    const phiArr = new Float64Array(Nx*Ny);
+    let maxabs=0;
+    for(let j=0;j<Ny;j++){
+      const cy = (i)=>Math.sin(mode.n*Math.PI*ys[j]/Ly);
       for(let i=0;i<Nx;i++){
-        const mi = Math.floor(i / Nx * mask.w);
-        const mj = Math.floor(j / Ny * mask.h);
-        maskArr[j*Nx+i] = mask.arr[mj*mask.w + mi] ? 1 : 0;
-      }
-    }
-  } else { for(let k=0;k<size;k++) maskArr[k]=1; }
-  const sx = Math.round(Nx/2), sy=Math.round(Ny/2);
-  const srcIdx = sy*Nx + sx;
-  function lapField(arr){
-    const lap = new Float32Array(size);
-    for(let j=1;j<Ny-1;j++){
-      for(let i=1;i<Nx-1;i++){
+        const cx = Math.sin(mode.m*Math.PI*xs[i]/Lx);
         const idx=j*Nx+i;
-        if(!maskArr[idx]) continue;
-        lap[idx] = (arr[idx-1] + arr[idx+1] + arr[idx-Nx] + arr[idx+Nx] - 4*arr[idx])/(dx*dx);
+        phiArr[idx]=cx*cy(i);
+        if(Math.abs(phiArr[idx])>maxabs) maxabs=Math.abs(phiArr[idx]);
       }
     }
-    return lap;
-  }
-  const frames = [];
-  for(let step=0; step<totalSteps; step++){
-    const F = new Float32Array(size);
-    if(step < Math.max(1, Math.floor(totalSteps*0.02))) F[srcIdx] = 1.0;
-    const lap = lapField(w);
-    const bih = lapField(lap);
-    const coeff = (dt*dt)/mass;
-    for(let idx=0; idx<size; idx++){
-      if(!maskArr[idx]){ wnext[idx]=0; continue; }
-      const rhs = F[idx] - D * bih[idx];
-      wnext[idx] = 2*w[idx] - wprev[idx] + coeff * rhs;
-    }
-    wprev.set(w); w.set(wnext);
-    frames.push(w.slice(0));
-    if(step%Math.max(1,Math.floor(totalSteps/10))===0) self.postMessage({type:'progress',progress:Math.round(100*step/totalSteps)});
-  }
-  self.postMessage({type:'done',frames:frames,dx:dx,dt:dt,Nx:Nx,Ny:Ny});
-};`;
-const workerBlob = new Blob([workerCode], {type:'application/javascript'});
-const workerURL = URL.createObjectURL(workerBlob);
+    if(maxabs===0) maxabs=1;
+    for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs; // normalize -1..1
 
-/* ---------- Run with Worker fallback to inline ---------- */
-let computeWorker = null, globalResult=null, framesArr=[], playTimer=null, currentFrame=0, mediaRecorder=null, recordedBlobs=[];
-function renderFrameToCanvas(frame,Nx,Ny){ // render using viridis-like map
-  const minMax = getMinMax(frame); const minV=minMax.min, maxV=minMax.max;
-  const img = hctx.createImageData(Nx,Ny);
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      const v = frame[j*Nx+i]; const norm=(v-minV)/(maxV-minV+1e-15); const col=viridisColor(norm);
-      const p=(j*Nx+i)*4; img.data[p]=col[0]; img.data[p+1]=col[1]; img.data[p+2]=col[2]; img.data[p+3]=255;
-    }
-  }
-  const tmp=document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny; tmp.getContext('2d').putImageData(img,0,0);
-  hctx.clearRect(0,0,heatCanvas.width,heatCanvas.height); hctx.drawImage(tmp,0,0,heatCanvas.width,heatCanvas.height);
-}
-function getMinMax(arr){ let mi=Infinity, ma=-Infinity; for(let v of arr){ if(v<mi)mi=v; if(v>ma)ma=v; } return {min:mi,max:ma}; }
-function viridisColor(t){ t=clamp(t,0,1); const r=Math.round(68+187*t); const g=Math.round(1+185*t); const b=Math.round(84+40*(1-t)); return [r,g,b]; }
-
-async function runComputeInline(cfg){
-  const Lx=cfg.Lx, Ly=cfg.Ly, E=cfg.E, nu=cfg.nu, rho=cfg.rho, h=cfg.h;
-  const Ngrid=cfg.Ngrid, Nframes=cfg.Nframes, speedFactor=cfg.speedFactor;
-  const maskInput=cfg.mask; const dx = cfg.dx>0?cfg.dx:Math.max(Lx/(Ngrid-1),Ly/(Ngrid-1));
-  const Nx=Ngrid, Ny=Ngrid, mass=rho*h, D=E*Math.pow(h,3)/(12*(1-nu*nu)), dt=Math.max(1e-8,speedFactor*dx*dx*Math.sqrt(mass/D));
-  const totalSteps = Nframes; const size = Nx*Ny;
-  let w=new Float32Array(size), wprev=new Float32Array(size), wnext=new Float32Array(size);
-  const maskArr = new Uint8Array(size);
-  if(maskInput){ for(let j=0;j<Ny;j++){ for(let i=0;i<Nx;i++){ const mi=Math.floor(i/Nx*maskInput.w); const mj=Math.floor(j/Ny*maskInput.h); maskArr[j*Nx+i]=maskInput.arr[mj*maskInput.w + mi]?1:0; } } } else { for(let k=0;k<size;k++) maskArr[k]=1; }
-  const sx=Math.round(Nx/2), sy=Math.round(Ny/2), srcIdx=sy*Nx+sx;
-  function computeLap(field){ const lap=new Float32Array(size); for(let j=1;j<Ny-1;j++){ for(let i=1;i<Nx-1;i++){ const idx=j*Nx+i; if(!maskArr[idx]) continue; lap[idx]=(field[idx-1]+field[idx+1]+field[idx-Nx]+field[idx+Nx]-4*field[idx])/(dx*dx); } } return lap; }
-  const frames=[];
-  for(let step=0; step<totalSteps; step++){
-    const F = new Float32Array(size);
-    if(step < Math.max(1, Math.floor(totalSteps*0.02))) F[srcIdx]=1.0;
-    const lap = computeLap(w);
-    const bih = computeLap(lap);
-    const coeff = (dt*dt)/mass;
-    for(let idx=0; idx<size; idx++){
-      if(!maskArr[idx]) { wnext[idx]=0; continue; }
-      const rhs = F[idx] - D * bih[idx];
-      wnext[idx] = 2*w[idx] - wprev[idx] + coeff * rhs;
-    }
-    wprev.set(w); w.set(wnext);
-    frames.push(w.slice(0));
-    if(step % Math.max(1, Math.floor(totalSteps/20)) === 0){
-      console.log('inline progress', Math.round(100*step/totalSteps));
-      await sleep(8);
-    }
-  }
-  globalResult = {frames:frames, dx:dx, dt:dt, Nx:Nx, Ny:Ny};
-  framesArr = frames;
-  renderFrameToCanvas(frames[frames.length-1], Nx, Ny);
-  setupPlayback(frames, {Nx,Ny});
-  $('runBtn').disabled = false;
-  alert('計算完了（フォールバック: メインスレッド実行）');
-}
-
-/* Run button handler: try worker, fallback to inline and auto-create mask if missing */
-$('runBtn').onclick = ()=>{
-  if(!mask){
-    vertices = [[10,10],[drawCanvas.width-10,10],[drawCanvas.width-10,drawCanvas.height-10],[10,drawCanvas.height-10]];
-    closed = true; freePath=[]; createMaskFromVertices(vertices); redraw(); showMaskPreview();
-  }
-  $('runBtn').disabled = true;
-  const mat = $('material').value;
-  if(mat==='concrete'){ $('h').value=0.15; }
-  else if(mat==='light'){ $('h').value=0.10; }
-  const cfg = {
-    Lx: parseFloat($('Lx').value), Ly: parseFloat($('Ly').value),
-    E: mat==='concrete' ? 3e10 : (mat==='light'?2e9:3e10),
-    nu: mat==='concrete'?0.2:0.25,
-    rho: mat==='concrete'?2400:1200,
-    h: parseFloat($('h').value),
-    Ngrid: parseInt($('Ngrid').value),
-    Nframes: parseInt($('Nframes').value),
-    speedFactor: parseFloat($('speedFactor').value),
-    mask: mask,
-    dx: parseFloat($('dx').value)
-  };
-  try{
-    computeWorker = new Worker(workerURL);
-    computeWorker.onmessage = (ev)=>{
-      const msg = ev.data;
-      if(msg.type==='progress'){ console.log('worker progress', msg.progress); }
-      if(msg.type==='done'){
-        globalResult = msg;
-        framesArr = msg.frames;
-        $('runBtn').disabled = false;
-        renderFrameToCanvas(msg.frames[msg.frames.length-1], msg.Nx, msg.Ny);
-        setupPlayback(msg.frames, msg);
+    const omega_m = mode.omega;
+    let t0 = performance.now()/1000;
+    const update = ()=>{
+      const now = performance.now()/1000;
+      const tau = now - t0;
+      // instantaneous displacement A*cos(omega_m * tau)
+      const cosv = Math.cos(omega_m * tau);
+      const Z = new Float64Array(phiArr.length);
+      for(let k=0;k<phiArr.length;k++) Z[k] = phiArr[k] * cosv;
+      // optionally convert to dB (we treat displacement normalized -> map -1..1 to amplitude+)
+      let plotZ = Z;
+      if(displayChoice==='v_over_F'){
+        // show instantaneous displacement (signed) — for visualization use signed values directly
+        // if useDb: convert absolute
+        if(useDb){
+          const eps=1e-20;
+          const Zdb = new Array(phiArr.length);
+          for(let k=0;k<phiArr.length;k++) Zdb[k] = 10 * Math.log10(Math.max(Math.abs(plotZ[k]), eps));
+          plotZ = Zdb;
+        }
+      }else{
+        // F/v mode not meaningful for single-mode animation; show inverse amplitude
+        if(useDb){
+          const eps=1e-20;
+          const Zdb = new Array(phiArr.length);
+          for(let k=0;k<phiArr.length;k++) Zdb[k] = 10 * Math.log10(Math.max(1/Math.max(Math.abs(plotZ[k]),eps), eps));
+          plotZ = Zdb;
+        }
       }
+      const z2d = to2D(plotZ,Nx,Ny);
+      if(show3d && plotKind==='3d'){
+        Plotly.restyle('plot',{z:[z2d]}, [0]);
+      }else{
+        Plotly.restyle('plot',{z:[z2d]}, [0]);
+      }
+      animId = requestAnimationFrame(update);
     };
-    computeWorker.onerror = (err)=>{ console.warn('Worker error, fallback to inline', err); computeWorker.terminate(); computeWorker=null; runComputeInline(cfg); };
-    computeWorker.postMessage(cfg);
-  }catch(err){
-    console.warn('Worker creation failed, fallback to inline compute', err);
-    runComputeInline(cfg);
+    if(animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(update);
   }
-};
 
-/* Stop button */
-$('stopBtn').onclick = ()=>{ if(computeWorker){ computeWorker.terminate(); computeWorker=null; } $('runBtn').disabled=false; alert('計算中止'); };
+  function stopAnim(){ if(animId){ cancelAnimationFrame(animId); animId=null; } }
 
-/* ---------- Playback ---------- */
-function setupPlayback(frames, meta){
-  framesArr = frames; currentFrame=0; $('frameSlider').max = framesArr.length-1; $('frameSlider').value=0;
-  renderFrameToCanvas(framesArr[0], meta.Nx, meta.Ny);
-}
-$('frameSlider').oninput = ()=>{ const i=parseInt($('frameSlider').value); if(framesArr.length){ currentFrame=i; renderFrameToCanvas(framesArr[i], globalResult.Nx, globalResult.Ny); } };
-$('playBtn').onclick = ()=>{ if(!framesArr.length) return; if(playTimer) return; playTimer = setInterval(()=>{ currentFrame=(currentFrame+1)%framesArr.length; $('frameSlider').value=currentFrame; renderFrameToCanvas(framesArr[currentFrame], globalResult.Nx, globalResult.Ny); }, 100); };
-$('pauseBtn').onclick = ()=>{ if(playTimer){ clearInterval(playTimer); playTimer=null; } };
-$('prevBtn').onclick = ()=>{ if(!framesArr.length) return; currentFrame=Math.max(0,currentFrame-1); $('frameSlider').value=currentFrame; renderFrameToCanvas(framesArr[currentFrame], globalResult.Nx, globalResult.Ny); };
-$('nextBtn').onclick = ()=>{ if(!framesArr.length) return; currentFrame=Math.min(framesArr.length-1,currentFrame+1); $('frameSlider').value=currentFrame; renderFrameToCanvas(framesArr[currentFrame], globalResult.Nx, globalResult.Ny); };
+  // main render
+  function render(){
+    stopAnim();
+    const material = $('material').value;
+    if(material==='concrete'){ $('E').value=30000000000; $('nu').value=0.20; $('rho').value=2400; }
+    const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value);
+    const h = parseFloat($('h').value), Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+    const mmax = parseInt($('mmax').value), nmax=parseInt($('nmax').value);
+    const Ngrid = parseInt($('Ngrid').value);
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+    populateModeList(modes);
 
-/* Snapshot */
-$('snapshotBtn').onclick = ()=>{ heatCanvas.toBlob(blob=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='snapshot.png'; a.click(); }); };
+    // if freq blank set to first
+    if(!$('freq').value || $('freq').value.trim()==='') $('freq').value = modes[0].f.toFixed(6);
+    const freq = parseFloat($('freq').value);
+    // presets
+    const preset=$('sourcePreset').value;
+    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3);}
+    else if(preset==='dice5'){ const xs=[Lx/3,2*Lx/3]; const ys=[Ly/3,2*Ly/3]; $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3);}
+    else if(preset==='diag1'){ $('x0').value=(0).toFixed(3); $('y0').value=(0).toFixed(3);}
+    else if(preset==='diag2'){ $('x0').value=(Lx).toFixed(3); $('y0').value=(0).toFixed(3);}
+    else if(preset==='diag3'){ $('x0').value=(0).toFixed(3); $('y0').value=(Ly).toFixed(3);}
+    else if(preset==='diag4'){ $('x0').value=(Lx).toFixed(3); $('y0').value=(Ly).toFixed(3);}
 
-/* ---------- Recording (MediaRecorder) ---------- */
-$('startRec').onclick = ()=>{
-  if(!framesArr.length) return alert('まずRunでフレームを生成してください');
-  recordedBlobs=[]; const stream = heatCanvas.captureStream(25);
-  try{
-    mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
-  }catch(e){
-    try{ mediaRecorder = new MediaRecorder(stream); }catch(e2){ return alert('Recording not supported in this browser'); }
-  }
-  mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) recordedBlobs.push(e.data); };
-  mediaRecorder.onstop = ()=>{ const blob = new Blob(recordedBlobs,{type:'video/webm'}); const url = URL.createObjectURL(blob); const a=$('recDownload'); a.href=url; a.download='record.webm'; a.textContent='Download video'; };
-  mediaRecorder.start();
-  // pump frames into canvas during recording
-  let k=0;
-  const recInterval = setInterval(()=>{ if(k>=framesArr.length){ clearInterval(recInterval); mediaRecorder.stop(); return; } renderFrameToCanvas(framesArr[k], globalResult.Nx, globalResult.Ny); k++; }, 100);
-};
-$('stopRec').onclick = ()=>{ if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop(); };
+    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
+    const displayChoice = $('displayChoice').value;
+    const useDb = $('useDb').checked;
+    const show2d = $('show2d').checked, show3d = $('show3d').checked;
 
-/* ---------- FFT & Mode mapping ---------- */
-function dftReal(x){
-  const N=x.length; const mag=new Float64Array(Math.floor(N/2));
-  for(let k=0;k<Math.floor(N/2);k++){
-    let r=0,i=0;
-    for(let n=0;n<N;n++){ const a=x[n]; const ang=-2*Math.PI*k*n/N; r+=a*Math.cos(ang); i+=a*Math.sin(ang); }
-    mag[k]=Math.hypot(r,i);
-  }
-  return {mag};
-}
-$('analyzeBtn').onclick = ()=>{
-  if(!globalResult) return alert('Runしてフレームを保存してください');
-  const px=parseFloat($('px').value), py=parseFloat($('py').value);
-  const Nx=globalResult.Nx, Ny=globalResult.Ny, dt=globalResult.dt;
-  const ix = clamp(Math.round(px / parseFloat($('Lx').value) * (Nx-1)), 0, Nx-1);
-  const iy = clamp(Math.round(py / parseFloat($('Ly').value) * (Ny-1)), 0, Ny-1);
-  const Nf = framesArr.length;
-  const ts = new Float64Array(Nf);
-  for(let n=0;n<Nf;n++) ts[n]=framesArr[n][iy*Nx + ix];
-  // velocity central diff
-  const vts = new Float64Array(Nf-2);
-  for(let n=1;n<Nf-1;n++) vts[n-1] = (ts[n+1]-ts[n-1])/(2*dt);
-  if($('winType').value==='hann'){ for(let n=0;n<vts.length;n++) vts[n] *= 0.5*(1-Math.cos(2*Math.PI*n/(vts.length-1))); }
-  const dft = dftReal(vts);
-  const mags = dft.mag;
-  const freqs = new Array(mags.length); for(let k=0;k<mags.length;k++) freqs[k]=k/(vts.length*dt);
-  const choice = $('vfChoice').value;
-  const vals = new Array(mags.length);
-  for(let k=0;k<mags.length;k++){
-    const v = mags[k];
-    vals[k] = (choice==='v_over_F') ? v : (v>0?1.0/v:0);
-  }
-  const db = vals.map(v=>20*Math.log10(Math.max(v,1e-20)));
-  Plotly.newPlot('plotFFT',[{x:freqs,y:db,type:'scatter',mode:'lines'}],{xaxis:{type:'log',title:'Hz'},yaxis:{title:'20·log10 (ref=1)'}});
-  // peaks
-  const peaks=[];
-  for(let k=2;k<db.length-2;k++){ if(db[k]>db[k-1] && db[k]>db[k+1]) peaks.push({k,f:freqs[k],mag:db[k]}); }
-  peaks.sort((a,b)=>b.mag-a.mag);
-  const sel=$('peakSelect'); sel.innerHTML='';
-  for(let i=0;i<Math.min(8,peaks.length);i++){ const o=document.createElement('option'); o.value=peaks[i].k; o.textContent=`#${i+1}: f=${peaks[i].f.toFixed(3)}Hz (dB=${peaks[i].mag.toFixed(1)})`; sel.appendChild(o); }
-};
+    // compute static map
+    const field = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb});
+    const z2d = to2D(field.Z,Ngrid,Ngrid);
+    const zmin = Math.min(...field.Z), zmax = Math.max(...field.Z);
+    const heatmap = {z:z2d,x:field.xs,y:field.ys,type:'heatmap',colorscale:'Viridis',zmin:zmin,zmax:zmax,colorbar:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}};
+    const surface = {z:z2d,x:field.xs,y:field.ys,type:'surface',opacity:0.95,colorscale:'Viridis',showscale:false};
+    const traces = [];
+    if(show2d) traces.push(heatmap);
+    else if(show3d) traces.push(surface);
+    else traces.push(heatmap);
 
-$('showMode').onclick = async ()=>{
-  if(!globalResult) return alert('Run first');
-  const sel = $('peakSelect').value; if(!sel) return alert('Select a peak');
-  const k = parseInt(sel); const Nx=globalResult.Nx, Ny=globalResult.Ny, Nf=framesArr.length;
-  const magMap = new Float32Array(Nx*Ny);
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      let re=0,im=0;
-      for(let n=0;n<Nf;n++){ const a=framesArr[n][j*Nx+i]; const ang = -2*Math.PI*k*n/Nf; re+=a*Math.cos(ang); im+=a*Math.sin(ang); }
-      magMap[j*Nx+i]=Math.hypot(re,im);
+    const layout2d = {margin:{l:60,r:10,t:30,b:60}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]},
+                      annotations:[{text:`f=${freq.toFixed(3)} Hz source=(${x0.toFixed(2)},${y0.toFixed(2)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
+    const layout3d = {margin:{l:60,r:10,t:30,b:60}, scene:{xaxis:{title:'x [m]'},yaxis:{title:'y [m]'},zaxis:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}}, annotations:layout2d.annotations};
+
+    if(show3d && !show2d){
+      Plotly.newPlot('plot', traces, layout3d, {responsive:true,displaylogo:false});
+    }else{
+      Plotly.newPlot('plot', traces, layout2d, {responsive:true,displaylogo:false});
     }
-    if(j%8===0){
-      const img=hctx.createImageData(Nx,Ny);
-      for(let jj=0;jj<Ny;jj++){ for(let ii=0;ii<Nx;ii++){ const v=magMap[jj*Nx+ii]; const c=viridisColor((v)); const p=(jj*Nx+ii)*4; img.data[p]=c[0]; img.data[p+1]=c[1]; img.data[p+2]=c[2]; img.data[p+3]=255; } }
-      const tmp=document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny; tmp.getContext('2d').putImageData(img,0,0);
-      hctx.drawImage(tmp,0,0,heatCanvas.width,heatCanvas.height);
-      await sleep(10);
-    }
+
+    // attach click handler to set source (only for 2D heatmap)
+    const plotEl = document.getElementById('plot');
+    plotEl.on('plotly_click', function(evt){
+      if(!evt.points || !evt.points[0]) return;
+      const pt = evt.points[0];
+      const cx = pt.x, cy = pt.y;
+      $('x0').value = clamp(cx,0,Lx).toFixed(3);
+      $('y0').value = clamp(cy,0,Ly).toFixed(3);
+      render();
+    });
+
+    // store modes for animation control
+    window._slab_modes = modes;
+    window._slab_params = {Lx,Ly,Ngrid,useDb,displayChoice};
   }
-  const img=hctx.createImageData(Nx,Ny); const mm=Math.max(...magMap), mn=Math.min(...magMap);
-  for(let j=0;j<Ny;j++){ for(let i=0;i<Nx;i++){ const v=magMap[j*Nx+i]; const norm=(v-mn)/(mm-mn+1e-15); const c=viridisColor(norm); const p=(j*Nx+i)*4; img.data[p]=c[0]; img.data[p+1]=c[1]; img.data[p+2]=c[2]; img.data[p+3]=255; } }
-  const tmp=document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny; tmp.getContext('2d').putImageData(img,0,0);
-  hctx.drawImage(tmp,0,0,heatCanvas.width,heatCanvas.height);
-  alert('Mode map done');
-};
 
-/* helper for mapping probe coords earlier used in analyze (kept simple) */
+  function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
 
-/* initial draw */
-redraw(); showMaskPreview();
+  // wiring
+  $('material').addEventListener('change', render);
+  ['E','nu','rho','h','Lx','Ly','mmax','nmax','freq','x0','y0','Ngrid','displayChoice','useDb','show2d','show3d','sourcePreset'].forEach(id=>{
+    $(id).addEventListener('change', ()=>{ if(id==='sourcePreset') render(); else {} });
+  });
+  $('renderBtn').addEventListener('click', render);
+  $('snapBtn').addEventListener('click', ()=> {
+    Plotly.toImage('plot',{format:'png',width:1200,height:800}).then(url=>{
+      const a=document.createElement('a'); a.href=url; a.download=`slab_${Date.now()}.png`; a.click();
+    });
+  });
 
+  // mode animation controls: pick currently highlighted mode in list
+  function getSelectedMode(){
+    const div = $('modeList');
+    const rows = Array.from(div.children);
+    for(let i=0;i<rows.length;i++){
+      if(rows[i].style.background) return window._slab_modes[i];
+    }
+    // fallback first
+    return window._slab_modes ? window._slab_modes[0] : null;
+  }
+
+  $('modePlay').addEventListener('click', ()=>{
+    const mode = getSelectedMode();
+    if(!mode) return alert('モードを選択してください（左の一覧をクリック）');
+    const p = window._slab_params;
+    stopAnim();
+    // animate selected mode using mode.omega
+    animateMode(mode, p.Lx, p.Ly, p.Ngrid, $('show3d').checked, $('show2d').checked, p.useDb, p.displayChoice, $('show3d').checked ? '3d' : '2d');
+  });
+
+  $('modePause').addEventListener('click', ()=> stopAnim());
+
+  // initial
+  render();
+})();
 </script>
 </body>
 </html>
