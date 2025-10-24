@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>スラブ平板 v/F 可視化（dB, モード選択, アニメ, Playback, Recording, Probe&FFT）</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Slab FDTD — Fs=2^k dt, FDTD transient (SS)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans JP",system-ui,Roboto}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter, "Noto Sans JP", system-ui, Roboto}
 .wrap{max-width:1200px;margin:14px auto;padding:12px}
 .grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
 .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
@@ -16,157 +16,139 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .row{margin-bottom:8px}
 .btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
 .small{font-size:13px;color:var(--muted)}
-#plot{height:78vh;min-height:520px;position:relative}
-.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+#plotlyDiv{width:100%;height:48vh}
+canvas{border-radius:6px}
+.tabs{display:flex;gap:8px;margin-bottom:8px}
+.tab{padding:8px 12px;border-radius:8px;background:#fff;border:1px solid #e6edf3;cursor:pointer}
+.tab.active{background:#eef6ff;border-color:var(--accent)}
 .inline{display:flex;gap:8px;align-items:center}
-.mode-list{max-height:250px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
-.footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
-.control-row{display:flex;gap:8px}
-.smallbtn{padding:6px;border-radius:6px;background:#e6eefc;border:1px solid #cde0ff;cursor:pointer}
+.mode-list{max-height:180px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>スラブ平板 v/F 可視化（シンプル版 + Playback/Recording/Probe&FFT）</h2>
+  <h2>Slab FDTD (SS) — dt chosen by Fs = 2^k</h2>
   <div class="grid">
     <div class="card">
       <div class="row">
-        <label>材料プリセット</label>
-        <select id="material">
-          <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400)</option>
-          <option value="custom">カスタム</option>
-        </select>
+        <label>Material</label>
+        <select id="material"><option value="concrete">Concrete (E=3e10, ν=0.2, ρ=2400)</option><option value="custom">Custom</option></select>
       </div>
 
-      <div class="row control-row">
+      <div class="row inline">
         <div style="flex:1"><label>E [Pa]</label><input id="E" type="number" value="30000000000"></div>
         <div style="flex:1"><label>ν</label><input id="nu" type="number" step="0.01" value="0.20"></div>
       </div>
 
-      <div class="row control-row">
+      <div class="row inline">
         <div style="flex:1"><label>ρ [kg/m³]</label><input id="rho" type="number" value="2400"></div>
         <div style="flex:1"><label>h [m]</label><input id="h" type="number" step="0.01" value="0.15"></div>
       </div>
 
-      <div class="row control-row">
+      <div class="row inline">
         <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
         <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
       </div>
 
-      <div class="row control-row">
+      <div class="row inline">
         <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5"></div>
         <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5"></div>
       </div>
 
       <div class="row">
-        <label>周波数 f [Hz]（空欄で第1モード）</label>
-        <input id="freq" type="number" step="0.01" value="">
+        <label>Frames (保存フレーム数)</label>
+        <input id="framesCount" type="number" value="128" min="8" max="1024">
+      </div>
+
+      <div class="row inline">
+        <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" value="120" min="32" step="4"></div>
+        <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" value="16" min="4" max="64"></div>
       </div>
 
       <div class="row">
-        <label>加振点プリセット</label>
+        <label>Source preset</label>
         <select id="sourcePreset">
-          <option value="center">中心 (Lx/2, Ly/2)</option>
-          <option value="dice5">サイコロ5の目 (中心 + 4 at 1/3,2/3)</option>
-          <option value="diag_1_3">対角 (Lx/3, Ly/3)</option>
-          <option value="diag_2_3">対角 (2Lx/3, 2Ly/3)</option>
-          <option value="corner">四隅 (0,0) (Lx,0) (0,Ly) (Lx,Ly) — 単一選択はクリックでOK</option>
+          <option value="center">center (Lx/2,Ly/2)</option>
+          <option value="diag_1_3">diag 1/3 (Lx/3,Ly/3)</option>
+          <option value="diag_2_3">diag 2/3 (2Lx/3,2Ly/3)</option>
         </select>
-        <div class="small">プロットをクリックで加振点をセットできます（2D表示時）。</div>
       </div>
 
-      <div class="row control-row">
+      <div class="row inline">
         <div style="flex:1"><label>x0 [m]</label><input id="x0" type="number" step="0.01" value="2.50"></div>
         <div style="flex:1"><label>y0 [m]</label><input id="y0" type="number" step="0.01" value="2.00"></div>
       </div>
 
-      <div class="row control-row">
-        <div style="flex:1"><label>表示</label>
-          <select id="displayChoice">
-            <option value="v_over_F">v / F （m/s per N）</option>
-            <option value="F_over_v">F / v （N per (m/s)）</option>
-          </select>
-        </div>
-        <div style="flex:1">
-          <label>2D/3D</label>
-          <select id="viewMode"><option value="2d" selected>2D</option><option value="3d">3D (surface)</option></select>
-        </div>
-      </div>
-
       <div class="row">
-        <label><input type="checkbox" id="useDb"> dB 表示（20·log10, ref=1）</label>
-      </div>
-
-      <div class="row">
-        <label>モード一覧（選択するとそのモードでアニメ可能）</label>
-        <div class="mode-list" id="modeList"></div>
-      </div>
-
-      <div class="row control-row">
-        <button id="computeBtn" class="btn">計算開始 (静解析 + アニメフレーム生成)</button>
-        <button id="snapBtn" class="btn">スナップショット</button>
-      </div>
-
-      <div class="row">
-        <label>モードアニメーション</label>
+        <label>Probe (click plot to set)</label>
         <div class="inline">
-          <button id="modePlay" class="btn">再生</button>
-          <button id="modePause" class="smallbtn">停止</button>
-          <label style="margin-left:8px"><input type="checkbox" id="animShowVel"> 速度を着色（瞬時速度）</label>
+          <div style="flex:1"><label>px [m]</label><input id="px" type="number" step="0.01" value="2.50"></div>
+          <div style="flex:1"><label>py [m]</label><input id="py" type="number" step="0.01" value="2.00"></div>
         </div>
       </div>
 
-      <div class="row control-row">
-        <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="8" min="32" value="120"></div>
-        <div style="flex:1"><label>Frames</label><input id="framesCount" type="number" min="8" value="64"></div>
+      <div class="row inline">
+        <label><input type="checkbox" id="useDb"> dB (20·log10, ref=1)</label>
+        <label style="margin-left:8px"><input type="checkbox" id="autoFFT" checked> FFT auto after compute</label>
+      </div>
+
+      <div class="row inline">
+        <button id="computeBtn" class="btn">計算開始 (FDTD transient)</button>
+        <button id="cancelBtn" class="btn" style="background:#ef4444">Cancel</button>
+      </div>
+
+      <div class="row">
+        <label>Progress</label>
+        <progress id="progressBar" value="0" max="100" style="width:100%"></progress>
+        <div id="progressText" class="small"></div>
+      </div>
+
+      <div style="margin-top:6px">
+        <div class="small">Fs選定: 安定条件 dt_stab と 周波数解像 dt_res を比較し、dt_target=min(dt_stab,dt_res) を満たす最小の 2^k を選択します。（k_max=22）</div>
       </div>
 
       <hr/>
-
       <div class="row"><strong>Playback / Recording</strong></div>
       <div class="row inline">
         <button id="playBtn" class="btn">Play</button>
-        <button id="pauseBtn" class="smallbtn">Pause</button>
-        <button id="prevBtn" class="smallbtn">◀</button>
-        <button id="nextBtn" class="smallbtn">▶</button>
-        <input id="frameSlider" type="range" min="0" value="0" style="flex:1">
+        <button id="pauseBtn" class="btn" style="background:#e6e6e6;color:#111">Pause</button>
+        <button id="prevBtn" class="btn" style="background:#e6e6e6;color:#111">◀</button>
+        <button id="nextBtn" class="btn" style="background:#e6e6e6;color:#111">▶</button>
       </div>
       <div class="row inline">
+        <input id="frameSlider" type="range" min="0" value="0" style="flex:1">
+      </div>
+
+      <div class="row inline">
         <button id="startRec" class="btn">Start Recording</button>
-        <button id="stopRec" class="smallbtn">Stop</button>
+        <button id="stopRec" class="btn" style="background:#e6e6e6;color:#111">Stop</button>
         <a id="recDownload" style="margin-left:8px"></a>
       </div>
 
       <hr/>
-      <div class="row"><strong>Probe & FFT</strong></div>
-      <div class="row control-row">
-        <div style="flex:1"><label>Probe x [m]</label><input id="px" type="number" step="0.01" value="2.50"></div>
-        <div style="flex:1"><label>Probe y [m]</label><input id="py" type="number" step="0.01" value="2.00"></div>
-      </div>
-      <div class="row control-row">
-        <div style="flex:1"><label>Radius [m]</label><input id="pr" type="number" step="0.01" value="0.0"></div>
-        <div style="flex:1"><label>Zero-pad factor</label><select id="zpFactor"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8">8</option></select></div>
-      </div>
-      <div class="row inline">
-        <label><input type="checkbox" id="winHann"> Hann window</label>
-        <button id="analyzeBtn" class="btn" style="margin-left:8px">Analyze (Probe FFT)</button>
-      </div>
-      <div class="small">FFT は時系列 (frames)→中央差分で速度→20·log10(ref=1)で表示。</div>
-
-      <div class="footer">
-        <div><strong>式</strong></div>
-        <div>D = E h³ / [12(1-ν²)],  ω_mn = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ], φ_mn = sin(mπx/Lx)·sin(nπy/Ly)</div>
-        <div>W = Σ η_mn φ_mn, η_mn = F φ_mn(x0,y0) / [M (ω_mn² - ω² + i ω ω_mn/Q)]</div>
-        <div>v = ω |W|（静解析では振幅）。dB = 20·log10(value)（ref=1, avoid -Inf）</div>
-      </div>
+      <div class="row"><strong>Mode list</strong></div>
+      <div class="mode-list" id="modeList"></div>
     </div>
 
     <div class="card">
-      <div id="plot">
-        <!-- 主表示は Plotly（静態） と canvas（アニメ/録画）を併用 -->
-        <div id="plotlyDiv" style="width:100%;height:60vh"></div>
-        <canvas id="heatCanvas" width=900 height=360 style="width:100%;height:360px;display:block;margin-top:8px;border-radius:6px;border:1px solid #eef3fb"></canvas>
-        <div id="fftPlot" style="height:220px;margin-top:8px"></div>
+      <div class="tabs">
+        <div id="tabTime" class="tab active">Time</div>
+        <div id="tabMode" class="tab">Mode</div>
+        <div id="tabFreq" class="tab">Frequency</div>
+      </div>
+
+      <div id="panelTime">
+        <div id="plotlyDiv"></div>
+        <canvas id="heatCanvas" width=900 height=300 style="width:100%;height:300px;margin-top:8px;border:1px solid #eef3fb"></canvas>
+      </div>
+
+      <div id="panelMode" style="display:none">
+        <div id="modePlotly" style="height:40vh"></div>
+        <canvas id="modeCanvas" width=900 height=300 style="width:100%;height:300px;margin-top:8px;border:1px solid #eef3fb"></canvas>
+      </div>
+
+      <div id="panelFreq" style="display:none">
+        <div id="fftPlot" style="height:40vh"></div>
       </div>
     </div>
   </div>
@@ -176,404 +158,399 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 (() => {
   const $ = id => document.getElementById(id);
 
-  // complex helpers minimal
-  const cdiv = (a,b)=>{ const d=b.re*b.re+b.im*b.im; return {re:(a.re*b.re + a.im*b.im)/d, im:(a.im*b.re - a.re*b.im)/d};};
-  const cabs = a=>Math.hypot(a.re,a.im);
+  // UI tabs
+  function setTab(name){
+    ['Time','Mode','Freq'].forEach(n=>{ $('tab'+n).classList.remove('active'); $('panel'+n).style.display='none'; });
+    $('tab'+name).classList.add('active'); $('panel'+name).style.display='block';
+  }
+  $('tabTime').onclick = ()=>setTab('Time');
+  $('tabMode').onclick = ()=>setTab('Mode');
+  $('tabFreq').onclick = ()=>setTab('Freq');
 
-  // physics helpers
+  // helpers
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
   function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
   function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
-
   function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
     const D = D_of(E,h,nu);
     const modes=[];
-    for(let m=1;m<=mmax;m++){
-      for(let n=1;n<=nmax;n++){
-        const k2 = Math.pow(m*Math.PI/Lx,2) + Math.pow(n*Math.PI/Ly,2);
-        const omega = Math.sqrt(D/(rho*h)) * k2;
-        modes.push({m,n,omega,f:omega/(2*Math.PI)});
-      }
+    for(let m=1;m<=mmax;m++) for(let n=1;n<=nmax;n++){
+      const k2 = Math.pow(m*Math.PI/Lx,2) + Math.pow(n*Math.PI/Ly,2);
+      const omega = Math.sqrt(D/(rho*h)) * k2;
+      modes.push({m,n,omega,f:omega/(2*Math.PI)});
     }
-    modes.sort((a,b)=>a.f-b.f);
-    return modes;
+    modes.sort((a,b)=>a.f-b.f); return modes;
   }
 
-  // UI elements / state
-  const heatCanvas = $('heatCanvas'), hctx = heatCanvas.getContext('2d');
-  let currentField = null; // {xs, ys, Z, rawV}
-  let framesArr = []; // array of Float64Array per frame (instantaneous displacement)
-  let framesCount = 64;
-  let playTimer = null, currentFrame = 0;
-  let mediaRecorder = null, recordedBlobs = [];
+  // global state
+  let worker = null;
+  let lastResult = null; // {frames:Array(Float32Array), Nx, Ny, dt, Fs, framesCount, modes, staticZ, xs, ys, probe}
+  let playTimer = null;
+  let currentFrame = 0;
+  let recordedBlobs = [], mediaRecorder = null;
 
-  // colormap (simple viridis-ish)
-  function viridisColor(t){ t = Math.max(0, Math.min(1, t)); const r = Math.round(68 + 187*t); const g = Math.round(1 + 185*t); const b = Math.round(84 + 40*(1-t)); return `rgb(${r},${g},${b})`; }
-  function drawHeatFromArray(arr,Nx,Ny,minV,maxV){
-    // arr is flat length Nx*Ny, draw to heatCanvas stretched
-    const W = Nx, H = Ny;
-    const img = hctx.createImageData(W,H);
-    const span = (maxV - minV) || 1e-12;
-    for(let j=0;j<H;j++){
-      for(let i=0;i<W;i++){
-        const v = arr[j*Nx + i];
-        const norm = (v - minV) / span;
-        const t = Math.max(0, Math.min(1, norm));
-        // viridis RGB approx
-        const r = Math.round(68 + 187*t), g = Math.round(1 + 185*t), b = Math.round(84 + 40*(1-t));
-        const p = (j*W + i)*4;
-        img.data[p] = r; img.data[p+1] = g; img.data[p+2] = b; img.data[p+3]=255;
+  // UI wiring: compute/cancel
+  $('computeBtn').onclick = async ()=>{
+    if(worker){ alert('既に計算中'); return; }
+    // read params
+    if($('material').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
+    const E = parseFloat($('E').value), nu = parseFloat($('nu').value), rho = parseFloat($('rho').value), h = parseFloat($('h').value);
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const mmax = parseInt($('mmax').value), nmax = parseInt($('nmax').value);
+    const Ngrid = parseInt($('Ngrid').value);
+    const framesCount = Math.max(8, parseInt($('framesCount').value));
+    const samplesPerCycle = Math.max(4, parseInt($('samplesPerCycle').value));
+    const preset = $('sourcePreset').value;
+    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
+    else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
+    else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
+    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
+
+    // compute modes to get f_max
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+    const fmax = modes[modes.length-1].f || 1.0;
+
+    // compute dx
+    const dx = Math.min(Lx/(Ngrid-1), Ly/(Ngrid-1));
+    const D = D_of(E,h,nu);
+    const marea = rho*h;
+    // dt_stab
+    const Cstab = 0.25; // safe factor
+    const dt_stab = Cstab * dx*dx * Math.sqrt(marea / D);
+    const dt_res = 1.0 / (samplesPerCycle * fmax);
+    const dt_target = Math.min(dt_stab, dt_res);
+    // choose Fs = 2^k >= 1/dt_target
+    const inv = 1.0 / dt_target;
+    const k = Math.ceil(Math.log2(inv));
+    const kmax = 22;
+    let ksel = Math.min(k, kmax);
+    if(k > kmax){
+      if(!confirm('必要 Fs が高く k > k_max です。k_max='+kmax+' を使います。続行しますか?')) return;
+    }
+    const Fs = Math.pow(2, ksel);
+    const dt = 1.0 / Fs;
+
+    // prepare cfg
+    const cfg = {E,nu,rho,h,Lx,Ly,Ngrid,framesCount,dx,dt,Fs,samplesPerCycle,modesLight:modes.map(m=>({m:m.m,n:m.n,f:m.f,omega:m.omega})),x0,y0,framesToSave:framesCount};
+    // start worker
+    $('progressText').textContent = `Preparing worker (Fs=2^${ksel}=${Fs.toLocaleString()} dt=${dt.toExponential(2)}s)`;
+    $('progressBar').value = 0;
+    worker = new Worker(URL.createObjectURL(new Blob([workerCode],{type:'application/javascript'})));
+    worker.onmessage = (ev)=>{
+      const data = ev.data;
+      if(data.type === 'progress'){ $('progressBar').value = data.progress; $('progressText').textContent = data.msg||('progress '+data.progress+'%'); }
+      if(data.type === 'done'){
+        lastResult = data.result;
+        worker.terminate(); worker = null;
+        $('progressBar').value = 100;
+        $('progressText').textContent = 'Done';
+        // display static and set up frames
+        showStaticAndFrames(lastResult);
+        if($('autoFFT').checked) computeFFTFromProbe();
+        populateModeList(lastResult.modes);
+      }
+    };
+    worker.postMessage({type:'start', cfg});
+  };
+
+  $('cancelBtn').onclick = ()=>{ if(worker){ worker.terminate(); worker=null; $('progressText').textContent='Cancelled'; $('progressBar').value=0;} };
+
+  // worker code as string
+  const workerCode = `
+  self.onmessage = function(ev){
+    const msg = ev.data;
+    if(msg.type!=='start') return;
+    const cfg = msg.cfg;
+    const E = cfg.E, nu = cfg.nu, rho = cfg.rho, h = cfg.h;
+    const Lx = cfg.Lx, Ly = cfg.Ly, Ngrid = cfg.Ngrid;
+    const dx = cfg.dx, dt = cfg.dt;
+    const framesCount = cfg.framesToSave;
+    const Fs = cfg.Fs;
+    const marea = rho*h;
+    const D = E * Math.pow(h,3) / (12*(1-nu*nu));
+    const Nx = Ngrid, Ny = Ngrid;
+    const size = Nx*Ny;
+    // arrays
+    let w = new Float32Array(size), wprev = new Float32Array(size), wnext = new Float32Array(size);
+    // mask: full rectangle; simply-supported: w=0 at boundaries (we'll enforce)
+    function idx(i,j){ return j*Nx + i; }
+    // map source
+    const x0 = cfg.x0, y0 = cfg.y0;
+    const sx = Math.max(1, Math.min(Nx-2, Math.round(x0 / cfg.Lx * (Nx-1))));
+    const sy = Math.max(1, Math.min(Ny-2, Math.round(y0 / cfg.Ly * (Ny-1))));
+    const srcIdx = idx(sx, sy);
+    // forcing: short impulse for first few steps
+    const forceSteps = Math.max(1, Math.floor(Fs * 0.002)); // 2 ms impulse approx
+    const totalSteps = framesCount;
+    // finite-difference Laplacian / biharmonic
+    function lap(arr){
+      const out = new Float32Array(size);
+      for(let j=1;j<Ny-1;j++){
+        for(let i=1;i<Nx-1;i++){
+          const id = idx(i,j);
+          out[id] = (arr[id-1] + arr[id+1] + arr[id-Nx] + arr[id+Nx] - 4*arr[id])/(dx*dx);
+        }
+      }
+      return out;
+    }
+    // enforce SS boundaries: w=0 at edges each step
+    function enforceSS(a){
+      for(let i=0;i<Nx;i++){ a[idx(i,0)] = 0; a[idx(i,Ny-1)]=0; }
+      for(let j=0;j<Ny;j++){ a[idx(0,j)] = 0; a[idx(Nx-1,j)] = 0; }
+    }
+    // precompute coefficient
+    const coeff = (dt*dt)/marea;
+    const frames = [];
+    // time stepping: explicit biharmonic: wtt = -D/m * ∇^4 w + F/m
+    for(let step=0; step<totalSteps; step++){
+      // forcing small impulse
+      const F = new Float32Array(size);
+      if(step < forceSteps) F[srcIdx] = 1.0;
+      // compute lap and biharmonic
+      const lap1 = lap(w);
+      const bih = lap(lap1);
+      for(let id=0; id<size; id++){
+        // interior only; boundaries remain zero by enforceSS
+        wnext[id] = 2*w[id] - wprev[id] + coeff * (F[id] - D * bih[id]);
+      }
+      enforceSS(wnext);
+      // rotate
+      wprev.set(w);
+      w.set(wnext);
+      // save scaled frame (displacement)
+      frames.push(w.slice(0));
+      if(step % Math.max(1, Math.floor(totalSteps/40)) === 0){
+        self.postMessage({type:'progress', progress: Math.round(100*step/totalSteps), msg: 'step '+step+'/'+totalSteps});
       }
     }
-    // scale to visible canvas
-    const tmp = document.createElement('canvas'); tmp.width=W; tmp.height=H;
-    tmp.getContext('2d').putImageData(img,0,0);
-    hctx.clearRect(0,0,heatCanvas.width,heatCanvas.height);
-    hctx.drawImage(tmp,0,0,heatCanvas.width,heatCanvas.height);
+    // compute static forced map via modal synthesis (light)
+    const modes = cfg.modesLight;
+    const Mmn = rho*h * (cfg.Lx * cfg.Ly) / 4.0;
+    const omegaForced = 2*Math.PI * (modes[0].f || 1.0);
+    const W = new Float32Array(size);
+    for(const md of modes){
+      if(md.m>cfg.modesLight.length || md.n>cfg.modesLight.length){} // keep light
+      const omega_m = md.omega;
+      // evaluate phi at source
+      const phi0 = Math.sin(md.m*Math.PI*cfg.x0/cfg.Lx) * Math.sin(md.n*Math.PI*cfg.y0/cfg.Ly);
+      const real = Mmn*(omega_m*omega_m - omegaForced*omegaForced);
+      const imag = Mmn*(omegaForced * omega_m / 1e8);
+      // eta = (F*phi0)/(real + i imag)
+      const denom = real*real + imag*imag;
+      const er = (1.0*phi0*real)/denom;
+      const ei = (-1.0*phi0*imag)/denom;
+      for(let j=0;j<Ny;j++){
+        const cy = Math.sin(md.n * Math.PI * j/(Ny-1));
+        for(let i=0;i<Nx;i++){
+          const cx = Math.sin(md.m * Math.PI * i/(Nx-1));
+          const idx0 = idx(i,j);
+          W[idx0] += Math.hypot(er*cx*cy, ei*cx*cy);
+        }
+      }
+    }
+    // package result (transfer frames as ArrayBuffers)
+    const transferable = [];
+    const framesBuf = frames.map(f=>{ transferable.push(f.buffer); return f.buffer; });
+    const result = {framesCount: frames.length, Nx: Nx, Ny: Ny, dt: dt, Fs: cfg.Fs, framesBuf: framesBuf, staticZ: Array.from(W), modes: modes, xs: Array.from({length:Nx}, (_,i)=>cfg.Lx*i/(Nx-1)), ys: Array.from({length:Ny}, (_,j)=>cfg.Ly*j/(Ny-1))};
+    self.postMessage({type:'done', result: result}, transferable);
+  };
+  `;
+
+  // show static and frames after worker done
+  function showStaticAndFrames(res){
+    // unpack frames from buffers to Float32Array
+    const frames = res.framesBuf.map(buf => new Float32Array(buf));
+    lastResult = Object.assign({}, res, {frames: frames});
+    // show static heatmap
+    const z = res.staticZ;
+    const Nx = res.Nx, Ny = res.Ny;
+    const zmin = Math.min(...z), zmax = Math.max(...z);
+    const z2d = [];
+    for(let j=0;j<Ny;j++){
+      const row = [];
+      for(let i=0;i<Nx;i++) row.push(z[j*Nx + i]);
+      z2d.push(row);
+    }
+    Plotly.newPlot('plotlyDiv', [{z: z2d, type:'heatmap', colorscale:'Viridis'}], {margin:{t:30,b:60,l:60,r:10},xaxis:{title:'x'},yaxis:{title:'y'}}, {responsive:true});
+    // draw first frame in heatCanvas
+    drawFrameToCanvas(frames[0], Nx, Ny);
+    // set slider
+    $('frameSlider').max = frames.length - 1;
+    currentFrame = 0;
+    framesArrLocal = frames;
+    // populate mode list
+    populateModeList(res.modes);
   }
 
-  // populate mode list
   function populateModeList(modes){
-    const div = $('modeList');
-    div.innerHTML = '';
-    modes.forEach((md,idx)=>{
-      const el = document.createElement('div');
-      el.className = 'mode-row';
-      el.style.padding='6px';
-      el.style.borderBottom='1px solid #f1f5f9';
-      el.style.cursor='pointer';
-      el.dataset.idx = idx;
-      el.innerHTML = `#${idx+1} (m,n)=(${md.m},${md.n})  f=${md.f.toFixed(3)} Hz`;
+    const div = $('modeList'); div.innerHTML='';
+    modes.forEach((m,idx)=>{
+      const el = document.createElement('div'); el.style.padding='6px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.cursor='pointer';
+      el.textContent = `#${idx+1} (m,n)=(${m.m},${m.n}) f=${m.f.toFixed(2)}Hz`;
       el.onclick = ()=>{
         // highlight
         Array.from(div.children).forEach(x=>x.style.background='');
-        el.style.background = '#eef6ff';
-        // set freq to modal freq
-        $('freq').value = md.f.toFixed(6);
+        el.style.background='#eef6ff';
+        // generate frames for this mode only (sine one period)
+        generateModeFrames(m);
+        setTab('Mode');
       };
       div.appendChild(el);
     });
   }
 
-  // convert flat to 2D array for Plotly
-  function to2D(arr,Nx,Ny){
-    const z = [];
-    for(let j=0;j<Ny;j++){
-      const row = [];
-      for(let i=0;i<Nx;i++) row.push(arr[j*Nx + i]);
-      z.push(row);
-    }
-    return z;
-  }
-
-  // compute static forced field (same as your baseline)
-  function computeStaticField(opts){
-    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb} = opts;
-    const mmax_i = mmax, nmax_i = nmax;
-    const omega = 2*Math.PI*freq;
-    const Mmn = modalMass(rho,h,Lx,Ly);
-    const Nx = Ngrid, Ny = Ngrid;
-    const xs = new Array(Nx); const ys = new Array(Ny);
-    for(let i=0;i<Nx;i++) xs[i] = Lx * i/(Nx-1);
-    for(let j=0;j<Ny;j++) ys[j] = Ly * j/(Ny-1);
-
-    // accumulate complex displacement W
-    const W = new Array(Ny*Nx).fill(0).map(()=>({re:0,im:0}));
-    const F = 1.0;
-    const Q = 1e8;
-    for(const md of modes){
-      if(md.m>mmax_i || md.n>nmax_i) continue;
-      const omega_m = md.omega;
-      const phi0 = phi(md.m,md.n,x0,y0,Lx,Ly);
-      const num = {re: F * phi0, im: 0};
-      const real = Mmn * (omega_m*omega_m - omega*omega);
-      const imag = Mmn * (omega * omega_m / Q);
-      const eta = cdiv(num, {re:real,im:imag});
-      for(let j=0;j<Ny;j++){
-        const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
-        for(let i=0;i<Nx;i++){
-          const cx = Math.sin(md.m * Math.PI * xs[i] / Lx);
-          const idx = j*Nx + i;
-          const ph = cx * cy;
-          W[idx].re += eta.re * ph;
-          W[idx].im += eta.im * ph;
-        }
-      }
-    }
-    // velocity amplitude |v| = ω * |W|
-    const V = new Float64Array(Ny*Nx);
-    for(let k=0;k<W.length;k++) V[k] = omega * cabs(W[k]);
-
-    const out = new Float64Array(Ny*Nx);
-    if(displayChoice === 'v_over_F'){
-      for(let k=0;k<out.length;k++) out[k] = V[k];
-    }else{
-      for(let k=0;k<out.length;k++) out[k] = (V[k] > 0 ? 1.0 / V[k] : 0);
-    }
-    // dB conversion if requested (20·log10)
-    if(useDb){
-      const eps = 1e-20;
-      for(let k=0;k<out.length;k++) out[k] = 20 * Math.log10(Math.max(out[k], eps));
-    }
-    return {xs,ys,Z:out,rawV:V};
-  }
-
-  // drawing helpers: static plotly + draw canvas
-  function showStaticPlot(field, Lx, Ly, use3d){
-    const Nx = field.xs.length, Ny = field.ys.length;
-    const z2d = to2D(field.Z, Nx, Ny);
-    const zmin = Math.min(...field.Z), zmax = Math.max(...field.Z);
-    const colorscale = 'Viridis';
-    const xaxis = {title:'x [m]', range:[0,Lx]};
-    const yaxis = {title:'y [m]', autorange:'reversed', range:[0,Ly]};
-
-    if(use3d){
-      const trace = {z:z2d, x: field.xs, y: field.ys, type:'surface', colorscale:colorscale};
-      const layout = {margin:{l:60,r:10,t:30,b:60}, scene:{xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}, zaxis:{title:'amplitude'} } };
-      Plotly.newPlot('plotlyDiv', [trace], layout, {responsive:true,displaylogo:false});
-    }else{
-      const trace = {z:z2d, x: field.xs, y: field.ys, type:'heatmap', colorscale:colorscale, zmin:zmin, zmax:zmax, colorbar:{title: $('useDb').checked ? 'dB' : ($('displayChoice').value==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}};
-      const layout = {margin:{l:60,r:10,t:30,b:60}, xaxis:xaxis, yaxis:yaxis};
-      Plotly.newPlot('plotlyDiv', [trace], layout, {responsive:true,displaylogo:false});
-    }
-    // also draw to heatCanvas for animation/recording
-    drawHeatFromArray(field.Z, Nx, Ny, zmin, zmax);
-  }
-
-  // generate animation frames for a selected mode (pure modal animation)
-  function generateModeFrames(mode, params){
-    const {Lx,Ly,Ngrid,framesCount} = params;
-    const Nx = Ngrid, Ny = Ngrid;
-    const xs = new Array(Nx), ys = new Array(Ny);
-    for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
-    for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
-    const phiArr = new Float64Array(Nx*Ny);
-    let maxabs = 0;
-    for(let j=0;j<Ny;j++){
-      for(let i=0;i<Nx;i++){
-        const val = Math.sin(mode.m * Math.PI * xs[i] / Lx) * Math.sin(mode.n * Math.PI * ys[j] / Ly);
-        phiArr[j*Nx + i] = val;
-        maxabs = Math.max(maxabs, Math.abs(val));
-      }
-    }
-    if(maxabs===0) maxabs=1;
-    for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs; // normalize -1..1
-    framesArr = [];
-    const omega = mode.omega;
-    const period = 2*Math.PI / omega;
-    for(let f=0; f<framesCount; f++){
-      const t = f / framesCount * period;
-      const cosv = Math.cos(omega * t);
-      const frame = new Float64Array(Nx*Ny);
-      for(let k=0;k<phiArr.length;k++) frame[k] = phiArr[k] * cosv;
-      framesArr.push(frame);
-    }
-    currentFrame = 0;
-    $('frameSlider').max = framesArr.length-1;
-    drawFrame(0);
-  }
-
-  function drawFrame(idx){
-    if(!framesArr || framesArr.length===0) return;
-    idx = Math.max(0, Math.min(framesArr.length-1, idx));
-    currentFrame = idx;
-    $('frameSlider').value = idx;
-    // calculate min/max across frames for consistent color scaling
+  // draw frame to heatCanvas
+  let framesArrLocal = [];
+  function drawFrameToCanvas(arr, Nx, Ny){
+    const ctx = document.getElementById('heatCanvas').getContext('2d');
+    // normalize using global min/max across frames if available
     let minV = Infinity, maxV = -Infinity;
-    for(const fr of framesArr){ for(const v of fr){ if(v<minV) minV=v; if(v>maxV) maxV=v; } }
-    // if use dB or scaling adapt accordingly (we render raw signed displacement)
-    drawHeatFromArray(framesArr[idx], $('Ngrid').value, $('Ngrid').value, minV, maxV);
+    for(const f of framesArrLocal){ for(const v of f){ if(v<minV) minV=v; if(v>maxV) maxV=v; } }
+    if(minV===Infinity){ minV = Math.min(...arr); maxV = Math.max(...arr); }
+    const W=Nx, H=Ny;
+    const img = ctx.createImageData(W,H);
+    const span = (maxV - minV) || 1e-12;
+    for(let j=0;j<H;j++){
+      for(let i=0;i<W;i++){
+        const v = arr[j*Nx + i];
+        const t = Math.max(0, Math.min(1, (v-minV)/span));
+        const r = Math.round(68 + 187*t), g = Math.round(1 + 185*t), b = Math.round(84 + 40*(1-t));
+        const p = (j*W + i)*4;
+        img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
+      }
+    }
+    const tmp = document.createElement('canvas'); tmp.width=W; tmp.height=H; tmp.getContext('2d').putImageData(img,0,0);
+    ctx.clearRect(0,0,heatCanvas.width,heatCanvas.height);
+    ctx.drawImage(tmp,0,0,heatCanvas.width,heatCanvas.height);
   }
 
   // playback controls
-  function playAnimation(intervalMs=100){
+  $('playBtn').onclick = ()=>{
+    if(!lastResult || !lastResult.framesBuf) return alert('先に計算してください');
     if(playTimer) return;
     playTimer = setInterval(()=>{
-      currentFrame = (currentFrame + 1) % framesArr.length;
-      drawFrame(currentFrame);
-    }, intervalMs);
-  }
-  function pauseAnimation(){ if(playTimer){ clearInterval(playTimer); playTimer=null; } }
+      currentFrame = (currentFrame + 1) % lastResult.framesCount;
+      drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny);
+      $('frameSlider').value = currentFrame;
+    }, Math.max(20, Math.floor(1000/25)));
+  };
+  $('pauseBtn').onclick = ()=>{ if(playTimer){ clearInterval(playTimer); playTimer=null; } };
+  $('prevBtn').onclick = ()=>{ $('pauseBtn').click(); currentFrame = Math.max(0, currentFrame-1); drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny); $('frameSlider').value=currentFrame; };
+  $('nextBtn').onclick = ()=>{ $('pauseBtn').click(); currentFrame = Math.min(lastResult.framesCount-1, currentFrame+1); drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny); $('frameSlider').value=currentFrame; };
+  $('frameSlider').oninput = (e)=>{ $('pauseBtn').click(); currentFrame = parseInt(e.target.value); drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny); };
 
-  // Recording via heatCanvas.captureStream
+  // recording
   $('startRec').onclick = ()=>{
-    if(!framesArr.length) return alert('まずアニメフレームを生成して再生してください');
+    if(!lastResult) return alert('先に計算してください');
     recordedBlobs = [];
-    const stream = heatCanvas.captureStream(25);
-    try{ mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'}); }catch(e){
-      try{ mediaRecorder = new MediaRecorder(stream); }catch(e2){ return alert('Recording not supported in this browser'); }
-    }
+    const stream = document.getElementById('heatCanvas').captureStream(25);
+    try{ mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'}); }catch(e){ mediaRecorder = new MediaRecorder(stream); }
     mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) recordedBlobs.push(e.data); };
-    mediaRecorder.onstop = ()=>{ const blob = new Blob(recordedBlobs,{type:'video/webm'}); const url = URL.createObjectURL(blob); const a = $('recDownload'); a.href = url; a.download = `slab_anim_${Date.now()}.webm`; a.textContent = 'Download video'; };
+    mediaRecorder.onstop = ()=>{ const blob = new Blob(recordedBlobs, {type:'video/webm'}); const url = URL.createObjectURL(blob); const a = $('recDownload'); a.href=url; a.download=`slab_${Date.now()}.webm`; a.textContent='Download video'; };
     mediaRecorder.start();
-    // drive canvas frames during recording at same pacing
+    // drive frames for whole sequence then stop
     let k=0;
-    const recInterval = setInterval(()=>{
-      if(k >= framesArr.length){ clearInterval(recInterval); if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop(); return; }
-      drawFrame(k);
+    const ii = setInterval(()=>{
+      if(k >= lastResult.framesCount){ clearInterval(ii); if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop(); return; }
+      drawFrameToCanvas(lastResult.frames[k], lastResult.Nx, lastResult.Ny);
       k++;
     }, Math.max(20, Math.floor(1000/25)));
   };
   $('stopRec').onclick = ()=>{ if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop(); };
 
-  // Probe & FFT
-  function hannWindow(N){ const w = new Float64Array(N); for(let n=0;n<N;n++) w[n] = 0.5*(1-Math.cos(2*Math.PI*n/(N-1))); return w; }
-  function dftReal(x, Nout){
-    const N = x.length; const M = Math.floor(Nout/2); const mag = new Float64Array(M);
-    for(let k=0;k<M;k++){
-      let re=0, im=0;
-      for(let n=0;n<N;n++){
-        const a = x[n];
-        const ang = -2*Math.PI*k*n/Nout;
-        re += a*Math.cos(ang); im += a*Math.sin(ang);
+  // generate mode frames (1 period) and show in Mode panel
+  function generateModeFrames(mode){
+    if(!lastResult) return;
+    const Ngrid = lastResult.Nx;
+    const Lx = lastResult.xs.length>1 ? lastResult.xs[lastResult.xs.length-1] : parseFloat($('Lx').value);
+    const Ly = lastResult.ys.length>1 ? lastResult.ys[lastResult.ys.length-1] : parseFloat($('Ly').value);
+    const Nx = lastResult.Nx, Ny = lastResult.Ny;
+    const framesCount = parseInt($('framesCount').value);
+    const omega = mode.omega;
+    const phiArr = new Float64Array(Nx*Ny);
+    let maxabs=0;
+    for(let j=0;j<Ny;j++){
+      const y = j/(Ny-1)*Ly;
+      for(let i=0;i<Nx;i++){
+        const x = i/(Nx-1)*Lx;
+        const v = Math.sin(mode.m*Math.PI*x/Lx)*Math.sin(mode.n*Math.PI*y/Ly);
+        phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v);
       }
-      mag[k] = Math.hypot(re,im);
     }
-    return {mag};
+    if(maxabs===0) maxabs=1;
+    for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
+    const frames = [];
+    for(let f=0; f<framesCount; f++){
+      const t = f/framesCount * (2*Math.PI/omega);
+      const cosv = Math.cos(omega * t);
+      const frame = new Float32Array(Nx*Ny);
+      for(let k=0;k<phiArr.length;k++) frame[k] = phiArr[k]*cosv;
+      frames.push(frame);
+    }
+    lastResult.modeFrames = frames;
+    // draw first
+    const ctx = document.getElementById('modeCanvas').getContext('2d');
+    // draw frame 0
+    const arr = frames[0];
+    // compute min/max
+    let mn=Infinity, mx=-Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; }
+    // draw
+    const tmp = document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny;
+    const img = tmp.getContext('2d').createImageData(Nx,Ny);
+    const span = mx-mn||1;
+    for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){
+      const v = arr[j*Nx+i]; const t=(v-mn)/span;
+      const r=Math.round(68+187*t), g=Math.round(1+185*t), b=Math.round(84+40*(1-t));
+      const p=(j*Nx+i)*4; img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
+    }
+    tmp.getContext('2d').putImageData(img,0,0);
+    ctx.clearRect(0,0,document.getElementById('modeCanvas').width, document.getElementById('modeCanvas').height);
+    ctx.drawImage(tmp,0,0,document.getElementById('modeCanvas').width, document.getElementById('modeCanvas').height);
+    // play mode frames loop when clicked play on Mode tab
+    // hook play
+    $('modePlotly').innerHTML = '<div class="small">Mode frames ready ('+framesCount+' frames)</div>';
   }
 
-  $('analyzeBtn').onclick = ()=>{
-    if(!framesArr.length) return alert('まず計算してアニメフレームを作成してください (計算開始ボタン)');
+  // compute FFT from probe time series
+  function computeFFTFromProbe(){
+    if(!lastResult) return;
     const px = parseFloat($('px').value), py = parseFloat($('py').value);
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-    const Nx = parseInt($('Ngrid').value), Ny = Nx;
-    const ix = Math.max(0, Math.min(Nx-1, Math.round(px / Lx * (Nx-1))));
-    const iy = Math.max(0, Math.min(Ny-1, Math.round(py / Ly * (Ny-1))));
-    const pr = parseFloat($('pr').value) || 0;
-    const cellSize = Lx/(Nx-1);
-    const r_cells = Math.round(pr / cellSize);
-    // build time series of displacement (averaged if radius>0)
-    const Nf = framesArr.length;
+    const Nx = lastResult.Nx;
+    const ix = clamp(Math.round(px / Lx * (Nx-1)), 0, Nx-1);
+    const iy = clamp(Math.round(py / Ly * (Nx-1)), 0, Nx-1);
+    const pr = 0; // radius not provided here
+    const Nf = lastResult.framesCount;
     const disp = new Float64Array(Nf);
-    for(let f=0; f<Nf; f++){
-      let sum = 0, cnt=0;
-      for(let dj=-r_cells; dj<=r_cells; dj++){
-        for(let di=-r_cells; di<=r_cells; di++){
-          const xi = ix + di, yj = iy + dj;
-          if(xi<0||xi>=Nx||yj<0||yj>=Ny) continue;
-          sum += framesArr[f][yj*Nx + xi]; cnt++;
-        }
-      }
-      disp[f] = cnt>0 ? sum/cnt : framesArr[f][iy*Nx + ix];
-    }
-    // velocity via central diff
-    const dt = (1 / (framesCount || 64)); // relative sampling frequency (units arbitrary) -> user cares about shape
+    for(let f=0; f<Nf; f++) disp[f] = lastResult.frames[f][iy*Nx + ix];
+    // central diff to get velocity
     const vts = new Float64Array(Nf-2);
-    for(let n=1;n<Nf-1;n++) vts[n-1] = (disp[n+1] - disp[n-1]) / (2*dt);
-    if($('winHann').checked){ const w = hannWindow(vts.length); for(let n=0;n<vts.length;n++) vts[n] *= w[n]; }
-    const zp = parseInt($('zpFactor').value);
-    const Nout = Math.max(64, vts.length * zp);
-    const d = dftReal(vts, Nout);
-    const mags = d.mag;
-    const freqs = []; for(let k=0;k<mags.length;k++) freqs.push(k/(Nout*dt));
-    // choice v/F or F/v: here mags ~ velocity amplitude; treat ref=1 and plot 20log10
-    let vals = mags;
-    if($('displayChoice').value === 'F_over_v'){ vals = mags.map(v=> v>0? 1.0/v : 0); }
-    const db = vals.map(v=>20*Math.log10(Math.max(v,1e-20)));
-    Plotly.newPlot('fftPlot', [{x:freqs, y:db, type:'scatter', mode:'lines'}], {xaxis:{type:'log',title:'Hz'}, yaxis:{title:'20·log10 (ref=1)'}}, {responsive:true});
-  };
-
-  // main compute handler (static + frames creation)
-  $('computeBtn').onclick = ()=>{
-    // read params
-    if($('material').value === 'concrete'){ $('E').value = 30000000000; $('nu').value = 0.20; $('rho').value = 2400; }
-    const E = parseFloat($('E').value), nu = parseFloat($('nu').value), rho = parseFloat($('rho').value);
-    const h = parseFloat($('h').value), Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-    const mmax = parseInt($('mmax').value), nmax = parseInt($('nmax').value);
-    const Ngrid = parseInt($('Ngrid').value);
-    framesCount = Math.max(8, parseInt($('framesCount').value) || 64);
-    const displayChoice = $('displayChoice').value;
-    const useDb = $('useDb').checked;
-    let freq = parseFloat($('freq').value);
-    // build modes
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    populateModeList(modes);
-    if(!freq || isNaN(freq)) freq = modes[0].f;
-
-    // source preset mapping for x0,y0 (support diag 1/3 & 2/3)
-    const preset = $('sourcePreset').value;
-    if(preset === 'center'){ $('x0').value = (Lx/2).toFixed(3); $('y0').value = (Ly/2).toFixed(3); }
-    else if(preset === 'dice5'){ $('x0').value = (Lx/2).toFixed(3); $('y0').value = (Ly/2).toFixed(3); }
-    else if(preset === 'diag_1_3'){ $('x0').value = (Lx/3).toFixed(3); $('y0').value = (Ly/3).toFixed(3); }
-    else if(preset === 'diag_2_3'){ $('x0').value = (2*Lx/3).toFixed(3); $('y0').value = (2*Ly/3).toFixed(3); }
-    else if(preset === 'corner'){ /* keep manual or click */ }
-
-    const x0 = clamp(parseFloat($('x0').value), 0, Lx);
-    const y0 = clamp(parseFloat($('y0').value), 0, Ly);
-
-    // compute static field
-    const field = computeStaticField({
-      Lx, Ly, E, nu, rho, h, modes,
-      mmax, nmax, freq, x0, y0, Ngrid,
-      displayChoice, useDb
-    });
-    currentField = field;
-    // show static plot (Plotly + canvas)
-    showStaticPlot(field, Lx, Ly, $('viewMode').value === '3d');
-
-    // determine selected mode for animation: highlighted in list or nearest to freq
-    let selectedIdx = null;
-    const div = $('modeList');
-    Array.from(div.children).forEach((el,i)=>{ if(el.style.background) selectedIdx = i; });
-    if(selectedIdx === null){
-      // pick nearest mode to freq
-      let nearest = 0, mindiff = Infinity;
-      modes.forEach((md,i)=>{ const d = Math.abs(md.f - freq); if(d < mindiff){ mindiff = d; nearest = i; } });
-      selectedIdx = nearest;
-      if(div.children[selectedIdx]) div.children[selectedIdx].style.background = '#eef6ff';
+    const dt = lastResult.dt;
+    for(let n=1;n<Nf-1;n++) vts[n-1] = (disp[n+1] - disp[n-1])/(2*dt);
+    // window?
+    // zero-pad factor 1
+    const Nout = Math.max(64, vts.length);
+    // simple DFT (real)
+    const mags = new Float64Array(Math.floor(Nout/2));
+    for(let k=0;k<mags.length;k++){
+      let re=0, im=0;
+      for(let n=0;n<vts.length;n++){ const ang = -2*Math.PI*k*n/Nout; re+=vts[n]*Math.cos(ang); im+=vts[n]*Math.sin(ang); }
+      mags[k] = Math.hypot(re,im);
     }
-    const modeSel = modes[selectedIdx];
-    // generate frames for that mode
-    generateModeFrames(modeSel, {Lx, Ly, Ngrid, framesCount});
-    alert('計算完了: 静解析とアニメフレームを生成しました。下の Play で再生できます。');
-  };
+    const freqs = new Array(mags.length);
+    for(let k=0;k<mags.length;k++) freqs[k] = k/(Nout*dt);
+    const vals = mags.map(v=>20*Math.log10(Math.max(v,1e-20)));
+    Plotly.newPlot('fftPlot', [{x:freqs, y:vals, type:'scatter', mode:'lines'}], {xaxis:{type:'log', title:'Hz'}, yaxis:{title:'20·log10(ref=1)'}}, {responsive:true});
+  }
 
-  // Plot click to set source (works on plotlyDiv when 2D)
-  document.getElementById('plotlyDiv').on('plotly_click', function(evt){
-    if(!evt.points || !evt.points[0]) return;
-    const pt = evt.points[0];
-    const cx = pt.x, cy = pt.y;
-    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-    $('x0').value = clamp(cx,0,Lx).toFixed(3);
-    $('y0').value = clamp(cy,0,Ly).toFixed(3);
+  // plot click sets probe
+  document.getElementById('plotlyDiv').on('plotly_click', (ev)=>{
+    if(!ev.points || !ev.points[0]) return;
+    const p = ev.points[0];
+    $('px').value = p.x.toFixed(3);
+    $('py').value = p.y.toFixed(3);
   });
-
-  // playback buttons
-  $('playBtn').onclick = ()=>{ if(!framesArr.length) return alert('まず計算してアニメフレームを生成してください'); playAnimation(100); };
-  $('pauseBtn').onclick = ()=> pauseAnimation();
-  $('prevBtn').onclick = ()=>{ pauseAnimation(); drawFrame(Math.max(0,currentFrame-1)); };
-  $('nextBtn').onclick = ()=>{ pauseAnimation(); drawFrame(Math.min(framesArr.length-1,currentFrame+1)); };
-  $('frameSlider').oninput = (e)=>{ pauseAnimation(); drawFrame(parseInt(e.target.value)); };
-
-  // mode animation controls (uses the same framesArr but can regenerate specific mode)
-  $('modePlay').onclick = ()=>{
-    const div = $('modeList');
-    let sel = null;
-    Array.from(div.children).forEach((el,i)=>{ if(el.style.background) sel = i; });
-    if(sel === null) return alert('モードを左一覧で選択してください');
-    // get mode from latest computed list (recompute modes to be safe)
-    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value), E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
-    const modes = buildModes(Lx,Ly,E,nu,rho,h, parseInt($('mmax').value), parseInt($('nmax').value));
-    const mode = modes[sel];
-    // regenerate frames specifically for this mode
-    generateModeFrames(mode, {Lx, Ly, Ngrid: parseInt($('Ngrid').value), framesCount: parseInt($('framesCount').value)});
-    playAnimation(100);
-  };
-  $('modePause').onclick = ()=> pauseAnimation();
-
-  // snapshot (from canvas)
-  $('snapBtn').onclick = ()=>{
-    heatCanvas.toBlob(blob=>{
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `slab_snap_${Date.now()}.png`; a.click();
-    });
-  };
-
-  // helpers
-  function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
-
-  // initial render (compute first)
-  // set initial mode list by calling compute once
-  $('computeBtn').click();
 
 })();
 </script>
