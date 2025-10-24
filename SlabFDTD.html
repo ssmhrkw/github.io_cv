@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Slab FDTD Prototype (masked grid)</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#556;--accent:#2563eb}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,"Noto Sans JP"}
+  .wrap{max-width:1200px;margin:12px auto;padding:12px}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
+  .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+  input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px;box-sizing:border-box}
+  .small{font-size:13px;color:var(--muted)}
+  #canvasWrap{border:1px solid #ddd;background:#fff;height:300px;display:flex;align-items:center;justify-content:center}
+  canvas{max-width:100%;max-height:100%}
+  #plot{height:68vh;min-height:480px}
+  .row{margin-bottom:10px}
+  .inline{display:flex;gap:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Slab FDTD Prototype（高速・近似・ブラウザ）</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <label>寸法 Lx, Ly [m]</label>
+        <div style="display:flex;gap:8px">
+          <input id="Lx" type="number" step="0.01" value="5.00">
+          <input id="Ly" type="number" step="0.01" value="4.00">
+        </div>
+      </div>
+
+      <div class="row">
+        <label>材料プリセット</label>
+        <select id="material">
+          <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400, h=0.15)</option>
+          <option value="light">Light (E=2e9, ν=0.25, ρ=1200, h=0.10)</option>
+        </select>
+      </div>
+
+      <div class="row inline">
+        <div style="flex:1"><label>E [Pa]</label><input id="E" type="number" value="30000000000"></div>
+        <div style="flex:1"><label>ν</label><input id="nu" type="number" step="0.01" value="0.20"></div>
+      </div>
+      <div class="row inline">
+        <div style="flex:1"><label>ρ [kg/m³]</label><input id="rho" type="number" value="2400"></div>
+        <div style="flex:1"><label>h [m]</label><input id="h" type="number" step="0.01" value="0.15"></div>
+      </div>
+
+      <div class="row inline">
+        <div style="flex:1"><label>Ngrid (max 120 recommended)</label><input id="Ngrid" type="number" value="64" min="24" max="160"></div>
+        <div style="flex:1"><label>Frames (stored)</label><input id="Nframes" type="number" value="96" min="16" max="256"></div>
+      </div>
+
+      <div class="row">
+        <label>描画エリア（多角形をクリックで頂点追加 → Closeで閉じる → Fillでマスク）</label>
+        <div id="canvasWrap" class="small">
+          <canvas id="drawCanvas" width=600 height=300></canvas>
+        </div>
+        <div class="inline">
+          <button id="btnClear">Clear</button>
+          <button id="btnClose">Close</button>
+          <button id="btnFill">Fill Mask</button>
+          <button id="btnRect">Preset Rect</button>
+        </div>
+        <div class="small">クリックで頂点追加。Closeで多角形化。Fillでマスク。Rectは全領域。</div>
+      </div>
+
+      <div class="row inline">
+        <div style="flex:1"><label>加振プリセット</label><select id="srcPreset">
+          <option value="center">Center</option>
+          <option value="dice5">Dice-5</option>
+          <option value="corner0">Corner (0,0)</option>
+          <option value="corner1">Corner (Lx,0)</option>
+          <option value="corner2">Corner (0,Ly)</option>
+          <option value="corner3">Corner (Lx,Ly)</option>
+        </select></div>
+        <div style="flex:1"><label>Force type</label>
+          <select id="fType"><option value="impulse">Impulse (short)</option><option value="pulse">Pulse</option></select>
+        </div>
+      </div>
+
+      <div class="row inline">
+        <div style="flex:1"><label>dx [m] (override; 0 = auto)</label><input id="dx" type="number" step="0.01" value="0"></div>
+        <div style="flex:1"><label>speed factor (dt stability scale)</label><input id="speedFactor" type="number" step="0.05" value="0.18"></div>
+      </div>
+
+      <div class="row inline">
+        <button id="runBtn" class="">Run</button>
+        <button id="stopBtn">Stop</button>
+        <button id="exportBtn">Snapshot PNG</button>
+      </div>
+
+      <div class="row">
+        <label>Probe point (click plot to set)</label>
+        <div class="inline"><input id="px" type="number" step="0.01" value="2.50"><input id="py" type="number" step="0.01" value="2.00"></div>
+      </div>
+
+      <div class="row">
+        <label>FFT / Mode extraction</label>
+        <div class="inline">
+          <button id="analyzeBtn">Analyze (probe FFT)</button>
+          <select id="peakSelect"><option value="">-- peaks --</option></select>
+        </div>
+        <div class="small">ProbeでFFTを取る→ピーク選択→「Show Mode」 でその周波数の空間モードを可視化します。</div>
+        <div class="inline" style="margin-top:6px">
+          <button id="showModeBtn">Show Mode (DFT over stored frames)</button>
+          <label style="margin-left:8px"><input id="useDb" type="checkbox"> dB (10·log10 ref=1)</label>
+        </div>
+      </div>
+
+      <div class="small" style="margin-top:8px">
+        <strong>注意</strong>: 近似スキームです。dx小→精度↑ but 計算↑。初期は Ngrid=48..96, frames≈64 を推奨。
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="plot"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // UI
+  const $ = id => document.getElementById(id);
+  const canvas = $('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  let vertices = [], closed=false, mask=null;
+
+  function drawCanvasRefresh(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    // draw polygon
+    ctx.strokeStyle='#334'; ctx.lineWidth=2;
+    if(vertices.length){
+      ctx.beginPath();
+      ctx.moveTo(vertices[0][0],vertices[0][1]);
+      for(let i=1;i<vertices.length;i++) ctx.lineTo(vertices[i][0],vertices[i][1]);
+      if(closed) ctx.closePath();
+      ctx.stroke();
+      // points
+      for(const p of vertices){
+        ctx.fillStyle='#2563eb'; ctx.beginPath(); ctx.arc(p[0],p[1],4,0,Math.PI*2); ctx.fill();
+      }
+    }
+    if(mask){
+      ctx.fillStyle='rgba(50,50,50,0.12)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      const w=mask.w,h=mask.h,arr=mask.arr;
+      const sx=canvas.width/w, sy=canvas.height/h;
+      ctx.fillStyle='rgba(0,150,0,0.15)'; ctx.beginPath();
+      for(let j=0;j<h;j++){
+        for(let i=0;i<w;i++){
+          if(arr[j*w+i]){
+            ctx.fillRect(i*sx,j*sy, Math.max(1,Math.ceil(sx)), Math.max(1,Math.ceil(sy)));
+          }
+        }
+      }
+    }
+  }
+
+  canvas.addEventListener('click', (ev)=>{
+    if(closed) return;
+    const r = canvas.getBoundingClientRect();
+    const x = ev.clientX - r.left, y = ev.clientY - r.top;
+    vertices.push([x,y]); drawCanvasRefresh();
+  });
+
+  $('btnClear').onclick = ()=>{ vertices=[]; closed=false; mask=null; drawCanvasRefresh(); };
+  $('btnClose').onclick = ()=>{ if(vertices.length>2){ closed=true; drawCanvasRefresh(); } };
+  $('btnRect').onclick = ()=>{ vertices=[[10,10],[canvas.width-10,10],[canvas.width-10,canvas.height-10],[10,canvas.height-10]]; closed=true; drawCanvasRefresh(); };
+  // point-in-polygon
+  function pointInPoly(x,y,poly){
+    let inside=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const xi=poly[i][0], yi=poly[i][1], xj=poly[j][0], yj=poly[j][1];
+      const intersect = ((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi);
+      if(intersect) inside=!inside;
+    }
+    return inside;
+  }
+
+  $('btnFill').onclick = ()=>{
+    if(!closed || vertices.length<3) return alert('Close polygon first.');
+    // build mask at canvas pixels coarse (grid size to be determined later). Here make mask grid same as canvas dims/4 to visualize
+    const w = Math.max(80, Math.floor(canvas.width/4)), h = Math.max(40, Math.floor(canvas.height/4));
+    const arr = new Uint8Array(w*h);
+    for(let j=0;j<h;j++){
+      for(let i=0;i<w;i++){
+        const cx = i*(canvas.width/w)+canvas.width/(2*w);
+        const cy = j*(canvas.height/h)+canvas.height/(2*h);
+        if(pointInPoly(cx,cy,vertices)) arr[j*w+i]=1;
+      }
+    }
+    mask={w,h,arr}; drawCanvasRefresh();
+  };
+
+  // preset mask full
+  $('btnRect').onclick = ()=>{ vertices=[[10,10],[canvas.width-10,10],[canvas.width-10,canvas.height-10],[10,canvas.height-10]]; closed=true; drawCanvasRefresh(); $('btnFill').click(); };
+
+  // helper for mapping grid <-> physical coords
+  function makeGrid(Lx,Ly,Ngrid,dxOverride){
+    const Nx = Ngrid, Ny = Ngrid;
+    const dx = dxOverride>0 ? dxOverride : Math.max(Lx/(Nx-1), Ly/(Ny-1));
+    const xs = new Float32Array(Nx), ys=new Float32Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i]=i*dx;
+    for(let j=0;j<Ny;j++) ys[j]=j*dx;
+    return {Nx,Ny,dx,xs,ys};
+  }
+
+  // simulation state
+  let running=false, stopReq=false;
+  let framesStored = [], frameCount=0;
+  let globalState = null; // to hold grid arrays
+
+  // main run
+  $('runBtn').onclick = async ()=>{
+    if(running) return;
+    running=true; stopReq=false;
+    // load UI params
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const mat = $('material').value;
+    if(mat==='concrete'){ $('E').value=30000000000; $('nu').value=0.20; $('rho').value=2400; $('h').value=0.15; }
+    else if(mat==='light'){ $('E').value=2000000000; $('nu').value=0.25; $('rho').value=1200; $('h').value=0.10; }
+    const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
+    const Ngrid = parseInt($('Ngrid').value), Nframes = parseInt($('Nframes').value);
+    const dxUI = parseFloat($('dx').value);
+    const sf = parseFloat($('speedFactor').value);
+    const grid = makeGrid(Lx,Ly,Ngrid,dxUI);
+    const Nx=grid.Nx, Ny=grid.Ny, dx=grid.dx;
+    // mask: if user filled mask use that, else use full
+    let maskGrid = new Uint8Array(Nx*Ny);
+    if(mask){
+      // map canvas mask onto numerical mask by resampling
+      // canvas mask coords: mask.w x mask.h
+      for(let j=0;j<Ny;j++){
+        for(let i=0;i<Nx;i++){
+          const cx = i/(Nx-1)*canvas.width, cy = j/(Ny-1)*canvas.height;
+          const mi = Math.floor(cx/(canvas.width/mask.w));
+          const mj = Math.floor(cy/(canvas.height/mask.h));
+          const val = (mi>=0 && mi<mask.w && mj>=0 && mj<mask.h) ? mask.arr[mj*mask.w+mi] : 1;
+          maskGrid[j*Nx+i] = val ? 1 : 0;
+        }
+      }
+    } else {
+      maskGrid.fill(1);
+    }
+    // enforce simple-support: mask=1 implies domain; boundary cells near domain edge set to zero (simulate SS)
+    // We'll zero outside mask and keep interior free; simple-support effect approximate.
+    // physical constants
+    const D = E * Math.pow(h,3) / (12*(1-nu*nu));
+    const mass = rho * h;
+    // stability dt estimate (empirical): dt <= C * dx^2 * sqrt(mass/D)
+    const dt = Math.max(1e-6, sf * dx*dx * Math.sqrt(mass/D));
+    // steps
+    const stepsPerFrame = Math.max(1, Math.floor(1)); // keep 1 for simple timing; reduce frames via Nframes
+    const totalSteps = Nframes * stepsPerFrame;
+    // arrays
+    const size = Nx*Ny;
+    let w = new Float32Array(size), wprev = new Float32Array(size), wnext = new Float32Array(size);
+    framesStored = [];
+    // source
+    // map preset to physical
+    const preset = $('srcPreset').value;
+    const src = (() => {
+      const px = parseFloat($('px').value), py = parseFloat($('py').value);
+      let sx=px, sy=py;
+      if(preset==='center'){ sx=Lx/2; sy=Ly/2; }
+      else if(preset==='dice5'){ sx=Lx/2; sy=Ly/2; }
+      else if(preset==='corner0'){ sx=0; sy=0; }
+      else if(preset==='corner1'){ sx=Lx; sy=0; }
+      else if(preset==='corner2'){ sx=0; sy=Ly; }
+      else if(preset==='corner3'){ sx=Lx; sy=Ly; }
+      return {sx,sy};
+    })();
+    const si = Math.max(0, Math.min(Nx-1, Math.round(src.sx/dx)));
+    const sj = Math.max(0, Math.min(Ny-1, Math.round(src.sy/dx)));
+    // impulse parameters
+    const fType = $('fType').value;
+    const pulseLen = fType==='impulse' ? 2 : 8;
+    // prepare progress plotting initial blank
+    Plotly.newPlot('plot',[{z:[[0]],type:'heatmap'}],{margin:{t:20}});
+    // run loop; store snapshots every stepsPerFrame steps
+    for(let step=0; step<totalSteps; step++){
+      if(stopReq) break;
+      // apply force vector F (only vertical)
+      const F = new Float32Array(size);
+      if(step < pulseLen){
+        F[sj*Nx + si] = 1.0; // unit N
+      }
+      // compute biharmonic approx: laplacian twice with 5-point laplacian
+      // first compute lap = ∇² w
+      const lap = new Float32Array(size);
+      for(let j=1;j<Ny-1;j++){
+        for(let i=1;i<Nx-1;i++){
+          const idx = j*Nx + i;
+          if(!maskGrid[idx]) { lap[idx]=0; continue; }
+          lap[idx] = (w[idx-1] + w[idx+1] + w[idx - Nx] + w[idx + Nx] - 4*w[idx]) / (dx*dx);
+        }
+      }
+      // then bih = ∇²(lap)
+      const bih = new Float32Array(size);
+      for(let j=2;j<Ny-2;j++){
+        for(let i=2;i<Nx-2;i++){
+          const idx = j*Nx + i;
+          if(!maskGrid[idx]) { bih[idx]=0; continue; }
+          bih[idx] = (lap[idx-1] + lap[idx+1] + lap[idx - Nx] + lap[idx + Nx] - 4*lap[idx]) / (dx*dx);
+        }
+      }
+      // time integration explicit central difference
+      const coeff = (dt*dt)/mass;
+      for(let idx=0; idx<size; idx++){
+        if(!maskGrid[idx]) { wnext[idx]=0; continue; }
+        const rhs = F[idx] - D * bih[idx];
+        wnext[idx] = 2*w[idx] - wprev[idx] + coeff * rhs;
+      }
+      // advance
+      wprev.set(w);
+      w.set(wnext);
+      // store frame every stepsPerFrame
+      if(step % stepsPerFrame === 0){
+        // copy snapshot (Float32Array)
+        framesStored.push(w.slice(0));
+        // update plot occasionally for visual progress
+        if(framesStored.length % Math.max(1,Math.floor(Nframes/8)) === 0){
+          const z2 = arrayTo2D(w, Nx, Ny);
+          Plotly.newPlot('plot',[{z:z2,type:'heatmap',colorscale:'Viridis'}],{margin:{t:20}});
+          await sleep(10);
+        }
+      }
+    }
+    // store final state
+    if(framesStored.length < Nframes) {
+      // pad with last frame
+      const last = framesStored.length? framesStored[framesStored.length-1] : w.slice(0);
+      while(framesStored.length < Nframes) framesStored.push(last.slice(0));
+    }
+    // save global state for analysis
+    globalState = {Nx,Ny,dx,frames:framesStored, Lx,Ly,maskGrid,dt,frameDt:dt*stepsPerFrame};
+    running=false;
+    stopReq=false;
+    // show final snapshot
+    const z2 = arrayTo2D(w, Nx, Ny);
+    Plotly.newPlot('plot',[{z:z2,type:'heatmap',colorscale:'Viridis'}],{margin:{t:20}});
+    alert('Run finished. Stored frames: '+framesStored.length);
+  };
+
+  $('stopBtn').onclick = ()=>{ stopReq=true; running=false; };
+
+  function sleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+  function arrayTo2D(arr,Nx,Ny){
+    const out = new Array(Ny);
+    for(let j=0;j<Ny;j++){
+      const row = new Array(Nx);
+      for(let i=0;i<Nx;i++) row[i]=arr[j*Nx+i];
+      out[j]=row;
+    }
+    return out;
+  }
+
+  // FFT (simple DFT) for probe using stored frames
+  $('analyzeBtn').onclick = ()=>{
+    if(!globalState) return alert('Run first.');
+    const {Nx,Ny,frames,frameDt} = globalState;
+    const Nf = frames.length;
+    // probe index from UI px,py
+    const px = parseFloat($('px').value), py = parseFloat($('py').value);
+    const ix = Math.round(px / globalState.dx);
+    const iy = Math.round(py / globalState.dx);
+    const idx = Math.max(0, Math.min(Nx-1, ix)) + Math.max(0,Math.min(Ny-1,iy))*Nx;
+    // build time series from frames (sampled at frameDt)
+    const ts = new Float32Array(Nf);
+    for(let n=0;n<Nf;n++) ts[n] = frames[n][idx];
+    // compute DFT power spectrum (Nf)
+    const mags = new Float32Array(Nf/2);
+    for(let k=0;k<Nf/2;k++){
+      let re=0,im=0;
+      for(let n=0;n<Nf;n++){
+        const a = ts[n];
+        const ang = -2*Math.PI*k*n/Nf;
+        re += a*Math.cos(ang); im += a*Math.sin(ang);
+      }
+      mags[k] = Math.hypot(re,im);
+    }
+    // find peaks (simple local maxima)
+    const peaks = [];
+    for(let k=2;k<mags.length-2;k++){
+      if(mags[k]>mags[k-1] && mags[k]>mags[k+1]){
+        peaks.push({k,mag:mags[k]});
+      }
+    }
+    peaks.sort((a,b)=>b.mag-a.mag);
+    const sel = $('peakSelect');
+    sel.innerHTML='';
+    if(peaks.length===0) sel.innerHTML='<option>no peaks</option>';
+    for(let i=0;i<Math.min(10,peaks.length);i++){
+      const k=peaks[i].k;
+      const freq = k / (Nf*frameDt);
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = `${i+1}: k=${k} f≈${freq.toFixed(3)} Hz mag=${peaks[i].mag.toFixed(3)}`;
+      sel.appendChild(opt);
+    }
+    // also plot spectrum
+    const freqs = new Array(mags.length);
+    for(let k=0;k<mags.length;k++) freqs[k]= k/(Nf*frameDt);
+    const trace = {x:freqs, y: Array.from(mags), type:'scatter', mode:'lines'};
+    Plotly.newPlot('plot',[trace],{margin:{t:20},xaxis:{title:'Hz'}});
+  };
+
+  // Show mode: compute complex DFT coefficient at selected k for each cell
+  $('showModeBtn').onclick = async ()=>{
+    if(!globalState) return alert('Run first.');
+    const ksel = $('peakSelect').value;
+    if(!ksel) return alert('Select a peak first.');
+    const k = parseInt(ksel);
+    const {Nx,Ny,frames,frameDt} = globalState;
+    const Nf = frames.length;
+    const magMap = new Float32Array(Nx*Ny);
+    // compute per-cell DFT at index k (can be costly)
+    // show progress
+    const total = Nx*Ny;
+    let done=0;
+    for(let j=0;j<Ny;j++){
+      for(let i=0;i<Nx;i++){
+        const idx = j*Nx + i;
+        // DFT at k
+        let re=0,im=0;
+        for(let n=0;n<Nf;n++){
+          const a = frames[n][idx];
+          const ang = -2*Math.PI*k*n/Nf;
+          re += a*Math.cos(ang); im += a*Math.sin(ang);
+        }
+        magMap[idx] = Math.hypot(re,im);
+        done++;
+      }
+      if(j%8===0){ // update plot to show progress
+        const z2 = arrayTo2D(magMap,Nx,Ny);
+        Plotly.newPlot('plot',[{z:z2,type:'heatmap',colorscale:'RdBu'}],{margin:{t:20}});
+        await sleep(10);
+      }
+    }
+    // optionally convert to dB
+    if($('useDb').checked){
+      const eps=1e-20;
+      for(let idx=0; idx<magMap.length; idx++) magMap[idx] = 10*Math.log10(Math.max(magMap[idx], eps));
+    }
+    const z2 = arrayTo2D(magMap,Nx,Ny);
+    Plotly.newPlot('plot',[{z:z2,type:'heatmap',colorscale:'RdBu'}],{margin:{t:20}});
+    alert('Mode map computed (k='+k+').');
+  };
+
+  // export snapshot
+  $('exportBtn').onclick = ()=>{
+    Plotly.toImage('plot',{format:'png',width:1200,height:800}).then(url=>{
+      const a=document.createElement('a'); a.href=url; a.download='slab_snapshot.png'; a.click();
+    });
+  };
+
+  // clicking on plot to set probe (works for heatmap/2D)
+  const plotEl = document.getElementById('plot');
+  // attach plot click handler by listening on window for Plotly click events
+  window.addEventListener('click', (ev)=>{/* no-op placeholder */});
+  // Provide simple helper to update px,py when user clicks canvas (approx mapping)
+  canvas.addEventListener('dblclick', (ev)=>{
+    const r = canvas.getBoundingClientRect();
+    const cx = ev.clientX - r.left, cy = ev.clientY - r.top;
+    // map to Lx,Ly
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const gx = cx / canvas.width * Lx;
+    const gy = cy / canvas.height * Ly;
+    $('px').value = gx.toFixed(3); $('py').value = gy.toFixed(3);
+    alert('Probe set to '+gx.toFixed(3)+', '+gy.toFixed(3));
+  });
+
+  // initial canvas draw
+  drawCanvasRefresh();
+})();
+</script>
+</body>
+</html>
