@@ -100,7 +100,10 @@
         <button id="btnCommit" class="ghost" disabled data-i18n="saveThis">この測定を保存</button>
         <button id="btnAvg" class="ghost" disabled data-i18n="avg">平均を計算</button>
 
-        <input type="file" id="fileInput" accept="audio/*" />
+        <input type="file"
+                id="fileInput"
+                accept=".wav,audio/wav,audio/x-wav,audio/*,.mp3,audio/mpeg,.m4a,audio/mp4,.aac,audio/aac,.webm,audio/webm"
+          />
         <span id="state" class="pill">idle</span>
       </div>
       <p class="hint" data-i18n="hint1">静かな部屋で、<b>ボタンを押して約1秒後に1回だけ強く手を叩いてください</b>。端末側のNR/AGCは無効化要求を出しますが、OS依存で完全には止まりません。</p>
