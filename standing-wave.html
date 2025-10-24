@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>音場干渉マップ（Standing-Wave Visualizer）</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f8fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --accent:#2563eb; --ok:#16a34a; --warn:#eab308; --err:#dc2626;
+    --mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+  }
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,"Noto Sans JP",sans-serif;}
+  .wrap{max-width:1100px;margin:auto;padding:16px;}
+  h1{font-size:20px;margin:0 0 12px}
+  .card{background:var(--card);border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:12px}
+  .grid{display:grid;grid-template-columns:1.2fr 2fr;gap:12px}
+  .row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px}
+  .row label{font-size:12px;color:var(--muted)}
+  .row input,.row select{width:100%;box-sizing:border-box;padding:8px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{padding:9px 14px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .pill{display:inline-block;padding:4px 8px;border:1px solid #e5e7eb;border-radius:999px;font-size:12px;color:var(--muted);margin-left:6px}
+  .mono{font-family:var(--mono)}
+  #plot{height:72vh;min-height:420px}
+  .footer{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .kbd{font-family:var(--mono);font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>音場干渉マップ（Standing-Wave Visualizer）<span class="pill">矩形・剛壁境界 / 2D 断面</span></h1>
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>室長さ L<sub>x</sub> [m]</label>
+          <input id="Lx" type="number" step="0.01" min="0.5" value="5.0">
+        </div>
+        <div>
+          <label>室幅 L<sub>y</sub> [m]</label>
+          <input id="Ly" type="number" step="0.01" min="0.5" value="4.0">
+        </div>
+        <div>
+          <label>周波数 f [Hz]</label>
+          <input id="freq" type="number" step="0.1" min="5" value="63">
+        </div>
+        <div>
+          <label>音速 c [m/s]</label>
+          <input id="c" type="number" step="0.1" min="100" value="343">
+        </div>
+        <div>
+          <label>解像度 N<sub>grid</sub></label>
+          <input id="Ngrid" type="number" step="8" min="32" value="120">
+        </div>
+        <div>
+          <label>振幅表示</label>
+          <select id="dispMode">
+            <option value="instant">瞬時値（時間アニメ）</option>
+            <option value="envelope">包絡（|p(x,y)|）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>モード選択</label>
+          <select id="modeStrategy">
+            <option value="nearest">最近接1モード</option>
+            <option value="sum">周波数近傍の複数モード合成</option>
+          </select>
+        </div>
+        <div>
+          <label>m,n 上限</label>
+          <input id="MNmax" type="number" step="1" min="5" value="30">
+        </div>
+        <div>
+          <label>近傍幅 Δf [%]</label>
+          <input id="bandPct" type="number" step="0.5" min="0.5" value="3">
+        </div>
+        <div>
+          <label>減衰 Q（合成時）</label>
+          <input id="Q" type="number" step="1" min="10" value="50">
+        </div>
+        <div>
+          <label>配色</label>
+          <select id="colorscale">
+            <option>RdBu</option>
+            <option>Viridis</option>
+            <option>Portland</option>
+            <option>Picnic</option>
+            <option>Turbo</option>
+            <option>Greys</option>
+          </select>
+        </div>
+        <div>
+          <label>等高線</label>
+          <select id="contours">
+            <option value="0">非表示</option>
+            <option value="10">10本</option>
+            <option value="20">20本</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="primary" id="renderBtn">描画/更新</button>
+        <button id="playBtn">▶ 再生</button>
+        <button id="pauseBtn">⏸ 一時停止</button>
+        <button id="snapBtn">📷 スナップショット</button>
+        <span class="mono" id="info"></span>
+      </div>
+      <div class="footer" style="margin-top:8px">
+        <span class="kbd">剛壁境界:</span><span class="mono">p<sub>mn</sub>(x,y) = cos(mπx/L<sub>x</sub>)·cos(nπy/L<sub>y</sub>)</span>
+        <span class="kbd">固有周波数:</span><span class="mono">f<sub>mn</sub>= (c/2)·√[(m/Lx)^2+(n/Ly)^2]</span>
+      </div>
+    </div>
+    <div class="card">
+      <div id="plot"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ------- utilities -------
+  const $ = id => document.getElementById(id);
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+
+  function enumerateModes(Lx,Ly,c,MNmax){
+    const modes=[];
+    for(let m=0;m<=MNmax;m++){
+      for(let n=0;n<=MNmax;n++){
+        if(m===0 && n===0) continue; // DCなし
+        const fm = 0.5*c*Math.hypot(m/Lx, n/Ly);
+        modes.push({m,n,fm});
+      }
+    }
+    return modes.sort((a,b)=>a.fm-b.fm);
+  }
+
+  function pickModesNearF(modes, f, pct){
+    const df = Math.max(0.1, f*pct*0.01);
+    return modes.filter(o=>Math.abs(o.fm - f) <= df);
+  }
+
+  // Lorentzian weight for steady-state drive at f with modal Q
+  function modalWeight(f, fm, Q){
+    const bw = fm / Q;
+    const x = (f - fm)/bw;
+    return 1.0 / Math.sqrt(1 + x*x);
+  }
+
+  function buildBaseMap(Lx,Ly,Ngrid, selection, strategy, f, Q){
+    const xs = new Float64Array(Ngrid);
+    const ys = new Float64Array(Ngrid);
+    for(let i=0;i<Ngrid;i++){ xs[i]=Lx*i/(Ngrid-1); ys[i]=Ly*i/(Ngrid-1); }
+
+    const base = new Float64Array(Ngrid*Ngrid); // spatial factor
+    base.fill(0);
+
+    if(strategy==="nearest"){
+      const {m,n} = selection[0];
+      const coef = 1.0;
+      for(let j=0;j<Ngrid;j++){
+        const cy = Math.cos(Math.PI*n*ys[j]/Ly);
+        for(let i=0;i<Ngrid;i++){
+          const cx = Math.cos(Math.PI*m*xs[i]/Lx);
+          base[j*Ngrid + i] = coef * cx * cy;
+        }
+      }
+    }else{
+      // sum of modes with Lorentzian weights
+      for(const {m,n,fm} of selection){
+        const w = modalWeight(f, fm, Q);
+        for(let j=0;j<Ngrid;j++){
+          const cy = Math.cos(Math.PI*n*ys[j]/Ly);
+          for(let i=0;i<Ngrid;i++){
+            const cx = Math.cos(Math.PI*m*xs[i]/Lx);
+            base[j*Ngrid + i] += w * cx * cy;
+          }
+        }
+      }
+      // normalize
+      let maxabs = 0;
+      for(let k=0;k<base.length;k++) maxabs = Math.max(maxabs, Math.abs(base[k]));
+      const s = maxabs>0 ? 1/maxabs : 1;
+      for(let k=0;k<base.length;k++) base[k]*=s;
+    }
+    return {base, xs, ys};
+  }
+
+  // ------- state -------
+  let animId = null;
+  let phase = 0;
+  let omega = 2*Math.PI*63;
+  let base = null;
+  let xs=null, ys=null;
+  let envelope = null;
+
+  // ------- plotting -------
+  function heatmapZ(arr, N){
+    // Float64 -> nested array [N][N]
+    const z = new Array(N);
+    for(let j=0;j<N;j++){
+      const row = new Array(N);
+      for(let i=0;i<N;i++){
+        row[i] = arr[j*N + i];
+      }
+      z[j]=row;
+    }
+    return z;
+  }
+
+  function draw(init=false){
+    const N = parseInt($("Ngrid").value);
+    const colorscale = $("colorscale").value;
+    const contourN = parseInt($("contours").value);
+
+    const z0 = heatmapZ(new Float64Array(N*N).fill(0), N);
+
+    const data=[{
+      z:z0, type:"heatmap", colorscale:colorscale, zsmooth:false,
+      contours: { coloring:"heatmap", show: !!contourN, start:-1, end:1, size: 2/Math.max(1,contourN) }
+    }];
+
+    const Lx = parseFloat($("Lx").value), Ly = parseFloat($("Ly").value);
+
+    const layout={
+      margin:{l:40,r:10,t:10,b:40},
+      xaxis:{title:"x [m]", range:[0,Lx], constrain:"domain", scaleanchor:"y", scaleratio:1},
+      yaxis:{title:"y [m]", range:[0,Ly]},
+      dragmode:"pan",
+      paper_bgcolor: getComputedStyle(document.documentElement).getPropertyValue('--bg'),
+      plot_bgcolor: "#ffffff"
+    };
+
+    if(init) Plotly.newPlot("plot", data, layout, {responsive:true,displaylogo:false});
+    return {data, layout};
+  }
+
+  function updateFrame(t){
+    const N = parseInt($("Ngrid").value);
+    const dispMode = $("dispMode").value;
+
+    let field;
+    if(dispMode==="envelope"){
+      field = envelope; // precomputed |base|
+    }else{
+      const s = Math.cos(omega*t);
+      // Z = base * cos(ωt)
+      field = new Float64Array(base.length);
+      for(let k=0;k<base.length;k++) field[k]=base[k]*s;
+    }
+    const z = heatmapZ(field, N);
+    Plotly.restyle("plot", {z:[z]});
+  }
+
+  function start(){
+    if(animId) return;
+    let last=performance.now();
+    const loop = (now)=>{
+      const dt = (now-last)/1000;
+      last = now;
+      phase += omega*dt;
+      updateFrame(now/1000);
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+  }
+  function stop(){
+    if(animId){ cancelAnimationFrame(animId); animId=null; }
+  }
+
+  // ------- main compute -------
+  function compute(){
+    stop();
+
+    const Lx = clamp(parseFloat($("Lx").value), 0.5, 200);
+    const Ly = clamp(parseFloat($("Ly").value), 0.5, 200);
+    const f  = clamp(parseFloat($("freq").value), 1, 10000);
+    const c  = clamp(parseFloat($("c").value), 150, 380);
+    const Ngrid = clamp(parseInt($("Ngrid").value), 32, 400);
+    const MNmax = clamp(parseInt($("MNmax").value), 5, 80);
+    const bandPct = clamp(parseFloat($("bandPct").value), 0.5, 30);
+    const Q = clamp(parseInt($("Q").value), 10, 500);
+    const strategy = $("modeStrategy").value;
+
+    omega = 2*Math.PI*f;
+
+    const modes = enumerateModes(Lx,Ly,c,MNmax);
+    let picked = pickModesNearF(modes, f, bandPct);
+    if(strategy==="nearest"){
+      if(picked.length===0) picked = [modes.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b)];
+      else picked = [picked.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b)];
+    }else{
+      if(picked.length===0) picked = [modes.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b)];
+    }
+
+    const nearest = picked.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b);
+    const det = (nearest.fm - f).toFixed(2);
+
+    const built = buildBaseMap(Lx,Ly,Ngrid,picked,strategy,f,Q);
+    base = built.base; xs=built.xs; ys=built.ys;
+
+    // envelope = |base|
+    envelope = new Float64Array(base.length);
+    let maxabs=0;
+    for(let k=0;k<base.length;k++){ const v=Math.abs(base[k]); envelope[k]=v; if(v>maxabs)maxabs=v; }
+    const s = maxabs>0 ? 1/maxabs : 1;
+    for(let k=0;k<envelope.length;k++) envelope[k]*=s;
+
+    $("info").textContent =
+      `候補モード数: ${picked.length}  / 最近接: (m,n)=(${nearest.m},${nearest.n}), f_mn=${nearest.fm.toFixed(2)} Hz, Δ=${det} Hz`;
+
+    draw(); // ensure layout axis ranges update
+    updateFrame(0);
+  }
+
+  // ------- wiring -------
+  draw(true);
+  compute();
+
+  $("renderBtn").onclick = compute;
+  $("playBtn").onclick = start;
+  $("pauseBtn").onclick = stop;
+  $("snapBtn").onclick = () => {
+    Plotly.toImage("plot",{format:"png",width:1200,height:800}).then((url)=>{
+      const a=document.createElement("a");
+      a.href=url; a.download=`standing_wave_${Date.now()}.png`; a.click();
+    });
+  };
+
+  // handy: Enter to update
+  for(const id of ["Lx","Ly","freq","c","Ngrid","MNmax","bandPct","Q"]){
+    $(id).addEventListener("keydown",(e)=>{ if(e.key==="Enter") compute(); });
+  }
+  for(const id of ["dispMode","modeStrategy","colorscale","contours"]){
+    $(id).addEventListener("change", compute);
+  }
+})();
+</script>
+</body>
+</html>
