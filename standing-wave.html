@@ -3,119 +3,149 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>スラブ（SS境界） v/F ビジュアライザ</title>
+<title>スラブ平板 v/F 可視化（dB, モード選択, アニメ）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans JP",system-ui,Segoe UI,Roboto}
-  .wrap{max-width:1200px;margin:16px auto;padding:12px}
-  h1{font-size:18px;margin:6px 0}
-  .card{background:var(--card);border-radius:10px;padding:12px;border:1px solid #e6edf3;box-shadow:0 1px 2px rgba(2,6,23,0.03)}
-  .grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
-  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-  input,select{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px;box-sizing:border-box}
-  .row{margin-bottom:8px}
-  .btn{padding:8px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer}
-  .small{font-size:13px;color:var(--muted)}
-  #plot{height:76vh;min-height:520px}
-  .inline{display:flex;gap:8px;align-items:center}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
-  footer{margin-top:8px;font-size:13px;color:var(--muted)}
-  table{font-size:13px;border-collapse:collapse}
-  td,th{padding:4px 6px;border-bottom:1px solid #f1f5f9}
+:root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans JP",system-ui,Roboto}
+.wrap{max-width:1200px;margin:14px auto;padding:12px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
+.card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px;box-sizing:border-box}
+.row{margin-bottom:8px}
+.btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
+.small{font-size:13px;color:var(--muted)}
+#plot{height:78vh;min-height:520px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.inline{display:flex;gap:8px;align-items:center}
+.mode-list{max-height:250px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
+.footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
+.control-row{display:flex;gap:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>スラブ平板（四周SS） v/F ビジュアライザ</h1>
+  <h2>スラブ平板 v/F 可視化（dB対応・モード選択・アニメ）</h2>
   <div class="grid">
     <div class="card">
       <div class="row">
-        <label>寸法 Lx [m], Ly [m]</label>
-        <div style="display:flex;gap:8px">
-          <input id="Lx" type="number" step="0.01" value="5.00">
-          <input id="Ly" type="number" step="0.01" value="4.00">
+        <label>材料プリセット</label>
+        <select id="material">
+          <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400)</option>
+          <option value="custom">カスタム</option>
+        </select>
+      </div>
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>E [Pa]</label>
+          <input id="E" type="number" value="30000000000">
         </div>
-      </div>
-
-      <div class="row">
-        <label>板厚 h [m]</label>
-        <input id="h" type="number" step="0.01" value="0.15">
-      </div>
-
-      <div class="row">
-        <label>材料（コンクリート）E[Pa], ν, ρ[kg/m³]</label>
-        <div style="display:flex;gap:8px">
-          <input id="E" type="number" step="1e8" value="30e9">
+        <div style="flex:1">
+          <label>ν</label>
           <input id="nu" type="number" step="0.01" value="0.20">
-          <input id="rho" type="number" step="10" value="2400">
+        </div>
+      </div>
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>ρ [kg/m³]</label>
+          <input id="rho" type="number" value="2400">
+        </div>
+        <div style="flex:1">
+          <label>h [m]</label>
+          <input id="h" type="number" step="0.01" value="0.15">
+        </div>
+      </div>
+
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00">
+        </div>
+        <div style="flex:1">
+          <label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00">
+        </div>
+      </div>
+
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5">
+        </div>
+        <div style="flex:1">
+          <label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5">
         </div>
       </div>
 
       <div class="row">
-        <label>モード最大 (m_max, n_max)</label>
-        <div style="display:flex;gap:8px">
-          <input id="mmax" type="number" min="1" max="12" value="5">
-          <input id="nmax" type="number" min="1" max="12" value="5">
+        <label>周波数 f [Hz]（空欄で第1モード）</label>
+        <input id="freq" type="number" step="0.01" value="">
+      </div>
+
+      <div class="row">
+        <label>加振点プリセット</label>
+        <select id="sourcePreset">
+          <option value="center">中心 (Lx/2, Ly/2)</option>
+          <option value="dice5">サイコロ5の目 (中心＋4)</option>
+          <option value="diag1">対角1 (0.0,0.0)</option>
+          <option value="diag2">対角2 (Lx,0.0)</option>
+          <option value="diag3">対角3 (0.0,Ly)</option>
+          <option value="diag4">対角4 (Lx,Ly)</option>
+        </select>
+        <div class="small">プロットをクリックして加振点をセットできます（2D モード時）。</div>
+      </div>
+
+      <div class="row control-row">
+        <div style="flex:1">
+          <label>x0 [m]</label><input id="x0" type="number" step="0.01" value="2.50">
+        </div>
+        <div style="flex:1">
+          <label>y0 [m]</label><input id="y0" type="number" step="0.01" value="2.00">
         </div>
       </div>
 
       <div class="row">
-        <label>周波数 f [Hz]（任意指定。デフォルトは (1,1) 固有周波数）</label>
-        <input id="freq" type="number" step="0.1" value="">
-      </div>
-
-      <div class="row">
-        <label>加振点 (x0,y0) [m]（点力 1 N，垂直）</label>
-        <div style="display:flex;gap:8px">
-          <input id="x0" type="number" step="0.01" value="2.50">
-          <input id="y0" type="number" step="0.01" value="2.00">
-        </div>
-        <div class="small">クリックでグリッド上の加振点を設定できます（右側プロット上で）</div>
-      </div>
-
-      <div class="row">
-        <label>表示量</label>
+        <label>表示</label>
         <select id="displayChoice">
           <option value="v_over_F">v / F （m/s per N）</option>
           <option value="F_over_v">F / v （N per (m/s)）</option>
         </select>
       </div>
 
+      <div class="row inline">
+        <label><input type="checkbox" id="useDb"> dB 表示（10·log10, ref=1）</label>
+        <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
+        <label><input type="checkbox" id="show3d"> 3D</label>
+      </div>
+
       <div class="row">
-        <label>描画</label>
-        <div style="display:flex;gap:8px">
-          <button id="renderBtn" class="btn">描画 / 更新</button>
-          <button id="snapBtn" style="padding:8px;border-radius:8px">スナップショット</button>
+        <label>モード一覧（選択するとそのモードをアニメで確認可）</label>
+        <div class="mode-list" id="modeList"></div>
+      </div>
+
+      <div class="row control-row">
+        <button id="renderBtn" class="btn">描画 / 更新</button>
+        <button id="snapBtn">スナップショット</button>
+      </div>
+
+      <div class="row">
+        <label>モードアニメーション</label>
+        <div class="inline">
+          <button id="modePlay" class="btn">再生</button>
+          <button id="modePause">停止</button>
+          <label style="margin-left:8px"><input type="checkbox" id="animShowVel"> 速度を着色（瞬時速度）</label>
         </div>
       </div>
 
       <div class="row">
-        <label>表示タイプ</label>
-        <div style="display:flex;gap:8px">
-          <label><input type="checkbox" id="show2d" checked> 2D ヒートマップ</label>
-          <label><input type="checkbox" id="show3d" checked> 3D サーフェス</label>
-        </div>
-      </div>
-
-      <div class="row">
-        <label>グリッド解像度 Ngrid</label>
+        <label>Ngrid</label>
         <input id="Ngrid" type="number" step="8" min="32" value="120">
       </div>
 
-      <div class="row">
-        <label>小説明 (固有周波数一覧)</label>
-        <div id="modalTable" class="card mono" style="padding:8px;max-height:160px;overflow:auto"></div>
+      <div class="footer">
+        <div><strong>式</strong></div>
+        <div>D = E h³ / [12(1-ν²)],  ω_mn = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ], φ_mn = sin(mπx/Lx)·sin(nπy/Ly)</div>
+        <div>W = Σ η_mn φ_mn, η_mn = F φ_mn(x0,y0) / [M (ω_mn² - ω² + i ω ω_mn/Q)]</div>
+        <div>v = ω |W|（静解析では振幅）。dB = 10·log10(value)（ref=1）</div>
       </div>
-
-      <footer class="small card" style="margin-top:10px">
-        <div><strong>式（簡潔）</strong></div>
-        <div>曲げ剛性 D = E h³ / [12 (1-ν²)]</div>
-        <div>固有角周波数 ω<sub>mn</sub> = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ]</div>
-        <div>モード形 φ<sub>mn</sub>(x,y) = sin(mπx/Lx)·sin(nπy/Ly) （SS 両端支持）</div>
-        <div>変位 W(x,y) = Σ η<sub>mn</sub> φ<sub>mn</sub>(x,y), η<sub>mn</sub> = F φ<sub>mn</sub>(x₀,y₀) / [M<sub>mn</sub>(ω<sub>mn</sub>² - ω² + i ω ω<sub>mn</sub>/Q)]</div>
-        <div>速度 |v| = ω · |W|。ここでは Q を大きくして減衰を無視します。</div>
-      </footer>
     </div>
 
     <div class="card">
@@ -127,89 +157,104 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  // Complex helpers
-  const cadd = (a,b)=>({re:a.re+b.re,im:a.im+b.im});
-  const csub = (a,b)=>({re:a.re-b.re,im:a.im-b.im});
-  const cmul = (a,b)=>({re:a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re});
+  // complex helpers (minimal)
   const cdiv = (a,b)=>{ const d=b.re*b.re+b.im*b.im; return {re:(a.re*b.re + a.im*b.im)/d, im:(a.im*b.re - a.re*b.im)/d};};
   const cabs = a=>Math.hypot(a.re,a.im);
 
   function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
+  function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
+  function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
 
+  // build modes list
   function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
     const D = D_of(E,h,nu);
-    const modes = [];
+    const modes=[];
     for(let m=1;m<=mmax;m++){
       for(let n=1;n<=nmax;n++){
         const k2 = Math.pow(m*Math.PI/Lx,2) + Math.pow(n*Math.PI/Ly,2);
-        const omega = Math.sqrt(D/(rho*h)) * k2; // rad/s
-        const f = omega / (2*Math.PI);
-        modes.push({m,n,omega,f});
+        const omega = Math.sqrt(D/(rho*h)) * k2;
+        modes.push({m,n,omega,f:omega/(2*Math.PI)});
       }
     }
     modes.sort((a,b)=>a.f-b.f);
     return modes;
   }
 
-  function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
-
-  function modalMass(rho,h,Lx,Ly){
-    // ∫φ^2 dA = Lx*Ly/4 for sin modes
-    return rho * h * (Lx*Ly) / 4.0;
-  }
-
-  function computeField(opts){
-    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,Q} = opts;
+  function computeStaticField(opts){
+    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb} = opts;
     const omega = 2*Math.PI*freq;
     const Mmn = modalMass(rho,h,Lx,Ly);
-    // grid
     const Nx = Ngrid, Ny = Ngrid;
     const xs = new Array(Nx); const ys = new Array(Ny);
     for(let i=0;i<Nx;i++) xs[i] = Lx * i/(Nx-1);
     for(let j=0;j<Ny;j++) ys[j] = Ly * j/(Ny-1);
-    // evaluate complex displacement field (sum of modes)
+
+    // accumulate complex displacement W
     const W = new Array(Ny*Nx).fill(0).map(()=>({re:0,im:0}));
-    const F = 1.0; // unit point force (N)
-    // sum modes (only modes with m<=mmax & n<=nmax)
+    const F = 1.0;
+    const Q = 1e8; // effectively no damping for amplitude mapping
     for(const md of modes){
       if(md.m>mmax || md.n>nmax) continue;
       const omega_m = md.omega;
       const phi0 = phi(md.m,md.n,x0,y0,Lx,Ly);
-      // generalized force = F * phi0
       const num = {re: F * phi0, im: 0};
-      // denom: Mmn*(omega_m^2 - omega^2 + i*omega*omega_m/Q)
       const real = Mmn * (omega_m*omega_m - omega*omega);
       const imag = Mmn * (omega * omega_m / Q);
-      const denom = {re: real, im: imag};
-      const eta = cdiv(num, denom); // complex modal amplitude
-      // add to W: eta * phi(x,y)
+      const eta = cdiv(num, {re:real,im:imag});
+      // add
       for(let j=0;j<Ny;j++){
         const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
         for(let i=0;i<Nx;i++){
           const cx = Math.sin(md.m * Math.PI * xs[i] / Lx);
           const idx = j*Nx + i;
           const ph = cx * cy;
-          // W[idx] += eta * ph
-          W[idx] = cadd(W[idx], {re: eta.re * ph, im: eta.im * ph});
+          W[idx].re += eta.re * ph;
+          W[idx].im += eta.im * ph;
         }
       }
     }
-    // compute velocity amplitude magnitude |v| = ω * |W|
-    const Vmag = new Float64Array(Ny*Nx);
+    // velocity amplitude |v| = ω * |W|
+    const V = new Float64Array(Ny*Nx);
     for(let k=0;k<W.length;k++){
-      Vmag[k] = omega * cabs(W[k]); // m/s
+      V[k] = omega * cabs(W[k]);
     }
-    // produce either v/F or F/v
     const out = new Float64Array(Ny*Nx);
     if(displayChoice === 'v_over_F'){
-      for(let k=0;k<out.length;k++) out[k] = Vmag[k] / 1.0;
+      for(let k=0;k<out.length;k++) out[k] = V[k];
     }else{
-      for(let k=0;k<out.length;k++) out[k] = (Vmag[k] > 0 ? 1.0 / Vmag[k] : 0);
+      for(let k=0;k<out.length;k++) out[k] = (V[k] > 0 ? 1.0 / V[k] : 0);
     }
-    return {xs,ys,Z:out};
+    // dB conversion if requested, ref = 1, avoid -Inf
+    if(useDb){
+      const eps = 1e-20;
+      for(let k=0;k<out.length;k++) out[k] = 10 * Math.log10(Math.max(out[k], eps));
+    }
+    return {xs,ys,Z:out,rawV:V};
   }
 
-  // plotting helpers
+  // build DOM mode list
+  function populateModeList(modes){
+    const div = $('modeList');
+    div.innerHTML = '';
+    modes.forEach((md,idx)=>{
+      const el = document.createElement('div');
+      el.className='mode-row';
+      el.style.padding='6px';
+      el.style.borderBottom='1px solid #f1f5f9';
+      el.style.cursor='pointer';
+      el.innerHTML = `<span style="font-weight:600">#${idx+1}</span> (m,n)=(${md.m},${md.n})  f=${md.f.toFixed(3)} Hz`;
+      el.onclick = ()=> {
+        // set freq to modal freq and highlight
+        $('freq').value = md.f.toFixed(6);
+        // store selected mode index
+        div.querySelectorAll('.mode-row').forEach(x=>x.style.background='');
+        el.style.background='#eef6ff';
+      };
+      div.appendChild(el);
+    });
+  }
+
+  // convert flat to 2D array for plotly
   function to2D(arr,Nx,Ny){
     const z = new Array(Ny);
     for(let j=0;j<Ny;j++){
@@ -220,126 +265,175 @@
     return z;
   }
 
-  // initial render and wiring
-  function render(){
-    const Lx = parseFloat($('Lx').value);
-    const Ly = parseFloat($('Ly').value);
-    const h = parseFloat($('h').value);
-    const E = parseFloat($('E').value);
-    const nu = parseFloat($('nu').value);
-    const rho= parseFloat($('rho').value);
-    const mmax = parseInt($('mmax').value);
-    const nmax = parseInt($('nmax').value);
-    const Ngrid = parseInt($('Ngrid').value);
-    // build modes
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    // default freq set to first mode if empty
-    if(!$('freq').value || $('freq').value.trim()===''){
-      $('freq').value = modes[0].f.toFixed(3);
+  // animation of a single mode (displacement)
+  let animId = null;
+  function animateMode(mode, Lx,Ly,Ngrid,show3d,show2d,useDb,displayChoice,plotKind){
+    // precompute φ on grid normalized
+    const Nx=Ngrid, Ny=Ngrid;
+    const xs=new Array(Nx), ys=new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
+    const phiArr = new Float64Array(Nx*Ny);
+    let maxabs=0;
+    for(let j=0;j<Ny;j++){
+      const cy = (i)=>Math.sin(mode.n*Math.PI*ys[j]/Ly);
+      for(let i=0;i<Nx;i++){
+        const cx = Math.sin(mode.m*Math.PI*xs[i]/Lx);
+        const idx=j*Nx+i;
+        phiArr[idx]=cx*cy(i);
+        if(Math.abs(phiArr[idx])>maxabs) maxabs=Math.abs(phiArr[idx]);
+      }
     }
-    const freq = parseFloat($('freq').value);
-    const x0 = clamp(parseFloat($('x0').value), 0, Lx);
-    const y0 = clamp(parseFloat($('y0').value), 0, Ly);
-    const displayChoice = $('displayChoice').value;
-    const Q = 1e8; // effectively no damping for simple model (large Q)
-    // compute field
-    const field = computeField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,Q});
-    // prepare plot traces
-    const show2d = $('show2d').checked;
-    const show3d = $('show3d').checked;
-    const z2d = to2D(field.Z,Ngrid,Ngrid);
-    const zmin = Math.min(...field.Z);
-    const zmax = Math.max(...field.Z);
-    const heatmap = {
-      z: z2d,
-      x: field.xs,
-      y: field.ys,
-      type: 'heatmap',
-      colorscale: 'Viridis',
-      zmin: zmin,
-      zmax: zmax,
-      colorbar: {title: $('displayChoice').value === 'v_over_F' ? 'm/s per N' : 'N per (m/s)'}
-    };
-    const surface = {
-      z: z2d,
-      x: field.xs,
-      y: field.ys,
-      type: 'surface',
-      showscale:false,
-      opacity:0.9
-    };
-    // marker for excitation point
-    const px = parseFloat($('x0').value), py = parseFloat($('y0').value);
-    const pt = {x:[px], y:[py], z:[z2d[Math.round((Ngrid-1)*py/Ly)][Math.round((Ngrid-1)*px/Lx)]], mode:'markers+text', marker:{size:6,color:'red'}, text:['P'], textposition:'top center', type:'scatter3d'};
-    // build layout
-    const layout = {
-      margin:{l:60,r:10,t:30,b:60},
-      scene:{xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}, zaxis:{title: $('displayChoice').value === 'v_over_F' ? 'm/s per N' : 'N per (m/s)'}},
-      xaxis:{title:'x [m]'},
-      yaxis:{title:'y [m]'},
-      annotations: [{
-        text: `f=${freq.toFixed(3)} Hz, source=(${px.toFixed(2)},${py.toFixed(2)})`,
-        xref:'paper', yref:'paper', x:0.02, y:1.02, showarrow:false, font:{size:12}
-      }]
-    };
-    const data = [];
-    if(show2d) data.push(heatmap);
-    if(show3d) { data.push(surface); data.push(pt); }
-    // if only heatmap, plot 2D; if surface present, Plotly will show 3d scene. To support both elegantly, we'll create combined layout: if show3d then plot 3D, else 2D
-    if(show3d){
-      // convert heatmap to surface-compatible z (already), use surface + point
-      Plotly.newPlot('plot', data, layout, {responsive:true,displaylogo:false});
-    }else{
-      // only 2D heatmap
-      const layout2 = {margin:{l:60,r:10,t:30,b:60}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]}, annotations:layout.annotations};
-      Plotly.newPlot('plot', [heatmap], layout2, {responsive:true,displaylogo:false});
-      // attach click handler for setting excitation point on heatmap
-    }
-    // modal table
-    const modalDiv = $('modalTable');
-    modalDiv.innerHTML = '';
-    const tbl = document.createElement('table');
-    const header = document.createElement('tr');
-    header.innerHTML = '<th>rank</th><th>m,n</th><th>f [Hz]</th>';
-    tbl.appendChild(header);
-    for(let i=0;i<Math.min(20,modes.length);i++){
-      const r = document.createElement('tr');
-      r.innerHTML = `<td>${i+1}</td><td>(${modes[i].m},${modes[i].n})</td><td>${modes[i].f.toFixed(3)}</td>`;
-      tbl.appendChild(r);
-    }
-    modalDiv.appendChild(tbl);
+    if(maxabs===0) maxabs=1;
+    for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs; // normalize -1..1
 
-    // enable clicking to set excitation point when in 2D heatmap mode
+    const omega_m = mode.omega;
+    let t0 = performance.now()/1000;
+    const update = ()=>{
+      const now = performance.now()/1000;
+      const tau = now - t0;
+      // instantaneous displacement A*cos(omega_m * tau)
+      const cosv = Math.cos(omega_m * tau);
+      const Z = new Float64Array(phiArr.length);
+      for(let k=0;k<phiArr.length;k++) Z[k] = phiArr[k] * cosv;
+      // optionally convert to dB (we treat displacement normalized -> map -1..1 to amplitude+)
+      let plotZ = Z;
+      if(displayChoice==='v_over_F'){
+        // show instantaneous displacement (signed) — for visualization use signed values directly
+        // if useDb: convert absolute
+        if(useDb){
+          const eps=1e-20;
+          const Zdb = new Array(phiArr.length);
+          for(let k=0;k<phiArr.length;k++) Zdb[k] = 10 * Math.log10(Math.max(Math.abs(plotZ[k]), eps));
+          plotZ = Zdb;
+        }
+      }else{
+        // F/v mode not meaningful for single-mode animation; show inverse amplitude
+        if(useDb){
+          const eps=1e-20;
+          const Zdb = new Array(phiArr.length);
+          for(let k=0;k<phiArr.length;k++) Zdb[k] = 10 * Math.log10(Math.max(1/Math.max(Math.abs(plotZ[k]),eps), eps));
+          plotZ = Zdb;
+        }
+      }
+      const z2d = to2D(plotZ,Nx,Ny);
+      if(show3d && plotKind==='3d'){
+        Plotly.restyle('plot',{z:[z2d]}, [0]);
+      }else{
+        Plotly.restyle('plot',{z:[z2d]}, [0]);
+      }
+      animId = requestAnimationFrame(update);
+    };
+    if(animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(update);
+  }
+
+  function stopAnim(){ if(animId){ cancelAnimationFrame(animId); animId=null; } }
+
+  // main render
+  function render(){
+    stopAnim();
+    const material = $('material').value;
+    if(material==='concrete'){ $('E').value=30000000000; $('nu').value=0.20; $('rho').value=2400; }
+    const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value);
+    const h = parseFloat($('h').value), Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+    const mmax = parseInt($('mmax').value), nmax=parseInt($('nmax').value);
+    const Ngrid = parseInt($('Ngrid').value);
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+    populateModeList(modes);
+
+    // if freq blank set to first
+    if(!$('freq').value || $('freq').value.trim()==='') $('freq').value = modes[0].f.toFixed(6);
+    const freq = parseFloat($('freq').value);
+    // presets
+    const preset=$('sourcePreset').value;
+    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3);}
+    else if(preset==='dice5'){ const xs=[Lx/3,2*Lx/3]; const ys=[Ly/3,2*Ly/3]; $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3);}
+    else if(preset==='diag1'){ $('x0').value=(0).toFixed(3); $('y0').value=(0).toFixed(3);}
+    else if(preset==='diag2'){ $('x0').value=(Lx).toFixed(3); $('y0').value=(0).toFixed(3);}
+    else if(preset==='diag3'){ $('x0').value=(0).toFixed(3); $('y0').value=(Ly).toFixed(3);}
+    else if(preset==='diag4'){ $('x0').value=(Lx).toFixed(3); $('y0').value=(Ly).toFixed(3);}
+
+    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
+    const displayChoice = $('displayChoice').value;
+    const useDb = $('useDb').checked;
+    const show2d = $('show2d').checked, show3d = $('show3d').checked;
+
+    // compute static map
+    const field = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb});
+    const z2d = to2D(field.Z,Ngrid,Ngrid);
+    const zmin = Math.min(...field.Z), zmax = Math.max(...field.Z);
+    const heatmap = {z:z2d,x:field.xs,y:field.ys,type:'heatmap',colorscale:'Viridis',zmin:zmin,zmax:zmax,colorbar:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}};
+    const surface = {z:z2d,x:field.xs,y:field.ys,type:'surface',opacity:0.95,colorscale:'Viridis',showscale:false};
+    const traces = [];
+    if(show2d) traces.push(heatmap);
+    else if(show3d) traces.push(surface);
+    else traces.push(heatmap);
+
+    const layout2d = {margin:{l:60,r:10,t:30,b:60}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]},
+                      annotations:[{text:`f=${freq.toFixed(3)} Hz source=(${x0.toFixed(2)},${y0.toFixed(2)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
+    const layout3d = {margin:{l:60,r:10,t:30,b:60}, scene:{xaxis:{title:'x [m]'},yaxis:{title:'y [m]'},zaxis:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}}, annotations:layout2d.annotations};
+
+    if(show3d && !show2d){
+      Plotly.newPlot('plot', traces, layout3d, {responsive:true,displaylogo:false});
+    }else{
+      Plotly.newPlot('plot', traces, layout2d, {responsive:true,displaylogo:false});
+    }
+
+    // attach click handler to set source (only for 2D heatmap)
     const plotEl = document.getElementById('plot');
     plotEl.on('plotly_click', function(evt){
-      // handle only 2D heatmap clicks
-      const pts = evt.points && evt.points[0];
-      if(!pts) return;
-      if(!$('show2d').checked) return;
-      // get x,y from click
-      const cx = pts.x, cy = pts.y;
-      // clamp and set
-      const nx = Math.max(0, Math.min(Lx, cx));
-      const ny = Math.max(0, Math.min(Ly, cy));
-      $('x0').value = nx.toFixed(3);
-      $('y0').value = ny.toFixed(3);
-      // re-render
+      if(!evt.points || !evt.points[0]) return;
+      const pt = evt.points[0];
+      const cx = pt.x, cy = pt.y;
+      $('x0').value = clamp(cx,0,Lx).toFixed(3);
+      $('y0').value = clamp(cy,0,Ly).toFixed(3);
       render();
     });
+
+    // store modes for animation control
+    window._slab_modes = modes;
+    window._slab_params = {Lx,Ly,Ngrid,useDb,displayChoice};
   }
 
   function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
 
-  // initial
-  render();
-
+  // wiring
+  $('material').addEventListener('change', render);
+  ['E','nu','rho','h','Lx','Ly','mmax','nmax','freq','x0','y0','Ngrid','displayChoice','useDb','show2d','show3d','sourcePreset'].forEach(id=>{
+    $(id).addEventListener('change', ()=>{ if(id==='sourcePreset') render(); else {} });
+  });
   $('renderBtn').addEventListener('click', render);
   $('snapBtn').addEventListener('click', ()=> {
     Plotly.toImage('plot',{format:'png',width:1200,height:800}).then(url=>{
-      const a=document.createElement('a'); a.href=url; a.download=`slab_v_over_F_${Date.now()}.png`; a.click();
+      const a=document.createElement('a'); a.href=url; a.download=`slab_${Date.now()}.png`; a.click();
     });
   });
 
+  // mode animation controls: pick currently highlighted mode in list
+  function getSelectedMode(){
+    const div = $('modeList');
+    const rows = Array.from(div.children);
+    for(let i=0;i<rows.length;i++){
+      if(rows[i].style.background) return window._slab_modes[i];
+    }
+    // fallback first
+    return window._slab_modes ? window._slab_modes[0] : null;
+  }
+
+  $('modePlay').addEventListener('click', ()=>{
+    const mode = getSelectedMode();
+    if(!mode) return alert('モードを選択してください（左の一覧をクリック）');
+    const p = window._slab_params;
+    stopAnim();
+    // animate selected mode using mode.omega
+    animateMode(mode, p.Lx, p.Ly, p.Ngrid, $('show3d').checked, $('show2d').checked, p.useDb, p.displayChoice, $('show3d').checked ? '3d' : '2d');
+  });
+
+  $('modePause').addEventListener('click', ()=> stopAnim());
+
+  // initial
+  render();
 })();
 </script>
 </body>
