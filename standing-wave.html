@@ -2,121 +2,122 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>音場干渉マップ（Standing-Wave Visualizer）</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>スラブ（SS境界） v/F ビジュアライザ</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  :root{
-    --bg:#f7f8fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
-    --accent:#2563eb; --ok:#16a34a; --warn:#eab308; --err:#dc2626;
-    --mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-  }
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,"Noto Sans JP",sans-serif;}
-  .wrap{max-width:1100px;margin:auto;padding:16px;}
-  h1{font-size:20px;margin:0 0 12px}
-  .card{background:var(--card);border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:12px}
-  .grid{display:grid;grid-template-columns:1.2fr 2fr;gap:12px}
-  .row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px}
-  .row label{font-size:12px;color:var(--muted)}
-  .row input,.row select{width:100%;box-sizing:border-box;padding:8px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit}
-  .btns{display:flex;gap:8px;flex-wrap:wrap}
-  button{padding:9px 14px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
-  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .pill{display:inline-block;padding:4px 8px;border:1px solid #e5e7eb;border-radius:999px;font-size:12px;color:var(--muted);margin-left:6px}
-  .mono{font-family:var(--mono)}
-  #plot{height:72vh;min-height:420px}
-  .footer{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  .kbd{font-family:var(--mono);font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 6px}
+  :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans JP",system-ui,Segoe UI,Roboto}
+  .wrap{max-width:1200px;margin:16px auto;padding:12px}
+  h1{font-size:18px;margin:6px 0}
+  .card{background:var(--card);border-radius:10px;padding:12px;border:1px solid #e6edf3;box-shadow:0 1px 2px rgba(2,6,23,0.03)}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  input,select{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px;box-sizing:border-box}
+  .row{margin-bottom:8px}
+  .btn{padding:8px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+  .small{font-size:13px;color:var(--muted)}
+  #plot{height:76vh;min-height:520px}
+  .inline{display:flex;gap:8px;align-items:center}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+  footer{margin-top:8px;font-size:13px;color:var(--muted)}
+  table{font-size:13px;border-collapse:collapse}
+  td,th{padding:4px 6px;border-bottom:1px solid #f1f5f9}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>音場干渉マップ（Standing-Wave Visualizer）<span class="pill">矩形・剛壁境界 / 2D 断面</span></h1>
+  <h1>スラブ平板（四周SS） v/F ビジュアライザ</h1>
   <div class="grid">
     <div class="card">
       <div class="row">
-        <div>
-          <label>室長さ L<sub>x</sub> [m]</label>
-          <input id="Lx" type="number" step="0.01" min="0.5" value="5.0">
-        </div>
-        <div>
-          <label>室幅 L<sub>y</sub> [m]</label>
-          <input id="Ly" type="number" step="0.01" min="0.5" value="4.0">
-        </div>
-        <div>
-          <label>周波数 f [Hz]</label>
-          <input id="freq" type="number" step="0.1" min="5" value="63">
-        </div>
-        <div>
-          <label>音速 c [m/s]</label>
-          <input id="c" type="number" step="0.1" min="100" value="343">
-        </div>
-        <div>
-          <label>解像度 N<sub>grid</sub></label>
-          <input id="Ngrid" type="number" step="8" min="32" value="120">
-        </div>
-        <div>
-          <label>振幅表示</label>
-          <select id="dispMode">
-            <option value="instant">瞬時値（時間アニメ）</option>
-            <option value="envelope">包絡（|p(x,y)|）</option>
-          </select>
+        <label>寸法 Lx [m], Ly [m]</label>
+        <div style="display:flex;gap:8px">
+          <input id="Lx" type="number" step="0.01" value="5.00">
+          <input id="Ly" type="number" step="0.01" value="4.00">
         </div>
       </div>
 
       <div class="row">
-        <div>
-          <label>モード選択</label>
-          <select id="modeStrategy">
-            <option value="nearest">最近接1モード</option>
-            <option value="sum">周波数近傍の複数モード合成</option>
-          </select>
-        </div>
-        <div>
-          <label>m,n 上限</label>
-          <input id="MNmax" type="number" step="1" min="5" value="30">
-        </div>
-        <div>
-          <label>近傍幅 Δf [%]</label>
-          <input id="bandPct" type="number" step="0.5" min="0.5" value="3">
-        </div>
-        <div>
-          <label>減衰 Q（合成時）</label>
-          <input id="Q" type="number" step="1" min="10" value="50">
-        </div>
-        <div>
-          <label>配色</label>
-          <select id="colorscale">
-            <option>RdBu</option>
-            <option>Viridis</option>
-            <option>Portland</option>
-            <option>Picnic</option>
-            <option>Turbo</option>
-            <option>Greys</option>
-          </select>
-        </div>
-        <div>
-          <label>等高線</label>
-          <select id="contours">
-            <option value="0">非表示</option>
-            <option value="10">10本</option>
-            <option value="20">20本</option>
-          </select>
+        <label>板厚 h [m]</label>
+        <input id="h" type="number" step="0.01" value="0.15">
+      </div>
+
+      <div class="row">
+        <label>材料（コンクリート）E[Pa], ν, ρ[kg/m³]</label>
+        <div style="display:flex;gap:8px">
+          <input id="E" type="number" step="1e8" value="30e9">
+          <input id="nu" type="number" step="0.01" value="0.20">
+          <input id="rho" type="number" step="10" value="2400">
         </div>
       </div>
 
-      <div class="btns">
-        <button class="primary" id="renderBtn">描画/更新</button>
-        <button id="playBtn">▶ 再生</button>
-        <button id="pauseBtn">⏸ 一時停止</button>
-        <button id="snapBtn">📷 スナップショット</button>
-        <span class="mono" id="info"></span>
+      <div class="row">
+        <label>モード最大 (m_max, n_max)</label>
+        <div style="display:flex;gap:8px">
+          <input id="mmax" type="number" min="1" max="12" value="5">
+          <input id="nmax" type="number" min="1" max="12" value="5">
+        </div>
       </div>
-      <div class="footer" style="margin-top:8px">
-        <span class="kbd">剛壁境界:</span><span class="mono">p<sub>mn</sub>(x,y) = cos(mπx/L<sub>x</sub>)·cos(nπy/L<sub>y</sub>)</span>
-        <span class="kbd">固有周波数:</span><span class="mono">f<sub>mn</sub>= (c/2)·√[(m/Lx)^2+(n/Ly)^2]</span>
+
+      <div class="row">
+        <label>周波数 f [Hz]（任意指定。デフォルトは (1,1) 固有周波数）</label>
+        <input id="freq" type="number" step="0.1" value="">
       </div>
+
+      <div class="row">
+        <label>加振点 (x0,y0) [m]（点力 1 N，垂直）</label>
+        <div style="display:flex;gap:8px">
+          <input id="x0" type="number" step="0.01" value="2.50">
+          <input id="y0" type="number" step="0.01" value="2.00">
+        </div>
+        <div class="small">クリックでグリッド上の加振点を設定できます（右側プロット上で）</div>
+      </div>
+
+      <div class="row">
+        <label>表示量</label>
+        <select id="displayChoice">
+          <option value="v_over_F">v / F （m/s per N）</option>
+          <option value="F_over_v">F / v （N per (m/s)）</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>描画</label>
+        <div style="display:flex;gap:8px">
+          <button id="renderBtn" class="btn">描画 / 更新</button>
+          <button id="snapBtn" style="padding:8px;border-radius:8px">スナップショット</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>表示タイプ</label>
+        <div style="display:flex;gap:8px">
+          <label><input type="checkbox" id="show2d" checked> 2D ヒートマップ</label>
+          <label><input type="checkbox" id="show3d" checked> 3D サーフェス</label>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>グリッド解像度 Ngrid</label>
+        <input id="Ngrid" type="number" step="8" min="32" value="120">
+      </div>
+
+      <div class="row">
+        <label>小説明 (固有周波数一覧)</label>
+        <div id="modalTable" class="card mono" style="padding:8px;max-height:160px;overflow:auto"></div>
+      </div>
+
+      <footer class="small card" style="margin-top:10px">
+        <div><strong>式（簡潔）</strong></div>
+        <div>曲げ剛性 D = E h³ / [12 (1-ν²)]</div>
+        <div>固有角周波数 ω<sub>mn</sub> = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ]</div>
+        <div>モード形 φ<sub>mn</sub>(x,y) = sin(mπx/Lx)·sin(nπy/Ly) （SS 両端支持）</div>
+        <div>変位 W(x,y) = Σ η<sub>mn</sub> φ<sub>mn</sub>(x,y), η<sub>mn</sub> = F φ<sub>mn</sub>(x₀,y₀) / [M<sub>mn</sub>(ω<sub>mn</sub>² - ω² + i ω ω<sub>mn</sub>/Q)]</div>
+        <div>速度 |v| = ω · |W|。ここでは Q を大きくして減衰を無視します。</div>
+      </footer>
     </div>
+
     <div class="card">
       <div id="plot"></div>
     </div>
@@ -125,221 +126,220 @@
 
 <script>
 (() => {
-  // ------- utilities -------
   const $ = id => document.getElementById(id);
-  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  // Complex helpers
+  const cadd = (a,b)=>({re:a.re+b.re,im:a.im+b.im});
+  const csub = (a,b)=>({re:a.re-b.re,im:a.im-b.im});
+  const cmul = (a,b)=>({re:a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re});
+  const cdiv = (a,b)=>{ const d=b.re*b.re+b.im*b.im; return {re:(a.re*b.re + a.im*b.im)/d, im:(a.im*b.re - a.re*b.im)/d};};
+  const cabs = a=>Math.hypot(a.re,a.im);
 
-  function enumerateModes(Lx,Ly,c,MNmax){
-    const modes=[];
-    for(let m=0;m<=MNmax;m++){
-      for(let n=0;n<=MNmax;n++){
-        if(m===0 && n===0) continue; // DCなし
-        const fm = 0.5*c*Math.hypot(m/Lx, n/Ly);
-        modes.push({m,n,fm});
+  function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
+
+  function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
+    const D = D_of(E,h,nu);
+    const modes = [];
+    for(let m=1;m<=mmax;m++){
+      for(let n=1;n<=nmax;n++){
+        const k2 = Math.pow(m*Math.PI/Lx,2) + Math.pow(n*Math.PI/Ly,2);
+        const omega = Math.sqrt(D/(rho*h)) * k2; // rad/s
+        const f = omega / (2*Math.PI);
+        modes.push({m,n,omega,f});
       }
     }
-    return modes.sort((a,b)=>a.fm-b.fm);
+    modes.sort((a,b)=>a.f-b.f);
+    return modes;
   }
 
-  function pickModesNearF(modes, f, pct){
-    const df = Math.max(0.1, f*pct*0.01);
-    return modes.filter(o=>Math.abs(o.fm - f) <= df);
+  function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
+
+  function modalMass(rho,h,Lx,Ly){
+    // ∫φ^2 dA = Lx*Ly/4 for sin modes
+    return rho * h * (Lx*Ly) / 4.0;
   }
 
-  // Lorentzian weight for steady-state drive at f with modal Q
-  function modalWeight(f, fm, Q){
-    const bw = fm / Q;
-    const x = (f - fm)/bw;
-    return 1.0 / Math.sqrt(1 + x*x);
-  }
-
-  function buildBaseMap(Lx,Ly,Ngrid, selection, strategy, f, Q){
-    const xs = new Float64Array(Ngrid);
-    const ys = new Float64Array(Ngrid);
-    for(let i=0;i<Ngrid;i++){ xs[i]=Lx*i/(Ngrid-1); ys[i]=Ly*i/(Ngrid-1); }
-
-    const base = new Float64Array(Ngrid*Ngrid); // spatial factor
-    base.fill(0);
-
-    if(strategy==="nearest"){
-      const {m,n} = selection[0];
-      const coef = 1.0;
-      for(let j=0;j<Ngrid;j++){
-        const cy = Math.cos(Math.PI*n*ys[j]/Ly);
-        for(let i=0;i<Ngrid;i++){
-          const cx = Math.cos(Math.PI*m*xs[i]/Lx);
-          base[j*Ngrid + i] = coef * cx * cy;
+  function computeField(opts){
+    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,Q} = opts;
+    const omega = 2*Math.PI*freq;
+    const Mmn = modalMass(rho,h,Lx,Ly);
+    // grid
+    const Nx = Ngrid, Ny = Ngrid;
+    const xs = new Array(Nx); const ys = new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i] = Lx * i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j] = Ly * j/(Ny-1);
+    // evaluate complex displacement field (sum of modes)
+    const W = new Array(Ny*Nx).fill(0).map(()=>({re:0,im:0}));
+    const F = 1.0; // unit point force (N)
+    // sum modes (only modes with m<=mmax & n<=nmax)
+    for(const md of modes){
+      if(md.m>mmax || md.n>nmax) continue;
+      const omega_m = md.omega;
+      const phi0 = phi(md.m,md.n,x0,y0,Lx,Ly);
+      // generalized force = F * phi0
+      const num = {re: F * phi0, im: 0};
+      // denom: Mmn*(omega_m^2 - omega^2 + i*omega*omega_m/Q)
+      const real = Mmn * (omega_m*omega_m - omega*omega);
+      const imag = Mmn * (omega * omega_m / Q);
+      const denom = {re: real, im: imag};
+      const eta = cdiv(num, denom); // complex modal amplitude
+      // add to W: eta * phi(x,y)
+      for(let j=0;j<Ny;j++){
+        const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
+        for(let i=0;i<Nx;i++){
+          const cx = Math.sin(md.m * Math.PI * xs[i] / Lx);
+          const idx = j*Nx + i;
+          const ph = cx * cy;
+          // W[idx] += eta * ph
+          W[idx] = cadd(W[idx], {re: eta.re * ph, im: eta.im * ph});
         }
       }
+    }
+    // compute velocity amplitude magnitude |v| = ω * |W|
+    const Vmag = new Float64Array(Ny*Nx);
+    for(let k=0;k<W.length;k++){
+      Vmag[k] = omega * cabs(W[k]); // m/s
+    }
+    // produce either v/F or F/v
+    const out = new Float64Array(Ny*Nx);
+    if(displayChoice === 'v_over_F'){
+      for(let k=0;k<out.length;k++) out[k] = Vmag[k] / 1.0;
     }else{
-      // sum of modes with Lorentzian weights
-      for(const {m,n,fm} of selection){
-        const w = modalWeight(f, fm, Q);
-        for(let j=0;j<Ngrid;j++){
-          const cy = Math.cos(Math.PI*n*ys[j]/Ly);
-          for(let i=0;i<Ngrid;i++){
-            const cx = Math.cos(Math.PI*m*xs[i]/Lx);
-            base[j*Ngrid + i] += w * cx * cy;
-          }
-        }
-      }
-      // normalize
-      let maxabs = 0;
-      for(let k=0;k<base.length;k++) maxabs = Math.max(maxabs, Math.abs(base[k]));
-      const s = maxabs>0 ? 1/maxabs : 1;
-      for(let k=0;k<base.length;k++) base[k]*=s;
+      for(let k=0;k<out.length;k++) out[k] = (Vmag[k] > 0 ? 1.0 / Vmag[k] : 0);
     }
-    return {base, xs, ys};
+    return {xs,ys,Z:out};
   }
 
-  // ------- state -------
-  let animId = null;
-  let phase = 0;
-  let omega = 2*Math.PI*63;
-  let base = null;
-  let xs=null, ys=null;
-  let envelope = null;
-
-  // ------- plotting -------
-  function heatmapZ(arr, N){
-    // Float64 -> nested array [N][N]
-    const z = new Array(N);
-    for(let j=0;j<N;j++){
-      const row = new Array(N);
-      for(let i=0;i<N;i++){
-        row[i] = arr[j*N + i];
-      }
+  // plotting helpers
+  function to2D(arr,Nx,Ny){
+    const z = new Array(Ny);
+    for(let j=0;j<Ny;j++){
+      const row = new Array(Nx);
+      for(let i=0;i<Nx;i++) row[i] = arr[j*Nx + i];
       z[j]=row;
     }
     return z;
   }
 
-  function draw(init=false){
-    const N = parseInt($("Ngrid").value);
-    const colorscale = $("colorscale").value;
-    const contourN = parseInt($("contours").value);
-
-    const z0 = heatmapZ(new Float64Array(N*N).fill(0), N);
-
-    const data=[{
-      z:z0, type:"heatmap", colorscale:colorscale, zsmooth:false,
-      contours: { coloring:"heatmap", show: !!contourN, start:-1, end:1, size: 2/Math.max(1,contourN) }
-    }];
-
-    const Lx = parseFloat($("Lx").value), Ly = parseFloat($("Ly").value);
-
-    const layout={
-      margin:{l:40,r:10,t:10,b:40},
-      xaxis:{title:"x [m]", range:[0,Lx], constrain:"domain", scaleanchor:"y", scaleratio:1},
-      yaxis:{title:"y [m]", range:[0,Ly]},
-      dragmode:"pan",
-      paper_bgcolor: getComputedStyle(document.documentElement).getPropertyValue('--bg'),
-      plot_bgcolor: "#ffffff"
-    };
-
-    if(init) Plotly.newPlot("plot", data, layout, {responsive:true,displaylogo:false});
-    return {data, layout};
-  }
-
-  function updateFrame(t){
-    const N = parseInt($("Ngrid").value);
-    const dispMode = $("dispMode").value;
-
-    let field;
-    if(dispMode==="envelope"){
-      field = envelope; // precomputed |base|
-    }else{
-      const s = Math.cos(omega*t);
-      // Z = base * cos(ωt)
-      field = new Float64Array(base.length);
-      for(let k=0;k<base.length;k++) field[k]=base[k]*s;
+  // initial render and wiring
+  function render(){
+    const Lx = parseFloat($('Lx').value);
+    const Ly = parseFloat($('Ly').value);
+    const h = parseFloat($('h').value);
+    const E = parseFloat($('E').value);
+    const nu = parseFloat($('nu').value);
+    const rho= parseFloat($('rho').value);
+    const mmax = parseInt($('mmax').value);
+    const nmax = parseInt($('nmax').value);
+    const Ngrid = parseInt($('Ngrid').value);
+    // build modes
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+    // default freq set to first mode if empty
+    if(!$('freq').value || $('freq').value.trim()===''){
+      $('freq').value = modes[0].f.toFixed(3);
     }
-    const z = heatmapZ(field, N);
-    Plotly.restyle("plot", {z:[z]});
-  }
-
-  function start(){
-    if(animId) return;
-    let last=performance.now();
-    const loop = (now)=>{
-      const dt = (now-last)/1000;
-      last = now;
-      phase += omega*dt;
-      updateFrame(now/1000);
-      animId = requestAnimationFrame(loop);
+    const freq = parseFloat($('freq').value);
+    const x0 = clamp(parseFloat($('x0').value), 0, Lx);
+    const y0 = clamp(parseFloat($('y0').value), 0, Ly);
+    const displayChoice = $('displayChoice').value;
+    const Q = 1e8; // effectively no damping for simple model (large Q)
+    // compute field
+    const field = computeField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,Q});
+    // prepare plot traces
+    const show2d = $('show2d').checked;
+    const show3d = $('show3d').checked;
+    const z2d = to2D(field.Z,Ngrid,Ngrid);
+    const zmin = Math.min(...field.Z);
+    const zmax = Math.max(...field.Z);
+    const heatmap = {
+      z: z2d,
+      x: field.xs,
+      y: field.ys,
+      type: 'heatmap',
+      colorscale: 'Viridis',
+      zmin: zmin,
+      zmax: zmax,
+      colorbar: {title: $('displayChoice').value === 'v_over_F' ? 'm/s per N' : 'N per (m/s)'}
     };
-    animId = requestAnimationFrame(loop);
-  }
-  function stop(){
-    if(animId){ cancelAnimationFrame(animId); animId=null; }
-  }
-
-  // ------- main compute -------
-  function compute(){
-    stop();
-
-    const Lx = clamp(parseFloat($("Lx").value), 0.5, 200);
-    const Ly = clamp(parseFloat($("Ly").value), 0.5, 200);
-    const f  = clamp(parseFloat($("freq").value), 1, 10000);
-    const c  = clamp(parseFloat($("c").value), 150, 380);
-    const Ngrid = clamp(parseInt($("Ngrid").value), 32, 400);
-    const MNmax = clamp(parseInt($("MNmax").value), 5, 80);
-    const bandPct = clamp(parseFloat($("bandPct").value), 0.5, 30);
-    const Q = clamp(parseInt($("Q").value), 10, 500);
-    const strategy = $("modeStrategy").value;
-
-    omega = 2*Math.PI*f;
-
-    const modes = enumerateModes(Lx,Ly,c,MNmax);
-    let picked = pickModesNearF(modes, f, bandPct);
-    if(strategy==="nearest"){
-      if(picked.length===0) picked = [modes.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b)];
-      else picked = [picked.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b)];
+    const surface = {
+      z: z2d,
+      x: field.xs,
+      y: field.ys,
+      type: 'surface',
+      showscale:false,
+      opacity:0.9
+    };
+    // marker for excitation point
+    const px = parseFloat($('x0').value), py = parseFloat($('y0').value);
+    const pt = {x:[px], y:[py], z:[z2d[Math.round((Ngrid-1)*py/Ly)][Math.round((Ngrid-1)*px/Lx)]], mode:'markers+text', marker:{size:6,color:'red'}, text:['P'], textposition:'top center', type:'scatter3d'};
+    // build layout
+    const layout = {
+      margin:{l:60,r:10,t:30,b:60},
+      scene:{xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}, zaxis:{title: $('displayChoice').value === 'v_over_F' ? 'm/s per N' : 'N per (m/s)'}},
+      xaxis:{title:'x [m]'},
+      yaxis:{title:'y [m]'},
+      annotations: [{
+        text: `f=${freq.toFixed(3)} Hz, source=(${px.toFixed(2)},${py.toFixed(2)})`,
+        xref:'paper', yref:'paper', x:0.02, y:1.02, showarrow:false, font:{size:12}
+      }]
+    };
+    const data = [];
+    if(show2d) data.push(heatmap);
+    if(show3d) { data.push(surface); data.push(pt); }
+    // if only heatmap, plot 2D; if surface present, Plotly will show 3d scene. To support both elegantly, we'll create combined layout: if show3d then plot 3D, else 2D
+    if(show3d){
+      // convert heatmap to surface-compatible z (already), use surface + point
+      Plotly.newPlot('plot', data, layout, {responsive:true,displaylogo:false});
     }else{
-      if(picked.length===0) picked = [modes.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b)];
+      // only 2D heatmap
+      const layout2 = {margin:{l:60,r:10,t:30,b:60}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]}, annotations:layout.annotations};
+      Plotly.newPlot('plot', [heatmap], layout2, {responsive:true,displaylogo:false});
+      // attach click handler for setting excitation point on heatmap
     }
+    // modal table
+    const modalDiv = $('modalTable');
+    modalDiv.innerHTML = '';
+    const tbl = document.createElement('table');
+    const header = document.createElement('tr');
+    header.innerHTML = '<th>rank</th><th>m,n</th><th>f [Hz]</th>';
+    tbl.appendChild(header);
+    for(let i=0;i<Math.min(20,modes.length);i++){
+      const r = document.createElement('tr');
+      r.innerHTML = `<td>${i+1}</td><td>(${modes[i].m},${modes[i].n})</td><td>${modes[i].f.toFixed(3)}</td>`;
+      tbl.appendChild(r);
+    }
+    modalDiv.appendChild(tbl);
 
-    const nearest = picked.reduce((a,b)=>Math.abs(a.fm-f)<Math.abs(b.fm-f)?a:b);
-    const det = (nearest.fm - f).toFixed(2);
-
-    const built = buildBaseMap(Lx,Ly,Ngrid,picked,strategy,f,Q);
-    base = built.base; xs=built.xs; ys=built.ys;
-
-    // envelope = |base|
-    envelope = new Float64Array(base.length);
-    let maxabs=0;
-    for(let k=0;k<base.length;k++){ const v=Math.abs(base[k]); envelope[k]=v; if(v>maxabs)maxabs=v; }
-    const s = maxabs>0 ? 1/maxabs : 1;
-    for(let k=0;k<envelope.length;k++) envelope[k]*=s;
-
-    $("info").textContent =
-      `候補モード数: ${picked.length}  / 最近接: (m,n)=(${nearest.m},${nearest.n}), f_mn=${nearest.fm.toFixed(2)} Hz, Δ=${det} Hz`;
-
-    draw(); // ensure layout axis ranges update
-    updateFrame(0);
-  }
-
-  // ------- wiring -------
-  draw(true);
-  compute();
-
-  $("renderBtn").onclick = compute;
-  $("playBtn").onclick = start;
-  $("pauseBtn").onclick = stop;
-  $("snapBtn").onclick = () => {
-    Plotly.toImage("plot",{format:"png",width:1200,height:800}).then((url)=>{
-      const a=document.createElement("a");
-      a.href=url; a.download=`standing_wave_${Date.now()}.png`; a.click();
+    // enable clicking to set excitation point when in 2D heatmap mode
+    const plotEl = document.getElementById('plot');
+    plotEl.on('plotly_click', function(evt){
+      // handle only 2D heatmap clicks
+      const pts = evt.points && evt.points[0];
+      if(!pts) return;
+      if(!$('show2d').checked) return;
+      // get x,y from click
+      const cx = pts.x, cy = pts.y;
+      // clamp and set
+      const nx = Math.max(0, Math.min(Lx, cx));
+      const ny = Math.max(0, Math.min(Ly, cy));
+      $('x0').value = nx.toFixed(3);
+      $('y0').value = ny.toFixed(3);
+      // re-render
+      render();
     });
-  };
+  }
 
-  // handy: Enter to update
-  for(const id of ["Lx","Ly","freq","c","Ngrid","MNmax","bandPct","Q"]){
-    $(id).addEventListener("keydown",(e)=>{ if(e.key==="Enter") compute(); });
-  }
-  for(const id of ["dispMode","modeStrategy","colorscale","contours"]){
-    $(id).addEventListener("change", compute);
-  }
+  function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+
+  // initial
+  render();
+
+  $('renderBtn').addEventListener('click', render);
+  $('snapBtn').addEventListener('click', ()=> {
+    Plotly.toImage('plot',{format:'png',width:1200,height:800}).then(url=>{
+      const a=document.createElement('a'); a.href=url; a.download=`slab_v_over_F_${Date.now()}.png`; a.click();
+    });
+  });
+
 })();
 </script>
 </body>
