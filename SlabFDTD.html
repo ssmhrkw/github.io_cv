@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Slab FDTD — 差し替え版（コントロール折りたたみ・矩形表示・再生修正）</title>
+<title>Slab FDTD — Worker版 (Fdtdworker.js)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter, "Noto Sans JP", system-ui, Roboto}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter, "Noto Sans JP", system-ui,Roboto}
 .wrap{max-width:1200px;margin:14px auto;padding:12px}
 .grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
 .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
@@ -28,11 +28,10 @@ canvas{border-radius:6px}
 </head>
 <body>
 <div class="wrap">
-  <h2>Slab FDTD — 差し替え版</h2>
+  <h2>Slab FDTD — Worker 版</h2>
   <div class="grid">
     <div class="card" id="controlsPanel">
-      <div class="row">
-        <label>Material</label>
+      <div class="row"><label>Material</label>
         <select id="material"><option value="concrete">Concrete (E=3e10, ν=0.2, ρ=2400)</option><option value="custom">Custom</option></select>
       </div>
 
@@ -52,7 +51,7 @@ canvas{border-radius:6px}
       </div>
 
       <div class="row inline">
-        <div style="flex:1"><label>dx [m] (space step, default)</label><input id="dx" type="number" step="0.01" value="0.50"></div>
+        <div style="flex:1"><label>dx [m] (space step)</label><input id="dx" type="number" step="0.01" value="0.50"></div>
         <div style="flex:1"><label>Ngrid override (0 = auto)</label><input id="Ngrid_override" type="number" value="0" min="0"></div>
       </div>
 
@@ -99,7 +98,7 @@ canvas{border-radius:6px}
       </div>
 
       <div class="row inline">
-        <button id="computeBtn" class="btn">計算開始 (FDTD transient)</button>
+        <button id="computeBtn" class="btn">計算開始 (Worker)</button>
         <button id="cancelBtn" class="btn" style="background:#ef4444">Cancel</button>
       </div>
 
@@ -110,7 +109,7 @@ canvas{border-radius:6px}
       </div>
 
       <div style="margin-top:6px">
-        <div class="small">自動 Ngrid = ceil(max(Lx,Ly)/dx) + 1（Ngrid override が 0 以外ならそれを使用）。Fs は dt_target に基づき最小の 2^k を選択。</div>
+        <div class="small">自動 Ngrid = ceil(max(Lx,Ly)/dx) + 1（override が 0 以外ならそれを使用）。Fs は dt_target に基づき最小の 2^k を選択。</div>
       </div>
 
       <hr/>
@@ -163,7 +162,6 @@ canvas{border-radius:6px}
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-
   function setTab(name){
     ['Time','Mode','Freq'].forEach(n=>{ $('tab'+n).classList.remove('active'); $('panel'+n).style.display='none'; });
     $('tab'+name).classList.add('active'); $('panel'+name).style.display='block';
@@ -174,8 +172,6 @@ canvas{border-radius:6px}
 
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
-  function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
-  function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
   function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
     const D = D_of(E,h,nu);
     const modes=[];
@@ -205,13 +201,13 @@ canvas{border-radius:6px}
     const samplesPerCycle = Math.max(4, parseInt($('samplesPerCycle').value));
     const kmax = parseInt($('kmax').value) || 18;
 
-    // auto Ngrid from dx if no override
+    // compute Ngrid from dx if override not provided
     const maxL = Math.max(Lx, Ly);
     let Ngrid = Ngrid_override > 1 ? Ngrid_override : Math.ceil(maxL / dx_in) + 1;
     if(Ngrid < 16) Ngrid = 16;
     $('progressText').textContent = 'Using Ngrid = ' + Ngrid + ' (dx≈' + (maxL/(Ngrid-1)).toFixed(3) + ' m)';
 
-    // compute modes, cap fmax at 250 Hz
+    // compute modes to get f_max (cap 250)
     const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
     const fmax = Math.min(250, modes[modes.length-1].f || 250);
 
@@ -232,137 +228,73 @@ canvas{border-radius:6px}
     const dt = 1.0 / Fs;
     $('progressText').textContent = `Ngrid=${Ngrid} dx≈${dx.toFixed(3)} m  Fs=2^${ksel}=${Fs.toLocaleString()} dt=${dt.toExponential(2)} s`;
 
+    // presets
     const preset = $('sourcePreset').value;
     if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
     else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
     else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
     const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
 
-    // hide controls panel after start
+    // hide controls panel
     $('controlsPanel').style.display = 'none';
 
     const cfg = {E,nu,rho,h,Lx,Ly,Ngrid,framesCount,dx,dt,Fs,samplesPerCycle,modesLight:modes.map(m=>({m:m.m,n:m.n,f:m.f,omega:m.omega})),x0,y0,framesToSave:framesCount};
     $('progressBar').value = 0;
 
-    worker = new Worker(URL.createObjectURL(new Blob([workerCode],{type:'application/javascript'})));
+    // spawn external worker file (Fdtdworker.js must be in same folder)
+    try{
+      worker = new Worker('Fdtdworker.js');
+    }catch(e){
+      alert('Worker 起動に失敗しました: '+e.message + '\n（iOS では worker ファイルを同一ディレクトリに置いてください）');
+      $('controlsPanel').style.display = '';
+      return;
+    }
+
     worker.onmessage = (ev)=>{
       const data = ev.data;
       if(data.type === 'progress'){ $('progressBar').value = data.progress; $('progressText').textContent = data.msg||('progress '+data.progress+'%'); }
       if(data.type === 'done'){
-        const res = data.result;
-        const frames = res.framesBuf.map(buf => new Float32Array(buf));
-        lastResult = Object.assign({}, res, {frames: frames});
+        const res = data.result || data;
+        // accept framesBuf (transferred) or frames array
+        let frames = [];
+        if(res.framesBuf && Array.isArray(res.framesBuf)){
+          frames = res.framesBuf.map(buf => new Float32Array(buf));
+        } else if(res.frames && Array.isArray(res.frames)){
+          frames = res.frames.map(a => new Float32Array(a));
+        }
+        lastResult = Object.assign({}, res, {frames: frames, framesCount: frames.length});
         worker.terminate(); worker = null;
         $('progressBar').value = 100;
         $('progressText').textContent = 'Done. Frames=' + lastResult.framesCount + ' Fs=' + lastResult.Fs;
         showStaticAndFrames(lastResult);
         if($('autoFFT').checked) computeFFTFromProbe();
-        populateModeList(lastResult.modes);
+        populateModeList(lastResult.modes || lastResult.modesLight || []);
+      }
+      if(data.type === 'error'){
+        alert('Worker error: '+(data.msg||JSON.stringify(data)));
+        $('controlsPanel').style.display = '';
       }
     };
     worker.postMessage({type:'start', cfg});
   };
 
-  $('cancelBtn').onclick = ()=>{ if(worker){ worker.terminate(); worker=null; $('progressText').textContent='Cancelled'; $('progressBar').value=0;} };
-
-  const workerCode = `
-  self.onmessage = function(ev){
-    const msg = ev.data;
-    if(msg.type!=='start') return;
-    const cfg = msg.cfg;
-    const E = cfg.E, nu = cfg.nu, rho = cfg.rho, h = cfg.h;
-    const Lx = cfg.Lx, Ly = cfg.Ly, Ngrid = cfg.Ngrid;
-    const dx = cfg.dx, dt = cfg.dt;
-    const framesCount = cfg.framesToSave;
-    const Fs = cfg.Fs;
-    const marea = rho*h;
-    const D = E * Math.pow(h,3) / (12*(1-nu*nu));
-    const Nx = Ngrid, Ny = Ngrid;
-    const size = Nx*Ny;
-    let w = new Float32Array(size), wprev = new Float32Array(size), wnext = new Float32Array(size);
-    function idx(i,j){ return j*Nx + i; }
-    const x0 = cfg.x0, y0 = cfg.y0;
-    const sx = Math.max(1, Math.min(Nx-2, Math.round(x0 / cfg.Lx * (Nx-1))));
-    const sy = Math.max(1, Math.min(Ny-2, Math.round(y0 / cfg.Ly * (Ny-1))));
-    const srcIdx = idx(sx, sy);
-    const forceSteps = Math.max(1, Math.floor(Fs * 0.002));
-    const totalSteps = framesCount;
-    function lap(arr){
-      const out = new Float32Array(size);
-      for(let j=1;j<Ny-1;j++){
-        for(let i=1;i<Nx-1;i++){
-          const id = idx(i,j);
-          out[id] = (arr[id-1] + arr[id+1] + arr[id-Nx] + arr[id+Nx] - 4*arr[id])/(dx*dx);
-        }
-      }
-      return out;
-    }
-    function enforceSS(a){
-      for(let i=0;i<Nx;i++){ a[idx(i,0)] = 0; a[idx(i,Ny-1)]=0; }
-      for(let j=0;j<Ny;j++){ a[idx(0,j)] = 0; a[idx(Nx-1,j)] = 0; }
-    }
-    const coeff = (dt*dt)/marea;
-    const frames = [];
-    for(let step=0; step<totalSteps; step++){
-      const F = new Float32Array(size);
-      if(step < forceSteps) F[srcIdx] = 1.0;
-      const lap1 = lap(w);
-      const bih = lap(lap1);
-      for(let id=0; id<size; id++){
-        wnext[id] = 2*w[id] - wprev[id] + coeff * (F[id] - D * bih[id]);
-      }
-      enforceSS(wnext);
-      wprev.set(w);
-      w.set(wnext);
-      frames.push(w.slice(0));
-      if(step % Math.max(1, Math.floor(totalSteps/40)) === 0){
-        self.postMessage({type:'progress', progress: Math.round(100*step/totalSteps), msg: 'step '+step+'/'+totalSteps});
-      }
-    }
-    const modes = cfg.modesLight;
-    const Mmn = rho*h * (cfg.Lx * cfg.Ly) / 4.0;
-    const omegaForced = 2*Math.PI * (modes[0].f || 1.0);
-    const W = new Float32Array(size);
-    for(const md of modes){
-      const omega_m = md.omega;
-      const phi0 = Math.sin(md.m*Math.PI*cfg.x0/cfg.Lx) * Math.sin(md.n*Math.PI*cfg.y0/cfg.Ly);
-      const real = Mmn*(omega_m*omega_m - omegaForced*omegaForced);
-      const imag = Mmn*(omegaForced * omega_m / 1e8);
-      const denom = real*real + imag*imag;
-      const er = (1.0*phi0*real)/denom;
-      const ei = (-1.0*phi0*imag)/denom;
-      for(let j=0;j<Ny;j++){
-        const y = j/(Ny-1)*cfg.Ly;
-        for(let i=0;i<Nx;i++){
-          const x = i/(Nx-1)*cfg.Lx;
-          const idx0 = idx(i,j);
-          const cx = Math.sin(md.m * Math.PI * x / cfg.Lx);
-          const cy = Math.sin(md.n * Math.PI * y / cfg.Ly);
-          W[idx0] += Math.hypot(er*cx*cy, ei*cx*cy);
-        }
-      }
-    }
-    const transferable = [];
-    const framesBuf = frames.map(f=>{ transferable.push(f.buffer); return f.buffer; });
-    const result = {framesCount: frames.length, Nx: Nx, Ny: Ny, dt: dt, Fs: Fs, framesBuf: framesBuf, staticZ: Array.from(W), modes: modes, xs: Array.from({length:Nx}, (_,i)=>cfg.Lx*i/(Nx-1)), ys: Array.from({length:Ny}, (_,j)=>cfg.Ly*j/(Ny-1))};
-    self.postMessage({type:'done', result: result}, transferable);
-  };
-  `;
+  $('cancelBtn').onclick = ()=>{ if(worker){ worker.terminate(); worker=null; $('progressText').textContent='Cancelled'; $('progressBar').value=0; $('controlsPanel').style.display=''; } };
 
   function showStaticAndFrames(res){
-    const frames = res.framesBuf.map(buf => new Float32Array(buf));
+    const frames = res.frames || res.framesBuf ? (res.frames || res.framesBuf).map(buf => new Float32Array(buf)) : [];
     lastResult = Object.assign({}, res, {frames: frames});
-    const z = res.staticZ;
-    const Nx = res.Nx, Ny = res.Ny;
+    const z = res.staticZ || res.static || [];
+    const Nx = res.Nx || (frames[0] ? Math.sqrt(frames[0].length) : 0);
+    const Ny = res.Ny || Nx;
     const z2d = [];
     for(let j=0;j<Ny;j++){
       const row = [];
-      for(let i=0;i<Nx;i++) row.push(z[j*Nx + i]);
+      for(let i=0;i<Nx;i++) row.push(z[j*Nx + i] || 0);
       z2d.push(row);
     }
-    const Lx = res.xs[res.xs.length-1] || parseFloat($('Lx').value);
-    const Ly = res.ys[res.ys.length-1] || parseFloat($('Ly').value);
-    const trace = { z: z2d, x: res.xs, y: res.ys, type: 'heatmap', colorscale: 'Viridis' };
+    const Lx = res.xs && res.xs.length ? res.xs[res.xs.length-1] : parseFloat($('Lx').value);
+    const Ly = res.ys && res.ys.length ? res.ys[res.ys.length-1] : parseFloat($('Ly').value);
+    const trace = { z: z2d, x: res.xs || Array.from({length:Nx},(_,i)=>i/(Nx-1)*Lx), y: res.ys || Array.from({length:Ny},(_,j)=>j/(Ny-1)*Ly), type: 'heatmap', colorscale: 'Viridis' };
     const layout = {
       margin:{t:30,b:60,l:60,r:10},
       xaxis:{title:'x [m]', range:[0,Lx]},
@@ -371,17 +303,18 @@ canvas{border-radius:6px}
       annotations: [{ text: `Lx=${Lx.toFixed(2)} m  Ly=${Ly.toFixed(2)} m`, xref:'paper', yref:'paper', x:0.02, y:1.02, showarrow:false }]
     };
     Plotly.newPlot('plotlyDiv', [trace], layout, {responsive:true,displaylogo:false});
-    drawFrameToCanvas(frames[0], Nx, Ny);
-    $('frameSlider').max = res.framesCount - 1;
-    currentFrame = 0;
-    populateModeList(res.modes);
+    if(lastResult.frames && lastResult.frames.length>0){
+      drawFrameToCanvas(lastResult.frames[0], Nx, Ny);
+      $('frameSlider').max = lastResult.framesCount - 1;
+      currentFrame = 0;
+    }
   }
 
   function populateModeList(modes){
     const div = $('modeList'); div.innerHTML='';
-    modes.forEach((m,idx)=>{
+    (modes||[]).forEach((m,idx)=>{
       const el = document.createElement('div'); el.style.padding='6px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.cursor='pointer';
-      el.textContent = `#${idx+1} (m,n)=(${m.m},${m.n}) f=${m.f.toFixed(2)}Hz`;
+      el.textContent = `#${idx+1} (m,n)=(${m.m},${m.n}) f=${(m.f||0).toFixed(2)}Hz`;
       el.onclick = ()=>{
         Array.from(div.children).forEach(x=>x.style.background='');
         el.style.background='#eef6ff';
@@ -448,8 +381,8 @@ canvas{border-radius:6px}
   function generateModeFrames(mode){
     if(!lastResult) return;
     const Nx = lastResult.Nx, Ny = lastResult.Ny;
-    const Lx = lastResult.xs[lastResult.xs.length-1] || parseFloat($('Lx').value);
-    const Ly = lastResult.ys[lastResult.ys.length-1] || parseFloat($('Ly').value);
+    const Lx = lastResult.xs && lastResult.xs.length ? lastResult.xs[lastResult.xs.length-1] : parseFloat($('Lx').value);
+    const Ly = lastResult.ys && lastResult.ys.length ? lastResult.ys[lastResult.ys.length-1] : parseFloat($('Ly').value);
     const framesCount = parseInt($('framesCount').value);
     const omega = mode.omega;
     const phiArr = new Float64Array(Nx*Ny);
