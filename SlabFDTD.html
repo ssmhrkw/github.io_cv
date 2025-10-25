@@ -33,6 +33,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
 .probe-list{max-height:140px;overflow:auto;border:1px solid #eef3fb;padding:6px;border-radius:6px;background:#fbfcfe}
 .kv{font-size:13px;color:var(--muted)}
 #errorBox{color:#b91c1c;background:#fff1f2;border:1px solid #fecaca;padding:8px;border-radius:6px;margin-top:8px;display:none}
+.overlayText{position:absolute;left:12px;top:12px;background:rgba(255,255,255,0.6);padding:6px;border-radius:6px;font-family:ui-sans-serif,system-ui;pointer-events:none}
 </style>
 </head>
 <body>
@@ -141,7 +142,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" style="position:relative">
       <div class="tabbar" role="tablist">
         <div class="tab active" data-tab="time">Time</div>
         <div class="tab" data-tab="mode">Mode</div>
@@ -151,6 +152,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       <div id="timePanel" class="panel">
         <div id="plot"></div>
         <canvas id="heatCanvas" class="heat"></canvas>
+        <div id="heatOverlay" class="overlayText" style="display:none"></div>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
           <button id="timePlay" class="small-btn btn">Start</button>
           <button id="timeStop" class="small-btn">Stop</button>
@@ -172,6 +174,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
           <input id="modeFrames" type="number" value="64" min="8" max="512" style="width:80px">
         </div>
         <canvas id="modeCanvas" class="modeCanvas"></canvas>
+        <div id="modeOverlay" class="overlayText" style="display:none"></div>
         <div style="margin-top:8px" class="kv">解析モードと FDTD由来モードを比較できます（Frequency タブでピーク選択）。</div>
       </div>
 
@@ -227,7 +230,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     return z;
   }
 
-  // resize canvas for crisp rendering on high-DPI
+  // DPR-aware resize for canvases
   function resizeCanvasForDisplay(canvas, displayW, displayH){
     const ratio = window.devicePixelRatio || 1;
     canvas.style.width = displayW + 'px';
@@ -236,15 +239,16 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     canvas.height = Math.max(1, Math.round(displayH * ratio));
     const ctx = canvas.getContext('2d');
     ctx.setTransform(ratio,0,0,ratio,0,0);
+    // use crisp font sizes after transform
+    ctx.font = '14px ui-sans-serif,system-ui';
+    ctx.textBaseline = 'top';
     return ctx;
   }
 
-  // draw array
+  // draw grid array to canvas (ctx already DPR-transformed)
   function drawArrayToCanvas(arr,Nx,Ny,ctx,manualMin,manualMax){
-    // ctx is already transformed for devicePixelRatio
     const dispW = parseFloat(ctx.canvas.style.width) || ctx.canvas.width;
     const dispH = parseFloat(ctx.canvas.style.height) || ctx.canvas.height;
-    // produce image at grid resolution
     let mn = manualMin, mx = manualMax;
     if(mn===undefined || mx===undefined || !isFinite(mn) || !isFinite(mx)){
       mn = Infinity; mx = -Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; } if(!isFinite(mn)){ mn=0; mx=1; }
@@ -259,7 +263,6 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
         img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
       }
     }
-    // draw scaled to display size (canvas ctx is already scaled)
     const tmp = document.createElement('canvas');
     tmp.width = Nx; tmp.height = Ny;
     tmp.getContext('2d').putImageData(img,0,0);
@@ -267,11 +270,40 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     ctx.drawImage(tmp, 0, 0, dispW, dispH);
   }
 
+  // overlay draw (x,y,frame,time)
+  function drawOverlayOnCanvas(ctx, xs, ys, ix, iy, frameIndex, dt){
+    const dispW = parseFloat(ctx.canvas.style.width) || ctx.canvas.width;
+    const dispH = parseFloat(ctx.canvas.style.height) || ctx.canvas.height;
+    // draw semi-transparent box at top-left
+    const padding = 6;
+    const lines = [];
+    if(frameIndex !== null && dt !== null) lines.push(`frame:${frameIndex} t:${(frameIndex*dt).toFixed(4)} s`);
+    if(ix != null && iy != null){
+      const x = xs[clamp(ix,0,xs.length-1)].toFixed(3);
+      const y = ys[clamp(iy,0,ys.length-1)].toFixed(3);
+      lines.push(`x:${x} m  y:${y} m`);
+    }
+    if(lines.length===0) return;
+    const txt = lines.join('\n');
+    // compute size
+    const lineHeight = 16;
+    const boxW = 200, boxH = lineHeight * lines.length + padding*2;
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillRect(8,8,boxW,boxH);
+    ctx.fillStyle = '#000';
+    ctx.font = '14px ui-sans-serif,system-ui';
+    for(let i=0;i<lines.length;i++){
+      ctx.fillText(lines[i], 12, 12 + i*lineHeight);
+    }
+  }
+
   // state
   let frames = null, lastResult = null, playInterval=null;
   let probes = [];
   let addingProbe=false;
   let recorder=null, recordedChunks=[];
+  let lastHeatPointer = {ix:null,iy:null};
+  let lastModePointer = {ix:null,iy:null};
 
   // tabs
   document.querySelectorAll('.tab').forEach(t=>{
@@ -454,24 +486,39 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
         frames = res.frames;
         lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
         $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx} dt=${res.dt.toExponential(2)}s`;
+        // static field
         const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
         const displayEl = document.getElementById('displayPreset');
         const displayChoiceVal = displayEl ? displayEl.value : 'v_over_F';
         const useDbStaticChecked = document.getElementById('useDbStatic') ? document.getElementById('useDbStatic').checked : false;
         const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:displayChoiceVal,useDbStatic:useDbStaticChecked});
         const z2d = to2D(staticField.Z, res.Nx, res.Ny);
+
+        // compute display sizes using physical aspect ratio Lx:Ly
+        const displayW = Math.min(1200, window.innerWidth - 420);
+        const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx)))); // keep reasonable caps
+
         try{
-          Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}}, {responsive:true,displaylogo:false});
+          Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {
+            margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'},
+            height: displayH
+          }, {responsive:true,displaylogo:false});
         }catch(e){
           showError('Plotly plot failed: '+ (e && e.message ? e.message : String(e)));
         }
-        // heatCanvas sizing and first-frame draw (DPR-aware)
+
+        // heatCanvas sizing and first-frame draw (DPR-aware) using Lx/Ly aspect
         const heatCanvas = $('heatCanvas');
-        const displayW = Math.min(1200, window.innerWidth - 420);
-        const displayH = 300;
         const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
         drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
+        // set overlay visible and initialize
+        $('heatOverlay').style.display = '';
+        $('heatOverlay').style.left = (heatCanvas.getBoundingClientRect().left + 8) + 'px';
+        $('heatOverlay').style.top = (heatCanvas.getBoundingClientRect().top + 8) + 'px';
+        // ensure frame slider sync
         $('frameSlider').max = frames.length-1; $('frameSlider').value = 0;
+        // draw overlay info
+        renderFrame(0);
       });
 
       $('abortBtn').onclick = ()=>{ if(workerHandle && workerHandle.cancel) workerHandle.cancel(); $('progressText').textContent='キャンセル済み'; };
@@ -484,10 +531,15 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
   let currentFrame=0;
   function renderFrame(i){
     if(!lastResult) return;
-    const ctx = $('heatCanvas').getContext('2d');
+    const heatCanvas = $('heatCanvas');
+    const ctx = heatCanvas.getContext('2d');
     const Nx = lastResult.Nx, Ny = lastResult.Ny;
     if(i<0) i=0; if(i>=lastResult.frames.length) i=lastResult.frames.length-1;
     drawArrayToCanvas(lastResult.frames[i], Nx, Ny, ctx);
+    // overlay: use lastHeatPointer if available, else center
+    let ix = lastHeatPointer.ix, iy = lastHeatPointer.iy;
+    if(ix==null || iy==null){ ix = Math.floor(Nx/2); iy = Math.floor(Ny/2); }
+    drawOverlayOnCanvas(ctx, lastResult.xs, lastResult.ys, ix, iy, i, lastResult.dt);
     $('frameSlider').value = i;
   }
 
@@ -526,17 +578,19 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }catch(err){ showError('録画に失敗しました: '+ (err && err.message ? err.message : String(err))); }
   });
 
-  // Mode animation (looping) — ensure DPR-aware sizing
+  // Mode animation (looping) — DPR-aware sizing and overlay
   let modeAnimId=null, currentMode=null, modeStopFlag=false;
   function startModeAnimation(mode){
     stopModeAnimation();
     currentMode = mode;
     const canvas = $('modeCanvas');
     const displayW = canvas.clientWidth || Math.min(800, window.innerWidth - 420);
-    const displayH = 360;
-    const ctx = resizeCanvasForDisplay(canvas, displayW, displayH);
-    const Ngrid = parseInt($('Ngrid').value);
+    // keep mode canvas aspect same as Lx/Ly
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
+    const ctx = resizeCanvasForDisplay(canvas, displayW, displayH);
+    $('modeOverlay').style.display = '';
+    const Ngrid = parseInt($('Ngrid').value);
     const Nx = Ngrid, Ny = Ngrid;
     const xs = new Array(Nx), ys = new Array(Ny);
     for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
@@ -554,6 +608,10 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       let mn=Infinity,mx=-Infinity;
       for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
       drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx);
+      // overlay: pointer if exists
+      let ix = lastModePointer.ix, iy = lastModePointer.iy;
+      if(ix==null || iy==null){ ix = Math.floor(Nx/2); iy = Math.floor(Ny/2); }
+      drawOverlayOnCanvas(ctx, xs, ys, ix, iy, f, 1.0/ (mode.omega ? mode.omega/(2*Math.PI) : 1.0));
       f = (f+1) % framesLocal;
       modeAnimId = requestAnimationFrame(step);
     }
@@ -567,10 +625,21 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
   }});
   $('modeStop').addEventListener('click', ()=> stopModeAnimation());
 
-  // Probe handling
+  // Probe handling on heatCanvas - tap to add (iPad pointer events)
   const heatCanvas = $('heatCanvas');
+  heatCanvas.addEventListener('pointermove', (ev)=> {
+    if(!lastResult) return;
+    const rect = heatCanvas.getBoundingClientRect();
+    const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
+    const ix = Math.floor(cx / rect.width * lastResult.Nx);
+    const iy = Math.floor(cy / rect.height * lastResult.Ny);
+    lastHeatPointer.ix = clamp(ix,0,lastResult.Nx-1);
+    lastHeatPointer.iy = clamp(iy,0,lastResult.Ny-1);
+    renderFrame(currentFrame); // redraw overlay
+  });
   heatCanvas.addEventListener('pointerdown',(ev)=> {
-    if(addingProbe && lastResult){
+    if(addingProbe){
+      if(!lastResult){ alert('まず計算してください'); addingProbe=false; $('addProbeBtn').textContent='プローブを追加(クリックで設置)'; return; }
       const rect = heatCanvas.getBoundingClientRect();
       const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
       const ix = Math.floor(cx / rect.width * lastResult.Nx);
@@ -583,6 +652,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
   });
 
   $('addProbeBtn').addEventListener('click', ()=> {
+    if(!lastResult){ alert('まず計算してください'); return; }
     addingProbe = true; $('addProbeBtn').textContent='タップで設置中...';
   });
   $('clearProbeBtn').addEventListener('click', ()=> { probes=[]; renderProbeList(); $('fftPlot').innerHTML=''; $('peakList').innerHTML=''; });
@@ -599,7 +669,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }));
   }
 
-  // FFT pipeline (simple DFT)
+  // FFT pipeline (simple DFT) - ensure Nfft used in angle, freqs consistent
   function hann(winN){ const w = new Float64Array(winN); for(let n=0;n<winN;n++) w[n]=0.5*(1-Math.cos(2*Math.PI*n/(winN-1))); return w;}
   function doFFT(){
     try{
@@ -615,10 +685,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const vmat = [];
       for(const p of probes){
         const vals = new Float64Array(T);
-        for(let t=0;t<T;t++){
-          const wv = lastResult.frames[t][p.iy*lastResult.Nx + p.ix];
-          vals[t]=wv;
-        }
+        for(let t=0;t<T;t++) vals[t]=lastResult.frames[t][p.iy*lastResult.Nx + p.ix];
         const v = new Float64Array(T);
         for(let t=0;t<T;t++){
           if(t===0) v[t] = (vals[1]-vals[0]) / dt;
@@ -637,6 +704,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       for(const s of series){
         const outRe = new Float64Array(Nfft/2);
         const outIm = new Float64Array(Nfft/2);
+        // DFT: sum over n=0..T-1 but angles use Nfft for correct freq sampling (zero-padding implied)
         for(let k=0;k<Nfft/2;k++){
           let re=0,im=0;
           for(let n=0;n<T;n++){
@@ -655,6 +723,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const trace = { x: freqArr, y: magDb, mode:'lines', type:'scatter' };
       const layout = { xaxis:{type:'log',title:'Hz'}, yaxis:{title:'dB (20·log10)', autorange:true}, margin:{t:10,b:40} };
       Plotly.newPlot('fftPlot',[trace],layout,{responsive:true,displaylogo:false});
+      // peak detection simple local maxima + threshold
       const peaks = [];
       const mvals = spectra[0].mag;
       const maxv = Math.max.apply(null, mvals);
@@ -667,7 +736,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const peakDiv = $('peakList'); peakDiv.innerHTML = '<strong>Peaks</strong><br>';
       peaks.slice(0,10).forEach(p=>{
         const btn = document.createElement('button'); btn.textContent = `${p.f.toFixed(2)} Hz (${p.ampDb.toFixed(1)} dB)`; btn.className='small-btn';
-        btn.addEventListener('click', ()=> { showModeMapFromFFT(p.idx, spectra[0], freqs); });
+        btn.addEventListener('click', ()=> { showModeMapFromFFT(p.idx, spectra[0], freqs, Nfft); });
         peakDiv.appendChild(btn);
         peakDiv.appendChild(document.createTextNode(' '));
       });
@@ -676,13 +745,13 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }
   }
 
-  function showModeMapFromFFT(idx, spectrum, freqs){
+  function showModeMapFromFFT(idx, spectrum, freqs, Nfft){
     if(!lastResult) return;
     const T = lastResult.frames.length;
     const Nx = lastResult.Nx, Ny = lastResult.Ny;
-    const Nfft = (spectrum.mag.length)*2;
     const reMap = new Float64Array(Nx*Ny);
     const imMap = new Float64Array(Nx*Ny);
+    // Use same angle convention as FFT (Nfft)
     for(let j=0;j<Ny;j++){
       for(let i=0;i<Nx;i++){
         let re=0,im=0;
@@ -701,16 +770,23 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     if(mx===0) mx=1;
     const norm = new Float64Array(amp.length);
     for(let k=0;k<amp.length;k++) norm[k]=amp[k]/mx;
+    // switch to mode tab and plot normalized map with proper aspect
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelector('.tab[data-tab="mode"]').classList.add('active');
     $('timePanel').style.display='none'; $('freqPanel').style.display='none'; $('modePanel').style.display='';
     const z2d = to2D(norm, Nx, Ny);
-    Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}}, {responsive:true,displaylogo:false});
+    // determine display size using physical aspect
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const displayW = Math.min(1200, window.innerWidth - 420);
+    const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
+    Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {
+      margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}, height: displayH
+    }, {responsive:true,displaylogo:false});
   }
 
   $('doFFT').addEventListener('click', ()=> doFFT());
 
-  // show initial static field
+  // render initial static field on load
   (function initial(){
     try{
       const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
@@ -721,15 +797,55 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const freq = modes[0].f;
       const useDbStaticChecked = document.getElementById('useDbStatic') ? document.getElementById('useDbStatic').checked : false;
       const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:'v_over_F',useDbStatic:useDbStaticChecked});
-      Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:10,b:40,l:60,r:10}}, {responsive:true,displaylogo:false});
-      const heatCanvas = $('heatCanvas');
       const displayW = Math.min(1200, window.innerWidth - 420);
-      const ctx = resizeCanvasForDisplay(heatCanvas, displayW, 300);
+      const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
+      Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:10,b:40,l:60,r:10}, height: displayH}, {responsive:true,displaylogo:false});
+      const heatCanvas = $('heatCanvas');
+      const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
       drawArrayToCanvas(staticField.Z, Ngrid, Ngrid, ctx);
+      $('heatOverlay').style.display = '';
+      // pointer handlers for mode canvas overlay
+      const modeCanvas = $('modeCanvas');
+      modeCanvas.addEventListener('pointermove',(ev)=>{
+        const rect = modeCanvas.getBoundingClientRect();
+        const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
+        const NgridLocal = parseInt($('Ngrid').value);
+        const ix = Math.floor(cx / rect.width * NgridLocal);
+        const iy = Math.floor(cy / rect.height * NgridLocal);
+        lastModePointer.ix = clamp(ix,0,NgridLocal-1);
+        lastModePointer.iy = clamp(iy,0,NgridLocal-1);
+      });
     }catch(err){
       showError('initial render failed: ' + (err && err.message ? err.message : String(err)));
     }
   })();
+
+  // window resize handling: update Plotly height and canvas sizes, then redraw current frame/mode
+  window.addEventListener('resize', ()=> {
+    try{
+      const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+      const displayW = Math.min(1200, window.innerWidth - 420);
+      const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
+      // update Plotly height
+      try{ Plotly.relayout('plot', {height: displayH}); }catch(e){}
+      // resize heatCanvas and redraw
+      if(lastResult){
+        const heatCanvas = $('heatCanvas');
+        const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
+        drawArrayToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny, ctx);
+        drawOverlayOnCanvas(ctx, lastResult.xs, lastResult.ys, lastHeatPointer.ix, lastHeatPointer.iy, currentFrame, lastResult.dt);
+      } else {
+        // initial static
+        const heatCanvas = $('heatCanvas');
+        const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
+      }
+      // resize mode canvas
+      const modeCanvas = $('modeCanvas');
+      const mctx = resizeCanvasForDisplay(modeCanvas, Math.min(1200, window.innerWidth - 420), Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx)))));
+    }catch(e){
+      // swallow
+    }
+  });
 
 })();
 </script>
