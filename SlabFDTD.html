@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SlabFDTD — プリセット別枠版</title>
+<title>SlabFDTD — 四角板プロトタイプ</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -17,126 +17,117 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .row{margin-bottom:8px}
 .btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
 .small{font-size:13px;color:var(--muted)}
-#plot{height:60vh;min-height:420px}
+#plot{height:36vh;min-height:220px}
 .inline{display:flex;gap:8px;align-items:center}
 .mode-list{max-height:180px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
 .footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
 .controls-row{display:flex;gap:8px}
-canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
+canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch-action: none;}
 .progress{height:10px;background:#eef3fb;border-radius:6px;overflow:hidden}
 .progress > div{height:100%;background:#60a5fa;width:0%}
-
-/* プリセット枠 */
-.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-.preset-box{background:#fbfcfe;border:1px solid #eef3fb;padding:8px;border-radius:8px;font-size:13px}
-.preset-box strong{display:block;margin-bottom:6px}
+.tabbar{display:flex;gap:8px;margin-bottom:8px}
+.tab{padding:8px;border-radius:8px;background:#fff;border:1px solid #eef3fb;cursor:pointer}
+.tab.active{background:var(--accent);color:#fff}
+.controls-collapsed{max-height:48px;overflow:hidden;padding:6px}
+.panel-row{display:flex;gap:8px}
+.small-btn{padding:6px;border-radius:6px;font-size:13px}
+.probe-list{max-height:140px;overflow:auto;border:1px solid #eef3fb;padding:6px;border-radius:6px;background:#fbfcfe}
+.kv{font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>SlabFDTD — プリセット別枠版</h2>
+  <h2>SlabFDTD — 四角板プロトタイプ</h2>
   <div class="grid">
     <div class="card" id="controlsPanel">
-      <!-- プリセット群を枠で分離 -->
-      <div class="preset-grid">
-        <div class="preset-box">
+      <div class="preset-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="background:#fbfcfe;padding:8px;border-radius:8px;border:1px solid #eef3fb">
           <strong>材料プリセット</strong>
-          <select id="material_preset">
+          <select id="material_preset" style="margin-top:6px">
             <option value="concrete">Concrete (E=3e10, ν=0.2, ρ=2400)</option>
             <option value="steel">Steel (E=2.1e11, ν=0.3, ρ=7850)</option>
             <option value="custom">Custom</option>
           </select>
         </div>
-
-        <div class="preset-box">
+        <div style="background:#fbfcfe;padding:8px;border-radius:8px;border:1px solid #eef3fb">
           <strong>加振点プリセット</strong>
-          <select id="sourcePreset_preset">
+          <select id="sourcePreset_preset" style="margin-top:6px">
             <option value="center">中心 (Lx/2, Ly/2)</option>
             <option value="diag_1_3">対角 1/3 (Lx/3, Ly/3)</option>
             <option value="diag_2_3">対角 2/3 (2Lx/3, 2Ly/3)</option>
+            <option value="custom">カスタム</option>
           </select>
         </div>
+      </div>
 
-        <div class="preset-box">
-          <strong>表示プリセット</strong>
-          <select id="displayPreset">
-            <option value="v_over_F">v / F （m/s per N）</option>
-            <option value="F_over_v">F / v （N per (m/s)）</option>
-          </select>
+      <div id="paramsArea">
+        <div class="row controls-row">
+          <div style="flex:1">
+            <label>E [Pa]</label><input id="E" type="number" value="30000000000">
+          </div>
+          <div style="flex:1">
+            <label>ν</label><input id="nu" type="number" step="0.01" value="0.20">
+          </div>
         </div>
 
-        <div class="preset-box">
-          <strong>静解析 dB 表示</strong>
-          <label style="margin:0"><input type="checkbox" id="useDbStatic_preset"> 10·log10 (ref=1)</label>
+        <div class="row controls-row">
+          <div style="flex:1">
+            <label>ρ [kg/m³]</label><input id="rho" type="number" value="2400">
+          </div>
+          <div style="flex:1">
+            <label>h [m]</label><input id="h" type="number" step="0.01" value="0.15">
+          </div>
         </div>
-      </div>
 
-      <!-- 主要パラメータ（プリセットとは別に表示） -->
-      <div class="row controls-row">
-        <div style="flex:1">
-          <label>E [Pa]</label><input id="E" type="number" value="30000000000">
+        <div class="row controls-row">
+          <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
+          <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
         </div>
-        <div style="flex:1">
-          <label>ν</label><input id="nu" type="number" step="0.01" value="0.20">
+
+        <div class="row controls-row">
+          <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="1" min="16" value="80"></div>
+          <div style="flex:1"><label>dx (m) — overrides Ngrid if >0</label><input id="dx" type="number" step="0.01" value="0.00"></div>
         </div>
-      </div>
 
-      <div class="row controls-row">
-        <div style="flex:1">
-          <label>ρ [kg/m³]</label><input id="rho" type="number" value="2400">
+        <div class="row controls-row">
+          <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="1024" value="128"></div>
+          <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" min="4" max="64" value="16"></div>
         </div>
-        <div style="flex:1">
-          <label>h [m]</label><input id="h" type="number" step="0.01" value="0.15">
+
+        <div class="row controls-row">
+          <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5"></div>
+          <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5"></div>
         </div>
-      </div>
 
-      <div class="row controls-row">
-        <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
-        <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
-      </div>
-
-      <div class="row controls-row">
-        <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="1" min="16" value="80"></div>
-        <div style="flex:1"><label>dx (m) — overrides Ngrid if >0</label><input id="dx" type="number" step="0.01" value="0.00"></div>
-      </div>
-
-      <div class="row controls-row">
-        <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="1024" value="128"></div>
-        <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" min="4" max="64" value="16"></div>
-      </div>
-
-      <div class="row controls-row">
-        <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5"></div>
-        <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5"></div>
-      </div>
-
-      <div class="row">
-        <label>周波数 f [Hz]（空欄で第1モード）</label>
-        <input id="freq" type="number" step="0.01" value="">
-      </div>
-
-      <div class="row">
-        <label>加振点（プリセットかクリックで設定）</label>
-        <div class="controls-row">
-          <div style="flex:1"><input id="x0" type="number" step="0.01" value="2.50"></div>
-          <div style="flex:1"><input id="y0" type="number" step="0.01" value="2.00"></div>
+        <div class="row">
+          <label>周波数 f [Hz]（空欄で第1モード）</label>
+          <input id="freq" type="number" step="0.01" value="">
         </div>
-      </div>
 
-      <div class="row inline">
-        <label><input type="checkbox" id="useDbStatic"> 静解析 dB 表示（10·log10）</label>
-        <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
-      </div>
+        <div class="row">
+          <label>加振点（プリセットかCanvasクリックで設定）</label>
+          <div class="controls-row">
+            <div style="flex:1"><input id="x0" type="number" step="0.01" value="2.50"></div>
+            <div style="flex:1"><input id="y0" type="number" step="0.01" value="2.00"></div>
+          </div>
+        </div>
 
-      <div class="row">
-        <button id="computeBtn" class="btn">計算開始</button>
-        <button id="resetBtn">リセット</button>
-      </div>
+        <div class="row inline">
+          <label><input type="checkbox" id="useDbStatic"> 静解析 dB 表示（10·log10）</label>
+          <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
+        </div>
 
-      <div class="row">
-        <label>Progress</label>
-        <div class="progress"><div id="progressFill" style="width:0%"></div></div>
-        <div id="progressText" class="small"></div>
+        <div class="row">
+          <button id="computeBtn" class="btn">計算開始</button>
+          <button id="abortBtn" class="btn" style="background:#9ca3af">中断</button>
+          <button id="resetBtn" class="btn" style="background:#94a3b8">リセット</button>
+        </div>
+
+        <div class="row">
+          <label>Progress</label>
+          <div class="progress"><div id="progressFill" style="width:0%"></div></div>
+          <div id="progressText" class="small"></div>
+        </div>
       </div>
 
       <hr>
@@ -150,23 +141,92 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     </div>
 
     <div class="card">
-      <div id="plot"></div>
-      <canvas id="heatCanvas"></canvas>
-      <div id="fftPlot" style="height:220px;margin-top:8px"></div>
+      <div class="tabbar" role="tablist">
+        <div class="tab active" data-tab="time">Time</div>
+        <div class="tab" data-tab="mode">Mode</div>
+        <div class="tab" data-tab="freq">Frequency</div>
+      </div>
+
+      <div id="timePanel" class="panel">
+        <div id="plot"></div>
+        <canvas id="heatCanvas"></canvas>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button id="timePlay" class="small-btn btn">Start</button>
+          <button id="timeStop" class="small-btn">Stop</button>
+          <button id="timePrev" class="small-btn">◀︎</button>
+          <button id="timeNext" class="small-btn">▶︎</button>
+          <label style="margin-left:8px" class="kv">FPS</label>
+          <input id="fps" type="range" min="1" max="60" value="25" style="width:140px">
+          <button id="recordBtn" class="small-btn btn" style="margin-left:auto">録画</button>
+          <div id="recordStatus" class="kv" style="margin-left:8px"></div>
+        </div>
+        <input id="frameSlider" type="range" min="0" max="127" value="0" style="width:100%;margin-top:8px">
+      </div>
+
+      <div id="modePanel" class="panel" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button id="modeStart" class="btn">Start</button>
+          <button id="modeStop" class="btn" style="background:#9ca3af">Stop</button>
+          <label style="margin-left:8px" class="kv">アニメフレーム</label>
+          <input id="modeFrames" type="number" value="64" min="8" max="512" style="width:80px">
+        </div>
+        <canvas id="modeCanvas" style="height:360px;width:100%"></canvas>
+        <div style="margin-top:8px" class="kv">解析モードと FDTD由来モードを比較できます（Frequency タブでピーク選択）。</div>
+      </div>
+
+      <div id="freqPanel" class="panel" style="display:none">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <div style="display:flex;gap:8px;align-items:center">
+              <button id="addProbeBtn" class="small-btn btn">プローブを追加(クリックで設置)</button>
+              <button id="clearProbeBtn" class="small-btn">クリア</button>
+              <label class="kv" style="margin-left:8px">平均</label><input type="checkbox" id="avgProbe">
+              <label class="kv" style="margin-left:8px">upsample</label><input id="upsample" type="number" min="1" value="1" style="width:64px">
+              <button id="doFFT" class="small-btn btn" style="margin-left:auto">FFT 実行</button>
+            </div>
+            <div class="probe-list" id="probeList" style="margin-top:8px"></div>
+          </div>
+          <div style="flex:1">
+            <div id="fftPlot" style="height:260px"></div>
+            <div id="peakList" class="kv" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
 (() => {
+  // helpers
   const $ = id => document.getElementById(id);
   function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
   function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
   function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
   function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
+  function nextPow2(n){ let p=1; while(p<n) p*=2; return p; }
+  const eps = 1e-20;
 
-  let frames=null, lastResult=null, playTimer=null, currentFrame=0;
+  // state
+  let frames = null, lastResult = null, playing=false, playInterval=null;
+  let probes = []; // {ix,iy,x,y,vals}
+  let addingProbe=false;
+  let recorder=null, recordedChunks=[];
 
+  // tabs
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=> {
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      const tab = t.dataset.tab;
+      $('timePanel').style.display = tab==='time' ? '' : 'none';
+      $('modePanel').style.display = tab==='mode' ? '' : 'none';
+      $('freqPanel').style.display = tab==='freq' ? '' : 'none';
+    });
+  });
+
+  // build modes
   function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
     const D = D_of(E,h,nu);
     const modes=[];
@@ -179,34 +239,26 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     return modes;
   }
 
-  function to2D(arr,Nx,Ny){
-    const z = new Array(Ny);
-    for(let j=0;j<Ny;j++){
-      const row = new Array(Nx);
-      for(let i=0;i<Nx;i++) row[i] = arr[j*Nx + i];
-      z[j]=row;
-    }
-    return z;
-  }
-
   function populateModeList(modes){
     const div = $('modeList'); div.innerHTML='';
     modes.forEach((md,idx)=>{
       const el = document.createElement('div'); el.style.padding='6px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.cursor='pointer';
       el.textContent = `#${idx+1} (m,n)=(${md.m},${md.n}) f=${md.f.toFixed(2)} Hz`;
-      el.onclick = ()=>{
+      el.onclick = ()=> {
         Array.from(div.children).forEach(x=>x.style.background='');
         el.style.background='#eef6ff';
         $('freq').value = md.f.toFixed(6);
-        animateModeOnce(md);
+        // animate mode (loop)
+        startModeAnimation(md);
       };
       div.appendChild(el);
     });
   }
 
+  // static modal synthesis (same as before)
   function computeStaticField(opts){
     const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDbStatic} = opts;
-    const omega = 2*Math.PI*freq;
+    const omega = 2*Math.PI*freq || 0;
     const Mmn = modalMass(rho,h,Lx,Ly);
     const Nx = Ngrid, Ny = Ngrid;
     const xs = new Array(Nx); const ys = new Array(Ny);
@@ -222,7 +274,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
       const num = {re: F * phi0, im: 0};
       const real = Mmn * (omega_m*omega_m - omega*omega);
       const imag = Mmn * (omega * omega_m / Q);
-      const d = real*real + imag*imag;
+      const d = real*real + imag*imag || 1e-30;
       const eta = { re: (num.re*real + num.im*imag)/d, im: (num.im*real - num.re*imag)/d };
       for(let j=0;j<Ny;j++){
         const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
@@ -240,40 +292,15 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const out = new Float64Array(Ny*Nx);
     if(displayChoice === 'v_over_F') for(let k=0;k<out.length;k++) out[k] = V[k]; else for(let k=0;k<out.length;k++) out[k] = (V[k]>0?1.0/V[k]:0);
     if(useDbStatic){
-      const eps = 1e-20;
       for(let k=0;k<out.length;k++) out[k] = 10 * Math.log10(Math.max(out[k], eps));
     }
     return {xs,ys,Z:out,rawV:V};
   }
 
-  function animateModeOnce(mode){
-    const Ngrid = parseInt($('Ngrid').value);
-    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-    const Nx = Ngrid, Ny = Ngrid;
-    const xs = new Array(Nx), ys=new Array(Ny);
-    for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
-    for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
-    const phiArr = new Float64Array(Nx*Ny); let maxabs=0;
-    for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){ const v = Math.sin(mode.m*Math.PI*xs[i]/Lx) * Math.sin(mode.n*Math.PI*ys[j]/Ly); phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v); }
-    if(maxabs===0) maxabs=1; for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
-    const framesLocal = 64;
-    const ctx = document.getElementById('heatCanvas').getContext('2d');
-    let f=0;
-    function step(){
-      const t = f/framesLocal;
-      const cosv = Math.cos(2*Math.PI * t);
-      const arr = new Float32Array(Nx*Ny);
-      let mn=Infinity,mx=-Infinity;
-      for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
-      drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx);
-      f++; if(f<framesLocal) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
+  // draw 2D grid array to canvas
   function drawArrayToCanvas(arr,Nx,Ny,ctx,manualMin,manualMax){
-    const W = document.getElementById('heatCanvas').width || 800;
-    const H = document.getElementById('heatCanvas').height || 300;
+    const W = ctx.canvas.width || 800;
+    const H = ctx.canvas.height || 300;
     let mn = manualMin, mx = manualMax;
     if(mn===undefined || mx===undefined || !isFinite(mn) || !isFinite(mx)){
       mn = Infinity; mx = -Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; } if(!isFinite(mn)){ mn=0; mx=1; }
@@ -290,10 +317,13 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     ctx.clearRect(0,0,W,H); ctx.drawImage(tmp,0,0,W,H);
   }
 
+  // FDTD transient (same as before) - chunked
+  let abortFlag=false;
   function computeTransient(cfg, onProgress, onDone){
+    abortFlag=false;
     const Lx = cfg.Lx, Ly=cfg.Ly;
     let Nx = cfg.Ngrid, Ny = cfg.Ngrid;
-    if(cfg.dx && cfg.dx>0){ Nx = Math.ceil(Lx/cfg.dx)+1; Ny = Math.ceil(Ly/cfg.dx)+1; }
+    if(cfg.dx && cfg.dx>0){ Nx = Math.ceil(Math.max(Lx,Ly)/cfg.dx)+1; Ny = Math.ceil(Math.max(Lx,Ly)/cfg.dx)+1; }
     Nx = Math.max(16, Nx); Ny = Nx;
     const size = Nx*Ny;
     const E=cfg.E, nu=cfg.nu, rho=cfg.rho, h=cfg.h;
@@ -301,8 +331,8 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const marea = rho*h;
     const dx = Math.min(Lx/(Nx-1), Ly/(Ny-1));
     const Cstab=0.25;
-    const dt_stab = Cstab * dx*dx * Math.sqrt(marea / D);
-    const fmax = Math.min(250, cfg.fmax||250);
+    const dt_stab = Cstab * dx*dx * Math.sqrt(marea / (D||1e-30));
+    const fmax = Math.min(cfg.fmax||250, 250);
     const dt_res = 1.0 / (cfg.samplesPerCycle * Math.max(1,fmax));
     const dt = Math.min(dt_stab, dt_res);
     const coeff = (dt*dt)/marea;
@@ -312,7 +342,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const sx = clamp(Math.round(cfg.x0 / Lx * (Nx-1)), 1, Nx-2);
     const sy = clamp(Math.round(cfg.y0 / Ly * (Ny-1)), 1, Ny-2);
     const src = sy*Nx + sx;
-    const forceSteps = Math.max(1, Math.floor(0.002 / dt));
+    const forceSteps = Math.max(1, Math.floor(0.002 / Math.max(dt,1e-12)));
     const idx = (i,j)=> j*Nx + i;
 
     function lap(arr){
@@ -342,6 +372,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
 
     let step=0; const chunk=4;
     function runChunk(){
+      if(abortFlag){ onProgress(0,'中断'); return; }
       const end = Math.min(framesCount, step + chunk);
       for(; step<end; step++){
         const F = new Float32Array(size);
@@ -355,12 +386,15 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
         framesBuf[step] = w.slice(0);
       }
       onProgress(Math.round(100*step/framesCount), `step ${step}/${framesCount}`);
-      if(step < framesCount) setTimeout(runChunk, 8); else onDone({frames:framesBuf,Nx,Ny,dt,Fs:1/dt});
+      if(step < framesCount) setTimeout(runChunk, 8); else onDone({frames:framesBuf,Nx,Ny,dt,Fs:1/Math.max(dt,1e-12)});
     }
     runChunk();
+    return {
+      cancel: ()=>{ abortFlag=true; }
+    };
   }
 
-  // compute button (折りたたまない)
+  // compute button
   $('computeBtn').addEventListener('click', ()=>{
     if($('material_preset').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
     else if($('material_preset').value==='steel'){ $('E').value=210000000000; $('nu').value=0.3; $('rho').value=7850; }
@@ -378,31 +412,267 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const x0=clamp(parseFloat($('x0').value),0,Lx), y0=clamp(parseFloat($('y0').value),0,Ly);
     const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modes);
     $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
-    computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0}, (p,msg)=>{
+
+    const workerHandle = computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0}, (p,msg)=>{
       $('progressFill').style.width = p+'%'; $('progressText').textContent = msg|| (p+'%');
     }, (res)=>{
-      frames = res.frames; lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
-      $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx}`;
+      frames = res.frames;
+      lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
+      $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx} dt=${res.dt.toExponential(2)}s`;
+      // draw static field and first frame
       const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
-      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:$('displayPreset').value,useDbStatic:$('useDbStatic').checked});
+      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:$('displayPreset')?.value||'v_over_F',useDbStatic:$('useDbStatic')?.checked});
       const z2d = to2D(staticField.Z, res.Nx, res.Ny);
-      const trace = { z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' };
-      const layout = {margin:{t:30,b:60,l:60,r:10}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]}, annotations:[{text:`source=(${x0.toFixed(2)},${y0.toFixed(2)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
-      Plotly.newPlot('plot', [trace], layout, {responsive:true,displaylogo:false});
-      const ctx = document.getElementById('heatCanvas').getContext('2d');
-      document.getElementById('heatCanvas').width = 800; document.getElementById('heatCanvas').height = 300;
+      Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}}, {responsive:true,displaylogo:false});
+      const ctx = $('heatCanvas').getContext('2d'); $('heatCanvas').width = 800; $('heatCanvas').height = 300;
       drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
-      document.getElementById('heatCanvas').scrollIntoView({behavior:'smooth'});
+      $('frameSlider').max = frames.length-1; $('frameSlider').value = 0;
     });
+
+    // abort binding
+    $('abortBtn').onclick = ()=>{ if(workerHandle && workerHandle.cancel) workerHandle.cancel(); $('progressText').textContent='キャンセル済み'; };
   });
 
-  // reset
-  $('resetBtn').addEventListener('click', ()=> {
-    $('controlsPanel').scrollIntoView({behavior:'smooth'});
-    // show current presets values (no collapse)
+  // frame playback controls
+  function renderFrame(i){
+    if(!lastResult) return;
+    const ctx = $('heatCanvas').getContext('2d');
+    const Nx = lastResult.Nx, Ny = lastResult.Ny;
+    drawArrayToCanvas(lastResult.frames[i], Nx, Ny, ctx);
+    $('frameSlider').value = i;
+  }
+
+  $('frameSlider').addEventListener('input', (e)=> { const v = parseInt(e.target.value); currentFrame=v; renderFrame(v); });
+  $('timePlay').addEventListener('click', ()=> {
+    if(!frames || !lastResult){ alert('まず計算してください'); return; }
+    if(playInterval) clearInterval(playInterval);
+    playing=true;
+    const fps = parseInt($('fps').value) || 25;
+    playInterval = setInterval(()=> {
+      currentFrame = (currentFrame + 1) % lastResult.frames.length;
+      renderFrame(currentFrame);
+    }, 1000/Math.max(1,fps));
+  });
+  $('timeStop').addEventListener('click', ()=> { playing=false; if(playInterval) clearInterval(playInterval); playInterval=null; });
+  $('timePrev').addEventListener('click', ()=> { currentFrame = Math.max(0, currentFrame-1); renderFrame(currentFrame); });
+  $('timeNext').addEventListener('click', ()=> { currentFrame = Math.min(lastResult.frames.length-1, currentFrame+1); renderFrame(currentFrame); });
+
+  // recording
+  $('recordBtn').addEventListener('click', async ()=>{
+    const canvas = $('heatCanvas');
+    if(!canvas) return;
+    try{
+      const stream = canvas.captureStream(25);
+      recordedChunks = [];
+      recorder = new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'});
+      recorder.ondataavailable = e=>{ if(e.data.size) recordedChunks.push(e.data); };
+      recorder.onstop = ()=> {
+        const blob = new Blob(recordedChunks,{type:'video/webm'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `slab_${Date.now()}.webm`; a.click();
+        $('recordStatus').textContent = '保存済';
+      };
+      recorder.start();
+      $('recordStatus').textContent = '録画中...';
+      setTimeout(()=>{ if(recorder && recorder.state==='recording') { recorder.stop(); $('recordStatus').textContent='終了'; } }, 10000);
+    }catch(err){ console.error(err); alert('録画に失敗しました: '+err.message); }
   });
 
-  // initial render
+  // Mode animation (looping)
+  let modeAnimId=null, currentMode=null, modeStopFlag=false;
+  function startModeAnimation(mode){
+    stopModeAnimation();
+    currentMode = mode;
+    const canvas = $('modeCanvas'); const ctx = canvas.getContext('2d');
+    const Ngrid = parseInt($('Ngrid').value);
+    canvas.width = canvas.clientWidth; canvas.height = 360;
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const Nx = Ngrid, Ny = Ngrid;
+    const xs = new Array(Nx), ys = new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
+    const phiArr = new Float64Array(Nx*Ny); let maxabs=0;
+    for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){ const v = Math.sin(mode.m*Math.PI*xs[i]/Lx) * Math.sin(mode.n*Math.PI*ys[j]/Ly); phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v); }
+    if(maxabs===0) maxabs=1; for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
+    const framesLocal = parseInt($('modeFrames').value) || 64;
+    let f=0; modeStopFlag=false;
+    function step(){
+      if(modeStopFlag) return;
+      const t = f/framesLocal;
+      const cosv = Math.cos(2*Math.PI * t);
+      const arr = new Float32Array(Nx*Ny);
+      let mn=Infinity,mx=-Infinity;
+      for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
+      drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx);
+      f = (f+1) % framesLocal;
+      modeAnimId = requestAnimationFrame(step);
+    }
+    modeAnimId = requestAnimationFrame(step);
+  }
+  function stopModeAnimation(){ modeStopFlag=true; if(modeAnimId) cancelAnimationFrame(modeAnimId); modeAnimId=null; }
+
+  $('modeStart').addEventListener('click', ()=> { if(currentMode) startModeAnimation(currentMode); else {
+    const modes = buildModes(parseFloat($('Lx').value),parseFloat($('Ly').value),parseFloat($('E').value),parseFloat($('nu').value),parseFloat($('rho').value),parseFloat($('h').value),parseInt($('mmax').value),parseInt($('nmax').value));
+    startModeAnimation(modes[0]);
+  }});
+  $('modeStop').addEventListener('click', ()=> stopModeAnimation());
+
+  // Probe handling using heatCanvas clicks
+  const heatCanvas = $('heatCanvas');
+  const heatCtx = heatCanvas.getContext('2d');
+  heatCanvas.addEventListener('pointerdown',(ev)=> {
+    if(addingProbe && lastResult){
+      const rect = heatCanvas.getBoundingClientRect();
+      const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
+      const ix = Math.floor(cx / rect.width * lastResult.Nx);
+      const iy = Math.floor(cy / rect.height * lastResult.Ny);
+      const x = lastResult.xs[ix] || 0, y = lastResult.ys[iy] || 0;
+      probes.push({ix,iy,x,y,vals:null});
+      renderProbeList();
+      addingProbe=false; $('addProbeBtn').textContent='プローブを追加(クリックで設置)';
+    }
+  });
+
+  $('addProbeBtn').addEventListener('click', ()=> {
+    addingProbe = true; $('addProbeBtn').textContent='タップで設置中...';
+  });
+  $('clearProbeBtn').addEventListener('click', ()=> { probes=[]; renderProbeList(); $('fftPlot').innerHTML=''; $('peakList').innerHTML=''; });
+
+  function renderProbeList(){
+    const div = $('probeList'); div.innerHTML='';
+    probes.forEach((p,i)=>{
+      const el = document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='6px';
+      el.innerHTML = `<div>p${i+1}: (${p.x.toFixed(2)},${p.y.toFixed(2)})</div><div><button data-i="${i}" class="small-btn">削除</button></div>`;
+      div.appendChild(el);
+    });
+    div.querySelectorAll('button').forEach(b=> b.addEventListener('click', (e)=> {
+      const i = parseInt(b.dataset.i); probes.splice(i,1); renderProbeList();
+    }));
+  }
+
+  // FFT pipeline (simple DFT)
+  function hann(winN){ const w = new Float64Array(winN); for(let n=0;n<winN;n++) w[n]=0.5*(1-Math.cos(2*Math.PI*n/(winN-1))); return w;}
+  function doFFT(){
+    if(!lastResult){ alert('まず計算して frames を取得してください'); return; }
+    if(probes.length===0){ alert('プローブを追加してください'); return; }
+    const Fs = lastResult.Fs, dt = lastResult.dt;
+    // extract w[t] per probe: choose from frames[]. length = frames.length
+    const T = lastResult.frames.length;
+    const win = hann(T);
+    const up = Math.max(1, parseInt($('upsample').value)||1);
+    const Nfft = nextPow2(Math.max(64, up*T));
+    const fmax = parseFloat($('framesCount')?.value) || 250;
+    const freqs = new Float64Array(Nfft/2);
+    for(let k=0;k<freqs.length;k++) freqs[k] = k * (Fs / Nfft);
+    // collect velocity time series per probe
+    const vmat = [];
+    for(const p of probes){
+      const vals = new Float64Array(T);
+      for(let t=0;t<T;t++){
+        const wv = lastResult.frames[t][p.iy*lastResult.Nx + p.ix];
+        vals[t]=wv;
+      }
+      // velocity via central diff
+      const v = new Float64Array(T);
+      for(let t=0;t<T;t++){
+        if(t===0) v[t] = (vals[1]-vals[0]) / dt;
+        else if(t===T-1) v[t] = (vals[T-1]-vals[T-2]) / dt;
+        else v[t] = (vals[t+1]-vals[t-1]) / (2*dt);
+      }
+      // window
+      for(let t=0;t<T;t++) v[t] *= win[t];
+      vmat.push(v);
+    }
+    // average if requested
+    let vavg = new Float64Array(T);
+    if($('avgProbe').checked){
+      for(let t=0;t<T;t++){ let s=0; for(let i=0;i<vmat.length;i++) s+=vmat[i][t]; vavg[t]=s/vmat.length; }
+    }
+    // compute DFT for each selected series (use averaged if chosen)
+    const series = $('avgProbe').checked ? [vavg] : vmat;
+    const spectra = [];
+    for(const s of series){
+      // zero-pad to Nfft
+      const outRe = new Float64Array(Nfft/2);
+      const outIm = new Float64Array(Nfft/2);
+      for(let k=0;k<Nfft/2;k++){
+        let re=0,im=0;
+        for(let n=0;n<T;n++){
+          const angle = -2*Math.PI * k * n / Nfft;
+          re += s[n] * Math.cos(angle);
+          im += s[n] * Math.sin(angle);
+        }
+        outRe[k]=re; outIm[k]=im;
+      }
+      const mag = new Float64Array(Nfft/2);
+      for(let k=0;k<Nfft/2;k++) mag[k] = Math.sqrt(outRe[k]*outRe[k] + outIm[k]*outIm[k]) / T;
+      spectra.push({re:outRe,im:outIm,mag});
+    }
+    // plot first spectrum (semilogx)
+    const freqArr = Array.from(freqs);
+    const magDb = Array.from(spectra[0].mag).map(v => 20*Math.log10(Math.max(v, eps)));
+    const trace = { x: freqArr, y: magDb, mode:'lines', type:'scatter' };
+    const layout = { xaxis:{type:'log',title:'Hz',range:[Math.log10(Math.max(0.1,freqArr[1])) , Math.log10(Math.min(freqArr[freqArr.length-1],250))]}, yaxis:{title:'dB (20·log10)', autorange:true}, margin:{t:10,b:40} };
+    Plotly.newPlot('fftPlot',[trace],layout,{responsive:true,displaylogo:false});
+    // peak detection simple: local maxima above threshold (prominence fraction of max)
+    const peaks = [];
+    const mvals = spectra[0].mag;
+    const maxv = Math.max(...mvals);
+    const thresh = maxv * 0.15;
+    for(let k=2;k<mvals.length-2;k++){
+      if(mvals[k] > mvals[k-1] && mvals[k] > mvals[k+1] && mvals[k] > thresh){
+        peaks.push({f:freqs[k], ampDb:20*Math.log10(Math.max(mvals[k],eps)), idx:k});
+      }
+    }
+    const peakDiv = $('peakList'); peakDiv.innerHTML = '<strong>Peaks</strong><br>';
+    peaks.slice(0,10).forEach(p=>{
+      const btn = document.createElement('button'); btn.textContent = `${p.f.toFixed(2)} Hz (${p.ampDb.toFixed(1)} dB)`; btn.className='small-btn';
+      btn.addEventListener('click', ()=> { showModeMapFromFFT(p.idx, spectra[0], freqs); });
+      peakDiv.appendChild(btn);
+      peakDiv.appendChild(document.createTextNode(' '));
+    });
+  }
+
+  function showModeMapFromFFT(idx, spectrum, freqs){
+    if(!lastResult) return;
+    // build complex map at frequency idx from each gridpoint: do DFT per gridpoint (heavy).
+    const T = lastResult.frames.length;
+    const Nx = lastResult.Nx, Ny = lastResult.Ny;
+    // Compute complex amplitude per gridpoint at freq idx: sum_t w(x,y,t)*exp(-i*2pi*k t/Nfft)
+    // Use Nfft same as spectra length*2
+    const Nfft = (spectrum.mag.length)*2;
+    const reMap = new Float64Array(Nx*Ny);
+    const imMap = new Float64Array(Nx*Ny);
+    for(let j=0;j<Ny;j++){
+      for(let i=0;i<Nx;i++){
+        let re=0,im=0;
+        for(let t=0;t<T;t++){
+          const wv = lastResult.frames[t][j*Nx + i];
+          const angle = -2*Math.PI * idx * t / Nfft;
+          re += wv * Math.cos(angle);
+          im += wv * Math.sin(angle);
+        }
+        const id=j*Nx+i; reMap[id]=re; imMap[id]=im;
+      }
+    }
+    // amplitude map
+    const amp = new Float64Array(Nx*Ny);
+    let mx=0;
+    for(let k=0;k<amp.length;k++){ amp[k]=Math.hypot(reMap[k],imMap[k]); if(amp[k]>mx) mx=amp[k]; }
+    if(mx===0) mx=1;
+    // normalize
+    const norm = new Float64Array(amp.length);
+    for(let k=0;k<amp.length;k++) norm[k]=amp[k]/mx;
+    // show on Plotly heatmap (switch to mode tab)
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelector('.tab[data-tab="mode"]').classList.add('active');
+    $('timePanel').style.display='none'; $('freqPanel').style.display='none'; $('modePanel').style.display='';
+    const z2d = to2D(norm, Nx, Ny);
+    Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}}, {responsive:true,displaylogo:false});
+  }
+
+  $('doFFT').addEventListener('click', ()=> doFFT());
+
+  // show initial static field
   (function initial(){
     const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
     const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
@@ -410,10 +680,10 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
     populateModeList(modes);
     const freq = modes[0].f;
-    const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:$('displayPreset').value,useDbStatic:$('useDbStatic').checked});
-    Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:30,b:60,l:60,r:10}}, {responsive:true,displaylogo:false});
-    const ctx = document.getElementById('heatCanvas').getContext('2d');
-    document.getElementById('heatCanvas').width = 800; document.getElementById('heatCanvas').height = 300;
+    const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:'v_over_F',useDbStatic:$('useDbStatic')?.checked});
+    Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:10,b:40,l:60,r:10}}, {responsive:true,displaylogo:false});
+    const ctx = $('heatCanvas').getContext('2d');
+    $('heatCanvas').width = 800; $('heatCanvas').height = 300;
     drawArrayToCanvas(staticField.Z, Ngrid, Ngrid, ctx);
   })();
 
