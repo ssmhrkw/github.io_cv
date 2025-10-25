@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Slab FDTD — dx=0.5m デフォルト (Fs=2^k 自動選択)</title>
+<title>Slab FDTD — 差し替え版（コントロール折りたたみ・矩形表示・再生修正）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -28,9 +28,9 @@ canvas{border-radius:6px}
 </head>
 <body>
 <div class="wrap">
-  <h2>Slab FDTD — dx=0.5 m デフォルト（Fs=2^k 自動）</h2>
+  <h2>Slab FDTD — 差し替え版</h2>
   <div class="grid">
-    <div class="card">
+    <div class="card" id="controlsPanel">
       <div class="row">
         <label>Material</label>
         <select id="material"><option value="concrete">Concrete (E=3e10, ν=0.2, ρ=2400)</option><option value="custom">Custom</option></select>
@@ -205,18 +205,16 @@ canvas{border-radius:6px}
     const samplesPerCycle = Math.max(4, parseInt($('samplesPerCycle').value));
     const kmax = parseInt($('kmax').value) || 18;
 
-    // compute Ngrid from dx if override not provided
+    // auto Ngrid from dx if no override
     const maxL = Math.max(Lx, Ly);
     let Ngrid = Ngrid_override > 1 ? Ngrid_override : Math.ceil(maxL / dx_in) + 1;
-    if(Ngrid < 16) Ngrid = 16; // minimal reasonable
-    // update UI to reflect auto Ngrid
-    $('progressText').textContent = 'Using Ngrid = ' + Ngrid + ' (dx=' + (maxL/(Ngrid-1)).toFixed(3) + ' m approx)';
+    if(Ngrid < 16) Ngrid = 16;
+    $('progressText').textContent = 'Using Ngrid = ' + Ngrid + ' (dx≈' + (maxL/(Ngrid-1)).toFixed(3) + ' m)';
 
-    // compute modes to get f_max
+    // compute modes, cap fmax at 250 Hz
     const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    const fmax = Math.min(250, modes[modes.length-1].f || 250); // cap at 250 Hz per your choice
+    const fmax = Math.min(250, modes[modes.length-1].f || 250);
 
-    // dx actual: computed from Ngrid
     const dx = Math.min(Lx/(Ngrid-1), Ly/(Ngrid-1));
     const D = D_of(E,h,nu);
     const marea = rho*h;
@@ -240,17 +238,18 @@ canvas{border-radius:6px}
     else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
     const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
 
+    // hide controls panel after start
+    $('controlsPanel').style.display = 'none';
+
     const cfg = {E,nu,rho,h,Lx,Ly,Ngrid,framesCount,dx,dt,Fs,samplesPerCycle,modesLight:modes.map(m=>({m:m.m,n:m.n,f:m.f,omega:m.omega})),x0,y0,framesToSave:framesCount};
     $('progressBar').value = 0;
 
-    // start worker
     worker = new Worker(URL.createObjectURL(new Blob([workerCode],{type:'application/javascript'})));
     worker.onmessage = (ev)=>{
       const data = ev.data;
       if(data.type === 'progress'){ $('progressBar').value = data.progress; $('progressText').textContent = data.msg||('progress '+data.progress+'%'); }
       if(data.type === 'done'){
         const res = data.result;
-        // rebuild Float32Array frames from transferred buffers
         const frames = res.framesBuf.map(buf => new Float32Array(buf));
         lastResult = Object.assign({}, res, {frames: frames});
         worker.terminate(); worker = null;
@@ -351,20 +350,28 @@ canvas{border-radius:6px}
   `;
 
   function showStaticAndFrames(res){
-    const frames = res.frames.map(f => new Float32Array(f.buffer ? f.buffer : f));
+    const frames = res.framesBuf.map(buf => new Float32Array(buf));
     lastResult = Object.assign({}, res, {frames: frames});
-    // static map
     const z = res.staticZ;
     const Nx = res.Nx, Ny = res.Ny;
-    const zmin = Math.min(...z), zmax = Math.max(...z);
     const z2d = [];
     for(let j=0;j<Ny;j++){
       const row = [];
       for(let i=0;i<Nx;i++) row.push(z[j*Nx + i]);
       z2d.push(row);
     }
-    Plotly.newPlot('plotlyDiv', [{z: z2d, type:'heatmap', colorscale:'Viridis'}], {margin:{t:30,b:60,l:60,r:10},xaxis:{title:'x'},yaxis:{title:'y'}}, {responsive:true});
-    drawFrameToCanvas(res.frames[0], Nx, Ny);
+    const Lx = res.xs[res.xs.length-1] || parseFloat($('Lx').value);
+    const Ly = res.ys[res.ys.length-1] || parseFloat($('Ly').value);
+    const trace = { z: z2d, x: res.xs, y: res.ys, type: 'heatmap', colorscale: 'Viridis' };
+    const layout = {
+      margin:{t:30,b:60,l:60,r:10},
+      xaxis:{title:'x [m]', range:[0,Lx]},
+      yaxis:{title:'y [m]', autorange:'reversed', range:[0,Ly]},
+      shapes: [{ type: 'rect', x0:0, x1:Lx, y0:0, y1:Ly, line: { color: 'black', width: 2 } }],
+      annotations: [{ text: `Lx=${Lx.toFixed(2)} m  Ly=${Ly.toFixed(2)} m`, xref:'paper', yref:'paper', x:0.02, y:1.02, showarrow:false }]
+    };
+    Plotly.newPlot('plotlyDiv', [trace], layout, {responsive:true,displaylogo:false});
+    drawFrameToCanvas(frames[0], Nx, Ny);
     $('frameSlider').max = res.framesCount - 1;
     currentFrame = 0;
     populateModeList(res.modes);
@@ -427,7 +434,7 @@ canvas{border-radius:6px}
     const stream = document.getElementById('heatCanvas').captureStream(25);
     try{ mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'}); }catch(e){ mediaRecorder = new MediaRecorder(stream); }
     mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) recordedBlobs.push(e.data); };
-    mediaRecorder.onstop = ()=>{ const blob = new Blob(recordedBlobs, {type:'video/webm'}); const url = URL.createObjectURL(blob); const a = $('recDownload'); a.href=url; a.download=\`slab_\${Date.now()}.webm\`; a.textContent='Download video'; };
+    mediaRecorder.onstop = ()=>{ const blob = new Blob(recordedBlobs, {type:'video/webm'}); const url = URL.createObjectURL(blob); const a = $('recDownload'); a.href = url; a.download=\`slab_\${Date.now()}.webm\`; a.textContent='Download video'; };
     mediaRecorder.start();
     let k=0;
     const ii = setInterval(()=>{
