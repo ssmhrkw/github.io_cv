@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SlabFDTD — 縦折りたたみ対応版</title>
+<title>SlabFDTD — プリセット別枠版</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -23,152 +23,129 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
 .controls-row{display:flex;gap:8px}
 canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
+.progress{height:10px;background:#eef3fb;border-radius:6px;overflow:hidden}
+.progress > div{height:100%;background:#60a5fa;width:0%}
 
-/* 縦折りたたみスタイル */
-#controlsWrapper{position:relative;transition:width .25s ease}
-#controlsPanel{width:100%; transition:transform .25s ease}
-#controlsCollapsed{
-  position:relative;
-  width:56px;
-  height:100%;
-  display:none;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
-  padding:8px;
-  box-sizing:border-box;
-}
-#controlsCollapsed .triangle{
-  width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:14px solid var(--muted);transform:rotate(0deg);
-  cursor:pointer;
-}
-#controlsCollapsed .info{font-size:12px;color:var(--muted);text-align:center}
-.controls-collapsed #controlsPanel{display:none}
-.controls-collapsed #controlsCollapsed{display:flex}
-.controls-strip{
-  display:flex;flex-direction:column;gap:6px;background:#fff;padding:6px;border-radius:8px;border:1px solid #eef3fb;
-  align-items:flex-start;
-}
-.controls-strip .label{font-size:12px;color:var(--muted)}
+/* プリセット枠 */
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.preset-box{background:#fbfcfe;border:1px solid #eef3fb;padding:8px;border-radius:8px;font-size:13px}
+.preset-box strong{display:block;margin-bottom:6px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>スラブ平板 v/F 可視化（縦折りたたみ対応）</h2>
+  <h2>SlabFDTD — プリセット別枠版</h2>
   <div class="grid">
-    <div id="controlsWrapper">
-      <div id="controlsPanel" class="card">
-        <div class="row">
-          <label>材料プリセット</label>
-          <select id="material">
-            <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400)</option>
-            <option value="custom">カスタム</option>
+    <div class="card" id="controlsPanel">
+      <!-- プリセット群を枠で分離 -->
+      <div class="preset-grid">
+        <div class="preset-box">
+          <strong>材料プリセット</strong>
+          <select id="material_preset">
+            <option value="concrete">Concrete (E=3e10, ν=0.2, ρ=2400)</option>
+            <option value="steel">Steel (E=2.1e11, ν=0.3, ρ=7850)</option>
+            <option value="custom">Custom</option>
           </select>
         </div>
 
-        <div class="row controls-row">
-          <div style="flex:1">
-            <label>E [Pa]</label><input id="E" type="number" value="30000000000">
-          </div>
-          <div style="flex:1">
-            <label>ν</label><input id="nu" type="number" step="0.01" value="0.20">
-          </div>
-        </div>
-
-        <div class="row controls-row">
-          <div style="flex:1">
-            <label>ρ [kg/m³]</label><input id="rho" type="number" value="2400">
-          </div>
-          <div style="flex:1">
-            <label>h [m]</label><input id="h" type="number" step="0.01" value="0.15">
-          </div>
-        </div>
-
-        <div class="row controls-row">
-          <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
-          <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
-        </div>
-
-        <div class="row controls-row">
-          <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="1" min="16" value="80"></div>
-          <div style="flex:1"><label>dx (m) — overrides Ngrid if >0</label><input id="dx" type="number" step="0.01" value="0.00"></div>
-        </div>
-
-        <div class="row controls-row">
-          <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="1024" value="128"></div>
-          <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" min="4" max="64" value="16"></div>
-        </div>
-
-        <div class="row controls-row">
-          <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5"></div>
-          <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5"></div>
-        </div>
-
-        <div class="row">
-          <label>周波数 f [Hz]（空欄で第1モード）</label>
-          <input id="freq" type="number" step="0.01" value="">
-        </div>
-
-        <div class="row">
-          <label>加振点プリセット</label>
-          <select id="sourcePreset">
+        <div class="preset-box">
+          <strong>加振点プリセット</strong>
+          <select id="sourcePreset_preset">
             <option value="center">中心 (Lx/2, Ly/2)</option>
             <option value="diag_1_3">対角 1/3 (Lx/3, Ly/3)</option>
             <option value="diag_2_3">対角 2/3 (2Lx/3, 2Ly/3)</option>
           </select>
-          <div class="small">プロットをクリックして加振点をセットできます（2D モード時）。</div>
         </div>
 
-        <div class="row controls-row">
-          <div style="flex:1"><label>x0 [m]</label><input id="x0" type="number" step="0.01" value="2.50"></div>
-          <div style="flex:1"><label>y0 [m]</label><input id="y0" type="number" step="0.01" value="2.00"></div>
-        </div>
-
-        <div class="row">
-          <label>表示</label>
-          <select id="displayChoice">
+        <div class="preset-box">
+          <strong>表示プリセット</strong>
+          <select id="displayPreset">
             <option value="v_over_F">v / F （m/s per N）</option>
             <option value="F_over_v">F / v （N per (m/s)）</option>
           </select>
         </div>
 
-        <div class="row inline">
-          <label><input type="checkbox" id="useDbStatic"> 静解析 dB 表示（10·log10, ref=1）</label>
-          <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
-        </div>
-
-        <div class="row">
-          <button id="computeBtn" class="btn">計算開始</button>
-          <button id="resetBtn">リセット（表示）</button>
-        </div>
-
-        <div class="row">
-          <label>Progress</label>
-          <div class="progress"><div id="progressFill" style="width:0%"></div></div>
-          <div id="progressText" class="small"></div>
-        </div>
-
-        <hr>
-        <div class="row"><strong>Mode list</strong></div>
-        <div class="mode-list" id="modeList"></div>
-
-        <div class="footer">
-          <div><strong>式（参照）</strong></div>
-          <div>D = E h³ / [12(1-ν²)], ω_mn = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ], φ_mn = sin(mπx/Lx)·sin(nπy/Ly)</div>
+        <div class="preset-box">
+          <strong>静解析 dB 表示</strong>
+          <label style="margin:0"><input type="checkbox" id="useDbStatic_preset"> 10·log10 (ref=1)</label>
         </div>
       </div>
 
-      <!-- 折りたたみ後に表示する縦ストリップ（最小表示） -->
-      <div id="controlsCollapsed" class="card" style="display:none">
-        <div class="controls-strip">
-          <div class="triangle" id="toggleBtn" title="展開/折りたたみ"></div>
-          <div class="label" style="font-weight:600;text-align:center">Slab</div>
-          <div class="info">
-            <div class="small">f: <span id="miniFreq">—</span> Hz</div>
-            <div class="small">x0,y0: <span id="miniXY">—</span></div>
-            <div class="small" id="miniProgress"> </div>
-          </div>
+      <!-- 主要パラメータ（プリセットとは別に表示） -->
+      <div class="row controls-row">
+        <div style="flex:1">
+          <label>E [Pa]</label><input id="E" type="number" value="30000000000">
         </div>
+        <div style="flex:1">
+          <label>ν</label><input id="nu" type="number" step="0.01" value="0.20">
+        </div>
+      </div>
+
+      <div class="row controls-row">
+        <div style="flex:1">
+          <label>ρ [kg/m³]</label><input id="rho" type="number" value="2400">
+        </div>
+        <div style="flex:1">
+          <label>h [m]</label><input id="h" type="number" step="0.01" value="0.15">
+        </div>
+      </div>
+
+      <div class="row controls-row">
+        <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
+        <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
+      </div>
+
+      <div class="row controls-row">
+        <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="1" min="16" value="80"></div>
+        <div style="flex:1"><label>dx (m) — overrides Ngrid if >0</label><input id="dx" type="number" step="0.01" value="0.00"></div>
+      </div>
+
+      <div class="row controls-row">
+        <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="1024" value="128"></div>
+        <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" min="4" max="64" value="16"></div>
+      </div>
+
+      <div class="row controls-row">
+        <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5"></div>
+        <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5"></div>
+      </div>
+
+      <div class="row">
+        <label>周波数 f [Hz]（空欄で第1モード）</label>
+        <input id="freq" type="number" step="0.01" value="">
+      </div>
+
+      <div class="row">
+        <label>加振点（プリセットかクリックで設定）</label>
+        <div class="controls-row">
+          <div style="flex:1"><input id="x0" type="number" step="0.01" value="2.50"></div>
+          <div style="flex:1"><input id="y0" type="number" step="0.01" value="2.00"></div>
+        </div>
+      </div>
+
+      <div class="row inline">
+        <label><input type="checkbox" id="useDbStatic"> 静解析 dB 表示（10·log10）</label>
+        <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
+      </div>
+
+      <div class="row">
+        <button id="computeBtn" class="btn">計算開始</button>
+        <button id="resetBtn">リセット</button>
+      </div>
+
+      <div class="row">
+        <label>Progress</label>
+        <div class="progress"><div id="progressFill" style="width:0%"></div></div>
+        <div id="progressText" class="small"></div>
+      </div>
+
+      <hr>
+      <div class="row"><strong>Mode list</strong></div>
+      <div class="mode-list" id="modeList"></div>
+
+      <div class="footer">
+        <div><strong>式（参照）</strong></div>
+        <div>D = E h³ / [12(1-ν²)], ω_mn = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ], φ_mn = sin(mπx/Lx)·sin(nπy/Ly)</div>
       </div>
     </div>
 
@@ -259,7 +236,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
       }
     }
     const V = new Float64Array(Ny*Nx);
-    for(let k=0;k<W.length;k++) V[k] = omega * Math.hypot(W[k].re, W[k].im);
+    for(let k=0;k<W.length;k++) V[k] = (omega===0 ? Math.hypot(W[k].re, W[k].im) : omega * Math.hypot(W[k].re, W[k].im));
     const out = new Float64Array(Ny*Nx);
     if(displayChoice === 'v_over_F') for(let k=0;k<out.length;k++) out[k] = V[k]; else for(let k=0;k<out.length;k++) out[k] = (V[k]>0?1.0/V[k]:0);
     if(useDbStatic){
@@ -269,7 +246,6 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     return {xs,ys,Z:out,rawV:V};
   }
 
-  // animate one cycle of mode
   function animateModeOnce(mode){
     const Ngrid = parseInt($('Ngrid').value);
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
@@ -280,13 +256,12 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const phiArr = new Float64Array(Nx*Ny); let maxabs=0;
     for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){ const v = Math.sin(mode.m*Math.PI*xs[i]/Lx) * Math.sin(mode.n*Math.PI*ys[j]/Ly); phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v); }
     if(maxabs===0) maxabs=1; for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
-    const omega = mode.omega;
     const framesLocal = 64;
     const ctx = document.getElementById('heatCanvas').getContext('2d');
     let f=0;
     function step(){
       const t = f/framesLocal;
-      const cosv = Math.cos(2*Math.PI * t); // one cycle in normalized t
+      const cosv = Math.cos(2*Math.PI * t);
       const arr = new Float32Array(Nx*Ny);
       let mn=Infinity,mx=-Infinity;
       for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
@@ -315,7 +290,6 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     ctx.clearRect(0,0,W,H); ctx.drawImage(tmp,0,0,W,H);
   }
 
-  // transient compute (chunked)
   function computeTransient(cfg, onProgress, onDone){
     const Lx = cfg.Lx, Ly=cfg.Ly;
     let Nx = cfg.Ngrid, Ny = cfg.Ngrid;
@@ -386,69 +360,35 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     runChunk();
   }
 
-  // UI: 縦折りたたみトグル機能
-  const wrapper = document.getElementById('controlsWrapper');
-  function collapseControls(){
-    wrapper.classList.add('controls-collapsed');
-    // update mini info
-    $('miniFreq').textContent = ($('freq').value ? Number($('freq').value).toFixed(2) : '—');
-    $('miniXY').textContent = `${$('x0').value},${$('y0').value}`;
-    $('miniProgress').textContent = $('progressText').textContent || '';
-    // ensure collapsed element visible (display managed by CSS)
-  }
-  function expandControls(){
-    wrapper.classList.remove('controls-collapsed');
-  }
-  // triangle toggle
-  document.addEventListener('click', (ev)=>{
-    if(ev.target && ev.target.id === 'toggleBtn'){
-      if(wrapper.classList.contains('controls-collapsed')) expandControls(); else collapseControls();
-    }
-  });
-
-  // compute button: collapse vertically on start (as requested)
+  // compute button (折りたたまない)
   $('computeBtn').addEventListener('click', ()=>{
-    // read params and start compute
-    if($('material').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
-    const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
-    const Lx = parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-    let Ngrid = parseInt($('Ngrid').value);
-    const dx_in = parseFloat($('dx').value) || 0;
-    if(dx_in > 0){
-      Ngrid = Math.ceil(Math.max(Lx,Ly)/dx_in)+1;
-      Ngrid = Math.max(16,Ngrid);
-    }
+    if($('material_preset').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
+    else if($('material_preset').value==='steel'){ $('E').value=210000000000; $('nu').value=0.3; $('rho').value=7850; }
+    const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
+    const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+    let Ngrid=parseInt($('Ngrid').value); const dx_in=parseFloat($('dx').value)||0;
+    if(dx_in>0){ Ngrid = Math.ceil(Math.max(Lx,Ly)/dx_in)+1; Ngrid=Math.max(16,Ngrid); }
     const framesCount = parseInt($('framesCount').value);
     const samplesPerCycle = parseInt($('samplesPerCycle').value);
-    const mmax = parseInt($('mmax').value), nmax = parseInt($('nmax').value);
-    const preset = $('sourcePreset').value;
+    const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
+    const preset = $('sourcePreset_preset').value;
     if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
     else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
     else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
-    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    populateModeList(modes);
-    const fmax = Math.min(250, modes.length ? modes[modes.length-1].f : 250);
-    // collapse vertically
-    collapseControls();
-    // start compute
-    $('progressFill').style.width = '0%'; $('progressText').textContent = '計算中...';
-    computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax,x0,y0}, (p,msg)=>{
-      $('progressFill').style.width = p+'%';
-      $('progressText').textContent = msg || (p+'%');
-      $('miniProgress').textContent = $('progressText').textContent;
+    const x0=clamp(parseFloat($('x0').value),0,Lx), y0=clamp(parseFloat($('y0').value),0,Ly);
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modes);
+    $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
+    computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0}, (p,msg)=>{
+      $('progressFill').style.width = p+'%'; $('progressText').textContent = msg|| (p+'%');
     }, (res)=>{
       frames = res.frames; lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
       $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx}`;
-      $('miniProgress').textContent = $('progressText').textContent;
-      // static modal map
       const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
-      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:$('displayChoice').value,useDbStatic:$('useDbStatic').checked});
+      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:$('displayPreset').value,useDbStatic:$('useDbStatic').checked});
       const z2d = to2D(staticField.Z, res.Nx, res.Ny);
       const trace = { z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' };
       const layout = {margin:{t:30,b:60,l:60,r:10}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]}, annotations:[{text:`source=(${x0.toFixed(2)},${y0.toFixed(2)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
       Plotly.newPlot('plot', [trace], layout, {responsive:true,displaylogo:false});
-      // first frame to canvas
       const ctx = document.getElementById('heatCanvas').getContext('2d');
       document.getElementById('heatCanvas').width = 800; document.getElementById('heatCanvas').height = 300;
       drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
@@ -456,8 +396,11 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     });
   });
 
-  // reset button expands controls
-  $('resetBtn').addEventListener('click', ()=> expandControls());
+  // reset
+  $('resetBtn').addEventListener('click', ()=> {
+    $('controlsPanel').scrollIntoView({behavior:'smooth'});
+    // show current presets values (no collapse)
+  });
 
   // initial render
   (function initial(){
@@ -467,7 +410,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
     const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
     populateModeList(modes);
     const freq = modes[0].f;
-    const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:$('displayChoice').value,useDbStatic:$('useDbStatic').checked});
+    const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:$('displayPreset').value,useDbStatic:$('useDbStatic').checked});
     Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:30,b:60,l:60,r:10}}, {responsive:true,displaylogo:false});
     const ctx = document.getElementById('heatCanvas').getContext('2d');
     document.getElementById('heatCanvas').width = 800; document.getElementById('heatCanvas').height = 300;
