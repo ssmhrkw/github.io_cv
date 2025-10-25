@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Slab FDTD — Worker版 (Fdtdworker.js)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>スラブ平板 v/F 可視化 — Playback・Recording・Probe&FFT 追加版</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter, "Noto Sans JP", system-ui,Roboto}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans JP",system-ui,Roboto}
 .wrap{max-width:1200px;margin:14px auto;padding:12px}
 .grid{display:grid;grid-template-columns:360px 1fr;gap:12px}
 .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
@@ -16,145 +16,150 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .row{margin-bottom:8px}
 .btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
 .small{font-size:13px;color:var(--muted)}
-#plotlyDiv{width:100%;height:48vh}
-canvas{border-radius:6px}
-.tabs{display:flex;gap:8px;margin-bottom:8px}
-.tab{padding:8px 12px;border-radius:8px;background:#fff;border:1px solid #e6edf3;cursor:pointer}
-.tab.active{background:#eef6ff;border-color:var(--accent)}
+#plot{height:60vh;min-height:420px}
 .inline{display:flex;gap:8px;align-items:center}
 .mode-list{max-height:180px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
 .footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
+.controls-row{display:flex;gap:8px}
+canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb}
+.progress{height:10px;background:#eef3fb;border-radius:6px;overflow:hidden}
+.progress > div{height:100%;background:#60a5fa;width:0%}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>Slab FDTD — Worker 版</h2>
+  <h2>スラブ平板 v/F 可視化</h2>
   <div class="grid">
     <div class="card" id="controlsPanel">
-      <div class="row"><label>Material</label>
-        <select id="material"><option value="concrete">Concrete (E=3e10, ν=0.2, ρ=2400)</option><option value="custom">Custom</option></select>
+      <div class="row">
+        <label>材料プリセット</label>
+        <select id="material">
+          <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400)</option>
+          <option value="custom">カスタム</option>
+        </select>
       </div>
 
-      <div class="row inline">
-        <div style="flex:1"><label>E [Pa]</label><input id="E" type="number" value="30000000000"></div>
-        <div style="flex:1"><label>ν</label><input id="nu" type="number" step="0.01" value="0.20"></div>
+      <div class="row controls-row">
+        <div style="flex:1">
+          <label>E [Pa]</label><input id="E" type="number" value="30000000000">
+        </div>
+        <div style="flex:1">
+          <label>ν</label><input id="nu" type="number" step="0.01" value="0.20">
+        </div>
       </div>
 
-      <div class="row inline">
-        <div style="flex:1"><label>ρ [kg/m³]</label><input id="rho" type="number" value="2400"></div>
-        <div style="flex:1"><label>h [m]</label><input id="h" type="number" step="0.01" value="0.15"></div>
+      <div class="row controls-row">
+        <div style="flex:1">
+          <label>ρ [kg/m³]</label><input id="rho" type="number" value="2400">
+        </div>
+        <div style="flex:1">
+          <label>h [m]</label><input id="h" type="number" step="0.01" value="0.15">
+        </div>
       </div>
 
-      <div class="row inline">
+      <div class="row controls-row">
         <div style="flex:1"><label>Lx [m]</label><input id="Lx" type="number" step="0.01" value="5.00"></div>
         <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
       </div>
 
-      <div class="row inline">
-        <div style="flex:1"><label>dx [m] (space step)</label><input id="dx" type="number" step="0.01" value="0.50"></div>
-        <div style="flex:1"><label>Ngrid override (0 = auto)</label><input id="Ngrid_override" type="number" value="0" min="0"></div>
+      <div class="row controls-row">
+        <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="1" min="16" value="80"></div>
+        <div style="flex:1"><label>dx (m) — overrides Ngrid if >0</label><input id="dx" type="number" step="0.01" value="0.00"></div>
       </div>
 
-      <div class="row inline">
-        <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="7"></div>
-        <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="7"></div>
+      <div class="row controls-row">
+        <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="1024" value="128"></div>
+        <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" min="4" max="64" value="16"></div>
       </div>
 
-      <div class="row">
-        <label>Frames (保存フレーム数)</label>
-        <input id="framesCount" type="number" value="128" min="8" max="1024">
-      </div>
-
-      <div class="row inline">
-        <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" value="16" min="4" max="64"></div>
-        <div style="flex:1"><label>k_max (2^k 上限)</label><input id="kmax" type="number" value="18" min="10" max="22"></div>
+      <div class="row controls-row">
+        <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="20" value="5"></div>
+        <div style="flex:1"><label>n_max</label><input id="nmax" type="number" min="1" max="20" value="5"></div>
       </div>
 
       <div class="row">
-        <label>Source preset</label>
+        <label>周波数 f [Hz]（空欄で第1モード）</label>
+        <input id="freq" type="number" step="0.01" value="">
+      </div>
+
+      <div class="row">
+        <label>加振点プリセット</label>
         <select id="sourcePreset">
-          <option value="center">center (Lx/2,Ly/2)</option>
-          <option value="diag_1_3">diag 1/3 (Lx/3,Ly/3)</option>
-          <option value="diag_2_3">diag 2/3 (2Lx/3,2Ly/3)</option>
+          <option value="center">中心 (Lx/2, Ly/2)</option>
+          <option value="diag_1_3">対角 1/3 (Lx/3, Ly/3)</option>
+          <option value="diag_2_3">対角 2/3 (2Lx/3, 2Ly/3)</option>
         </select>
+        <div class="small">プロットをクリックして加振点をセットできます（2D モード時）。</div>
       </div>
 
-      <div class="row inline">
+      <div class="row controls-row">
         <div style="flex:1"><label>x0 [m]</label><input id="x0" type="number" step="0.01" value="2.50"></div>
         <div style="flex:1"><label>y0 [m]</label><input id="y0" type="number" step="0.01" value="2.00"></div>
       </div>
 
       <div class="row">
-        <label>Probe (click plot to set)</label>
-        <div class="inline">
-          <div style="flex:1"><label>px [m]</label><input id="px" type="number" step="0.01" value="2.50"></div>
-          <div style="flex:1"><label>py [m]</label><input id="py" type="number" step="0.01" value="2.00"></div>
-        </div>
+        <label>表示</label>
+        <select id="displayChoice">
+          <option value="v_over_F">v / F （m/s per N）</option>
+          <option value="F_over_v">F / v （N per (m/s)）</option>
+        </select>
       </div>
 
       <div class="row inline">
-        <label><input type="checkbox" id="useDb"> dB (20·log10, ref=1)</label>
-        <label style="margin-left:8px"><input type="checkbox" id="autoFFT" checked> FFT auto after compute</label>
+        <label><input type="checkbox" id="useDbStatic"> 静解析 dB 表示（10·log10, ref=1）</label>
+        <label style="margin-left:8px"><input type="checkbox" id="show2d" checked> 2D</label>
       </div>
 
-      <div class="row inline">
-        <button id="computeBtn" class="btn">計算開始 (Worker)</button>
-        <button id="cancelBtn" class="btn" style="background:#ef4444">Cancel</button>
+      <div class="row">
+        <button id="computeBtn" class="btn">計算開始</button>
+        <button id="resetBtn">リセット（設定を表示）</button>
       </div>
 
       <div class="row">
         <label>Progress</label>
-        <progress id="progressBar" value="0" max="100" style="width:100%"></progress>
+        <div class="progress"><div id="progressFill" style="width:0%"></div></div>
         <div id="progressText" class="small"></div>
       </div>
 
-      <div style="margin-top:6px">
-        <div class="small">自動 Ngrid = ceil(max(Lx,Ly)/dx) + 1（override が 0 以外ならそれを使用）。Fs は dt_target に基づき最小の 2^k を選択。</div>
-      </div>
-
-      <hr/>
+      <hr>
       <div class="row"><strong>Playback / Recording</strong></div>
       <div class="row inline">
         <button id="playBtn" class="btn">Play</button>
-        <button id="pauseBtn" class="btn" style="background:#e6e6e6;color:#111">Pause</button>
-        <button id="prevBtn" class="btn" style="background:#e6e6e6;color:#111">◀</button>
-        <button id="nextBtn" class="btn" style="background:#e6e6e6;color:#111">▶</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="prevBtn">◀</button>
+        <button id="nextBtn">▶</button>
       </div>
+      <div class="row"><input id="frameSlider" type="range" min="0" value="0" style="width:100%"></div>
       <div class="row inline">
-        <input id="frameSlider" type="range" min="0" value="0" style="flex:1">
+        <button id="recStart" class="btn">Start Recording</button>
+        <button id="recStop">Stop</button>
+        <a id="recDL" style="margin-left:8px"></a>
       </div>
 
+      <hr>
+      <div class="row"><strong>Probe & FFT</strong></div>
+      <div class="row controls-row">
+        <div style="flex:1"><label>px [m]</label><input id="px" type="number" step="0.01" value="2.50"></div>
+        <div style="flex:1"><label>py [m]</label><input id="py" type="number" step="0.01" value="2.00"></div>
+      </div>
       <div class="row inline">
-        <button id="startRec" class="btn">Start Recording</button>
-        <button id="stopRec" class="btn" style="background:#e6e6e6;color:#111">Stop</button>
-        <a id="recDownload" style="margin-left:8px"></a>
+        <button id="fftBtn" class="btn">FFT (Probe → 20·log10)</button>
+        <button id="snapBtn">Plot Snapshot</button>
       </div>
 
-      <hr/>
-      <div class="row"><strong>Mode list</strong></div>
-      <div class="mode-list" id="modeList"></div>
+      <div class="row"><label>Mode list</label><div class="mode-list" id="modeList"></div></div>
+
+      <div class="footer">
+        <div><strong>式（参照）</strong></div>
+        <div>D = E h³ / [12(1-ν²)], ω_mn = √(D/(ρ h)) · [ (mπ/Lx)² + (nπ/Ly)² ], φ_mn = sin(mπx/Lx)·sin(nπy/Ly)</div>
+        <div>静解析 dB = 10·log10(value)（ref=1）。FFT は 20·log10（ref=1, 単位は相対）</div>
+      </div>
     </div>
 
     <div class="card">
-      <div class="tabs">
-        <div id="tabTime" class="tab active">Time</div>
-        <div id="tabMode" class="tab">Mode</div>
-        <div id="tabFreq" class="tab">Frequency</div>
-      </div>
-
-      <div id="panelTime">
-        <div id="plotlyDiv"></div>
-        <canvas id="heatCanvas" width=900 height=300 style="width:100%;height:300px;margin-top:8px;border:1px solid #eef3fb"></canvas>
-      </div>
-
-      <div id="panelMode" style="display:none">
-        <div id="modePlotly" style="height:40vh"></div>
-        <canvas id="modeCanvas" width=900 height=300 style="width:100%;height:300px;margin-top:8px;border:1px solid #eef3fb"></canvas>
-      </div>
-
-      <div id="panelFreq" style="display:none">
-        <div id="fftPlot" style="height:40vh"></div>
-      </div>
+      <div id="plot"></div>
+      <canvas id="heatCanvas"></canvas>
+      <div id="fftPlot" style="height:260px;margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -162,16 +167,20 @@ canvas{border-radius:6px}
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  function setTab(name){
-    ['Time','Mode','Freq'].forEach(n=>{ $('tab'+n).classList.remove('active'); $('panel'+n).style.display='none'; });
-    $('tab'+name).classList.add('active'); $('panel'+name).style.display='block';
-  }
-  $('tabTime').onclick = ()=>setTab('Time');
-  $('tabMode').onclick = ()=>setTab('Mode');
-  $('tabFreq').onclick = ()=>setTab('Freq');
 
-  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  // helpers
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
   function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
+  function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
+  function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
+
+  // state
+  let frames = null;
+  let lastResult = null;
+  let playTimer = null;
+  let currentFrame = 0;
+
+  // build modes
   function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
     const D = D_of(E,h,nu);
     const modes=[];
@@ -180,282 +189,414 @@ canvas{border-radius:6px}
       const omega = Math.sqrt(D/(rho*h)) * k2;
       modes.push({m,n,omega,f:omega/(2*Math.PI)});
     }
-    modes.sort((a,b)=>a.f-b.f); return modes;
+    modes.sort((a,b)=>a.f-b.f);
+    return modes;
   }
 
-  let worker = null;
-  let lastResult = null;
-  let playTimer = null;
-  let currentFrame = 0;
-  let recordedBlobs = [], mediaRecorder = null;
-
-  $('computeBtn').onclick = async ()=>{
-    if(worker){ alert('既に計算中'); return; }
-    if($('material').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
-    const E = parseFloat($('E').value), nu = parseFloat($('nu').value), rho = parseFloat($('rho').value), h = parseFloat($('h').value);
-    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-    const dx_in = parseFloat($('dx').value) || 0.5;
-    const Ngrid_override = parseInt($('Ngrid_override').value) || 0;
-    const mmax = parseInt($('mmax').value), nmax = parseInt($('nmax').value);
-    const framesCount = Math.max(8, parseInt($('framesCount').value));
-    const samplesPerCycle = Math.max(4, parseInt($('samplesPerCycle').value));
-    const kmax = parseInt($('kmax').value) || 18;
-
-    // compute Ngrid from dx if override not provided
-    const maxL = Math.max(Lx, Ly);
-    let Ngrid = Ngrid_override > 1 ? Ngrid_override : Math.ceil(maxL / dx_in) + 1;
-    if(Ngrid < 16) Ngrid = 16;
-    $('progressText').textContent = 'Using Ngrid = ' + Ngrid + ' (dx≈' + (maxL/(Ngrid-1)).toFixed(3) + ' m)';
-
-    // compute modes to get f_max (cap 250)
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    const fmax = Math.min(250, modes[modes.length-1].f || 250);
-
-    const dx = Math.min(Lx/(Ngrid-1), Ly/(Ngrid-1));
-    const D = D_of(E,h,nu);
-    const marea = rho*h;
-    const Cstab = 0.25;
-    const dt_stab = Cstab * dx*dx * Math.sqrt(marea / D);
-    const dt_res = 1.0 / (samplesPerCycle * fmax);
-    const dt_target = Math.min(dt_stab, dt_res);
-    const inv = 1.0 / dt_target;
-    let k = Math.ceil(Math.log2(inv));
-    const ksel = Math.min(k, kmax);
-    if(k > kmax){
-      if(!confirm('必要な2^k が k_max を超えました。k_max='+kmax+' を使います。続行しますか？')) return;
-    }
-    const Fs = Math.pow(2, ksel);
-    const dt = 1.0 / Fs;
-    $('progressText').textContent = `Ngrid=${Ngrid} dx≈${dx.toFixed(3)} m  Fs=2^${ksel}=${Fs.toLocaleString()} dt=${dt.toExponential(2)} s`;
-
-    // presets
-    const preset = $('sourcePreset').value;
-    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
-    else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
-    else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
-    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
-
-    // hide controls panel
-    $('controlsPanel').style.display = 'none';
-
-    const cfg = {E,nu,rho,h,Lx,Ly,Ngrid,framesCount,dx,dt,Fs,samplesPerCycle,modesLight:modes.map(m=>({m:m.m,n:m.n,f:m.f,omega:m.omega})),x0,y0,framesToSave:framesCount};
-    $('progressBar').value = 0;
-
-    // spawn external worker file (Fdtdworker.js must be in same folder)
-    try{
-      worker = new Worker('Fdtdworker.js');
-    }catch(e){
-      alert('Worker 起動に失敗しました: '+e.message + '\n（iOS では worker ファイルを同一ディレクトリに置いてください）');
-      $('controlsPanel').style.display = '';
-      return;
-    }
-
-    worker.onmessage = (ev)=>{
-      const data = ev.data;
-      if(data.type === 'progress'){ $('progressBar').value = data.progress; $('progressText').textContent = data.msg||('progress '+data.progress+'%'); }
-      if(data.type === 'done'){
-        const res = data.result || data;
-        // accept framesBuf (transferred) or frames array
-        let frames = [];
-        if(res.framesBuf && Array.isArray(res.framesBuf)){
-          frames = res.framesBuf.map(buf => new Float32Array(buf));
-        } else if(res.frames && Array.isArray(res.frames)){
-          frames = res.frames.map(a => new Float32Array(a));
-        }
-        lastResult = Object.assign({}, res, {frames: frames, framesCount: frames.length});
-        worker.terminate(); worker = null;
-        $('progressBar').value = 100;
-        $('progressText').textContent = 'Done. Frames=' + lastResult.framesCount + ' Fs=' + lastResult.Fs;
-        showStaticAndFrames(lastResult);
-        if($('autoFFT').checked) computeFFTFromProbe();
-        populateModeList(lastResult.modes || lastResult.modesLight || []);
-      }
-      if(data.type === 'error'){
-        alert('Worker error: '+(data.msg||JSON.stringify(data)));
-        $('controlsPanel').style.display = '';
-      }
-    };
-    worker.postMessage({type:'start', cfg});
-  };
-
-  $('cancelBtn').onclick = ()=>{ if(worker){ worker.terminate(); worker=null; $('progressText').textContent='Cancelled'; $('progressBar').value=0; $('controlsPanel').style.display=''; } };
-
-  function showStaticAndFrames(res){
-    const frames = res.frames || res.framesBuf ? (res.frames || res.framesBuf).map(buf => new Float32Array(buf)) : [];
-    lastResult = Object.assign({}, res, {frames: frames});
-    const z = res.staticZ || res.static || [];
-    const Nx = res.Nx || (frames[0] ? Math.sqrt(frames[0].length) : 0);
-    const Ny = res.Ny || Nx;
-    const z2d = [];
+  // convert flat to 2D
+  function to2D(arr,Nx,Ny){
+    const z = new Array(Ny);
     for(let j=0;j<Ny;j++){
-      const row = [];
-      for(let i=0;i<Nx;i++) row.push(z[j*Nx + i] || 0);
-      z2d.push(row);
+      const row = new Array(Nx);
+      for(let i=0;i<Nx;i++) row[i] = arr[j*Nx + i];
+      z[j]=row;
     }
-    const Lx = res.xs && res.xs.length ? res.xs[res.xs.length-1] : parseFloat($('Lx').value);
-    const Ly = res.ys && res.ys.length ? res.ys[res.ys.length-1] : parseFloat($('Ly').value);
-    const trace = { z: z2d, x: res.xs || Array.from({length:Nx},(_,i)=>i/(Nx-1)*Lx), y: res.ys || Array.from({length:Ny},(_,j)=>j/(Ny-1)*Ly), type: 'heatmap', colorscale: 'Viridis' };
-    const layout = {
-      margin:{t:30,b:60,l:60,r:10},
-      xaxis:{title:'x [m]', range:[0,Lx]},
-      yaxis:{title:'y [m]', autorange:'reversed', range:[0,Ly]},
-      shapes: [{ type: 'rect', x0:0, x1:Lx, y0:0, y1:Ly, line: { color: 'black', width: 2 } }],
-      annotations: [{ text: `Lx=${Lx.toFixed(2)} m  Ly=${Ly.toFixed(2)} m`, xref:'paper', yref:'paper', x:0.02, y:1.02, showarrow:false }]
-    };
-    Plotly.newPlot('plotlyDiv', [trace], layout, {responsive:true,displaylogo:false});
-    if(lastResult.frames && lastResult.frames.length>0){
-      drawFrameToCanvas(lastResult.frames[0], Nx, Ny);
-      $('frameSlider').max = lastResult.framesCount - 1;
-      currentFrame = 0;
-    }
+    return z;
   }
 
+  // populate mode list
   function populateModeList(modes){
     const div = $('modeList'); div.innerHTML='';
-    (modes||[]).forEach((m,idx)=>{
+    modes.forEach((md,idx)=>{
       const el = document.createElement('div'); el.style.padding='6px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.cursor='pointer';
-      el.textContent = `#${idx+1} (m,n)=(${m.m},${m.n}) f=${(m.f||0).toFixed(2)}Hz`;
-      el.onclick = ()=>{
+      el.textContent = `#${idx+1} (m,n)=(${md.m},${md.n}) f=${md.f.toFixed(2)} Hz`;
+      el.onclick = ()=> {
         Array.from(div.children).forEach(x=>x.style.background='');
         el.style.background='#eef6ff';
-        generateModeFrames(m);
-        setTab('Mode');
+        // set freq to modal freq
+        $('freq').value = md.f.toFixed(6);
+        // animate mode (1 cycle)
+        animateModeOnce(md);
       };
       div.appendChild(el);
     });
   }
 
-  function drawFrameToCanvas(arr, Nx, Ny){
-    const ctx = document.getElementById('heatCanvas').getContext('2d');
-    let minV = Infinity, maxV = -Infinity;
-    for(const f of lastResult.frames){ for(const v of f){ if(v<minV) minV=v; if(v>maxV) maxV=v; } }
-    if(minV===Infinity){ minV = Math.min(...arr); maxV = Math.max(...arr); }
-    const W=Nx, H=Ny;
-    const img = ctx.createImageData(W,H);
-    const span = (maxV - minV) || 1e-12;
-    for(let j=0;j<H;j++){
-      for(let i=0;i<W;i++){
-        const v = arr[j*Nx + i];
-        const t = Math.max(0, Math.min(1, (v-minV)/span));
-        const r = Math.round(68 + 187*t), g = Math.round(1 + 185*t), b = Math.round(84 + 40*(1-t));
-        const p = (j*W + i)*4;
-        img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
+  // display static map (modal synthesis)
+  function computeStaticField(opts){
+    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDbStatic} = opts;
+    const omega = 2*Math.PI*freq;
+    const Mmn = modalMass(rho,h,Lx,Ly);
+    const Nx = Ngrid, Ny = Ngrid;
+    const xs = new Array(Nx); const ys = new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i] = Lx * i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j] = Ly * j/(Ny-1);
+
+    const W = new Array(Ny*Nx).fill(0).map(()=>({re:0,im:0}));
+    const F = 1.0;
+    const Q = 1e8;
+    for(const md of modes){
+      if(md.m>mmax || md.n>nmax) continue;
+      const omega_m = md.omega;
+      const phi0 = phi(md.m,md.n,x0,y0,Lx,Ly);
+      const num = {re: F * phi0, im: 0};
+      const real = Mmn * (omega_m*omega_m - omega*omega);
+      const imag = Mmn * (omega * omega_m / Q);
+      const d = real*real + imag*imag;
+      const eta = { re: (num.re*real + num.im*imag)/d, im: (num.im*real - num.re*imag)/d };
+      for(let j=0;j<Ny;j++){
+        const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
+        for(let i=0;i<Nx;i++){
+          const cx = Math.sin(md.m * Math.PI * xs[i] / Lx);
+          const idx = j*Nx + i;
+          const ph = cx * cy;
+          W[idx].re += eta.re * ph;
+          W[idx].im += eta.im * ph;
+        }
       }
     }
-    const tmp = document.createElement('canvas'); tmp.width=W; tmp.height=H; tmp.getContext('2d').putImageData(img,0,0);
-    ctx.clearRect(0,0,document.getElementById('heatCanvas').width, document.getElementById('heatCanvas').height);
-    ctx.drawImage(tmp,0,0,document.getElementById('heatCanvas').width, document.getElementById('heatCanvas').height);
+    const V = new Float64Array(Ny*Nx);
+    for(let k=0;k<W.length;k++) V[k] = omega * Math.hypot(W[k].re, W[k].im);
+    const out = new Float64Array(Ny*Nx);
+    if(displayChoice === 'v_over_F') for(let k=0;k<out.length;k++) out[k] = V[k]; else for(let k=0;k<out.length;k++) out[k] = (V[k]>0?1.0/V[k]:0);
+    if(useDbStatic){
+      const eps = 1e-20;
+      for(let k=0;k<out.length;k++) out[k] = 10 * Math.log10(Math.max(out[k], eps));
+    }
+    return {xs,ys,Z:out,rawV:V};
   }
 
-  $('playBtn').onclick = ()=>{
-    if(!lastResult || !lastResult.frames) return alert('先に計算してください');
-    if(playTimer) return;
-    playTimer = setInterval(()=>{
-      currentFrame = (currentFrame + 1) % lastResult.framesCount;
-      drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny);
-      $('frameSlider').value = currentFrame;
-    }, Math.max(20, Math.floor(1000/25)));
-  };
-  $('pauseBtn').onclick = ()=>{ if(playTimer){ clearInterval(playTimer); playTimer=null; } };
-  $('prevBtn').onclick = ()=>{ $('pauseBtn').click(); currentFrame = Math.max(0, currentFrame-1); drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny); $('frameSlider').value=currentFrame; };
-  $('nextBtn').onclick = ()=>{ $('pauseBtn').click(); currentFrame = Math.min(lastResult.framesCount-1, currentFrame+1); drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny); $('frameSlider').value=currentFrame; };
-  $('frameSlider').oninput = (e)=>{ $('pauseBtn').click(); currentFrame = parseInt(e.target.value); drawFrameToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny); };
-
-  $('startRec').onclick = ()=>{
-    if(!lastResult) return alert('先に計算してください');
-    recordedBlobs = [];
-    const stream = document.getElementById('heatCanvas').captureStream(25);
-    try{ mediaRecorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'}); }catch(e){ mediaRecorder = new MediaRecorder(stream); }
-    mediaRecorder.ondataavailable = (e)=>{ if(e.data && e.data.size>0) recordedBlobs.push(e.data); };
-    mediaRecorder.onstop = ()=>{ const blob = new Blob(recordedBlobs, {type:'video/webm'}); const url = URL.createObjectURL(blob); const a = $('recDownload'); a.href = url; a.download=\`slab_\${Date.now()}.webm\`; a.textContent='Download video'; };
-    mediaRecorder.start();
-    let k=0;
-    const ii = setInterval(()=>{
-      if(k >= lastResult.framesCount){ clearInterval(ii); if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop(); return; }
-      drawFrameToCanvas(lastResult.frames[k], lastResult.Nx, lastResult.Ny);
-      k++;
-    }, Math.max(20, Math.floor(1000/25)));
-  };
-  $('stopRec').onclick = ()=>{ if(mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop(); };
-
-  function generateModeFrames(mode){
-    if(!lastResult) return;
-    const Nx = lastResult.Nx, Ny = lastResult.Ny;
-    const Lx = lastResult.xs && lastResult.xs.length ? lastResult.xs[lastResult.xs.length-1] : parseFloat($('Lx').value);
-    const Ly = lastResult.ys && lastResult.ys.length ? lastResult.ys[lastResult.ys.length-1] : parseFloat($('Ly').value);
-    const framesCount = parseInt($('framesCount').value);
-    const omega = mode.omega;
+  // animate single mode for one cycle (draw frames on canvas)
+  function animateModeOnce(mode){
+    const Ngrid = parseInt($('Ngrid').value);
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const Nx = Ngrid, Ny = Ngrid;
+    const xs = new Array(Nx), ys=new Array(Ny);
+    for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
+    for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
     const phiArr = new Float64Array(Nx*Ny);
     let maxabs=0;
     for(let j=0;j<Ny;j++){
-      const y = j/(Ny-1)*Ly;
       for(let i=0;i<Nx;i++){
-        const x = i/(Nx-1)*Lx;
-        const v = Math.sin(mode.m*Math.PI*x/Lx)*Math.sin(mode.n*Math.PI*y/Ly);
+        const v = Math.sin(mode.m*Math.PI*xs[i]/Lx) * Math.sin(mode.n*Math.PI*ys[j]/Ly);
         phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v);
       }
     }
     if(maxabs===0) maxabs=1;
     for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
-    const frames = [];
-    for(let f=0; f<framesCount; f++){
-      const t = f/framesCount * (2*Math.PI/omega);
-      const cosv = Math.cos(omega * t);
-      const frame = new Float32Array(Nx*Ny);
-      for(let k=0;k<phiArr.length;k++) frame[k] = phiArr[k]*cosv;
-      frames.push(frame);
+    const omega = mode.omega;
+    const framesLocal = 64;
+    const ctx = document.getElementById('heatCanvas').getContext('2d');
+    let f=0;
+    function step(){
+      const cosv = Math.cos(omega * (f/framesLocal) * (2*Math.PI/omega)); // one cycle
+      const arr = new Float32Array(Nx*Ny);
+      let mn=Infinity,mx=-Infinity;
+      for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
+      drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx);
+      f++;
+      if(f<framesLocal) requestAnimationFrame(step);
     }
-    lastResult.modeFrames = frames;
-    const ctx = document.getElementById('modeCanvas').getContext('2d');
-    const arr = frames[0];
-    let mn=Infinity, mx=-Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; }
-    const tmp = document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny;
-    const img = tmp.getContext('2d').createImageData(Nx,Ny);
-    const span = mx-mn||1;
-    for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){
-      const v = arr[j*Nx+i]; const t=(v-mn)/span;
-      const r=Math.round(68+187*t), g=Math.round(1+185*t), b=Math.round(84+40*(1-t));
-      const p=(j*Nx+i)*4; img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
-    }
-    tmp.getContext('2d').putImageData(img,0,0);
-    ctx.clearRect(0,0,document.getElementById('modeCanvas').width, document.getElementById('modeCanvas').height);
-    ctx.drawImage(tmp,0,0,document.getElementById('modeCanvas').width, document.getElementById('modeCanvas').height);
-    $('modePlotly').innerHTML = '<div class="small">Mode frames ready ('+framesCount+' frames)</div>';
+    requestAnimationFrame(step);
   }
 
-  function computeFFTFromProbe(){
-    if(!lastResult) return;
-    const px = parseFloat($('px').value), py = parseFloat($('py').value);
+  // draw array to canvas (scaled)
+  function drawArrayToCanvas(arr,Nx,Ny,ctx,manualMin,manualMax){
+    const W = document.getElementById('heatCanvas').width;
+    const H = document.getElementById('heatCanvas').height;
+    let mn = manualMin, mx = manualMax;
+    if(mn===undefined || mx===undefined || !isFinite(mn) || !isFinite(mx)){
+      mn = Infinity; mx = -Infinity;
+      for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; }
+      if(!isFinite(mn)){ mn=0; mx=1;}
+    }
+    const img = new ImageData(Nx,Ny);
+    const span = (mx-mn)||1e-12;
+    for(let j=0;j<Ny;j++){
+      for(let i=0;i<Nx;i++){
+        const v = arr[j*Nx + i];
+        const t = Math.max(0, Math.min(1, (v-mn)/span));
+        const r = Math.round(68 + 187*t), g = Math.round(1 + 185*t), b = Math.round(84 + 40*(1-t));
+        const p = (j*Nx + i)*4;
+        img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
+      }
+    }
+    // draw scaled
+    const tmp = document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny;
+    tmp.getContext('2d').putImageData(img,0,0);
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(tmp,0,0,W,H);
+  }
+
+  // compute transient FDTD (biharmonic) in chunks and save frames
+  function computeTransient(cfg, onProgress, onDone){
+    const Lx = cfg.Lx, Ly = cfg.Ly;
+    let Nx = cfg.Ngrid, Ny = cfg.Ngrid;
+    if(cfg.dx && cfg.dx > 0){
+      Nx = Math.ceil(Lx / cfg.dx) + 1;
+      Ny = Math.ceil(Ly / cfg.dx) + 1;
+    }
+    Nx = Math.max(16, Nx); Ny = Nx;
+    const size = Nx*Ny;
+    const E = cfg.E, nu=cfg.nu, rho=cfg.rho, h=cfg.h;
+    const D = D_of(E,h,nu);
+    const marea = rho*h;
+    const dx = Math.min(Lx/(Nx-1), Ly/(Ny-1));
+    const Cstab = 0.25;
+    const dt_stab = Cstab * dx*dx * Math.sqrt(marea / D);
+    const fmax = Math.min(250, cfg.fmax || 250);
+    const dt_res = 1.0 / (cfg.samplesPerCycle * Math.max(1,fmax));
+    const dt = Math.min(dt_stab, dt_res);
+    const coeff = (dt*dt)/marea;
+    const framesCount = cfg.frames;
+    const framesBuf = new Array(framesCount);
+    let w = new Float32Array(size), wprev = new Float32Array(size), wnext = new Float32Array(size);
+
+    // source index from x0,y0
+    const sx = clamp(Math.round(cfg.x0 / Lx * (Nx-1)), 1, Nx-2);
+    const sy = clamp(Math.round(cfg.y0 / Ly * (Ny-1)), 1, Ny-2);
+    const src = sy*Nx + sx;
+    const forceSteps = Math.max(1, Math.floor(0.002 / dt)); // short pulse (~2ms)
+
+    // precompute neighbors indices for speed
+    const idx = (i,j)=> j*Nx + i;
+
+    // laplacian function inline
+    function lap(arr){
+      const out = new Float32Array(size);
+      for(let j=1;j<Ny-1;j++){
+        for(let i=1;i<Nx-1;i++){
+          const id = idx(i,j);
+          out[id] = (arr[id-1] + arr[id+1] + arr[id-Nx] + arr[id+Nx] - 4*arr[id])/(dx*dx);
+        }
+      }
+      return out;
+    }
+
+    function biharmonic(arr){
+      const lap1 = lap(arr);
+      const out = new Float32Array(size);
+      for(let j=2;j<Ny-2;j++){
+        for(let i=2;i<Nx-2;i++){
+          const id = idx(i,j);
+          out[id] = (lap1[id-1] + lap1[id+1] + lap1[id-Nx] + lap1[id+Nx] - 4*lap1[id])/(dx*dx);
+        }
+      }
+      return out;
+    }
+
+    function enforceSS(a){
+      for(let i=0;i<Nx;i++){ a[idx(i,0)]=0; a[idx(i,Ny-1)]=0; }
+      for(let j=0;j<Ny;j++){ a[idx(0,j)]=0; a[idx(Nx-1,j)]=0; }
+    }
+
+    // iterate in chunks
+    let step=0;
+    const chunk = 4;
+    function runChunk(){
+      const end = Math.min(framesCount, step + chunk);
+      for(; step<end; step++){
+        const F = new Float32Array(size);
+        if(step < forceSteps) F[src] = 1.0;
+        const bih = biharmonic(w);
+        for(let id=0; id<size; id++){
+          wnext[id] = 2*w[id] - wprev[id] + coeff * (F[id] - D * bih[id]);
+        }
+        enforceSS(wnext);
+        wprev.set(w);
+        w.set(wnext);
+        framesBuf[step] = w.slice(0);
+      }
+      onProgress(Math.round(100*step/framesCount), `step ${step}/${framesCount}`);
+      if(step < framesCount) {
+        setTimeout(runChunk, 8);
+      } else {
+        onDone({frames: framesBuf, Nx, Ny, dt, Fs:1/dt});
+      }
+    }
+    runChunk();
+  }
+
+  // UI handlers
+  $('computeBtn').addEventListener('click', ()=>{
+    // hide controls
+    $('controlsPanel').style.display = 'none';
+    // read params
+    if($('material').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
+    const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    let Ngrid = parseInt($('Ngrid').value);
+    const dx_in = parseFloat($('dx').value) || 0;
+    if(dx_in > 0){
+      Ngrid = Math.ceil(Math.max(Lx,Ly)/dx_in)+1;
+      Ngrid = Math.max(16, Ngrid);
+    }
+    const framesCount = parseInt($('framesCount').value);
+    const samplesPerCycle = parseInt($('samplesPerCycle').value);
+    const mmax = parseInt($('mmax').value), nmax = parseInt($('nmax').value);
+    const preset = $('sourcePreset').value;
+    const Lmax = Math.max(Lx,Ly);
+    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
+    else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
+    else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
+    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
+    // compute modes to estimate fmax
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+    populateModeList(modes);
+    const fmax = Math.min(250, modes.length ? modes[modes.length-1].f : 250);
+    // progress UI
+    $('progressText').textContent = '計算中...';
+    $('progressFill').style.width = '0%';
+    // call computeTransient
+    computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax,x0,y0}, (p,msg)=>{
+      $('progressFill').style.width = p+'%';
+      $('progressText').textContent = msg || (p+'%');
+    }, (res)=>{
+      // done
+      frames = res.frames;
+      lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: res.xs || Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: res.ys || Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
+      $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx}`;
+      // draw static modal map as before
+      const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
+      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:$('displayChoice').value,useDbStatic:$('useDbStatic').checked});
+      const z2d = to2D(staticField.Z, res.Nx, res.Ny);
+      const trace = { z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' };
+      const layout = {margin:{t:30,b:60,l:60,r:10}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]}, annotations:[{text:`source=(${x0.toFixed(2)},${y0.toFixed(2)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
+      Plotly.newPlot('plot', [trace], layout, {responsive:true,displaylogo:false});
+      // draw first frame to canvas
+      const ctx = document.getElementById('heatCanvas').getContext('2d');
+      document.getElementById('heatCanvas').width = 800; document.getElementById('heatCanvas').height = 300;
+      drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
+      $('frameSlider').max = frames.length - 1;
+      currentFrame = 0;
+      // auto FFT if desired
+      if($('px')) { $('px').value = x0.toFixed(3); $('py').value = y0.toFixed(3); }
+    });
+  });
+
+  // reset: show controls
+  $('resetBtn').addEventListener('click', ()=> { $('controlsPanel').style.display = ''; });
+
+  // playback controls
+  $('playBtn').addEventListener('click', ()=>{
+    if(!frames) return alert('先に計算してください');
+    if(playTimer) return;
+    playTimer = setInterval(()=>{
+      currentFrame = (currentFrame + 1) % frames.length;
+      const ctx = document.getElementById('heatCanvas').getContext('2d');
+      drawArrayToCanvas(frames[currentFrame], lastResult.Nx, lastResult.Ny, ctx);
+      $('frameSlider').value = currentFrame;
+    }, Math.max(20, Math.floor(1000/25)));
+  });
+  $('pauseBtn').addEventListener('click', ()=> { if(playTimer){ clearInterval(playTimer); playTimer=null; }});
+  $('prevBtn').addEventListener('click', ()=> { if(!frames) return; $('pauseBtn').click(); currentFrame = Math.max(0, currentFrame-1); drawArrayToCanvas(frames[currentFrame], lastResult.Nx, lastResult.Ny, document.getElementById('heatCanvas').getContext('2d')); $('frameSlider').value=currentFrame; });
+  $('nextBtn').addEventListener('click', ()=> { if(!frames) return; $('pauseBtn').click(); currentFrame = Math.min(frames.length-1, currentFrame+1); drawArrayToCanvas(frames[currentFrame], lastResult.Nx, lastResult.Ny, document.getElementById('heatCanvas').getContext('2d')); $('frameSlider').value=currentFrame; });
+  $('frameSlider').addEventListener('input', (e)=>{ if(!frames) return; $('pauseBtn').click(); currentFrame = parseInt(e.target.value); drawArrayToCanvas(frames[currentFrame], lastResult.Nx, lastResult.Ny, document.getElementById('heatCanvas').getContext('2d')); });
+
+  // recording
+  let recBlobs = [], mediaRec = null;
+  $('recStart').addEventListener('click', ()=>{
+    if(!frames) return alert('先に計算してください');
+    recBlobs = [];
+    const stream = document.getElementById('heatCanvas').captureStream(25);
+    try{ mediaRec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'}); }catch(e){ mediaRec = new MediaRecorder(stream); }
+    mediaRec.ondataavailable = (ev)=>{ if(ev.data && ev.data.size>0) recBlobs.push(ev.data); };
+    mediaRec.onstop = ()=>{
+      const blob = new Blob(recBlobs, {type:'video/webm'});
+      const url = URL.createObjectURL(blob);
+      const a = $('recDL'); a.href = url; a.download = `slab_${Date.now()}.webm`; a.textContent = 'Download video';
+    };
+    mediaRec.start();
+    // play through frames into recording
+    let k=0;
+    const ii = setInterval(()=>{
+      if(k >= frames.length){ clearInterval(ii); if(mediaRec && mediaRec.state==='recording') mediaRec.stop(); return; }
+      drawArrayToCanvas(frames[k], lastResult.Nx, lastResult.Ny, document.getElementById('heatCanvas').getContext('2d'));
+      k++;
+    }, Math.max(20, Math.floor(1000/25)));
+  });
+  $('recStop').addEventListener('click', ()=>{ if(mediaRec && mediaRec.state==='recording') mediaRec.stop(); });
+
+  // plot click sets source/probe
+  document.getElementById('plot').addEventListener('click', (ev)=>{
+    // convert click offset to physical coordinates using plotly x/y axes bounding (use last layout)
+    // simpler: get bounding rect and map using Lx/Ly
+    const rect = ev.target.getBoundingClientRect();
+    // if click on Plotly graph, Plotly provides click events; fallback approximate mapping:
+  });
+
+  // attach Plotly click to set probe/source when available
+  const plotEl = document.getElementById('plot');
+  // use Plotly.js click event registration
+  plotEl.on = plotEl.on || function(){};
+  plotEl.on('plotly_click', (evt) => {
+    if(!evt || !evt.points || !evt.points[0]) return;
+    const pt = evt.points[0];
+    const cx = pt.x, cy = pt.y;
+    $('x0').value = clamp(cx,0,parseFloat($('Lx').value)).toFixed(3);
+    $('y0').value = clamp(cy,0,parseFloat($('Ly').value)).toFixed(3);
+    $('px').value = $('x0').value; $('py').value = $('y0').value;
+    // do not auto re-run; user presses 計算開始 again if needed
+  });
+
+  // snapshot
+  $('snapBtn').addEventListener('click', ()=>{
+    Plotly.toImage('plot',{format:'png',width:1200,height:800}).then(url=>{
+      const a=document.createElement('a'); a.href=url; a.download=`slab_${Date.now()}.png`; a.click();
+    });
+  });
+
+  // FFT from probe
+  $('fftBtn').addEventListener('click', ()=>{
+    if(!frames || !lastResult) return alert('先に計算してください');
+    const px = clamp(parseFloat($('px').value), 0, parseFloat($('Lx').value));
+    const py = clamp(parseFloat($('py').value), 0, parseFloat($('Ly').value));
     const Nx = lastResult.Nx;
-    const ix = clamp(Math.round(px / Lx * (Nx-1)), 0, Nx-1);
-    const iy = clamp(Math.round(py / Ly * (Nx-1)), 0, Nx-1);
-    const Nf = lastResult.framesCount;
+    const ix = clamp(Math.round(px / parseFloat($('Lx').value) * (Nx-1)), 0, Nx-1);
+    const iy = clamp(Math.round(py / parseFloat($('Ly').value) * (Nx-1)), 0, Nx-1);
+    const Nf = frames.length;
     const disp = new Float64Array(Nf);
-    for(let f=0; f<Nf; f++) disp[f] = lastResult.frames[f][iy*Nx + ix];
-    const vts = new Float64Array(Nf-2);
-    const dt = lastResult.dt;
-    for(let n=1;n<Nf-1;n++) vts[n-1] = (disp[n+1] - disp[n-1])/(2*dt);
-    const Nout = Math.max(64, vts.length);
-    const mags = new Float64Array(Math.floor(Nout/2));
-    for(let k=0;k<mags.length;k++){
+    for(let f=0; f<Nf; f++) disp[f] = frames[f][iy*Nx + ix];
+    // compute velocity via central difference
+    const dt = lastResult.dt || (1/ (parseInt($('samplesPerCycle').value) * (Math.min(250,10)) ));
+    const v = new Float64Array(Nf-2);
+    for(let n=1;n<Nf-1;n++) v[n-1] = (disp[n+1] - disp[n-1])/(2*dt);
+    // zero-pad/up-sample via FFT length (next pow2 >= 2*v.length)
+    const Nout = Math.pow(2, Math.ceil(Math.log2(Math.max(64, v.length))));
+    const mags = new Float64Array(Nout/2);
+    for(let k=0;k<Nout/2;k++){
       let re=0, im=0;
-      for(let n=0;n<vts.length;n++){ const ang = -2*Math.PI*k*n/Nout; re+=vts[n]*Math.cos(ang); im+=vts[n]*Math.sin(ang); }
+      for(let n=0;n<v.length;n++){
+        const ang = -2*Math.PI*k*n/Nout;
+        re += v[n]*Math.cos(ang);
+        im += v[n]*Math.sin(ang);
+      }
       mags[k] = Math.hypot(re,im);
     }
     const freqs = new Array(mags.length);
     for(let k=0;k<mags.length;k++) freqs[k] = k/(Nout*dt);
-    const vals = mags.map(v=>20*Math.log10(Math.max(v,1e-20)));
-    Plotly.newPlot('fftPlot', [{x:freqs, y:vals, type:'scatter', mode:'lines'}], {xaxis:{type:'log', title:'Hz'}, yaxis:{title:'20·log10(ref=1)'}}, {responsive:true});
-  }
-
-  document.getElementById('plotlyDiv').on('plotly_click', (ev)=>{
-    if(!ev.points || !ev.points[0]) return;
-    const p = ev.points[0];
-    $('px').value = p.x.toFixed(3);
-    $('py').value = p.y.toFixed(3);
+    const vals = mags.map(vv => 20*Math.log10(Math.max(vv, 1e-20)));
+    Plotly.newPlot('fftPlot', [{x:freqs, y:vals, type:'scatter', mode:'lines'}], {xaxis:{type:'log', title:'Hz'}, yaxis:{title:'20·log10 (ref=1)'}}, {responsive:true});
   });
 
+  // initial render: compute static modal map for defaults
+  function initialRender(){
+    const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
+    const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const mmax = parseInt($('mmax').value), nmax = parseInt($('nmax').value);
+    const Ngrid = parseInt($('Ngrid').value);
+    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+    populateModeList(modes);
+    const freq = modes[0].f;
+    const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0: Lx/2, y0:Ly/2,Ngrid,displayChoice:$('displayChoice').value,useDbStatic:$('useDbStatic').checked});
+    const z2d = to2D(staticField.Z,Ngrid,Ngrid);
+    Plotly.newPlot('plot', [{z:z2d, x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:30,b:60,l:60,r:10}}, {responsive:true,displaylogo:false});
+    const ctx = document.getElementById('heatCanvas').getContext('2d');
+    document.getElementById('heatCanvas').width = 800; document.getElementById('heatCanvas').height = 300;
+    drawArrayToCanvas(staticField.Z, Ngrid, Ngrid, ctx);
+  }
+
+  initialRender();
 })();
 </script>
 </body>
