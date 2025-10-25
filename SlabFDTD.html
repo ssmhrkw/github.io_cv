@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SlabFDTD — 四角板プロトタイプ</title>
+<title>SlabFDTD — 四角板プロトタイプ（iPad向け修正版）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -28,16 +28,15 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
 .tabbar{display:flex;gap:8px;margin-bottom:8px}
 .tab{padding:8px;border-radius:8px;background:#fff;border:1px solid #eef3fb;cursor:pointer}
 .tab.active{background:var(--accent);color:#fff}
-.controls-collapsed{max-height:48px;overflow:hidden;padding:6px}
-.panel-row{display:flex;gap:8px}
 .small-btn{padding:6px;border-radius:6px;font-size:13px}
 .probe-list{max-height:140px;overflow:auto;border:1px solid #eef3fb;padding:6px;border-radius:6px;background:#fbfcfe}
 .kv{font-size:13px;color:var(--muted)}
+#errorBox{color:#b91c1c;background:#fff1f2;border:1px solid #fecaca;padding:8px;border-radius:6px;margin-top:8px;display:none}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>SlabFDTD — 四角板プロトタイプ</h2>
+  <h2>SlabFDTD — 四角板プロトタイプ（iPad向け修正版）</h2>
   <div class="grid">
     <div class="card" id="controlsPanel">
       <div class="preset-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -127,6 +126,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
           <label>Progress</label>
           <div class="progress"><div id="progressFill" style="width:0%"></div></div>
           <div id="progressText" class="small"></div>
+          <div id="errorBox"></div>
         </div>
       </div>
 
@@ -208,8 +208,29 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
   function nextPow2(n){ let p=1; while(p<n) p*=2; return p; }
   const eps = 1e-20;
 
+  // global error display (for iPad where console may be inaccessible)
+  function showError(msg){
+    const el = $('errorBox');
+    el.style.display = 'block';
+    el.textContent = 'Error: ' + msg;
+    console.error(msg);
+  }
+  window.addEventListener('error', function(e){ showError(e.message + ' (' + e.filename + ':' + e.lineno + ')'); });
+  window.addEventListener('unhandledrejection', function(e){ showError('UnhandledRejection: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
+
+  // to2D
+  function to2D(arr,Nx,Ny){
+    const z = new Array(Ny);
+    for(let j=0;j<Ny;j++){
+      const row = new Array(Nx);
+      for(let i=0;i<Nx;i++) row[i] = arr[j*Nx + i];
+      z[j]=row;
+    }
+    return z;
+  }
+
   // state
-  let frames = null, lastResult = null, playing=false, playInterval=null;
+  let frames = null, lastResult = null, playInterval=null;
   let probes = []; // {ix,iy,x,y,vals}
   let addingProbe=false;
   let recorder=null, recordedChunks=[];
@@ -248,17 +269,16 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
         Array.from(div.children).forEach(x=>x.style.background='');
         el.style.background='#eef6ff';
         $('freq').value = md.f.toFixed(6);
-        // animate mode (loop)
         startModeAnimation(md);
       };
       div.appendChild(el);
     });
   }
 
-  // static modal synthesis (same as before)
+  // static modal synthesis
   function computeStaticField(opts){
     const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDbStatic} = opts;
-    const omega = 2*Math.PI*freq || 0;
+    const omega = 2*Math.PI*(freq||0);
     const Mmn = modalMass(rho,h,Lx,Ly);
     const Nx = Ngrid, Ny = Ngrid;
     const xs = new Array(Nx); const ys = new Array(Ny);
@@ -317,7 +337,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
     ctx.clearRect(0,0,W,H); ctx.drawImage(tmp,0,0,W,H);
   }
 
-  // FDTD transient (same as before) - chunked
+  // FDTD transient (chunked)
   let abortFlag=false;
   function computeTransient(cfg, onProgress, onDone){
     abortFlag=false;
@@ -396,44 +416,57 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
 
   // compute button
   $('computeBtn').addEventListener('click', ()=>{
-    if($('material_preset').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
-    else if($('material_preset').value==='steel'){ $('E').value=210000000000; $('nu').value=0.3; $('rho').value=7850; }
-    const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
-    const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-    let Ngrid=parseInt($('Ngrid').value); const dx_in=parseFloat($('dx').value)||0;
-    if(dx_in>0){ Ngrid = Math.ceil(Math.max(Lx,Ly)/dx_in)+1; Ngrid=Math.max(16,Ngrid); }
-    const framesCount = parseInt($('framesCount').value);
-    const samplesPerCycle = parseInt($('samplesPerCycle').value);
-    const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
-    const preset = $('sourcePreset_preset').value;
-    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
-    else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
-    else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
-    const x0=clamp(parseFloat($('x0').value),0,Lx), y0=clamp(parseFloat($('y0').value),0,Ly);
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modes);
-    $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
+    try{
+      if($('material_preset').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
+      else if($('material_preset').value==='steel'){ $('E').value=210000000000; $('nu').value=0.3; $('rho').value=7850; }
+      const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
+      const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+      let Ngrid=parseInt($('Ngrid').value); const dx_in=parseFloat($('dx').value)||0;
+      if(dx_in>0){ Ngrid = Math.ceil(Math.max(Lx,Ly)/dx_in)+1; Ngrid=Math.max(16,Ngrid); }
+      const framesCount = parseInt($('framesCount').value);
+      const samplesPerCycle = parseInt($('samplesPerCycle').value);
+      const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
+      const preset = $('sourcePreset_preset').value;
+      if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
+      else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
+      else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
+      const x0=clamp(parseFloat($('x0').value),0,Lx), y0=clamp(parseFloat($('y0').value),0,Ly);
+      const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modes);
+      $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
 
-    const workerHandle = computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0}, (p,msg)=>{
-      $('progressFill').style.width = p+'%'; $('progressText').textContent = msg|| (p+'%');
-    }, (res)=>{
-      frames = res.frames;
-      lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
-      $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx} dt=${res.dt.toExponential(2)}s`;
-      // draw static field and first frame
-      const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
-      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:$('displayPreset')?.value||'v_over_F',useDbStatic:$('useDbStatic')?.checked});
-      const z2d = to2D(staticField.Z, res.Nx, res.Ny);
-      Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}}, {responsive:true,displaylogo:false});
-      const ctx = $('heatCanvas').getContext('2d'); $('heatCanvas').width = 800; $('heatCanvas').height = 300;
-      drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
-      $('frameSlider').max = frames.length-1; $('frameSlider').value = 0;
-    });
+      const workerHandle = computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0}, (p,msg)=>{
+        $('progressFill').style.width = p+'%'; $('progressText').textContent = msg|| (p+'%');
+      }, (res)=>{
+        frames = res.frames;
+        lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
+        $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx} dt=${res.dt.toExponential(2)}s`;
+        // draw static field and first frame
+        const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
+        // safe read of display and useDbStatic (no optional chaining)
+        const displayEl = document.getElementById('displayPreset');
+        const displayChoiceVal = displayEl ? displayEl.value : 'v_over_F';
+        const useDbStaticChecked = document.getElementById('useDbStatic') ? document.getElementById('useDbStatic').checked : false;
+        const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:displayChoiceVal,useDbStatic:useDbStaticChecked});
+        const z2d = to2D(staticField.Z, res.Nx, res.Ny);
+        try{
+          Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}}, {responsive:true,displaylogo:false});
+        }catch(e){
+          showError('Plotly plot failed: '+ (e && e.message ? e.message : String(e)));
+        }
+        const ctx = $('heatCanvas').getContext('2d'); $('heatCanvas').width = Math.min(1200, window.innerWidth-420); $('heatCanvas').height = 300;
+        drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
+        $('frameSlider').max = frames.length-1; $('frameSlider').value = 0;
+      });
 
-    // abort binding
-    $('abortBtn').onclick = ()=>{ if(workerHandle && workerHandle.cancel) workerHandle.cancel(); $('progressText').textContent='キャンセル済み'; };
+      // abort binding
+      $('abortBtn').onclick = ()=>{ if(workerHandle && workerHandle.cancel) workerHandle.cancel(); $('progressText').textContent='キャンセル済み'; };
+    }catch(err){
+      showError('compute start failed: ' + (err && err.message ? err.message : String(err)));
+    }
   });
 
   // frame playback controls
+  let currentFrame=0;
   function renderFrame(i){
     if(!lastResult) return;
     const ctx = $('heatCanvas').getContext('2d');
@@ -446,14 +479,13 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
   $('timePlay').addEventListener('click', ()=> {
     if(!frames || !lastResult){ alert('まず計算してください'); return; }
     if(playInterval) clearInterval(playInterval);
-    playing=true;
     const fps = parseInt($('fps').value) || 25;
     playInterval = setInterval(()=> {
       currentFrame = (currentFrame + 1) % lastResult.frames.length;
       renderFrame(currentFrame);
     }, 1000/Math.max(1,fps));
   });
-  $('timeStop').addEventListener('click', ()=> { playing=false; if(playInterval) clearInterval(playInterval); playInterval=null; });
+  $('timeStop').addEventListener('click', ()=> { if(playInterval) clearInterval(playInterval); playInterval=null; });
   $('timePrev').addEventListener('click', ()=> { currentFrame = Math.max(0, currentFrame-1); renderFrame(currentFrame); });
   $('timeNext').addEventListener('click', ()=> { currentFrame = Math.min(lastResult.frames.length-1, currentFrame+1); renderFrame(currentFrame); });
 
@@ -464,6 +496,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
     try{
       const stream = canvas.captureStream(25);
       recordedChunks = [];
+      if(typeof MediaRecorder === 'undefined'){ alert('このブラウザは MediaRecorder をサポートしていません'); return; }
       recorder = new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'});
       recorder.ondataavailable = e=>{ if(e.data.size) recordedChunks.push(e.data); };
       recorder.onstop = ()=> {
@@ -474,7 +507,7 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
       recorder.start();
       $('recordStatus').textContent = '録画中...';
       setTimeout(()=>{ if(recorder && recorder.state==='recording') { recorder.stop(); $('recordStatus').textContent='終了'; } }, 10000);
-    }catch(err){ console.error(err); alert('録画に失敗しました: '+err.message); }
+    }catch(err){ showError('録画に失敗しました: '+ (err && err.message ? err.message : String(err))); }
   });
 
   // Mode animation (looping)
@@ -483,8 +516,8 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
     stopModeAnimation();
     currentMode = mode;
     const canvas = $('modeCanvas'); const ctx = canvas.getContext('2d');
-    const Ngrid = parseInt($('Ngrid').value);
     canvas.width = canvas.clientWidth; canvas.height = 360;
+    const Ngrid = parseInt($('Ngrid').value);
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
     const Nx = Ngrid, Ny = Ngrid;
     const xs = new Array(Nx), ys = new Array(Ny);
@@ -518,15 +551,14 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
 
   // Probe handling using heatCanvas clicks
   const heatCanvas = $('heatCanvas');
-  const heatCtx = heatCanvas.getContext('2d');
   heatCanvas.addEventListener('pointerdown',(ev)=> {
     if(addingProbe && lastResult){
       const rect = heatCanvas.getBoundingClientRect();
       const cx = ev.clientX - rect.left, cy = ev.clientY - rect.top;
       const ix = Math.floor(cx / rect.width * lastResult.Nx);
       const iy = Math.floor(cy / rect.height * lastResult.Ny);
-      const x = lastResult.xs[ix] || 0, y = lastResult.ys[iy] || 0;
-      probes.push({ix,iy,x,y,vals:null});
+      const x = lastResult.xs[clamp(ix,0,lastResult.Nx-1)] || 0, y = lastResult.ys[clamp(iy,0,lastResult.Ny-1)] || 0;
+      probes.push({ix:clamp(ix,0,lastResult.Nx-1),iy:clamp(iy,0,lastResult.Ny-1),x,y,vals:null});
       renderProbeList();
       addingProbe=false; $('addProbeBtn').textContent='プローブを追加(クリックで設置)';
     }
@@ -552,93 +584,84 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
   // FFT pipeline (simple DFT)
   function hann(winN){ const w = new Float64Array(winN); for(let n=0;n<winN;n++) w[n]=0.5*(1-Math.cos(2*Math.PI*n/(winN-1))); return w;}
   function doFFT(){
-    if(!lastResult){ alert('まず計算して frames を取得してください'); return; }
-    if(probes.length===0){ alert('プローブを追加してください'); return; }
-    const Fs = lastResult.Fs, dt = lastResult.dt;
-    // extract w[t] per probe: choose from frames[]. length = frames.length
-    const T = lastResult.frames.length;
-    const win = hann(T);
-    const up = Math.max(1, parseInt($('upsample').value)||1);
-    const Nfft = nextPow2(Math.max(64, up*T));
-    const fmax = parseFloat($('framesCount')?.value) || 250;
-    const freqs = new Float64Array(Nfft/2);
-    for(let k=0;k<freqs.length;k++) freqs[k] = k * (Fs / Nfft);
-    // collect velocity time series per probe
-    const vmat = [];
-    for(const p of probes){
-      const vals = new Float64Array(T);
-      for(let t=0;t<T;t++){
-        const wv = lastResult.frames[t][p.iy*lastResult.Nx + p.ix];
-        vals[t]=wv;
-      }
-      // velocity via central diff
-      const v = new Float64Array(T);
-      for(let t=0;t<T;t++){
-        if(t===0) v[t] = (vals[1]-vals[0]) / dt;
-        else if(t===T-1) v[t] = (vals[T-1]-vals[T-2]) / dt;
-        else v[t] = (vals[t+1]-vals[t-1]) / (2*dt);
-      }
-      // window
-      for(let t=0;t<T;t++) v[t] *= win[t];
-      vmat.push(v);
-    }
-    // average if requested
-    let vavg = new Float64Array(T);
-    if($('avgProbe').checked){
-      for(let t=0;t<T;t++){ let s=0; for(let i=0;i<vmat.length;i++) s+=vmat[i][t]; vavg[t]=s/vmat.length; }
-    }
-    // compute DFT for each selected series (use averaged if chosen)
-    const series = $('avgProbe').checked ? [vavg] : vmat;
-    const spectra = [];
-    for(const s of series){
-      // zero-pad to Nfft
-      const outRe = new Float64Array(Nfft/2);
-      const outIm = new Float64Array(Nfft/2);
-      for(let k=0;k<Nfft/2;k++){
-        let re=0,im=0;
-        for(let n=0;n<T;n++){
-          const angle = -2*Math.PI * k * n / Nfft;
-          re += s[n] * Math.cos(angle);
-          im += s[n] * Math.sin(angle);
+    try{
+      if(!lastResult){ alert('まず計算して frames を取得してください'); return; }
+      if(probes.length===0){ alert('プローブを追加してください'); return; }
+      const Fs = lastResult.Fs, dt = lastResult.dt;
+      const T = lastResult.frames.length;
+      const win = hann(T);
+      const up = Math.max(1, parseInt($('upsample').value)||1);
+      const Nfft = nextPow2(Math.max(64, up*T));
+      const freqs = new Float64Array(Nfft/2);
+      for(let k=0;k<freqs.length;k++) freqs[k] = k * (Fs / Nfft);
+      const vmat = [];
+      for(const p of probes){
+        const vals = new Float64Array(T);
+        for(let t=0;t<T;t++){
+          const wv = lastResult.frames[t][p.iy*lastResult.Nx + p.ix];
+          vals[t]=wv;
         }
-        outRe[k]=re; outIm[k]=im;
+        const v = new Float64Array(T);
+        for(let t=0;t<T;t++){
+          if(t===0) v[t] = (vals[1]-vals[0]) / dt;
+          else if(t===T-1) v[t] = (vals[T-1]-vals[T-2]) / dt;
+          else v[t] = (vals[t+1]-vals[t-1]) / (2*dt);
+        }
+        for(let t=0;t<T;t++) v[t] *= win[t];
+        vmat.push(v);
       }
-      const mag = new Float64Array(Nfft/2);
-      for(let k=0;k<Nfft/2;k++) mag[k] = Math.sqrt(outRe[k]*outRe[k] + outIm[k]*outIm[k]) / T;
-      spectra.push({re:outRe,im:outIm,mag});
-    }
-    // plot first spectrum (semilogx)
-    const freqArr = Array.from(freqs);
-    const magDb = Array.from(spectra[0].mag).map(v => 20*Math.log10(Math.max(v, eps)));
-    const trace = { x: freqArr, y: magDb, mode:'lines', type:'scatter' };
-    const layout = { xaxis:{type:'log',title:'Hz',range:[Math.log10(Math.max(0.1,freqArr[1])) , Math.log10(Math.min(freqArr[freqArr.length-1],250))]}, yaxis:{title:'dB (20·log10)', autorange:true}, margin:{t:10,b:40} };
-    Plotly.newPlot('fftPlot',[trace],layout,{responsive:true,displaylogo:false});
-    // peak detection simple: local maxima above threshold (prominence fraction of max)
-    const peaks = [];
-    const mvals = spectra[0].mag;
-    const maxv = Math.max(...mvals);
-    const thresh = maxv * 0.15;
-    for(let k=2;k<mvals.length-2;k++){
-      if(mvals[k] > mvals[k-1] && mvals[k] > mvals[k+1] && mvals[k] > thresh){
-        peaks.push({f:freqs[k], ampDb:20*Math.log10(Math.max(mvals[k],eps)), idx:k});
+      let vavg = new Float64Array(T);
+      if($('avgProbe').checked){
+        for(let t=0;t<T;t++){ let s=0; for(let i=0;i<vmat.length;i++) s+=vmat[i][t]; vavg[t]=s/vmat.length; }
       }
+      const series = $('avgProbe').checked ? [vavg] : vmat;
+      const spectra = [];
+      for(const s of series){
+        const outRe = new Float64Array(Nfft/2);
+        const outIm = new Float64Array(Nfft/2);
+        for(let k=0;k<Nfft/2;k++){
+          let re=0,im=0;
+          for(let n=0;n<T;n++){
+            const angle = -2*Math.PI * k * n / Nfft;
+            re += s[n] * Math.cos(angle);
+            im += s[n] * Math.sin(angle);
+          }
+          outRe[k]=re; outIm[k]=im;
+        }
+        const mag = new Float64Array(Nfft/2);
+        for(let k=0;k<Nfft/2;k++) mag[k] = Math.sqrt(outRe[k]*outRe[k] + outIm[k]*outIm[k]) / T;
+        spectra.push({re:outRe,im:outIm,mag});
+      }
+      const freqArr = Array.from(freqs);
+      const magDb = Array.from(spectra[0].mag).map(v => 20*Math.log10(Math.max(v, eps)));
+      const trace = { x: freqArr, y: magDb, mode:'lines', type:'scatter' };
+      const layout = { xaxis:{type:'log',title:'Hz'}, yaxis:{title:'dB (20·log10)', autorange:true}, margin:{t:10,b:40} };
+      Plotly.newPlot('fftPlot',[trace],layout,{responsive:true,displaylogo:false});
+      const peaks = [];
+      const mvals = spectra[0].mag;
+      const maxv = Math.max.apply(null, mvals);
+      const thresh = maxv * 0.15;
+      for(let k=2;k<mvals.length-2;k++){
+        if(mvals[k] > mvals[k-1] && mvals[k] > mvals[k+1] && mvals[k] > thresh){
+          peaks.push({f:freqs[k], ampDb:20*Math.log10(Math.max(mvals[k],eps)), idx:k});
+        }
+      }
+      const peakDiv = $('peakList'); peakDiv.innerHTML = '<strong>Peaks</strong><br>';
+      peaks.slice(0,10).forEach(p=>{
+        const btn = document.createElement('button'); btn.textContent = `${p.f.toFixed(2)} Hz (${p.ampDb.toFixed(1)} dB)`; btn.className='small-btn';
+        btn.addEventListener('click', ()=> { showModeMapFromFFT(p.idx, spectra[0], freqs); });
+        peakDiv.appendChild(btn);
+        peakDiv.appendChild(document.createTextNode(' '));
+      });
+    }catch(err){
+      showError('FFT failed: ' + (err && err.message ? err.message : String(err)));
     }
-    const peakDiv = $('peakList'); peakDiv.innerHTML = '<strong>Peaks</strong><br>';
-    peaks.slice(0,10).forEach(p=>{
-      const btn = document.createElement('button'); btn.textContent = `${p.f.toFixed(2)} Hz (${p.ampDb.toFixed(1)} dB)`; btn.className='small-btn';
-      btn.addEventListener('click', ()=> { showModeMapFromFFT(p.idx, spectra[0], freqs); });
-      peakDiv.appendChild(btn);
-      peakDiv.appendChild(document.createTextNode(' '));
-    });
   }
 
   function showModeMapFromFFT(idx, spectrum, freqs){
     if(!lastResult) return;
-    // build complex map at frequency idx from each gridpoint: do DFT per gridpoint (heavy).
     const T = lastResult.frames.length;
     const Nx = lastResult.Nx, Ny = lastResult.Ny;
-    // Compute complex amplitude per gridpoint at freq idx: sum_t w(x,y,t)*exp(-i*2pi*k t/Nfft)
-    // Use Nfft same as spectra length*2
     const Nfft = (spectrum.mag.length)*2;
     const reMap = new Float64Array(Nx*Ny);
     const imMap = new Float64Array(Nx*Ny);
@@ -654,15 +677,13 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
         const id=j*Nx+i; reMap[id]=re; imMap[id]=im;
       }
     }
-    // amplitude map
     const amp = new Float64Array(Nx*Ny);
     let mx=0;
     for(let k=0;k<amp.length;k++){ amp[k]=Math.hypot(reMap[k],imMap[k]); if(amp[k]>mx) mx=amp[k]; }
     if(mx===0) mx=1;
-    // normalize
     const norm = new Float64Array(amp.length);
     for(let k=0;k<amp.length;k++) norm[k]=amp[k]/mx;
-    // show on Plotly heatmap (switch to mode tab)
+    // switch to mode tab and plot
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelector('.tab[data-tab="mode"]').classList.add('active');
     $('timePanel').style.display='none'; $('freqPanel').style.display='none'; $('modePanel').style.display='';
@@ -674,17 +695,22 @@ canvas{width:100%;height:260px;border-radius:6px;border:1px solid #eef3fb; touch
 
   // show initial static field
   (function initial(){
-    const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
-    const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-    const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value), Ngrid=parseInt($('Ngrid').value);
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    populateModeList(modes);
-    const freq = modes[0].f;
-    const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:'v_over_F',useDbStatic:$('useDbStatic')?.checked});
-    Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:10,b:40,l:60,r:10}}, {responsive:true,displaylogo:false});
-    const ctx = $('heatCanvas').getContext('2d');
-    $('heatCanvas').width = 800; $('heatCanvas').height = 300;
-    drawArrayToCanvas(staticField.Z, Ngrid, Ngrid, ctx);
+    try{
+      const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
+      const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+      const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value), Ngrid=parseInt($('Ngrid').value);
+      const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
+      populateModeList(modes);
+      const freq = modes[0].f;
+      const useDbStaticChecked = document.getElementById('useDbStatic') ? document.getElementById('useDbStatic').checked : false;
+      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:'v_over_F',useDbStatic:useDbStaticChecked});
+      Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:10,b:40,l:60,r:10}}, {responsive:true,displaylogo:false});
+      const ctx = $('heatCanvas').getContext('2d');
+      $('heatCanvas').width = Math.min(1200, window.innerWidth-420); $('heatCanvas').height = 300;
+      drawArrayToCanvas(staticField.Z, Ngrid, Ngrid, ctx);
+    }catch(err){
+      showError('initial render failed: ' + (err && err.message ? err.message : String(err)));
+    }
   })();
 
 })();
