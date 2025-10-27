@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SlabFDTD — 四角板プロトタイプ（iPad向け修正版）</title>
+<title>SlabFDTD — 四角板プロトタイプ（iPad向け修正版・重なり修正）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -17,7 +17,8 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .row{margin-bottom:8px}
 .btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
 .small{font-size:13px;color:var(--muted)}
-#plot{height:36vh;min-height:220px}
+/* 上段Plotは高さをJSで決める。marginで下段と干渉しない */
+#plot{height:auto;min-height:220px;margin-bottom:8px}
 .inline{display:flex;gap:8px;align-items:center}
 .mode-list{max-height:180px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
 .footer{font-size:13px;color:var(--muted);margin-top:8px;padding:8px;border-radius:8px;background:#fbfcfe}
@@ -33,12 +34,19 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
 .probe-list{max-height:140px;overflow:auto;border:1px solid #eef3fb;padding:6px;border-radius:6px;background:#fbfcfe}
 .kv{font-size:13px;color:var(--muted)}
 #errorBox{color:#b91c1c;background:#fff1f2;border:1px solid #fecaca;padding:8px;border-radius:6px;margin-top:8px;display:none}
-.overlayText{position:absolute;left:12px;top:12px;background:rgba(255,255,255,0.6);padding:6px;border-radius:6px;font-family:ui-sans-serif,system-ui;pointer-events:none}
+
+/* 下段Canvasの被り回避：半幅・最大520pxで中央寄せ */
+.vizNarrow{
+  width:50%;
+  max-width:520px;
+  min-width:280px;
+  margin:8px auto 0;
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>SlabFDTD — 四角板プロトタイプ（iPad向け修正版）</h2>
+  <h2>SlabFDTD — 四角板プロトタイプ（iPad向け修正版・重なり修正）</h2>
   <div class="grid">
     <div class="card" id="controlsPanel">
       <div class="preset-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -91,7 +99,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
         </div>
 
         <div class="row controls-row">
-          <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="1024" value="128"></div>
+          <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="8" max="2048" value="128"></div>
           <div style="flex:1"><label>samplesPerCycle</label><input id="samplesPerCycle" type="number" min="4" max="64" value="16"></div>
         </div>
 
@@ -150,9 +158,13 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       </div>
 
       <div id="timePanel" class="panel">
+        <!-- 上段：Plotly 熱マップ -->
         <div id="plot"></div>
-        <canvas id="heatCanvas" class="heat"></canvas>
-        <div id="heatOverlay" class="overlayText" style="display:none"></div>
+        <!-- 下段：半幅Canvas（被り防止＆中央寄せ） -->
+        <div id="heatWrap" class="vizNarrow">
+          <canvas id="heatCanvas" class="heat"></canvas>
+        </div>
+
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
           <button id="timePlay" class="small-btn btn">Start</button>
           <button id="timeStop" class="small-btn">Stop</button>
@@ -174,7 +186,10 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
           <input id="modeFrames" type="number" value="64" min="8" max="512" style="width:80px">
         </div>
         <canvas id="modeCanvas" class="modeCanvas"></canvas>
-        <div id="modeOverlay" class="overlayText" style="display:none"></div>
+
+        <!-- 追加：FFTから再構成したモードマップの描画先（ここに描く） -->
+        <div id="modeMapPlot" style="height:260px; margin-top:8px"></div>
+
         <div style="margin-top:8px" class="kv">解析モードと FDTD由来モードを比較できます（Frequency タブでピーク選択）。</div>
       </div>
 
@@ -202,6 +217,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
 </div>
 
 <script>
+// ===== ユーティリティ =====
 (() => {
   const $ = id => document.getElementById(id);
   function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
@@ -209,6 +225,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
   function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
   function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
   function nextPow2(n){ let p=1; while(p<n) p*=2; return p; }
+  function panelWidth(el){ return Math.floor(el.getBoundingClientRect().width||0); }
   const eps = 1e-20;
 
   function showError(msg){
@@ -217,8 +234,8 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     el.textContent = 'Error: ' + msg;
     console.error(msg);
   }
-  window.addEventListener('error', function(e){ showError(e.message + ' (' + e.filename + ':' + e.lineno + ')'); });
-  window.addEventListener('unhandledrejection', function(e){ showError('UnhandledRejection: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
+  window.addEventListener('error', (e)=> showError(e.message + ' (' + e.filename + ':' + e.lineno + ')'));
+  window.addEventListener('unhandledrejection', (e)=> showError('UnhandledRejection: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))));
 
   function to2D(arr,Nx,Ny){
     const z = new Array(Ny);
@@ -239,19 +256,19 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     canvas.height = Math.max(1, Math.round(displayH * ratio));
     const ctx = canvas.getContext('2d');
     ctx.setTransform(ratio,0,0,ratio,0,0);
-    // use crisp font sizes after transform
     ctx.font = '14px ui-sans-serif,system-ui';
     ctx.textBaseline = 'top';
     return ctx;
   }
 
-  // draw grid array to canvas (ctx already DPR-transformed)
+  // draw grid array to canvas
   function drawArrayToCanvas(arr,Nx,Ny,ctx,manualMin,manualMax){
     const dispW = parseFloat(ctx.canvas.style.width) || ctx.canvas.width;
     const dispH = parseFloat(ctx.canvas.style.height) || ctx.canvas.height;
     let mn = manualMin, mx = manualMax;
     if(mn===undefined || mx===undefined || !isFinite(mn) || !isFinite(mx)){
-      mn = Infinity; mx = -Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; } if(!isFinite(mn)){ mn=0; mx=1; }
+      mn = Infinity; mx = -Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; }
+      if(!isFinite(mn)){ mn=0; mx=1; }
     }
     const img = new ImageData(Nx,Ny);
     const span = (mx-mn)||1e-12;
@@ -270,11 +287,9 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     ctx.drawImage(tmp, 0, 0, dispW, dispH);
   }
 
-  // overlay draw (x,y,frame,time)
+  // overlay text inside canvas
   function drawOverlayOnCanvas(ctx, xs, ys, ix, iy, frameIndex, dt){
     const dispW = parseFloat(ctx.canvas.style.width) || ctx.canvas.width;
-    const dispH = parseFloat(ctx.canvas.style.height) || ctx.canvas.height;
-    // draw semi-transparent box at top-left
     const padding = 6;
     const lines = [];
     if(frameIndex !== null && dt !== null) lines.push(`frame:${frameIndex} t:${(frameIndex*dt).toFixed(4)} s`);
@@ -284,8 +299,6 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       lines.push(`x:${x} m  y:${y} m`);
     }
     if(lines.length===0) return;
-    const txt = lines.join('\n');
-    // compute size
     const lineHeight = 16;
     const boxW = 200, boxH = lineHeight * lines.length + padding*2;
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
@@ -297,26 +310,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }
   }
 
-  // state
-  let frames = null, lastResult = null, playInterval=null;
-  let probes = [];
-  let addingProbe=false;
-  let recorder=null, recordedChunks=[];
-  let lastHeatPointer = {ix:null,iy:null};
-  let lastModePointer = {ix:null,iy:null};
-
-  // tabs
-  document.querySelectorAll('.tab').forEach(t=>{
-    t.addEventListener('click', ()=> {
-      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-      t.classList.add('active');
-      const tab = t.dataset.tab;
-      $('timePanel').style.display = tab==='time' ? '' : 'none';
-      $('modePanel').style.display = tab==='mode' ? '' : 'none';
-      $('freqPanel').style.display = tab==='freq' ? '' : 'none';
-    });
-  });
-
+  // ===== 解析（固有値式・静的場表示） =====
   function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
     const D = D_of(E,h,nu);
     const modes=[];
@@ -345,7 +339,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
   }
 
   function computeStaticField(opts){
-    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDbStatic} = opts;
+    const {Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,useDbStatic} = opts;
     const omega = 2*Math.PI*(freq||0);
     const Mmn = modalMass(rho,h,Lx,Ly);
     const Nx = Ngrid, Ny = Ngrid;
@@ -359,33 +353,35 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       if(md.m>mmax || md.n>nmax) continue;
       const omega_m = md.omega;
       const phi0 = phi(md.m,md.n,x0,y0,Lx,Ly);
-      const num = {re: F * phi0, im: 0};
       const real = Mmn * (omega_m*omega_m - omega*omega);
       const imag = Mmn * (omega * omega_m / Q);
       const d = real*real + imag*imag || 1e-30;
-      const eta = { re: (num.re*real + num.im*imag)/d, im: (num.im*real - num.re*imag)/d };
+      const eta_re = F * phi0 * real / d;
+      const eta_im = - F * phi0 * imag / d;
       for(let j=0;j<Ny;j++){
         const cy = Math.sin(md.n * Math.PI * ys[j] / Ly);
         for(let i=0;i<Nx;i++){
           const cx = Math.sin(md.m * Math.PI * xs[i] / Lx);
           const idx = j*Nx + i;
           const ph = cx * cy;
-          W[idx].re += eta.re * ph;
-          W[idx].im += eta.im * ph;
+          W[idx].re += eta_re * ph;
+          W[idx].im += eta_im * ph;
         }
       }
     }
+    // 速度振幅（|ω·W|）か、変位インピーダンス表示などに応用可能
     const V = new Float64Array(Ny*Nx);
     for(let k=0;k<W.length;k++) V[k] = (omega===0 ? Math.hypot(W[k].re, W[k].im) : omega * Math.hypot(W[k].re, W[k].im));
     const out = new Float64Array(Ny*Nx);
-    if(displayChoice === 'v_over_F') for(let k=0;k<out.length;k++) out[k] = V[k]; else for(let k=0;k<out.length;k++) out[k] = (V[k]>0?1.0/V[k]:0);
+    for(let k=0;k<out.length;k++) out[k] = V[k];
     if(useDbStatic){
       for(let k=0;k<out.length;k++) out[k] = 10 * Math.log10(Math.max(out[k], eps));
     }
     return {xs,ys,Z:out,rawV:V};
   }
 
-  // FDTD transient (chunked)
+  // ===== FDTD（メインスレッド） =====
+  // 既存のインラインFDTDはそのまま利用可能。ここではUI修正が主目的なので据え置き。
   let abortFlag=false;
   function computeTransient(cfg, onProgress, onDone){
     abortFlag=false;
@@ -460,11 +456,32 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     return { cancel: ()=>{ abortFlag=true; } };
   }
 
-  // compute button
+  // ===== UI =====
+  let frames = null, lastResult = null, playInterval=null;
+  let probes = [];
+  let addingProbe=false;
+  let recorder=null, recordedChunks=[];
+  let lastHeatPointer = {ix:null,iy:null};
+  let lastModePointer = {ix:null,iy:null};
+
+  // タブ切替
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=> {
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      const tab = t.dataset.tab;
+      $('timePanel').style.display = tab==='time' ? '' : 'none';
+      $('modePanel').style.display = tab==='mode' ? '' : 'none';
+      $('freqPanel').style.display = tab==='freq' ? '' : 'none';
+    });
+  });
+
+  // 計算ボタン
   $('computeBtn').addEventListener('click', ()=>{
     try{
       if($('material_preset').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
       else if($('material_preset').value==='steel'){ $('E').value=210000000000; $('nu').value=0.3; $('rho').value=7850; }
+
       const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
       const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
       let Ngrid=parseInt($('Ngrid').value); const dx_in=parseFloat($('dx').value)||0;
@@ -472,54 +489,52 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const framesCount = parseInt($('framesCount').value);
       const samplesPerCycle = parseInt($('samplesPerCycle').value);
       const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
+
       const preset = $('sourcePreset_preset').value;
       if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
       else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
       else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
+
       const x0=clamp(parseFloat($('x0').value),0,Lx), y0=clamp(parseFloat($('y0').value),0,Ly);
       const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modes);
       $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
 
-      const workerHandle = computeTransient({E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0}, (p,msg)=>{
-        $('progressFill').style.width = p+'%'; $('progressText').textContent = msg|| (p+'%');
-      }, (res)=>{
-        frames = res.frames;
-        lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
-        $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx} dt=${res.dt.toExponential(2)}s`;
-        // static field
-        const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
-        const displayEl = document.getElementById('displayPreset');
-        const displayChoiceVal = displayEl ? displayEl.value : 'v_over_F';
-        const useDbStaticChecked = document.getElementById('useDbStatic') ? document.getElementById('useDbStatic').checked : false;
-        const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,displayChoice:displayChoiceVal,useDbStatic:useDbStaticChecked});
-        const z2d = to2D(staticField.Z, res.Nx, res.Ny);
+      // 実寸で高さ計算（Time上段Plot）
+      const panelW = panelWidth($('timePanel'));
+      const plotH = Math.max(160, Math.min(900, Math.round(panelW * (Ly / Lx))));
 
-        // compute display sizes using physical aspect ratio Lx:Ly
-        const displayW = Math.min(1200, window.innerWidth - 420);
-        const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx)))); // keep reasonable caps
+      const workerHandle = computeTransient(
+        {E,nu,rho,h,Lx,Ly,Ngrid,frames:framesCount,samplesPerCycle,fmax:250,x0,y0},
+        (p,msg)=>{ $('progressFill').style.width = p+'%'; $('progressText').textContent = msg|| (p+'%'); },
+        (res)=>{
+          frames = res.frames;
+          lastResult = {frames, Nx:res.Nx, Ny:res.Ny, dt:res.dt, Fs:res.Fs, xs: Array.from({length:res.Nx},(_,i)=>i/(res.Nx-1)*Lx), ys: Array.from({length:res.Ny},(_,j)=>j/(res.Ny-1)*Ly)};
+          $('progressText').textContent = `完了 frames=${frames.length} Nx=${res.Nx} dt=${res.dt.toExponential(2)}s`;
 
-        try{
-          Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {
-            margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'},
-            height: displayH
-          }, {responsive:true,displaylogo:false});
-        }catch(e){
-          showError('Plotly plot failed: '+ (e && e.message ? e.message : String(e)));
+          // 静的場（解析）をTime上段に
+          const freqVal = $('freq').value ? parseFloat($('freq').value) : modes[0].f;
+          const useDbStaticChecked = $('useDbStatic').checked;
+          const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq:freqVal,x0,y0,Ngrid:res.Nx,useDbStatic:useDbStaticChecked});
+          const z2d = to2D(staticField.Z, res.Nx, res.Ny);
+          try{
+            Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {
+              margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'},
+              height: plotH
+            }, {responsive:true,displaylogo:false});
+          }catch(e){ showError('Plotly plot failed: '+ (e && e.message ? e.message : String(e))); }
+
+          // 下段Canvasサイズ（半幅ラッパ基準）
+          const heatWrapW = panelWidth($('heatWrap'));
+          const heatH = Math.round(heatWrapW * (Ly / Lx));
+          const heatCanvas = $('heatCanvas');
+          const ctx = resizeCanvasForDisplay(heatCanvas, heatWrapW, heatH);
+          drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
+
+          // スライダ同期と初期描画
+          $('frameSlider').max = frames.length-1; $('frameSlider').value = 0;
+          renderFrame(0);
         }
-
-        // heatCanvas sizing and first-frame draw (DPR-aware) using Lx/Ly aspect
-        const heatCanvas = $('heatCanvas');
-        const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
-        drawArrayToCanvas(frames[0], res.Nx, res.Ny, ctx);
-        // set overlay visible and initialize
-        $('heatOverlay').style.display = '';
-        $('heatOverlay').style.left = (heatCanvas.getBoundingClientRect().left + 8) + 'px';
-        $('heatOverlay').style.top = (heatCanvas.getBoundingClientRect().top + 8) + 'px';
-        // ensure frame slider sync
-        $('frameSlider').max = frames.length-1; $('frameSlider').value = 0;
-        // draw overlay info
-        renderFrame(0);
-      });
+      );
 
       $('abortBtn').onclick = ()=>{ if(workerHandle && workerHandle.cancel) workerHandle.cancel(); $('progressText').textContent='キャンセル済み'; };
     }catch(err){
@@ -527,7 +542,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }
   });
 
-  // frame playback controls
+  // フレーム再生系
   let currentFrame=0;
   function renderFrame(i){
     if(!lastResult) return;
@@ -536,7 +551,6 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     const Nx = lastResult.Nx, Ny = lastResult.Ny;
     if(i<0) i=0; if(i>=lastResult.frames.length) i=lastResult.frames.length-1;
     drawArrayToCanvas(lastResult.frames[i], Nx, Ny, ctx);
-    // overlay: use lastHeatPointer if available, else center
     let ix = lastHeatPointer.ix, iy = lastHeatPointer.iy;
     if(ix==null || iy==null){ ix = Math.floor(Nx/2); iy = Math.floor(Ny/2); }
     drawOverlayOnCanvas(ctx, lastResult.xs, lastResult.ys, ix, iy, i, lastResult.dt);
@@ -557,7 +571,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
   $('timePrev').addEventListener('click', ()=> { if(!lastResult) return; currentFrame = Math.max(0, currentFrame-1); renderFrame(currentFrame); });
   $('timeNext').addEventListener('click', ()=> { if(!lastResult) return; currentFrame = Math.min(lastResult.frames.length-1, currentFrame+1); renderFrame(currentFrame); });
 
-  // recording
+  // 録画
   $('recordBtn').addEventListener('click', async ()=>{
     const canvas = $('heatCanvas');
     if(!canvas) return;
@@ -578,26 +592,31 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }catch(err){ showError('録画に失敗しました: '+ (err && err.message ? err.message : String(err))); }
   });
 
-  // Mode animation (looping) — DPR-aware sizing and overlay
+  // 解析モードのアニメ（Modeタブ）
   let modeAnimId=null, currentMode=null, modeStopFlag=false;
   function startModeAnimation(mode){
     stopModeAnimation();
     currentMode = mode;
     const canvas = $('modeCanvas');
-    const displayW = canvas.clientWidth || Math.min(800, window.innerWidth - 420);
-    // keep mode canvas aspect same as Lx/Ly
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
+    const modePanelW = panelWidth($('modePanel'));
+    const displayW = modePanelW; // パネル幅いっぱい
     const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
     const ctx = resizeCanvasForDisplay(canvas, displayW, displayH);
-    $('modeOverlay').style.display = '';
+
     const Ngrid = parseInt($('Ngrid').value);
     const Nx = Ngrid, Ny = Ngrid;
     const xs = new Array(Nx), ys = new Array(Ny);
     for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
     for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
+
     const phiArr = new Float64Array(Nx*Ny); let maxabs=0;
-    for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){ const v = Math.sin(mode.m*Math.PI*xs[i]/Lx) * Math.sin(mode.n*Math.PI*ys[j]/Ly); phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v); }
+    for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){
+      const v = Math.sin(mode.m*Math.PI*xs[i]/Lx) * Math.sin(mode.n*Math.PI*ys[j]/Ly);
+      phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v);
+    }
     if(maxabs===0) maxabs=1; for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
+
     const framesLocal = parseInt($('modeFrames').value) || 64;
     let f=0; modeStopFlag=false;
     function step(){
@@ -608,7 +627,6 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       let mn=Infinity,mx=-Infinity;
       for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
       drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx);
-      // overlay: pointer if exists
       let ix = lastModePointer.ix, iy = lastModePointer.iy;
       if(ix==null || iy==null){ ix = Math.floor(Nx/2); iy = Math.floor(Ny/2); }
       drawOverlayOnCanvas(ctx, xs, ys, ix, iy, f, 1.0/ (mode.omega ? mode.omega/(2*Math.PI) : 1.0));
@@ -618,14 +636,13 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     modeAnimId = requestAnimationFrame(step);
   }
   function stopModeAnimation(){ modeStopFlag=true; if(modeAnimId) cancelAnimationFrame(modeAnimId); modeAnimId=null; }
-
   $('modeStart').addEventListener('click', ()=> { if(currentMode) startModeAnimation(currentMode); else {
     const modes = buildModes(parseFloat($('Lx').value),parseFloat($('Ly').value),parseFloat($('E').value),parseFloat($('nu').value),parseFloat($('rho').value),parseFloat($('h').value),parseInt($('mmax').value),parseInt($('nmax').value));
     startModeAnimation(modes[0]);
   }});
   $('modeStop').addEventListener('click', ()=> stopModeAnimation());
 
-  // Probe handling on heatCanvas - tap to add (iPad pointer events)
+  // プローブ配置（Time下段Canvas）
   const heatCanvas = $('heatCanvas');
   heatCanvas.addEventListener('pointermove', (ev)=> {
     if(!lastResult) return;
@@ -635,7 +652,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     const iy = Math.floor(cy / rect.height * lastResult.Ny);
     lastHeatPointer.ix = clamp(ix,0,lastResult.Nx-1);
     lastHeatPointer.iy = clamp(iy,0,lastResult.Ny-1);
-    renderFrame(currentFrame); // redraw overlay
+    renderFrame(currentFrame);
   });
   heatCanvas.addEventListener('pointerdown',(ev)=> {
     if(addingProbe){
@@ -664,12 +681,12 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       el.innerHTML = `<div>p${i+1}: (${p.x.toFixed(2)},${p.y.toFixed(2)})</div><div><button data-i="${i}" class="small-btn">削除</button></div>`;
       div.appendChild(el);
     });
-    div.querySelectorAll('button').forEach(b=> b.addEventListener('click', (e)=> {
+    div.querySelectorAll('button').forEach(b=> b.addEventListener('click', ()=> {
       const i = parseInt(b.dataset.i); probes.splice(i,1); renderProbeList();
     }));
   }
 
-  // FFT pipeline (simple DFT) - ensure Nfft used in angle, freqs consistent
+  // FFTとピーク→モード再構成
   function hann(winN){ const w = new Float64Array(winN); for(let n=0;n<winN;n++) w[n]=0.5*(1-Math.cos(2*Math.PI*n/(winN-1))); return w;}
   function doFFT(){
     try{
@@ -682,6 +699,7 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const Nfft = nextPow2(Math.max(64, up*T));
       const freqs = new Float64Array(Nfft/2);
       for(let k=0;k<freqs.length;k++) freqs[k] = k * (Fs / Nfft);
+
       const vmat = [];
       for(const p of probes){
         const vals = new Float64Array(T);
@@ -695,16 +713,17 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
         for(let t=0;t<T;t++) v[t] *= win[t];
         vmat.push(v);
       }
+
       let vavg = new Float64Array(T);
       if($('avgProbe').checked){
         for(let t=0;t<T;t++){ let s=0; for(let i=0;i<vmat.length;i++) s+=vmat[i][t]; vavg[t]=s/vmat.length; }
       }
       const series = $('avgProbe').checked ? [vavg] : vmat;
+
       const spectra = [];
       for(const s of series){
         const outRe = new Float64Array(Nfft/2);
         const outIm = new Float64Array(Nfft/2);
-        // DFT: sum over n=0..T-1 but angles use Nfft for correct freq sampling (zero-padding implied)
         for(let k=0;k<Nfft/2;k++){
           let re=0,im=0;
           for(let n=0;n<T;n++){
@@ -718,12 +737,14 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
         for(let k=0;k<Nfft/2;k++) mag[k] = Math.sqrt(outRe[k]*outRe[k] + outIm[k]*outIm[k]) / T;
         spectra.push({re:outRe,im:outIm,mag});
       }
+
       const freqArr = Array.from(freqs);
       const magDb = Array.from(spectra[0].mag).map(v => 20*Math.log10(Math.max(v, eps)));
-      const trace = { x: freqArr, y: magDb, mode:'lines', type:'scatter' };
-      const layout = { xaxis:{type:'log',title:'Hz'}, yaxis:{title:'dB (20·log10)', autorange:true}, margin:{t:10,b:40} };
-      Plotly.newPlot('fftPlot',[trace],layout,{responsive:true,displaylogo:false});
-      // peak detection simple local maxima + threshold
+      Plotly.newPlot('fftPlot',[{ x: freqArr, y: magDb, mode:'lines', type:'scatter' }],
+        { xaxis:{type:'log',title:'Hz'}, yaxis:{title:'dB (20·log10)', autorange:true}, margin:{t:10,b:40} },
+        { responsive:true, displaylogo:false });
+
+      // ピーク検出
       const peaks = [];
       const mvals = spectra[0].mag;
       const maxv = Math.max.apply(null, mvals);
@@ -744,14 +765,15 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       showError('FFT failed: ' + (err && err.message ? err.message : String(err)));
     }
   }
+  $('doFFT').addEventListener('click', ()=> doFFT());
 
+  // FFT由来モードマップを Modeタブの専用領域に描く（※以前の「plot」→「modeMapPlot」に修正）
   function showModeMapFromFFT(idx, spectrum, freqs, Nfft){
     if(!lastResult) return;
     const T = lastResult.frames.length;
     const Nx = lastResult.Nx, Ny = lastResult.Ny;
     const reMap = new Float64Array(Nx*Ny);
     const imMap = new Float64Array(Nx*Ny);
-    // Use same angle convention as FFT (Nfft)
     for(let j=0;j<Ny;j++){
       for(let i=0;i<Nx;i++){
         let re=0,im=0;
@@ -770,23 +792,25 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     if(mx===0) mx=1;
     const norm = new Float64Array(amp.length);
     for(let k=0;k<amp.length;k++) norm[k]=amp[k]/mx;
-    // switch to mode tab and plot normalized map with proper aspect
+
+    // タブ切替
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelector('.tab[data-tab="mode"]').classList.add('active');
     $('timePanel').style.display='none'; $('freqPanel').style.display='none'; $('modePanel').style.display='';
+
     const z2d = to2D(norm, Nx, Ny);
-    // determine display size using physical aspect
     const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-    const displayW = Math.min(1200, window.innerWidth - 420);
-    const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
-    Plotly.newPlot('plot', [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }], {
-      margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}, height: displayH
-    }, {responsive:true,displaylogo:false});
+    const modePanelW = panelWidth($('modePanel'));
+    const modeH = Math.max(200, Math.min(900, Math.round(modePanelW * (Ly / Lx))));
+
+    Plotly.newPlot('modeMapPlot',
+      [{ z: z2d, x: lastResult.xs, y: lastResult.ys, type: 'heatmap', colorscale: 'Viridis' }],
+      { margin:{t:10,b:40,l:60,r:10}, xaxis:{title:'x [m]'}, yaxis:{title:'y [m]'}, height: modeH },
+      { responsive:true, displaylogo:false }
+    );
   }
 
-  $('doFFT').addEventListener('click', ()=> doFFT());
-
-  // render initial static field on load
+  // 初期描画
   (function initial(){
     try{
       const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
@@ -794,17 +818,23 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
       const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value), Ngrid=parseInt($('Ngrid').value);
       const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
       populateModeList(modes);
+
+      const panelW = panelWidth($('timePanel'));
+      const plotH = Math.max(160, Math.min(900, Math.round(panelW * (Ly / Lx))));
       const freq = modes[0].f;
-      const useDbStaticChecked = document.getElementById('useDbStatic') ? document.getElementById('useDbStatic').checked : false;
-      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,displayChoice:'v_over_F',useDbStatic:useDbStaticChecked});
-      const displayW = Math.min(1200, window.innerWidth - 420);
-      const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
-      Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}], {margin:{t:10,b:40,l:60,r:10}, height: displayH}, {responsive:true,displaylogo:false});
+      const useDbStaticChecked = $('useDbStatic').checked;
+      const staticField = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0:Lx/2,y0:Ly/2,Ngrid,useDbStatic:useDbStaticChecked});
+
+      Plotly.newPlot('plot', [{z:to2D(staticField.Z,Ngrid,Ngrid), x:staticField.xs, y:staticField.ys, type:'heatmap', colorscale:'Viridis'}],
+        {margin:{t:10,b:40,l:60,r:10}, height: plotH}, {responsive:true,displaylogo:false});
+
+      const heatWrapW = panelWidth($('heatWrap'));
+      const heatH = Math.round(heatWrapW * (Ly / Lx));
       const heatCanvas = $('heatCanvas');
-      const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
+      const ctx = resizeCanvasForDisplay(heatCanvas, heatWrapW, heatH);
       drawArrayToCanvas(staticField.Z, Ngrid, Ngrid, ctx);
-      $('heatOverlay').style.display = '';
-      // pointer handlers for mode canvas overlay
+
+      // ModeCanvasのポインタ座標記録
       const modeCanvas = $('modeCanvas');
       modeCanvas.addEventListener('pointermove',(ev)=>{
         const rect = modeCanvas.getBoundingClientRect();
@@ -820,31 +850,31 @@ canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; display:block; wid
     }
   })();
 
-  // window resize handling: update Plotly height and canvas sizes, then redraw current frame/mode
+  // リサイズ時：親幅で再レイアウト
   window.addEventListener('resize', ()=> {
     try{
       const Lx = parseFloat($('Lx').value), Ly = parseFloat($('Ly').value);
-      const displayW = Math.min(1200, window.innerWidth - 420);
-      const displayH = Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx))));
-      // update Plotly height
-      try{ Plotly.relayout('plot', {height: displayH}); }catch(e){}
-      // resize heatCanvas and redraw
+
+      const panelW = panelWidth($('timePanel'));
+      const plotH = Math.max(160, Math.min(900, Math.round(panelW * (Ly / Lx))));
+      try{ Plotly.relayout('plot', {height: plotH}); }catch(e){}
+
+      const heatWrapW = panelWidth($('heatWrap'));
+      const heatH = Math.round(heatWrapW * (Ly / Lx));
+      const heatCanvas = $('heatCanvas');
+      const ctx = resizeCanvasForDisplay(heatCanvas, heatWrapW, heatH);
       if(lastResult){
-        const heatCanvas = $('heatCanvas');
-        const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
         drawArrayToCanvas(lastResult.frames[currentFrame], lastResult.Nx, lastResult.Ny, ctx);
         drawOverlayOnCanvas(ctx, lastResult.xs, lastResult.ys, lastHeatPointer.ix, lastHeatPointer.iy, currentFrame, lastResult.dt);
-      } else {
-        // initial static
-        const heatCanvas = $('heatCanvas');
-        const ctx = resizeCanvasForDisplay(heatCanvas, displayW, displayH);
       }
-      // resize mode canvas
-      const modeCanvas = $('modeCanvas');
-      const mctx = resizeCanvasForDisplay(modeCanvas, Math.min(1200, window.innerWidth - 420), Math.max(160, Math.min(900, Math.round(displayW * (Ly / Lx)))));
-    }catch(e){
-      // swallow
-    }
+
+      // Modeタブのプロット高さ
+      try{
+        const modePanelW = panelWidth($('modePanel'));
+        const modeH = Math.max(200, Math.min(900, Math.round(modePanelW * (Ly / Lx))));
+        Plotly.relayout('modeMapPlot', {height: modeH});
+      }catch(e){}
+    }catch(e){ /* swallow */ }
   });
 
 })();
