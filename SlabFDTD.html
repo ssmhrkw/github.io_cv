@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SlabFDTD — FRF正規化 & サイズ統一版</title>
+<title>SlabFDTD — Peaks↔Mode 同定・Mode復活版</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -13,7 +13,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans
 .grid{display:grid;grid-template-columns:360px 1fr;gap:12px;align-items:start}
 .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6edf3}
 label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
-input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px;box-sizing:border-box}
+input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e6edf3;margin-bottom:8px}
 .row{margin-bottom:8px}
 .btn{background:var(--accent);color:#fff;border:none;cursor:pointer;padding:8px;border-radius:8px}
 .small-btn{padding:6px;border-radius:6px;font-size:13px}
@@ -21,25 +21,21 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .controls-row{display:flex;gap:8px}
 .mode-list{max-height:180px;overflow:auto;padding:6px;border-radius:8px;background:#fbfcfe;border:1px solid #eef3fb}
 .progress{height:10px;background:#eef3fb;border-radius:6px;overflow:hidden}
-.progress > div{height:100%;background:#60a5fa;width:0%}
+.progress>div{height:100%;background:#60a5fa;width:0%}
 .tabbar{display:flex;gap:8px;margin-bottom:8px}
 .tab{padding:8px;border-radius:8px;background:#fff;border:1px solid #eef3fb;cursor:pointer}
 .tab.active{background:var(--accent);color:#fff}
 .kv{font-size:13px;color:#64748b}
-#errorBox{color:#b91c1c;background:#fff1f2;border:1px solid #fecaca;padding:8px;border-radius:6px;margin-top:8px;display:none}
-
-/* Time & Mode：同じ幅（100%）・縦横比はLx:Lyに追従（JSで調整） */
-canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; touch-action:none; display:block; width:100%}
-
+canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb;touch-action:none;display:block;width:100%}
 #frfPlot{height:360px}
 .badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#eef3fb;border:1px solid #e6edf3;color:#334155;font-size:12px;margin-right:6px}
+#errorBox{color:#b91c1c;background:#fff1f2;border:1px solid #fecaca;padding:8px;border-radius:6px;margin-top:8px;display:none}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>SlabFDTD — 四角板（FRF正規化＋サイズ統一）</h2>
+  <h2>SlabFDTD — 四角板（同定つき）</h2>
   <div class="grid">
-    <!-- 左：コントロール -->
     <div class="card" id="controlsPanel">
       <div class="preset-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div style="background:#fbfcfe;padding:8px;border-radius:8px;border:1px solid #eef3fb">
@@ -80,7 +76,7 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; touch
         </div>
         <div class="row controls-row">
           <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="16" max="4096" value="256"></div>
-          <div style="flex:1"><label>f<sub>max,target</sub> [Hz]（時間分解能）</label><input id="fmaxTarget" type="number" min="10" value="250"></div>
+          <div style="flex:1"><label>f<sub>max,target</sub> [Hz]</label><input id="fmaxTarget" type="number" min="10" value="250"></div>
         </div>
         <div class="row controls-row">
           <div style="flex:1"><label>m_max</label><input id="mmax" type="number" min="1" max="64" value="8"></div>
@@ -120,7 +116,6 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; touch
       <div class="mode-list" id="modeList"></div>
     </div>
 
-    <!-- 右：ビジュアル -->
     <div class="card">
       <div class="tabbar" role="tablist">
         <div class="tab active" data-tab="time">Time</div>
@@ -128,7 +123,6 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; touch
         <div class="tab" data-tab="freq">Frequency</div>
       </div>
 
-      <!-- Time：Canvasのみ（Modeと同サイズ） -->
       <div id="timePanel" class="panel">
         <canvas id="heatCanvas" class="heat"></canvas>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
@@ -144,19 +138,17 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; touch
         <input id="frameSlider" type="range" min="0" max="127" value="0" style="width:100%;margin-top:8px">
       </div>
 
-      <!-- Mode -->
       <div id="modePanel" class="panel" style="display:none">
         <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
           <button id="modeStart" class="btn">Start</button>
           <button id="modeStop" class="btn" style="background:#9ca3af">Stop</button>
           <label style="margin-left:8px" class="kv">アニメフレーム</label>
           <input id="modeFrames" type="number" value="64" min="8" max="512" style="width:80px">
-          <span class="badge">FRFピークをクリック → FDTD由来モード図</span>
+          <span class="badge">FRFピークをクリックでモード可視化</span>
         </div>
         <canvas id="modeCanvas" class="modeCanvas"></canvas>
       </div>
 
-      <!-- Frequency：FRF -->
       <div id="freqPanel" class="panel" style="display:none">
         <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
           <label class="kv">表示：</label>
@@ -177,132 +169,89 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb; touch
 </div>
 
 <script>
-(()=>{
-// ========== 基本関数 ==========
+(()=>{"use strict";
 const $ = id => document.getElementById(id);
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function D_of(E,h,nu){ return E * Math.pow(h,3) / (12*(1 - nu*nu)); }
-function modalMass(rho,h,Lx,Ly){ return rho * h * (Lx*Ly) / 4.0; }
-function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx) * Math.sin(n*Math.PI*y/Ly); }
+function D_of(E,h,nu){ return E*h*h*h/(12*(1-nu*nu)); }
+function phi(m,n,x,y,Lx,Ly){ return Math.sin(m*Math.PI*x/Lx)*Math.sin(n*Math.PI*y/Ly); }
 function nextPow2(n){ let p=1; while(p<n) p*=2; return p; }
 function hann(N){ const w=new Float64Array(N); for(let n=0;n<N;n++) w[n]=0.5*(1-Math.cos(2*Math.PI*n/(N-1))); return w; }
-const eps = 1e-20;
 function showError(msg){ const el=$('errorBox'); el.style.display='block'; el.textContent='Error: '+msg; console.error(msg); }
 window.addEventListener('error', e=>showError(e.message+' ('+e.filename+':'+e.lineno+')'));
 window.addEventListener('unhandledrejection', e=>showError('UnhandledRejection: '+(e.reason?.message||String(e.reason))));
 
-// ========== DPR Canvas ==========
-function resizeCanvasForDisplay(canvas, displayW, displayH){
-  const ratio = window.devicePixelRatio || 1;
-  canvas.style.width = displayW + 'px';
-  canvas.style.height = displayH + 'px';
-  canvas.width = Math.max(1, Math.round(displayW * ratio));
-  canvas.height = Math.max(1, Math.round(displayH * ratio));
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(ratio,0,0,ratio,0,0);
-  ctx.font = '14px ui-sans-serif,system-ui'; ctx.textBaseline='top';
-  return ctx;
+/* DPR canvas */
+function resizeCanvasForDisplay(canvas, W, H){
+  const r=window.devicePixelRatio||1;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  canvas.width=Math.max(1,Math.round(W*r)); canvas.height=Math.max(1,Math.round(H*r));
+  const ctx=canvas.getContext('2d'); ctx.setTransform(r,0,0,r,0,0); return ctx;
 }
 function drawArrayToCanvas(arr,Nx,Ny,ctx,manualMin,manualMax){
-  const dispW = parseFloat(ctx.canvas.style.width) || ctx.canvas.width;
-  const dispH = parseFloat(ctx.canvas.style.height) || ctx.canvas.height;
-  let mn = manualMin, mx = manualMax;
-  if(!isFinite(mn) || !isFinite(mx)){
-    mn = Infinity; mx = -Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; }
-    if(!isFinite(mn)){ mn=0; mx=1; }
-  }
-  const img = new ImageData(Nx,Ny);
-  const span = (mx-mn)||1e-12;
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      const v = arr[j*Nx + i];
-      const t = Math.max(0, Math.min(1, (v-mn)/span));
-      const r = Math.round(68 + 187*t), g = Math.round(1 + 185*t), b = Math.round(84 + 40*(1-t));
-      const p = (j*Nx + i)*4;
-      img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
-    }
-  }
-  const tmp = document.createElement('canvas');
-  tmp.width = Nx; tmp.height = Ny;
-  tmp.getContext('2d').putImageData(img,0,0);
-  ctx.clearRect(0,0,dispW,dispH);
-  ctx.drawImage(tmp, 0, 0, dispW, dispH);
+  const W=parseFloat(ctx.canvas.style.width)||ctx.canvas.width, H=parseFloat(ctx.canvas.style.height)||ctx.canvas.height;
+  let mn=manualMin, mx=manualMax;
+  if(!isFinite(mn)||!isFinite(mx)){ mn=Infinity; mx=-Infinity; for(const v of arr){ if(v<mn) mn=v; if(v>mx) mx=v; } if(!isFinite(mn)){ mn=0; mx=1; } }
+  const img=new ImageData(Nx,Ny); const span=(mx-mn)||1e-12;
+  for(let j=0;j<Ny;j++)for(let i=0;i<Nx;i++){ const v=arr[j*Nx+i], t=Math.max(0,Math.min(1,(v-mn)/span));
+    const p=(j*Nx+i)*4; img.data[p]=Math.round(68+187*t); img.data[p+1]=Math.round(1+185*t); img.data[p+2]=Math.round(84+40*(1-t)); img.data[p+3]=255; }
+  const tmp=document.createElement('canvas'); tmp.width=Nx; tmp.height=Ny; tmp.getContext('2d').putImageData(img,0,0);
+  ctx.clearRect(0,0,W,H); ctx.drawImage(tmp,0,0,W,H);
 }
 
-// ========== 状態 ==========
+/* sizing */
+function currentDisplaySize(){
+  const card=document.querySelector('.card:last-child'); const W=card.clientWidth-24;
+  const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+  const H=Math.max(200,Math.min(900,Math.round(W*(Ly/Lx))));
+  return {W,H};
+}
+
+/* state */
 let frames=null, lastResult=null, playInterval=null, worker=null;
 let currentFrame=0;
-let lastHeatPointer={ix:null,iy:null};
-let modeAnimId=null, currentMode=null, modeStopFlag=false;
+let currentMode=null; let modeAnimId=null; let modeStopFlag=false;
+let modesAnalytic=[];
 
-// ========== タブ ==========
-document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    const tab=t.dataset.tab;
-    $('timePanel').style.display = tab==='time' ? '' : 'none';
-    $('modePanel').style.display = tab==='mode' ? '' : 'none';
-    $('freqPanel').style.display = tab==='freq' ? '' : 'none';
-    if(tab==='time') renderFrame(currentFrame);
-    if(tab==='mode' && currentMode) startModeAnimation(currentMode);
-  });
-});
-
-// ========== 解析モード ==========
+/* modes */
 function buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax){
-  const D = D_of(E,h,nu);
-  const modes=[];
+  const D=D_of(E,h,nu);
+  const arr=[];
   for(let m=1;m<=mmax;m++) for(let n=1;n<=nmax;n++){
-    const k2 = Math.pow(m*Math.PI/Lx,2) + Math.pow(n*Math.PI/Ly,2);
-    const omega = Math.sqrt(D/(rho*h)) * k2;
-    modes.push({m,n,omega,f:omega/(2*Math.PI)});
+    const k2=Math.pow(m*Math.PI/Lx,2)+Math.pow(n*Math.PI/Ly,2);
+    const omega=Math.sqrt(D/(rho*h))*k2; arr.push({m,n,omega,f:omega/(2*Math.PI)});
   }
-  modes.sort((a,b)=>a.f-b.f);
-  return modes;
+  arr.sort((a,b)=>a.f-b.f); return arr;
 }
 function populateModeList(modes){
-  const div = $('modeList'); div.innerHTML='';
+  const div=$('modeList'); div.innerHTML='';
   modes.forEach((md,idx)=>{
-    const el = document.createElement('div');
-    el.style.padding='6px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.cursor='pointer';
-    el.textContent = `#${idx+1} (m,n)=(${md.m},${md.n}) f=${md.f.toFixed(2)} Hz`;
-    el.onclick = ()=>{
-      Array.from(div.children).forEach(x=>x.style.background='');
-      el.style.background='#eef6ff';
-      startModeAnimation(md);
-    };
+    const el=document.createElement('div'); el.style.padding='6px'; el.style.borderBottom='1px solid #f1f5f9'; el.style.cursor='pointer';
+    el.textContent=`#${idx+1} (m,n)=(${md.m},${md.n}) f=${md.f.toFixed(2)} Hz`;
+    el.onclick=()=>{ Array.from(div.children).forEach(x=>x.style.background=''); el.style.background='#eef6ff';
+      currentMode=md; document.querySelector('.tab[data-tab="mode"]').click(); startModeAnimation(md); };
     div.appendChild(el);
   });
 }
 
-// ========== Worker ==========
+/* worker */
 function startWorker(cfg){
   if(worker){ worker.terminate(); worker=null; }
-  worker = new Worker('Fdtdworker.js');
-  worker.onmessage = (ev)=>{
-    const msg = ev.data;
-    if(msg.type==='progress'){
-      $('progressFill').style.width = msg.progress+'%';
-      $('progressText').textContent = msg.msg || (msg.progress+'%');
-    }else if(msg.type==='done'){
-      const r = msg.result;
-      frames = r.framesBuf.map(buf=> new Float32Array(buf));
-      lastResult = {
-        frames, Nx:r.Nx, Ny:r.Ny, dt:r.dt, Fs:r.Fs,
-        xs:r.xs, ys:r.ys,
-        modes:r.modes,
-        dx:r.dx, Lx:r.Lx, Ly:r.Ly
-      };
-      $('progressText').textContent = `完了 frames=${frames.length} Nx=${r.Nx} dt=${r.dt.toExponential(2)}s`;
-      renderFrame(0);
-      computeAndPlotFRF();
+  worker=new Worker('Fdtdworker.js');
+  worker.onmessage=(ev)=>{
+    const msg=ev.data;
+    if(msg.type==='progress'){ $('progressFill').style.width=msg.progress+'%'; $('progressText').textContent=msg.msg|| (msg.progress+'%'); }
+    else if(msg.type==='done'){
+      const r=msg.result;
+      frames=r.framesBuf.map(buf=>new Float32Array(buf));
+      lastResult={frames, Nx:r.Nx, Ny:r.Ny, dt:r.dt, Fs:r.Fs, xs:r.xs, ys:r.ys, dx:r.dx, Lx:r.Lx, Ly:r.Ly};
+      $('progressText').textContent=`完了 frames=${frames.length} Nx=${r.Nx} dt=${r.dt.toExponential(2)}s`;
+      renderFrame(0); computeAndPlotFRF();
     }
   };
   worker.postMessage({type:'start', cfg});
 }
 
-// ========== 計算開始 ==========
+/* compute */
 $('computeBtn').addEventListener('click', ()=>{
   try{
     if($('material_preset').value==='concrete'){ $('E').value=30000000000; $('nu').value=0.2; $('rho').value=2400; }
@@ -311,297 +260,197 @@ $('computeBtn').addEventListener('click', ()=>{
     const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
     const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
     let Ngrid=parseInt($('Ngrid').value); const dx_in=parseFloat($('dx').value)||0;
-    if(dx_in>0){ Ngrid = Math.ceil(Math.max(Lx,Ly)/dx_in)+1; Ngrid=Math.max(16,Ngrid); }
-    const framesCount = parseInt($('framesCount').value);
-    const fmaxTarget = Math.max(10, parseFloat($('fmaxTarget').value)||250);
+    if(dx_in>0){ Ngrid=Math.ceil(Math.max(Lx,Ly)/dx_in)+1; Ngrid=Math.max(16,Ngrid); }
+    const framesCount=parseInt($('framesCount').value);
+    const fmaxTarget=Math.max(10, parseFloat($('fmaxTarget').value)||250);
     const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
 
-    const preset = $('sourcePreset_preset').value;
+    const preset=$('sourcePreset_preset').value;
     if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3); }
     else if(preset==='diag_1_3'){ $('x0').value=(Lx/3).toFixed(3); $('y0').value=(Ly/3).toFixed(3); }
     else if(preset==='diag_2_3'){ $('x0').value=(2*Lx/3).toFixed(3); $('y0').value=(2*Ly/3).toFixed(3); }
     const x0=clamp(parseFloat($('x0').value),0,Lx), y0=clamp(parseFloat($('y0').value),0,Ly);
 
-    const modes = buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modes);
+    modesAnalytic=buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modesAnalytic);
 
-    // 時間刻み：CFLと目標時間分解能の小さい方
-    const D = D_of(E,h,nu), marea = rho*h;
+    const D=D_of(E,h,nu), marea=rho*h;
     const Nx=Ngrid, Ny=Ngrid;
-    const dx = Math.min(Lx/(Nx-1), Ly/(Ny-1));
+    const dx=Math.min(Lx/(Nx-1), Ly/(Ny-1));
     const Cstab=0.25;
-    const dt_stab = Cstab * dx*dx * Math.sqrt(marea / (D||1e-30));
-    const dt_res = 1.0 / (20 * Math.max(1,fmaxTarget)); // 1周期あたり≥20点
-    const dt = Math.min(dt_stab, dt_res);
-    const Fs = 1/Math.max(dt,1e-12);
+    const dt_stab=Cstab*dx*dx*Math.sqrt(marea/(D||1e-30));
+    const dt_res=1.0/(20*Math.max(1,fmaxTarget));
+    const dt=Math.min(dt_stab, dt_res);
+    const Fs=1/Math.max(dt,1e-12);
 
     $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
 
-    startWorker({
-      E,nu,rho,h,Lx,Ly,Ngrid,dx,dt,Fs,
-      framesToSave:framesCount,
-      x0,y0,
-      modesLight:modes.slice(0, Math.min(modes.length, 64))
-    });
-
-  }catch(err){ showError('compute start failed: ' + (err?.message||String(err))); }
+    startWorker({E,nu,rho,h,Lx,Ly,Ngrid,dx,dt,Fs,framesToSave:framesCount,x0,y0,modesLight:modesAnalytic.slice(0,64)});
+  }catch(err){ showError('compute start failed: '+(err?.message||String(err))); }
 });
-$('abortBtn').onclick = ()=>{ if(worker){ worker.terminate(); worker=null; } $('progressText').textContent='キャンセル済み'; };
+$('abortBtn').onclick=()=>{ if(worker){ worker.terminate(); worker=null; } $('progressText').textContent='キャンセル済み'; };
 
-// ========== Time 表示（Modeと同サイズ） ==========
-function currentDisplaySize(){
-  const card = document.querySelector('.card:last-child');
-  const W = card.clientWidth - 24;
-  const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-  const H = Math.max(200, Math.min(900, Math.round(W * (Ly / Lx))));
-  return {W,H};
-}
+/* Time view */
 function renderFrame(i){
-  const heatCanvas=$('heatCanvas');
-  const {W,H} = currentDisplaySize();
-  const ctx = resizeCanvasForDisplay(heatCanvas, W, H);
-
-  if(!lastResult){
-    ctx.clearRect(0,0,W,H);
-    return;
-  }
-  const Nx=lastResult.Nx, Ny=lastResult.Ny;
-  if(i<0) i=0; if(i>=lastResult.frames.length) i=lastResult.frames.length-1;
-  drawArrayToCanvas(lastResult.frames[i], Nx, Ny, ctx);
-  $('frameSlider').max=lastResult.frames.length-1; $('frameSlider').value=i;
+  const cvs=$('heatCanvas'); const {W,H}=currentDisplaySize(); const ctx=resizeCanvasForDisplay(cvs,W,H);
+  if(!lastResult){ ctx.clearRect(0,0,W,H); return; }
+  const Nx=lastResult.Nx, Ny=lastResult.Ny; i=Math.max(0,Math.min(i,lastResult.frames.length-1));
+  drawArrayToCanvas(lastResult.frames[i],Nx,Ny,ctx); $('frameSlider').max=lastResult.frames.length-1; $('frameSlider').value=i;
 }
 $('frameSlider').addEventListener('input', e=>{ currentFrame=parseInt(e.target.value); renderFrame(currentFrame); });
-$('timePlay').addEventListener('click', ()=>{
-  if(!lastResult){ alert('まず計算してください'); return; }
-  if(playInterval) clearInterval(playInterval);
-  const fps=parseInt($('fps').value)||25;
-  playInterval=setInterval(()=>{ currentFrame=(currentFrame+1)%lastResult.frames.length; renderFrame(currentFrame); }, 1000/Math.max(1,fps));
-});
+let playInterval=null;
+$('timePlay').addEventListener('click', ()=>{ if(!lastResult){ alert('まず計算してください'); return; } if(playInterval) clearInterval(playInterval);
+  const fps=parseInt($('fps').value)||25; playInterval=setInterval(()=>{ currentFrame=(currentFrame+1)%lastResult.frames.length; renderFrame(currentFrame); }, 1000/Math.max(1,fps)); });
 $('timeStop').addEventListener('click', ()=>{ if(playInterval) clearInterval(playInterval); playInterval=null; });
 $('timePrev').addEventListener('click', ()=>{ if(!lastResult) return; currentFrame=Math.max(0,currentFrame-1); renderFrame(currentFrame); });
 $('timeNext').addEventListener('click', ()=>{ if(!lastResult) return; currentFrame=Math.min(lastResult.frames.length-1,currentFrame+1); renderFrame(currentFrame); });
 
-// ========== Mode アニメ ==========
+/* Mode view */
 function startModeAnimation(mode){
   stopModeAnimation();
   currentMode=mode;
-  const canvas=$('modeCanvas');
-  const {W,H} = currentDisplaySize();
-  const ctx = resizeCanvasForDisplay(canvas, W, H);
-  const Ngrid=parseInt($('Ngrid').value);
-  const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-  const Nx=Ngrid, Ny=Ngrid;
-  const xs=new Array(Nx), ys=new Array(Ny);
-  for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1);
-  for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
+  const canvas=$('modeCanvas'); const {W,H}=currentDisplaySize(); const ctx=resizeCanvasForDisplay(canvas,W,H);
+  const Ngrid=parseInt($('Ngrid').value), Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+  const Nx=Ngrid, Ny=Ngrid; const xs=new Array(Nx), ys=new Array(Ny);
+  for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1); for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
   const phiArr=new Float64Array(Nx*Ny); let maxabs=0;
-  for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){
-    const v=Math.sin(mode.m*Math.PI*xs[i]/Lx)*Math.sin(mode.n*Math.PI*ys[j]/Ly);
-    phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v);
-  }
+  for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){ const v=Math.sin(mode.m*Math.PI*xs[i]/Lx)*Math.sin(mode.n*Math.PI*ys[j]/Ly); phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v); }
   if(maxabs===0) maxabs=1; for(let k=0;k<phiArr.length;k++) phiArr[k]/=maxabs;
-  const framesLocal=parseInt($('modeFrames').value)||64;
-  let f=0; modeStopFlag=false;
-  function step(){
-    if(modeStopFlag) return;
-    const t=f/framesLocal, cosv=Math.cos(2*Math.PI*t);
-    const arr=new Float32Array(Nx*Ny);
-    let mn=Infinity,mx=-Infinity;
-    for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cosv; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
-    drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx);
-    f=(f+1)%framesLocal;
-    modeAnimId=requestAnimationFrame(step);
-  }
+  const framesLocal=parseInt($('modeFrames').value)||64; let f=0; modeStopFlag=false;
+  function step(){ if(modeStopFlag) return; const t=f/framesLocal, cs=Math.cos(2*Math.PI*t);
+    const arr=new Float32Array(Nx*Ny); let mn=Infinity,mx=-Infinity;
+    for(let k=0;k<phiArr.length;k++){ arr[k]=phiArr[k]*cs; if(arr[k]<mn) mn=arr[k]; if(arr[k]>mx) mx=arr[k]; }
+    drawArrayToCanvas(arr,Nx,Ny,ctx,mn,mx); f=(f+1)%framesLocal; modeAnimId=requestAnimationFrame(step); }
   modeAnimId=requestAnimationFrame(step);
 }
 function stopModeAnimation(){ modeStopFlag=true; if(modeAnimId) cancelAnimationFrame(modeAnimId); modeAnimId=null; }
-$('modeStart').addEventListener('click', ()=>{
-  if(currentMode) startModeAnimation(currentMode);
-});
-$('modeStop').addEventListener('click', ()=> stopModeAnimation());
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>{
+  const tab=t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  $('timePanel').style.display=tab==='time'?'':'none';
+  $('modePanel').style.display=tab==='mode'?'':'none';
+  $('freqPanel').style.display=tab==='freq'?'':'none';
+  if(tab==='mode'){ if(currentMode) startModeAnimation(currentMode); else if(modesAnalytic[0]) startModeAnimation(modesAnalytic[0]); }
+}));
 
-// FDTDフレーム → 周波数ビン空間マップ（Modeへ描画）
-function showModeMapFromFFT(idx){
-  if(!lastResult) return;
-  const T=lastResult.frames.length, Nx=lastResult.Nx, Ny=lastResult.Ny;
-  const reMap=new Float64Array(Nx*Ny), imMap=new Float64Array(Nx*Ny);
-  const Nfft=nextPow2(T);
-  for(let j=0;j<Ny;j++){
-    for(let i=0;i<Nx;i++){
-      let re=0,im=0;
-      for(let t=0;t<T;t++){
-        const wv=lastResult.frames[t][j*Nx+i];
-        const ang=-2*Math.PI*idx*t/Nfft;
-        re += wv*Math.cos(ang);
-        im += wv*Math.sin(ang);
-      }
-      const id=j*Nx+i; reMap[id]=re; imMap[id]=im;
-    }
-  }
-  const amp=new Float64Array(Nx*Ny); let mx=0;
-  for(let k=0;k<amp.length;k++){ amp[k]=Math.hypot(reMap[k],imMap[k]); if(amp[k]>mx) mx=amp[k]; }
-  const norm=new Float64Array(Nx*Ny); if(mx===0) mx=1; for(let k=0;k<amp.length;k++) norm[k]=amp[k]/mx;
-
-  // 描画
-  stopModeAnimation();
-  const canvas=$('modeCanvas'); const {W,H}=currentDisplaySize();
-  const ctx=resizeCanvasForDisplay(canvas, W, H);
-  drawArrayToCanvas(norm, Nx, Ny, ctx, 0, 1);
-  ctx.fillStyle='#000'; ctx.fillText('FDTD-based mode map (normalized)', 12, 12);
-}
-
-// ========== Frequency: FRF（正規化） ==========
-function derivativeCentered(vals, dt){
+/* FRF */
+function derivativeCentered(vals,dt){
   const T=vals.length, v=new Float64Array(T);
-  for(let t=0;t<T;t++){
-    if(t===0) v[t]=(vals[1]-vals[0])/dt;
-    else if(t===T-1) v[t]=(vals[T-1]-vals[T-2])/dt;
-    else v[t]=(vals[t+1]-vals[t-1])/(2*dt);
-  }
+  for(let t=0;t<T;t++){ if(t===0) v[t]=(vals[1]-vals[0])/dt; else if(t===T-1) v[t]=(vals[T-1]-vals[T-2])/dt; else v[t]=(vals[t+1]-vals[t-1])/(2*dt); }
   return v;
 }
-// Modal(SS): Y = i*4*ω/(ρ h Lx Ly) Σ φ^2 / ( (1+iη)ω_mn^2 - ω^2 )
 function mobility_modal_SS(freqs, modes, x0,y0, Lx,Ly, rho,h, eta){
-  const C = 4/(rho*h*Lx*Ly);
-  const out = new Float64Array(freqs.length);
-  for(let k=0;k<freqs.length;k++){
-    const w=2*Math.PI*freqs[k];
-    let Hr=0, Hi=0; // H=変位/力
-    for(const md of modes){
-      const phi0=phi(md.m,md.n,x0,y0,Lx,Ly);
-      const omg2 = md.omega*md.omega;
-      const denR = (1)*omg2 - w*w;
-      const denI = (eta)*omg2;
-      const d = denR*denR + denI*denI || 1e-30;
-      const fracR = denR/d, fracI = -denI/d; // 1/((1+iη)ω^2 - w^2)
-      Hr += (phi0*phi0) * fracR;
-      Hi += (phi0*phi0) * fracI;
-    }
-    // H = C*(Hr + i Hi), Y = i ω H
-    const Yr = - w * (C*Hi);
-    const Yi =   w * (C*Hr);
-    out[k] = Math.hypot(Yr, Yi);
-  }
-  return out;
+  const C=4/(rho*h*Lx*Ly); const out=new Float64Array(freqs.length);
+  for(let k=0;k<freqs.length;k++){ const w=2*Math.PI*freqs[k]; let Hr=0,Hi=0;
+    for(const md of modes){ const phi0=phi(md.m,md.n,x0,y0,Lx,Ly); const omg2=md.omega*md.omega; const denR=omg2-w*w, denI=eta*omg2; const d=denR*denR+denI*denI||1e-30;
+      const fracR=denR/d, fracI=-denI/d; Hr += (phi0*phi0)*fracR; Hi += (phi0*phi0)*fracI; }
+    const Yr = - w * (C*Hi), Yi = w * (C*Hr); out[k]=Math.hypot(Yr,Yi);
+  } return out;
 }
-function mobility_infinite_const(D, rho, h){ return 1/(8*Math.sqrt(D*rho*h)); } // 1/|Z∞|
+function mobility_infinite_const(D,rho,h){ return 1/(8*Math.sqrt(D*rho*h)); }
 
 function computeAndPlotFRF(){
-  if(!lastResult) return;
-  const frfType=$('frfType').value;
-  const showFDTD=$('showFDTD').checked, showModal=$('showModal').checked, showInf=$('showInf').checked;
-
+  if(!lastResult){ return; }
+  const frfType=$('frfType').value; const showFDTD=$('showFDTD').checked, showModal=$('showModal').checked, showInf=$('showInf').checked;
   const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
-  const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+  const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value), D=D_of(E,h,nu);
   const x0=parseFloat($('x0').value), y0=parseFloat($('y0').value);
-  const D=D_of(E,h,nu);
 
-  // 駆動点の w(t) → v(t)
-  const T=lastResult.frames.length, dt=lastResult.dt, Fs=1/dt;
-  const Nx=lastResult.Nx, Ny=lastResult.Ny;
+  const T=lastResult.frames.length, dt=lastResult.dt, Fs=1/dt, Nx=lastResult.Nx, Ny=lastResult.Ny;
   const ix=clamp(Math.round(x0/Lx*(Nx-1)),0,Nx-1), iy=clamp(Math.round(y0/Ly*(Ny-1)),0,Ny-1);
   const wsrc=new Float64Array(T); for(let t=0;t<T;t++) wsrc[t]=lastResult.frames[t][iy*Nx+ix];
   const vsrc=derivativeCentered(wsrc,dt);
+  const forceSteps=Math.max(1, Math.floor(Fs*0.002));
+  const F=new Float64Array(T); for(let n=0;n<Math.min(T,forceSteps);n++) F[n]=1.0;
 
-  // 入力力（ワーカーは「合力=1 N」矩形パルスで加振）。ここでも 1 N を参照信号として用いる。
-  const forceSteps=Math.max(1, Math.floor(Fs*0.002)); // 2ms
-  const F=new Float64Array(T); for(let n=0;n<Math.min(T,forceSteps);n++) F[n]=1.0; // [N]
-
-  // FFT（ハン窓は速度・力に同一適用）
-  const win=hann(T); const Nfft=nextPow2(Math.max(512, T*4)); const K=Nfft/2;
+  const win=hann(T); const Nfft=nextPow2(Math.max(512,T*4)); const K=Nfft/2;
   const freqs=new Float64Array(K); for(let k=0;k<K;k++) freqs[k]=k*Fs/Nfft;
-  function dftMag(x){ const xr=new Float64Array(K), xi=new Float64Array(K); for(let k=0;k<K;k++){ let re=0,im=0; for(let n=0;n<T;n++){ const ang=-2*Math.PI*k*n/Nfft; const xn=x[n]*win[n]; re += xn*Math.cos(ang); im += xn*Math.sin(ang); } xr[k]=re; xi[k]=im; } const mag=new Float64Array(K); for(let k=0;k<K;k++) mag[k]=Math.hypot(xr[k],xi[k])/T; return {mag}; }
+  function dftMag(x){ const r=new Float64Array(K), im=new Float64Array(K); for(let k=0;k<K;k++){ let a=0,b=0; for(let n=0;n<T;n++){ const ang=-2*Math.PI*k*n/Nfft; const xn=x[n]*win[n]; a+=xn*Math.cos(ang); b+=xn*Math.sin(ang);} r[k]=a; im[k]=b;} const m=new Float64Array(K); for(let k=0;k<K;k++) m[k]=Math.hypot(r[k],im[k])/T; return m; }
   const V=dftMag(vsrc), FF=dftMag(F);
+  const Yfdtd=new Float64Array(K); for(let k=0;k<K;k++) Yfdtd[k]= V[k] / Math.max(FF[k],1e-18);
 
-  // 正規化 Y=|V|/|F|, Z=1/Y
-  const Yfdtd=new Float64Array(K); for(let k=0;k<K;k++) Yfdtd[k]= V.mag[k] / Math.max(FF.mag[k],1e-18);
-
-  // 理論（SSモード和、構造減衰η）
-  const modes = lastResult.modes || buildModes(Lx,Ly,E,nu,rho,h, parseInt($('mmax').value), parseInt($('nmax').value));
-  const eta = 0.02; // UI化してもOK
-  const Ymodal = mobility_modal_SS(freqs, modes, x0,y0, Lx,Ly, rho,h, eta);
-
-  // 参照：無限板
-  const YinfConst = mobility_infinite_const(D, rho, h);
-  const Yinfl = new Float64Array(K); for(let k=0;k<K;k++) Yinfl[k]=YinfConst;
-  const Zinfl = new Float64Array(K); for(let k=0;k<K;k++) Zinfl[k]=1/Math.max(Yinfl[k],1e-30);
-
-  function toDb(a){ const out=new Array(a.length); for(let i=0;i<a.length;i++) out[i]=20*Math.log10(Math.max(a[i],1e-20)); return out; }
-  function invMag(a){ const out=new Float64Array(a.length); for(let i=0;i<a.length;i++) out[i]=(a[i]>0)?1.0/a[i]:0; return out; }
-
+  const eta=0.02;
+  const Ymodal=mobility_modal_SS(freqs, modesAnalytic, x0,y0, Lx,Ly, rho,h, eta);
+  const Yinfc=mobility_infinite_const(D,rho,h);
+  const Yinfl=new Float64Array(K); const Zinfl=new Float64Array(K); for(let k=0;k<K;k++){ Yinfl[k]=Yinfc; Zinfl[k]=1/Math.max(Yinfc,1e-30); }
+  const inv = a => { const out=new Float64Array(a.length); for(let i=0;i<a.length;i++) out[i]=(a[i]>0)?1/a[i]:0; return out; };
+  const toDb = a => Array.from(a, v=>20*Math.log10(Math.max(v,1e-20)));
   const traces=[];
   if(frfType==='mobility'){
     if(showFDTD) traces.push({x:Array.from(freqs), y:toDb(Yfdtd), name:'FDTD |Y|', type:'scatter', mode:'lines'});
     if(showModal) traces.push({x:Array.from(freqs), y:toDb(Ymodal), name:'Modal(SS, η) |Y|', type:'scatter', mode:'lines'});
     if(showInf) traces.push({x:Array.from(freqs), y:toDb(Yinfl), name:'Infinite plate |Y|', type:'scatter', mode:'lines', line:{dash:'dot'}});
   }else{
-    if(showFDTD) traces.push({x:Array.from(freqs), y:toDb(invMag(Yfdtd)), name:'FDTD |Z|', type:'scatter', mode:'lines'});
-    if(showModal) traces.push({x:Array.from(freqs), y:toDb(invMag(Ymodal)), name:'Modal(SS, η) |Z|', type:'scatter', mode:'lines'});
+    if(showFDTD) traces.push({x:Array.from(freqs), y:toDb(inv(Yfdtd)), name:'FDTD |Z|', type:'scatter', mode:'lines'});
+    if(showModal) traces.push({x:Array.from(freqs), y:toDb(inv(Ymodal)), name:'Modal(SS, η) |Z|', type:'scatter', mode:'lines'});
     if(showInf) traces.push({x:Array.from(freqs), y:toDb(Zinfl), name:'Infinite plate |Z|', type:'scatter', mode:'lines', line:{dash:'dot'}});
   }
 
-  // ★ モード星（解析解）
+  /* 星（解析モード） */
   let ymax=-1e9; for(const tr of traces){ for(const y of tr.y) if(isFinite(y)&&y>ymax) ymax=y; }
-  const starY = ymax + 6;
-  const starX=[]; const starText=[];
-  for(const m of modes){ const f=m.f; if(f>0 && f<freqs[K-1]){ starX.push(f); starText.push(`(${m.m},${m.n}) ${f.toFixed(2)} Hz`); } }
-  traces.push({x:starX, y:new Array(starX.length).fill(starY), text:starText, name:'Modes', mode:'markers+text', marker:{symbol:'star', size:10}, textposition:'top center', hoverinfo:'text'});
+  const starY=ymax+6, starX=[], starText=[];
+  for(const m of modesAnalytic){ const f=m.f; if(f>0 && f<freqs[K-1]){ starX.push(f); starText.push(`(${m.m},${m.n}) ${f.toFixed(2)} Hz`);} }
+  traces.push({x:starX,y:new Array(starX.length).fill(starY),text:starText,name:'Modes',mode:'markers+text',marker:{symbol:'star',size:10},textposition:'top center',hoverinfo:'text'});
 
-  const layout={ xaxis:{type:'log',title:'Frequency [Hz]'}, yaxis:{title:(frfType==='mobility'?'|Y| [dB re 1 m/s/N]':'|Z| [dB re 1 N·s/m]')},
-                 margin:{t:20,b:50,l:60,r:10}, legend:{orientation:'h'} };
-  Plotly.newPlot('frfPlot', traces, layout, {responsive:true,displaylogo:false})
-    .then(gd=>{
-      gd.on('plotly_click', ev=>{
-        const pt=ev.points?.[0]; if(!pt) return;
-        const traceName = gd.data[pt.curveNumber]?.name;
-        if(traceName==='Modes'){
-          const txt=pt.text; const m=txt.match(/\((\d+),(\d+)\)/);
-          if(m){ const mm=parseInt(m[1]), nn=parseInt(m[2]);
-            const md = modes.find(x=>x.m===mm && x.n===nn);
-            if(md){ document.querySelector('.tab[data-tab="mode"]').click(); startModeAnimation(md); }
-          }
-        }
-      });
+  const layout={xaxis:{type:'log',title:'Frequency [Hz]'}, yaxis:{title:(frfType==='mobility'?'|Y| [dB re 1 m/s/N]':'|Z| [dB re 1 N·s/m]')}, margin:{t:20,b:50,l:60,r:10}, legend:{orientation:'h'}};
+  Plotly.newPlot('frfPlot',traces,layout,{responsive:true,displaylogo:false}).then(gd=>{
+    gd.on('plotly_click', ev=>{
+      const pt=ev.points?.[0]; if(!pt) return;
+      const trname=gd.data[pt.curveNumber]?.name;
+      if(trname==='Modes'){ // 解析モード星クリック→解析モードを描画
+        const m=pt.text.match(/\((\d+),(\d+)\)/); if(m){ const mm=+m[1], nn=+m[2]; const md=modesAnalytic.find(x=>x.m===mm && x.n===nn);
+          if(md){ document.querySelector('.tab[data-tab="mode"]').click(); startModeAnimation(md); } }
+      }
     });
+  });
 
-  // ピーク検出（FDTD）→ モード図
+  /* Peaks: FDTD → 解析モードへマッチング（±3%） */
   const peakDiv=$('peakList'); peakDiv.innerHTML='<strong>Peaks (FDTD)</strong><br>';
-  const magRef = (frfType==='mobility') ? Yfdtd : invMag(Yfdtd);
-  const thr = Math.max(...magRef) * 0.20;
-  const peaks=[];
-  for(let k=2;k<magRef.length-2;k++) if(magRef[k]>magRef[k-1] && magRef[k]>magRef[k+1] && magRef[k]>thr) peaks.push(k);
-  peaks.slice(0,12).forEach(k=>{
-    const f = freqs[k];
+  const baseMag=(frfType==='mobility')? Yfdtd : inv(Yfdtd);
+  const thr=Math.max(...baseMag)*0.20; const peaks=[];
+  for(let k=2;k<baseMag.length-2;k++){ if(baseMag[k]>baseMag[k-1] && baseMag[k]>baseMag[k+1] && baseMag[k]>thr) peaks.push(k); }
+  const tol=0.03; // 相対誤差3%
+  peaks.slice(0,16).forEach(k=>{
+    const f=freqs[k];
+    let match=null,errMin=Infinity;
+    for(const md of modesAnalytic){ const e=Math.abs(md.f - f)/md.f; if(e<errMin){ errMin=e; match=md; } }
+    const matched = (match && errMin<=tol);
     const btn=document.createElement('button');
-    btn.textContent=`${f.toFixed(2)} Hz ★`;
+    btn.textContent = matched ? `${f.toFixed(2)} Hz → (${match.m},${match.n})` : `${f.toFixed(2)} Hz → (?)`;
     btn.className='small-btn';
     btn.addEventListener('click', ()=>{
       document.querySelector('.tab[data-tab="mode"]').click();
-      showModeMapFromFFT(k);
+      if(matched) startModeAnimation(match); else showModeMapFromFFT(k); // 未一致はFDTD由来図
     });
-    peakDiv.appendChild(btn);
-    peakDiv.appendChild(document.createTextNode(' '));
+    peakDiv.appendChild(btn); peakDiv.appendChild(document.createTextNode(' '));
   });
 }
+
+/* FDTD→空間FFTモード図（未一致フォールバック） */
+function showModeMapFromFFT(idx){
+  if(!lastResult) return;
+  const T=lastResult.frames.length, Nx=lastResult.Nx, Ny=lastResult.Ny;
+  const Nfft=nextPow2(T); const re=new Float64Array(Nx*Ny), im=new Float64Array(Nx*Ny);
+  for(let j=0;j<Ny;j++)for(let i=0;i<Nx;i++){ let R=0,I=0; for(let t=0;t<T;t++){ const v=lastResult.frames[t][j*Nx+i]; const a=-2*Math.PI*idx*t/Nfft; R+=v*Math.cos(a); I+=v*Math.sin(a);} const id=j*Nx+i; re[id]=R; im[id]=I; }
+  let mx=0; const amp=new Float64Array(Nx*Ny); for(let k=0;k<amp.length;k++){ amp[k]=Math.hypot(re[k],im[k]); if(amp[k]>mx) mx=amp[k]; }
+  if(mx===0) mx=1; for(let k=0;k<amp.length;k++) amp[k]/=mx;
+  const cvs=$('modeCanvas'); const {W,H}=currentDisplaySize(); const ctx=resizeCanvasForDisplay(cvs,W,H);
+  drawArrayToCanvas(amp, Nx, Ny, ctx, 0, 1);
+  ctx.fillStyle='#0f172a'; ctx.fillText('FDTD-based mode map (normalized)', 12, 12);
+}
+
 $('computeFRF').addEventListener('click', computeAndPlotFRF);
-$('frfType').addEventListener('change', computeAndPlotFRF);
-$('showFDTD').addEventListener('change', computeAndPlotFRF);
-$('showModal').addEventListener('change', computeAndPlotFRF);
-$('showInf').addEventListener('change', computeAndPlotFRF);
+['frfType','showFDTD','showModal','showInf'].forEach(id=>$(id).addEventListener('change', computeAndPlotFRF));
 
-// ========== 初期化 ==========
-(function initial(){
-  try{
-    const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
-    const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-    const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
-    const modes=buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax);
-    populateModeList(modes);
-    renderFrame(0);
-  }catch(err){ showError('initial failed: '+(err?.message||String(err))); }
+/* init */
+(function(){
+  const E=parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value), h=parseFloat($('h').value);
+  const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
+  modesAnalytic = buildModes(Lx,Ly,E,nu,rho,h, parseInt($('mmax').value), parseInt($('nmax').value));
+  populateModeList(modesAnalytic);
+  renderFrame(0);
 })();
-window.addEventListener('resize', ()=>{ try{ renderFrame(currentFrame); if(currentMode) startModeAnimation(currentMode); }catch(e){} });
+window.addEventListener('resize', ()=>{ try{ renderFrame(currentFrame); if(document.querySelector('.tab.active')?.dataset.tab==='mode' && currentMode) startModeAnimation(currentMode); }catch(e){} });
 
-})();
-</script>
+})();</script>
 </body>
 </html>
