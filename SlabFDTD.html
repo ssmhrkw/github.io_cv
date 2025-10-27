@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SlabFDTD — Peaks↔Mode 同定・Mode復活版</title>
+<title>SlabFDTD — Peaks↔Mode 同定・安定版</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 :root{--bg:#f7f8fb;--card:#fff;--ink:#0f172a;--muted:#475569;--accent:#2563eb}
@@ -26,7 +26,7 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 .tab{padding:8px;border-radius:8px;background:#fff;border:1px solid #eef3fb;cursor:pointer}
 .tab.active{background:var(--accent);color:#fff}
 .kv{font-size:13px;color:#64748b}
-canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb;touch-action:none;display:block;width:100%}
+canvas.heat,canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb;touch-action:none;display:block;width:100%}
 #frfPlot{height:360px}
 .badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#eef3fb;border:1px solid #e6edf3;color:#334155;font-size:12px;margin-right:6px}
 #errorBox{color:#b91c1c;background:#fff1f2;border:1px solid #fecaca;padding:8px;border-radius:6px;margin-top:8px;display:none}
@@ -34,7 +34,7 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb;touch-
 </head>
 <body>
 <div class="wrap">
-  <h2>SlabFDTD — 四角板（同定つき）</h2>
+  <h2>SlabFDTD — 四角板（同定つき・安定版）</h2>
   <div class="grid">
     <div class="card" id="controlsPanel">
       <div class="preset-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -108,7 +108,6 @@ canvas.heat, canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb;touch-
           <div id="progressText" class="kv"></div>
           <div id="errorBox"></div>
         </div>
-
       </div>
 
       <hr>
@@ -207,8 +206,9 @@ function currentDisplaySize(){
 }
 
 /* state */
-let frames=null, lastResult=null, playInterval=null, worker=null;
+let frames=null, lastResult=null, worker=null;
 let currentFrame=0;
+let playTimer=null;            // ← 再生タイマー（宣言はここ1か所のみ）
 let currentMode=null; let modeAnimId=null; let modeStopFlag=false;
 let modesAnalytic=[];
 
@@ -233,22 +233,39 @@ function populateModeList(modes){
   });
 }
 
-/* worker */
-function startWorker(cfg){
-  if(worker){ worker.terminate(); worker=null; }
-  worker=new Worker('Fdtdworker.js');
-  worker.onmessage=(ev)=>{
-    const msg=ev.data;
-    if(msg.type==='progress'){ $('progressFill').style.width=msg.progress+'%'; $('progressText').textContent=msg.msg|| (msg.progress+'%'); }
-    else if(msg.type==='done'){
-      const r=msg.result;
-      frames=r.framesBuf.map(buf=>new Float32Array(buf));
-      lastResult={frames, Nx:r.Nx, Ny:r.Ny, dt:r.dt, Fs:r.Fs, xs:r.xs, ys:r.ys, dx:r.dx, Lx:r.Lx, Ly:r.Ly};
-      $('progressText').textContent=`完了 frames=${frames.length} Nx=${r.Nx} dt=${r.dt.toExponential(2)}s`;
-      renderFrame(0); computeAndPlotFRF();
-    }
-  };
-  worker.postMessage({type:'start', cfg});
+/* 壊れにくい Worker 起動 */
+async function spawnWorker(scriptPath){
+  try{ return new Worker(scriptPath); }
+  catch(e1){
+    try{
+      const res=await fetch(scriptPath,{cache:'no-store'});
+      if(!res.ok) throw new Error(`HTTP ${res.status} for ${scriptPath}`);
+      const code=await res.text();
+      const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
+      return new Worker(url);
+    }catch(e2){ showError('Fdtdworker.js を読み込めませんでした: '+(e2?.message||String(e2))); throw e2; }
+  }
+}
+async function startWorker(cfg){
+  try{
+    if(worker){ try{worker.terminate();}catch(_){} worker=null; }
+    worker=await spawnWorker('Fdtdworker.js');
+    worker.onerror=(e)=>showError('Worker error: '+(e?.message||String(e)));
+    worker.onmessage=(ev)=>{
+      const msg=ev.data;
+      if(msg.type==='progress'){
+        $('progressFill').style.width=msg.progress+'%';
+        $('progressText').textContent=msg.msg|| (msg.progress+'%');
+      }else if(msg.type==='done'){
+        const r=msg.result;
+        frames=r.framesBuf.map(buf=>new Float32Array(buf));
+        lastResult={frames, Nx:r.Nx, Ny:r.Ny, dt:r.dt, Fs:r.Fs, xs:r.xs, ys:r.ys, dx:r.dx, Lx:r.Lx, Ly:r.Ly};
+        $('progressText').textContent=`完了 frames=${frames.length} Nx=${r.Nx} dt=${r.dt.toExponential(2)}s`;
+        renderFrame(0); computeAndPlotFRF();
+      }
+    };
+    worker.postMessage({type:'start', cfg});
+  }catch(e){ console.error(e); }
 }
 
 /* compute */
@@ -287,7 +304,7 @@ $('computeBtn').addEventListener('click', ()=>{
     startWorker({E,nu,rho,h,Lx,Ly,Ngrid,dx,dt,Fs,framesToSave:framesCount,x0,y0,modesLight:modesAnalytic.slice(0,64)});
   }catch(err){ showError('compute start failed: '+(err?.message||String(err))); }
 });
-$('abortBtn').onclick=()=>{ if(worker){ worker.terminate(); worker=null; } $('progressText').textContent='キャンセル済み'; };
+$('abortBtn').onclick=()=>{ try{ if(worker) worker.terminate(); }catch(_){} worker=null; $('progressFill').style.width='0%'; $('progressText').textContent='キャンセル済み'; };
 
 /* Time view */
 function renderFrame(i){
@@ -297,10 +314,9 @@ function renderFrame(i){
   drawArrayToCanvas(lastResult.frames[i],Nx,Ny,ctx); $('frameSlider').max=lastResult.frames.length-1; $('frameSlider').value=i;
 }
 $('frameSlider').addEventListener('input', e=>{ currentFrame=parseInt(e.target.value); renderFrame(currentFrame); });
-let playInterval=null;
-$('timePlay').addEventListener('click', ()=>{ if(!lastResult){ alert('まず計算してください'); return; } if(playInterval) clearInterval(playInterval);
-  const fps=parseInt($('fps').value)||25; playInterval=setInterval(()=>{ currentFrame=(currentFrame+1)%lastResult.frames.length; renderFrame(currentFrame); }, 1000/Math.max(1,fps)); });
-$('timeStop').addEventListener('click', ()=>{ if(playInterval) clearInterval(playInterval); playInterval=null; });
+$('timePlay').addEventListener('click', ()=>{ if(!lastResult){ alert('まず計算してください'); return; } if(playTimer) clearInterval(playTimer);
+  const fps=parseInt($('fps').value)||25; playTimer=setInterval(()=>{ currentFrame=(currentFrame+1)%lastResult.frames.length; renderFrame(currentFrame); }, 1000/Math.max(1,fps)); });
+$('timeStop').addEventListener('click', ()=>{ if(playTimer) clearInterval(playTimer); playTimer=null; });
 $('timePrev').addEventListener('click', ()=>{ if(!lastResult) return; currentFrame=Math.max(0,currentFrame-1); renderFrame(currentFrame); });
 $('timeNext').addEventListener('click', ()=>{ if(!lastResult) return; currentFrame=Math.min(lastResult.frames.length-1,currentFrame+1); renderFrame(currentFrame); });
 
@@ -329,7 +345,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click', ()=>{
   $('timePanel').style.display=tab==='time'?'':'none';
   $('modePanel').style.display=tab==='mode'?'':'none';
   $('freqPanel').style.display=tab==='freq'?'':'none';
-  if(tab==='mode'){ if(currentMode) startModeAnimation(currentMode); else if(modesAnalytic[0]) startModeAnimation(modesAnalytic[0]); }
+  if(tab==='mode'){ if(currentMode) startModeAnimation(currentMode); else if(modesAnalytic[0]) startModeAnimation(modesAnalytic[0]); else { const {W,H}=currentDisplaySize(); resizeCanvasForDisplay($('modeCanvas'),W,H); } }
 }));
 
 /* FRF */
@@ -393,22 +409,23 @@ function computeAndPlotFRF(){
 
   const layout={xaxis:{type:'log',title:'Frequency [Hz]'}, yaxis:{title:(frfType==='mobility'?'|Y| [dB re 1 m/s/N]':'|Z| [dB re 1 N·s/m]')}, margin:{t:20,b:50,l:60,r:10}, legend:{orientation:'h'}};
   Plotly.newPlot('frfPlot',traces,layout,{responsive:true,displaylogo:false}).then(gd=>{
+    gd.removeAllListeners?.('plotly_click'); // 念のため掃除
     gd.on('plotly_click', ev=>{
       const pt=ev.points?.[0]; if(!pt) return;
       const trname=gd.data[pt.curveNumber]?.name;
-      if(trname==='Modes'){ // 解析モード星クリック→解析モードを描画
+      if(trname==='Modes'){ // 解析モード星クリック
         const m=pt.text.match(/\((\d+),(\d+)\)/); if(m){ const mm=+m[1], nn=+m[2]; const md=modesAnalytic.find(x=>x.m===mm && x.n===nn);
           if(md){ document.querySelector('.tab[data-tab="mode"]').click(); startModeAnimation(md); } }
       }
     });
   });
 
-  /* Peaks: FDTD → 解析モードへマッチング（±3%） */
+  /* Peaks: FDTD → (m,n) へマッチ（±3%） */
   const peakDiv=$('peakList'); peakDiv.innerHTML='<strong>Peaks (FDTD)</strong><br>';
   const baseMag=(frfType==='mobility')? Yfdtd : inv(Yfdtd);
   const thr=Math.max(...baseMag)*0.20; const peaks=[];
   for(let k=2;k<baseMag.length-2;k++){ if(baseMag[k]>baseMag[k-1] && baseMag[k]>baseMag[k+1] && baseMag[k]>thr) peaks.push(k); }
-  const tol=0.03; // 相対誤差3%
+  const tol=0.03;
   peaks.slice(0,16).forEach(k=>{
     const f=freqs[k];
     let match=null,errMin=Infinity;
@@ -419,7 +436,7 @@ function computeAndPlotFRF(){
     btn.className='small-btn';
     btn.addEventListener('click', ()=>{
       document.querySelector('.tab[data-tab="mode"]').click();
-      if(matched) startModeAnimation(match); else showModeMapFromFFT(k); // 未一致はFDTD由来図
+      if(matched) startModeAnimation(match); else showModeMapFromFFT(k);
     });
     peakDiv.appendChild(btn); peakDiv.appendChild(document.createTextNode(' '));
   });
@@ -438,6 +455,7 @@ function showModeMapFromFFT(idx){
   ctx.fillStyle='#0f172a'; ctx.fillText('FDTD-based mode map (normalized)', 12, 12);
 }
 
+/* FRF UI */
 $('computeFRF').addEventListener('click', computeAndPlotFRF);
 ['frfType','showFDTD','showModal','showInf'].forEach(id=>$(id).addEventListener('change', computeAndPlotFRF));
 
