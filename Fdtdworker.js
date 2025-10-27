@@ -1,4 +1,4 @@
-// Fdtdworker.js — FDTD本体（単純双ラプラシアン、SS境界）
+// Fdtdworker.js — FDTD本体（SSSS, 駆動は「合力=1 N」矩形パルス）
 self.onmessage = function(ev){
   const msg = ev.data;
   if(msg.type!=='start') return;
@@ -16,11 +16,15 @@ self.onmessage = function(ev){
   let w=new Float32Array(size), wprev=new Float32Array(size), wnext=new Float32Array(size);
   function idx(i,j){ return j*Nx + i; }
 
+  // 駆動点（セル中心近傍）
   const sx = Math.max(1, Math.min(Nx-2, Math.round(cfg.x0 / Lx * (Nx-1))));
   const sy = Math.max(1, Math.min(Ny-2, Math.round(cfg.y0 / Ly * (Ny-1))));
   const srcIdx = idx(sx, sy);
 
-  const forceSteps = Math.max(1, Math.floor(Fs * 0.002)); // 2ms矩形
+  // 「合力=1 N」の2ms矩形 → 面荷重 q = 1/A を与える（A=dx^2）
+  const A = dx*dx;
+  const q_per_cell = 1.0 / Math.max(A, 1e-18); // [N/m^2]
+  const forceSteps = Math.max(1, Math.floor(Fs * 0.002)); // 2ms
 
   function lap(arr){
     const out=new Float32Array(size);
@@ -40,13 +44,14 @@ self.onmessage = function(ev){
 
   const frames=[];
   for(let step=0; step<framesCount; step++){
-    const F=new Float32Array(size);
-    if(step < forceSteps) F[srcIdx]=1.0;
+    const F=new Float32Array(size); // Fは面荷重q [N/m^2]
+    if(step < forceSteps) F[srcIdx]=q_per_cell;
 
     const lap1=lap(w);
     const bih = lap(lap1);
 
     for(let id=0; id<size; id++){
+      // w_tt = (1/(ρh)) (F - D ∇^4 w)
       wnext[id] = 2*w[id] - wprev[id] + coeff * (F[id] - D * bih[id]);
     }
     enforceSS(wnext);
@@ -62,9 +67,8 @@ self.onmessage = function(ev){
   const transferable=[]; const framesBuf=frames.map(f=>{ transferable.push(f.buffer); return f.buffer; });
   const result={
     framesCount: frames.length,
-    Nx, Ny, dt, Fs,
+    Nx, Ny, dt, Fs, dx, Lx, Ly,
     framesBuf,
-    // 軽量な補助（メインで再計算も可）
     modes: cfg.modesLight,
     xs: Array.from({length:Nx}, (_,i)=> Lx*i/(Nx-1)),
     ys: Array.from({length:Ny}, (_,j)=> Ly*j/(Ny-1))
