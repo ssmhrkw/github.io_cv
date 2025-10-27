@@ -61,11 +61,12 @@
     table.small th, table.small td{ border:1px solid var(--line); padding:6px; font-size:12px; text-align:center; }
     .icon-btn{ width:28px; height:28px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+    h3{ margin:8px 0 6px; font-size:14px; }
   </style>
 </head>
 <body>
 <header>
-  <h1>加振点（上階スラブ）・受音点（室内）配置＋音場評価</h1>
+  <h1>加振点（上階スラブ＝天井Z）・受音点（室内）配置＋音場評価</h1>
   <p>INCE/旧JIS/新JISの制約に準拠した配置と、矩形室のモード評価で節近傍を警告。</p>
 </header>
 
@@ -85,18 +86,17 @@
           <div>
             <label>表示オプション</label>
             <div class="row">
-              <label><input id="lockSlabToCeil" type="checkbox" checked> スラブZ=天井に固定</label>
               <label><input id="showSlabEdges" type="checkbox" checked> スラブ枠表示</label>
+              <span class="muted">（上階スラブは室の天井Z=Lzに自動固定）</span>
             </div>
           </div>
         </div>
         <div class="row" style="margin-top:6px; gap:8px;">
           <button class="btn" id="btnPresetINCE">INCEプリセット（5の目）</button>
-          <button class="btn" id="btnPresetJIS">旧JISプリセット（5の目）</button>
+          <button class="btn" id="btnPresetJIS">旧JISプリセット（5の目, z=1.2m）</button>
         </div>
         <div class="row" style="margin-top:4px; gap:8px;">
           <button class="btn-accent btn" id="btnGenNewJIS">INCE/新JIS ランダム（高さ自由）</button>
-          <button class="btn-accent btn" id="btnGenOldJIS">旧JIS ランダム（高さ1.2 m）</button>
         </div>
         <div id="status" class="muted" style="margin-top:8px">準備OK。</div>
       </div>
@@ -104,18 +104,18 @@
 
     <!-- 寸法 -->
     <details open>
-      <summary><span class="triangle"></span>室寸法・スラブ寸法 [m]</summary>
+      <summary><span class="triangle"></span>室寸法・スラブ平面寸法 [m]</summary>
       <div class="sec-body">
         <div class="grid-3">
           <div><label>室Lx（X）</label><input id="roomLx" type="number" min="0.1" step="0.1" value="5.0"></div>
           <div><label>室Ly（Y）</label><input id="roomLy" type="number" min="0.1" step="0.1" value="4.0"></div>
           <div><label>室Lz（高さ）</label><input id="roomLz" type="number" min="0.1" step="0.1" value="3.0"></div>
         </div>
-        <div class="muted" style="margin-top:6px">スラブ寸法の空欄は<strong>室寸法を自動採用</strong>します。</div>
+        <div class="muted" style="margin-top:6px">スラブ平面寸法の空欄は<strong>室寸法を自動採用</strong>します（位置Zは常にLz）。</div>
         <div class="grid-3" style="margin-top:8px">
           <div><label>スラブSx（空欄=室Lx）</label><input id="slabLx" type="number" step="0.1" placeholder=""></div>
           <div><label>スラブSy（空欄=室Ly）</label><input id="slabLy" type="number" step="0.1" placeholder=""></div>
-          <div><label>スラブZ（既定=天井）</label><input id="slabZ" type="number" step="0.01" value="3.00"></div>
+          <div><label>スラブZ位置</label><input type="text" value="天井Z=Lzに固定" disabled></div>
         </div>
       </div>
     </details>
@@ -151,59 +151,6 @@
       </div>
     </details>
 
-    <!-- 音場評価（室モード） -->
-    <details open>
-      <summary><span class="triangle"></span>音場評価（モードの節近傍を警告）</summary>
-      <div class="sec-body">
-        <div class="grid">
-          <div>
-            <label>評価の有効化</label>
-            <div class="row"><label><input id="evalEnable" type="checkbox" checked> 実行する（描画毎）</label></div>
-          </div>
-          <div>
-            <label>音速 c [m/s]</label>
-            <input id="soundSpeed" type="number" step="0.1" value="343">
-          </div>
-        </div>
-
-        <div class="grid" style="margin-top:8px">
-          <div>
-            <label>モード上限の指定</label>
-            <select id="modeLimitType">
-              <option value="order" selected>次数上限（各軸0..N）</option>
-              <option value="freq">周波数上限 f_max [Hz]</option>
-            </select>
-          </div>
-          <div id="orderBox">
-            <label>Nmax（例：4）</label>
-            <input id="Nmax" type="number" step="1" min="1" value="4">
-          </div>
-          <div id="fmaxBox" style="display:none">
-            <label>f_max [Hz]</label>
-            <input id="fMax" type="number" step="1" min="1" value="200">
-            <div class="row">
-              <label>RT60[s] <input id="rt60" type="number" step="0.01" placeholder="任意"></label>
-              <button class="btn" id="btnFs">fs推定→f_maxに反映</button>
-            </div>
-            <div class="muted">※fs（シュレーダー）を使う場合のみ。RT60未入力なら無視。</div>
-          </div>
-        </div>
-
-        <div class="grid" style="margin-top:8px">
-          <div>
-            <label>節近傍判定の閾値 |Φ| &lt; ε</label>
-            <input id="phiEps" type="number" step="0.01" min="0" value="0.10">
-            <div class="muted">Φ=cos(n_xπx/Lx)cos(n_yπy/Ly)cos(n_zπz/Lz)</div>
-          </div>
-          <div>
-            <label>出力件数（各受音点あたり）</label>
-            <input id="warnTopK" type="number" step="1" min="1" value="10">
-          </div>
-        </div>
-        <div id="warnPanel" class="mono" style="margin-top:10px"></div>
-      </div>
-    </details>
-
     <!-- 自由記入（直感UI） -->
     <details>
       <summary><span class="triangle"></span>自由記入（行追加→プロット）</summary>
@@ -236,12 +183,19 @@
   <section>
     <div class="plots">
       <div class="plot-card">
-        <div id="roomPlot" style="width:100%;height:540px"></div>
+        <div id="roomPlot" style="width:100%;height:520px"></div>
       </div>
       <div class="plot-card">
-        <div id="slabPlot" style="width:100%;height:540px"></div>
+        <div id="slabPlot" style="width:100%;height:520px"></div>
       </div>
     </div>
+
+    <!-- ★ 音場警告をプロット下に移動 -->
+    <div class="plot-card" style="margin-top:12px">
+      <h3>音場Warning（節近傍｜各受音点）</h3>
+      <div id="warnPanel" class="mono"></div>
+    </div>
+
     <div class="footer-note">
       <span class="badge">注</span>
       本ツールは幾何学的配置＋単純なモード解析（矩形・剛境界）です。詳細な音場・減衰・実験配置条件は別途評価してください。
@@ -265,12 +219,12 @@ function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
 function dist3(a,b){ return Math.hypot(a.x-b.x, a.y-b.y, a.z-b.z); }
 function dist2(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 
-/* ============ 入力読取と補完 ============ */
+/* ============ 入力読取と補完（スラブZは常にLz） ============ */
 function readDim(){
   const Lx=Number(numVal('roomLx')), Ly=Number(numVal('roomLy')), Lz=Number(numVal('roomLz'));
-  let Sx=numVal('slabLx'), Sy=numVal('slabLy'), Sz=numVal('slabZ');
-  const lock=document.getElementById('lockSlabToCeil').checked;
-  if (isNaN(Sx)) Sx=Lx; if (isNaN(Sy)) Sy=Ly; if (lock){ Sz=Lz; document.getElementById('slabZ').value=String(Sz.toFixed(2)); }
+  let Sx=numVal('slabLx'), Sy=numVal('slabLy');
+  if (isNaN(Sx)) Sx=Lx; if (isNaN(Sy)) Sy=Ly;
+  const Sz=Lz; // ★上階スラブは天井に固定
   return {room:{Lx,Ly,Lz}, slab:{Sx,Sy,Sz}};
 }
 function readConstraints(){
@@ -327,26 +281,42 @@ function sampleMicPoints(cfg, rng){
 
 /* ============ サンプリング（加振点 2D：中央付近1点を含む） ============ */
 function sampleSrcPointsWithCenter(cfg, rng){
-  const {Sx,Sy,Sz}=cfg.slab; const {nSrc, srcPairMin, srcEdgeMin, maxTries}=cfg.constraints;
+  const {Sx,Sy,Sz}=cfg.slab; const {nSrc, srcPairMin, srcEdgeMin, srcGridPitch, maxTries}=cfg.constraints;
   const xsMin=srcEdgeMin, xsMax=Sx-srcEdgeMin; const ysMin=srcEdgeMin, ysMax=Sy-srcEdgeMin;
   if (xsMax<=xsMin || ysMax<=ysMin) throw new Error("加振点の可用領域がありません（縁からの離隔が広すぎます）。");
-  const points=[]; const rC=0.15*Math.min(Sx,Sy); const cx=Sx/2, cy=Sy/2;
-  // 中央付近1点
+
+  const points=[];
+  // まず中央付近1点（rngで再現性）
+  const rC = 0.15 * Math.min(Sx, Sy);
+  const cx = Sx/2, cy = Sy/2;
   let ok=false, tries=0;
   while(!ok && tries<maxTries){
     tries++;
-    const ang=2*Math.PI*Math.random(); const rad=rC*Math.sqrt(Math.random());
-    let px=cx+rad*Math.cos(ang), py=cy+rad*Math.sin(ang);
-    px=clamp(px,xsMin,xsMax); py=clamp(py,ysMin,ysMax);
+    const ang = 2*Math.PI * rng();
+    const rad = rC * Math.sqrt(rng());
+    let px = cx + rad*Math.cos(ang), py = cy + rad*Math.sin(ang);
+    px = clamp(px, xsMin, xsMax); py = clamp(py, ysMin, ysMax);
     points.push({x:px,y:py,z:Sz}); ok=true;
   }
-  // 残り
+  // 残り nSrc-1点
+  const useGrid = (srcGridPitch !== null && srcGridPitch > 0);
+  const gridXs=[], gridYs=[];
+  if (useGrid){
+    for (let x=xsMin; x<=xsMax+1e-9; x+=srcGridPitch) gridXs.push(x);
+    for (let y=ysMin; y<=ysMax+1e-9; y+=srcGridPitch) gridYs.push(y);
+    if (gridXs.length*gridYs.length < nSrc) throw new Error("格子点の候補が不足（ピッチを粗くするか点数を減らす）。");
+  }
+  function pick(){
+    if (!useGrid) return {x:randRange(rng,xsMin,xsMax), y:randRange(rng,ysMin,ysMax), z:Sz};
+    const gx = gridXs[Math.floor(rng()*gridXs.length)];
+    const gy = gridYs[Math.floor(rng()*gridYs.length)];
+    return {x:gx,y:gy,z:Sz};
+  }
   for(let i=1;i<nSrc;i++){
     let ok2=false, tries2=0;
     while(!ok2 && tries2<maxTries){
       tries2++;
-      const px=randRange(rng,xsMin,xsMax), py=randRange(rng,ysMin,ysMax);
-      const cand={x:px,y:py,z:Sz};
+      const cand=pick();
       ok2 = points.every(p=>dist2(p,cand)>=srcPairMin);
       if(ok2) points.push(cand);
     }
@@ -364,7 +334,7 @@ function presetDice5(mode){
     const zFix=clamp(1.2,zMin,zMax);
     for(const p of pts2D){ mic.push({x:p.x,y:p.y,z:zFix}); }
   }else{
-    const H=Math.max(0,zMax-zMin); const ratios=[0/6,1/6,3/6,5/6,6/6];
+    const H=Math.max(0,zMax-zMin); const ratios=[0/6,1/6,3/6,5/6,6/6]; // INCE: 7分割の5レベル割当
     for(let i=0;i<pts2D.length;i++){ const z=zMin+H*ratios[i]; mic.push({x:pts2D[i].x,y:pts2D[i].y,z}); }
   }
   const src=pts2D.map(p=>({x:p.x,y:p.y,z:slab.Sz}));
@@ -374,25 +344,24 @@ function presetDice5(mode){
   setStatus(`${mode}プリセット（5の目）を描画。`, true);
 }
 
-/* ============ INCE/新JIS / 旧JIS ランダム ============ */
-function generateByStandard(isOldJIS){
+/* ============ INCE/新JIS ランダム（高さ自由） ============ */
+function generateByStandard(){
   const dims=readDim(); const cons=readConstraints();
   cons.micWallMin=0.5; cons.micFloorMin=0.5; cons.micCeilMin=0.5; cons.micPairMin=0.7;
   cons.srcEdgeMin=0.5;
   cons.nMic=Math.max(4, Number(numVal('nMic'))||4);
   cons.nSrc=Math.min(5, Math.max(3, Number(numVal('nSrc'))||5));
-  cons.micFixedZ = isOldJIS ? 1.2 : null;
+  cons.micFixedZ = null; // 新JIS/INCEは高さ自由
   const rng=rngFromSeed(document.getElementById('seedInput').value||"seed");
   const mic=sampleMicPoints({room:dims.room,constraints:cons}, rng);
   const src=sampleSrcPointsWithCenter({slab:dims.slab,constraints:cons}, rng);
   document.getElementById('nMic').value=cons.nMic; document.getElementById('nSrc').value=cons.nSrc;
   plotAndEvaluate({room:dims.room, slab:dims.slab, pointsMic:mic, pointsSrc:src});
   fillManualTables(mic,src);
-  setStatus(`${isOldJIS?'旧JIS（1.2m）':'INCE/新JIS（高さ自由）'}制約で生成。`, true);
+  setStatus(`INCE/新JIS（高さ自由）制約で生成。`, true);
 }
 
 /* ============ 室モード評価 ============ */
-/* 角周波数と固有関数（剛境界想定・圧力モード）：Φ=cos(nxπx/Lx)cos(nyπy/Ly)cos(nzπz/Lz) */
 function modalFreq(c, Lx, Ly, Lz, nx, ny, nz){
   const kx=nx/Lx, ky=ny/Ly, kz=nz/Lz;
   return (c/2) * Math.sqrt(kx*kx + ky*ky + kz*kz);
@@ -403,18 +372,8 @@ function phiAt(x,y,z,Lx,Ly,Lz,nx,ny,nz){
   const az = Math.cos(nz*Math.PI*z/Lz);
   return ax*ay*az; // |Φ|<=1
 }
-function angleToNearestNode(angle){ // 角度[rad]→最寄りの(π/2 + kπ)との差
-  // ずらしてπ周期で最近接に丸める
-  let r = (angle + Math.PI/2) % Math.PI; if (r<0) r += Math.PI;
-  r -= Math.PI/2;
-  return Math.abs(r); // [0..π/2]
-}
-function distToNode1D(coord, L, n){ // n>=1のみ意味あり
-  if (n===0) return null;
-  const ang = n*Math.PI*coord/L;
-  const dtheta = angleToNearestNode(ang); // rad
-  return dtheta * L / (n*Math.PI); // [m]
-}
+function angleToNearestNode(angle){ let r=(angle+Math.PI/2)%Math.PI; if(r<0) r+=Math.PI; r-=Math.PI/2; return Math.abs(r); }
+function distToNode1D(coord, L, n){ if(n===0) return null; const dtheta=angleToNearestNode(n*Math.PI*coord/L); return dtheta*L/(n*Math.PI); }
 function computeWarnings(dims, mics, params){
   const {Lx,Ly,Lz}=dims.room; const c=params.c; const eps=params.eps; const topK=params.topK;
   const limitType=params.limitType; const Nmax=params.Nmax; const fMax=params.fMax;
@@ -423,19 +382,17 @@ function computeWarnings(dims, mics, params){
     for(let nx=0; nx<=Nmax; nx++){
       for(let ny=0; ny<=Nmax; ny++){
         for(let nz=0; nz<=Nmax; nz++){
-          if (nx===0 && ny===0 && nz===0) continue;
-          const f=modalFreq(c,Lx,Ly,Lz,nx,ny,nz);
-          modes.push({nx,ny,nz,f});
+          if(nx===0&&ny===0&&nz===0) continue;
+          const f=modalFreq(c,Lx,Ly,Lz,nx,ny,nz); modes.push({nx,ny,nz,f});
         }
       }
     }
   }else{
-    // 周波数上限
-    const Ncap = 40; // 安全上限（十分大きい）
+    const Ncap=40;
     for(let nx=0; nx<=Ncap; nx++){
       for(let ny=0; ny<=Ncap; ny++){
         for(let nz=0; nz<=Ncap; nz++){
-          if (nx===0 && ny===0 && nz===0) continue;
+          if(nx===0&&ny===0&&nz===0) continue;
           const f=modalFreq(c,Lx,Ly,Lz,nx,ny,nz);
           if (f<=fMax) modes.push({nx,ny,nz,f});
         }
@@ -444,14 +401,12 @@ function computeWarnings(dims, mics, params){
   }
   modes.sort((a,b)=>a.f-b.f);
 
-  const result = [];
+  const result=[];
   for(let i=0;i<mics.length;i++){
-    const p=mics[i];
-    const warns=[];
+    const p=mics[i]; const warns=[];
     for(const m of modes){
-      const phi = Math.abs(phiAt(p.x,p.y,p.z,Lx,Ly,Lz,m.nx,m.ny,m.nz));
+      const phi=Math.abs(phiAt(p.x,p.y,p.z,Lx,Ly,Lz,m.nx,m.ny,m.nz));
       if (phi < eps){
-        // 次元ごとの節面までの距離（参考）
         const dx = m.nx>0 ? distToNode1D(p.x, Lx, m.nx) : null;
         const dy = m.ny>0 ? distToNode1D(p.y, Ly, m.ny) : null;
         const dz = m.nz>0 ? distToNode1D(p.z, Lz, m.nz) : null;
@@ -463,7 +418,8 @@ function computeWarnings(dims, mics, params){
   return {modesCount:modes.length, perMic:result};
 }
 
-/* ============ Plotly描画＋評価 ============ */
+/* ============ Plotly描画（引きの視点）＋評価 ============ */
+let _micTraceIndex = null;
 function makeRoomEdges(Lx,Ly,Lz){
   function xyz(list){ return {x:list.map(p=>p[0]), y:list.map(p=>p[1]), z:list.map(p=>p[2])}; }
   const bottom = xyz([[0,0,0],[Lx,0,0],[Lx,Ly,0],[0,Ly,0],[0,0,0]]);
@@ -479,32 +435,45 @@ function slabFrame3D(Sx,Sy,Sz){
   const x=[0,Sx,Sx,0,0], y=[0,0,Sy,Sy,0], z=[Sz,Sz,Sz,Sz,Sz];
   return {type:'scatter3d', mode:'lines', x, y, z, line:{width:3}, hoverinfo:'skip', name:'slab(上階)'};
 }
-function plotAll(state, opts={}){
+function plotAll(state){
   const { room, slab, pointsMic, pointsSrc } = state;
   const showSlabEdges = document.getElementById('showSlabEdges').checked;
   const base = makeRoomEdges(room.Lx, room.Ly, room.Lz);
 
-  // 警告付き色分け（警告は後段で上書きするので一旦単色）
+  // 受音点（色は後で上書き）
   const micTrace = {
     type:'scatter3d', mode:'markers+text',
     x: pointsMic.map(p=>p.x), y: pointsMic.map(p=>p.y), z: pointsMic.map(p=>p.z),
     marker:{size:5}, text: pointsMic.map((_,i)=>`Mic ${i+1}`), textposition:'top center', name:'受音点'
   };
 
-  // ★加振点は天井側に表示：スラブZから少し下げて表示（枠より内側）
-  const lift = Math.max(0.02, 0.02*room.Lz); // [m]
+  // 加振点は天井近傍（スラブ枠より少し下側）に描く
+  const lift = Math.max(0.02, 0.02*room.Lz);
   const src3DTrace = {
     type:'scatter3d', mode:'markers+text',
     x: pointsSrc.map(p=>p.x), y: pointsSrc.map(p=>p.y), z: pointsSrc.map(_=>Math.max(0, slab.Sz - lift)),
     marker:{size:4, symbol:'x'}, text: pointsSrc.map((_,i)=>`Src ${i+1}`),
     textposition:'bottom center', name:'加振点(上階)'
   };
+
   const slabEdges = showSlabEdges ? [slabFrame3D(slab.Sx, slab.Sy, slab.Sz)] : [];
+  const data = [...base, ...slabEdges, micTrace, src3DTrace];
+
+  // ★引きの表示：軸レンジに余白＋カメラを遠目に
+  const pad = 0.12;
   const roomLayout = {
-    scene:{ xaxis:{title:'X [m]'}, yaxis:{title:'Y [m]'}, zaxis:{title:'Z [m]'}, aspectmode:'data', bgcolor:'#ffffff' },
-    margin:{l:0,r:0,t:20,b:0}, paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff', showlegend:true
+    scene:{
+      xaxis:{title:'X [m]', range:[-pad*room.Lx, (1+pad)*room.Lx]},
+      yaxis:{title:'Y [m]', range:[-pad*room.Ly, (1+pad)*room.Ly]},
+      zaxis:{title:'Z [m]', range:[-0.05*room.Lz, (1+pad)*room.Lz]},
+      aspectmode:'data',
+      camera:{ eye:{x:2.1, y:-2.1, z:1.4} },
+      bgcolor:'#ffffff'
+    },
+    margin:{l:0,r:0,t:20,b:0},
+    paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
+    showlegend:true
   };
-  Plotly.newPlot('roomPlot', [...base, ...slabEdges, micTrace, src3DTrace], roomLayout, {responsive:true, displaylogo:false});
 
   // 2D（スラブ平面）
   const slabRect = { type:'scatter', mode:'lines', x:[0,slab.Sx,slab.Sx,0,0], y:[0,0,slab.Sy,slab.Sy,0], hoverinfo:'skip', name:'Slab' };
@@ -512,33 +481,47 @@ function plotAll(state, opts={}){
     marker:{size:8}, text: pointsSrc.map((_,i)=>`S${i+1}`), textposition:'top center', name:'加振点' };
   const micProj2D = { type:'scatter', mode:'markers', x: pointsMic.map(p=>p.x), y: pointsMic.map(p=>p.y),
     marker:{size:6, symbol:'circle-open'}, name:'受音点の床投影' };
-  const slabLayout = { xaxis:{title:'X [m]',range:[0,slab.Sx],scaleanchor:'y',scaleratio:1}, yaxis:{title:'Y [m]',range:[0,slab.Sy]},
-    margin:{l:50,r:20,t:20,b:40}, paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff', showlegend:true };
+  const slabLayout = {
+    xaxis:{title:'X [m]',range:[0,slab.Sx],scaleanchor:'y',scaleratio:1},
+    yaxis:{title:'Y [m]',range:[0,slab.Sy]},
+    margin:{l:50,r:20,t:20,b:40},
+    paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
+    showlegend:true
+  };
+
+  Plotly.newPlot('roomPlot', data, roomLayout, {responsive:true, displaylogo:false});
   Plotly.newPlot('slabPlot', [slabRect, src2D, micProj2D], slabLayout, {responsive:true, displaylogo:false});
+
+  // micトレースのインデックスを記録（後で色上書き）
+  _micTraceIndex = base.length + slabEdges.length;
 }
 
 /* ============ 描画＋音場評価（色分け・警告出力） ============ */
 function plotAndEvaluate(state){
   plotAll(state);
-  const evalOn = document.getElementById('evalEnable').checked;
-  if (!evalOn) { document.getElementById('warnPanel').innerHTML="（評価無効）"; return; }
+
+  const evalOn = true; // 常時評価（描画毎）
+  const panel = document.getElementById('warnPanel');
+  if (!evalOn){ panel.innerHTML="（評価無効）"; return; }
 
   const dims = {room: state.room};
   const params = {
-    c: Number(numVal('soundSpeed'))||343,
-    eps: Number(numVal('phiEps'))||0.1,
-    topK: Math.max(1, Number(numVal('warnTopK'))||10),
-    limitType: document.getElementById('modeLimitType').value,
-    Nmax: Math.max(1, Number(numVal('Nmax'))||4),
-    fMax: Math.max(1, Number(numVal('fMax'))||200)
+    c: 343,
+    eps: 0.10,
+    topK: 10,
+    limitType: 'order',
+    Nmax: 4,
+    fMax: 200
   };
   const warns = computeWarnings(dims, state.pointsMic, params);
 
   // Micの色分け（警告あり=赤、なし=青）
   const colors = warns.perMic.map(w => w.count>0 ? 'rgb(192,57,43)' : 'rgb(53,87,255)');
-  Plotly.restyle('roomPlot', {'marker.color':[colors]}, [ (showSlabEdges?3:2) ] ); // mic traceのインデックスに合わせて更新
+  if (_micTraceIndex!==null){
+    Plotly.restyle('roomPlot', {'marker.color':[colors]}, [_micTraceIndex]);
+  }
 
-  // 警告リストを整形
+  // 警告リスト（右下パネル）
   let html = '';
   html += `総モード数: ${warns.modesCount}<br>`;
   for(const m of warns.perMic){
@@ -552,7 +535,7 @@ function plotAndEvaluate(state){
     }
     html += `</div>`;
   }
-  document.getElementById('warnPanel').innerHTML = html;
+  panel.innerHTML = html;
 }
 
 /* ============ 自由記入テーブル ============ */
@@ -589,7 +572,7 @@ function exportJson(){
   const dims=readDim(); const cons=readConstraints();
   const mic=getTablePoints3D(document.querySelector('#micTable tbody'));
   const src=getTablePoints2D(document.querySelector('#srcTable tbody'), dims.slab.Sz);
-  const data={ meta:{tool:"room-slab-config",version:3}, seed:document.getElementById('seedInput').value, dims, cons, points:{mics:mic,srcs:src}, timestamp:new Date().toISOString() };
+  const data={ meta:{tool:"room-slab-config",version:4}, seed:document.getElementById('seedInput').value, dims, cons, points:{mics:mic,srcs:src}, timestamp:new Date().toISOString() };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download='room_slab_points.json'; a.click(); URL.revokeObjectURL(url); setStatus("JSONをダウンロードしました。", true);
 }
@@ -603,7 +586,6 @@ function importJson(file){
       document.getElementById('roomLz').value=data.dims?.room?.Lz ?? 3.0;
       document.getElementById('slabLx').value=data.dims?.slab?.Sx ?? "";
       document.getElementById('slabLy').value=data.dims?.slab?.Sy ?? "";
-      document.getElementById('slabZ').value = data.dims?.slab?.Sz ?? document.getElementById('roomLz').value;
       const c=data.cons??{}; const set=(id,v)=>{ if(v!==undefined && v!==null) document.getElementById(id).value=v; };
       set('nMic',c.nMic); set('nSrc',c.nSrc); set('maxTries',c.maxTries);
       set('micPairMin',c.micPairMin); set('micWallMin',c.micWallMin); set('micFloorMin',c.micFloorMin); set('micCeilMin',c.micCeilMin); set('micFixedZ',c.micFixedZ??"");
@@ -618,21 +600,10 @@ function importJson(file){
   reader.readAsText(file);
 }
 
-/* ============ シュレーダー周波数（簡易推定） ============ */
-/* 一般に fs は RT60 と室容積 V を用いた経験式で推定されます。ここでは入力RT60と室容積からfsを算出し、f_maxに反映します。 */
-function estimateFs(rt60, V){ if(!rt60||!V||rt60<=0||V<=0) return null; /* 代表的な実務式を使用 */ return 2000*Math.sqrt(rt60/V); }
-document.getElementById('btnFs').addEventListener('click', ()=>{
-  const rt=Number(numVal('rt60')); const {room}=readDim(); const V=room.Lx*room.Ly*room.Lz;
-  const fs=estimateFs(rt,V); if(fs){ document.getElementById('fMax').value=fs.toFixed(1); }
-});
-
 /* ============ イベント ============ */
 document.getElementById('btnPresetJIS').addEventListener('click', ()=>presetDice5('JIS'));
 document.getElementById('btnPresetINCE').addEventListener('click', ()=>presetDice5('INCE'));
-document.getElementById('btnGenOldJIS').addEventListener('click', ()=>generateByStandard(true));
-document.getElementById('btnGenNewJIS').addEventListener('click', ()=>generateByStandard(false));
-
-document.getElementById('generate')?.remove(); // 「旧ランダム」を撤去
+document.getElementById('btnGenNewJIS').addEventListener('click', ()=>generateByStandard());
 
 document.getElementById('exportJson')?.addEventListener('click', exportJson);
 document.getElementById('importJson')?.addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJson(f); });
@@ -653,27 +624,13 @@ document.getElementById('clearManual').addEventListener('click', ()=>{
   document.querySelector('#srcTable tbody').innerHTML='';
 });
 
-document.getElementById('roomLz').addEventListener('input', ()=>{
-  if (document.getElementById('lockSlabToCeil').checked){
-    const Lz=Number(numVal('roomLz')); document.getElementById('slabZ').value=String(Lz.toFixed(2));
-  }
-});
-
-// モード上限 切替UI
-document.getElementById('modeLimitType').addEventListener('change', (e)=>{
-  const v=e.target.value;
-  document.getElementById('orderBox').style.display = (v==='order')?'block':'none';
-  document.getElementById('fmaxBox').style.display  = (v==='freq')?'block':'none';
-});
-
-/* 初期化：5×4×3 m、上階スラブ、INCE/新JIS（高さ自由）で一発描画＋評価 */
+/* 初期化：5×4×3 m、上階スラブ（Z=Lz固定）、INCE/新JISで描画＋評価 */
 (function init(){
   try{
     document.getElementById('roomLx').value=5.0;
     document.getElementById('roomLy').value=4.0;
     document.getElementById('roomLz').value=3.0;
-    document.getElementById('slabZ').value=3.00;
-    generateByStandard(false); // INCE/新JIS
+    generateByStandard();
   }catch(err){ console.error(err); }
 })();
 </script>
