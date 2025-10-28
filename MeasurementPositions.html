@@ -38,7 +38,7 @@ input[type="number"],input[type="text"],select{
 }
 .btn{appearance:none;border:1px solid var(--line);background:#fff;color:#0b1220;padding:9px 12px;border-radius:8px;font-size:13px;cursor:pointer}
 .btn:hover{border-color:#cfd7e3}
-.btn-accent{background:var(--accent);color:#fff;border:none}
+.btn-accent{background:#3557ff;color:#fff;border:none}
 .muted{color:var(--muted);font-size:12px}
 .plot-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
 .plots{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -379,8 +379,7 @@ function rotRect(cx,cy,w,d,ang){
 }
 
 /* ========= グローバル状態 ========= */
-let _lastState=null; // {room,slab,pointsMic,pointsSrc,srcMeta,isLight,std}
-let _micTraceIndex=null;
+let _lastState=null; // {room,slab,pointsMic,pointsSrc,srcMeta,isLight,std,_idxMicPts,_idxMicTxt}
 
 /* ========= 可視化 ========= */
 function roomEdges(Lx,Ly,Lz){
@@ -406,13 +405,17 @@ function plotAll(st){
 
   const sizeSrc3D=5,sizeSrc2D=6; const sizeMic3D=Math.max(1,sizeSrc3D-1), sizeMic2D=Math.max(1,sizeSrc2D-1);
 
-  const micTrace={type:'scatter3d',mode:'markers+text',
+  // Mic 3Dは「小丸 + テキスト“x”」に分離（scatter3dはsymbol:'x'非対応）
+  const micPts3D={type:'scatter3d',mode:'markers',
     x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
-    marker:{size:sizeMic3D,symbol:'x'},
-    text:pointsMic.map((_,i)=>`Mic ${i+1}`),textposition:'top center',name:'受音点'};
+    marker:{size:sizeMic3D}, name:'受音点(点)'}; // 色替え対象はこれ
+  const micTxt3D={type:'scatter3d',mode:'text',
+    x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
+    text:pointsMic.map(()=> 'x'), textposition:'middle center', name:'受音点(x)'};
 
   const lift=Math.max(0.02,0.02*room.Lz);
-  const src3D_x=[],src3D_y=[],src3D_z=[],src3D_sym=[]; const src2D_x=[],src2D_y=[],src2D_sym=[];
+  const src3D_x=[],src3D_y=[],src3D_z=[]; // 3Dはsymbol未使用
+  const src2D_x=[],src2D_y=[],src2D_sym=[];
   const extra3D=[], extra2D=[];
   for(let i=0;i<pointsSrc.length;i++){
     const p=pointsSrc[i], meta=srcMeta[i], z3=Math.max(0, slab.Sz - lift);
@@ -421,13 +424,19 @@ function plotAll(st){
       extra3D.push({type:'scatter3d',mode:'lines',x:rx.map(o=>o.x),y:rx.map(o=>o.y),z:rx.map(()=>slab.Sz),line:{width:3},name:`Tap ${i+1}`,hoverinfo:'skip'});
       extra2D.push({type:'scatter',mode:'lines',x:rx.map(o=>o.x),y:rx.map(o=>o.y),name:`Tap ${i+1}`,hoverinfo:'skip'});
     }else{
-      src3D_x.push(p.x); src3D_y.push(p.y); src3D_z.push(z3); src3D_sym.push('circle');
+      src3D_x.push(p.x); src3D_y.push(p.y); src3D_z.push(z3);
       src2D_x.push(p.x); src2D_y.push(p.y); src2D_sym.push('circle');
     }
   }
-  const src3D = src3D_x.length? {type:'scatter3d',mode:'markers+text',x:src3D_x,y:src3D_y,z:src3D_z,marker:{size:sizeSrc3D,symbol:src3D_sym},text:src3D_x.map((_,i)=>`Src ${i+1}`),textposition:'bottom center',name:'加振点(上階)'}:null;
+  const src3D = src3D_x.length? {type:'scatter3d',mode:'markers',x:src3D_x,y:src3D_y,z:src3D_z,marker:{size:sizeSrc3D},name:'加振点(上階)'}:null;
   const slabEdges = showEdges? [slabFrame3D(slab.Sx,slab.Sy,slab.Sz)] : [];
-  const data3D = src3D? [...base,...slabEdges,micTrace,...extra3D,src3D] : [...base,...slabEdges,micTrace,...extra3D];
+
+  // 3Dデータ並び：base → slabEdges → micPts3D → micTxt3D → extra3D → src3D
+  const data3D = src3D? [...base,...slabEdges,micPts3D,micTxt3D,...extra3D,src3D] : [...base,...slabEdges,micPts3D,micTxt3D,...extra3D];
+
+  // Micトレースのインデックスを状態に保存
+  st._idxMicPts = base.length + slabEdges.length;      // micPts3D
+  st._idxMicTxt = st._idxMicPts + 1;                   // micTxt3D
 
   const slabRect={type:'scatter',mode:'lines',x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],hoverinfo:'skip',name:'Slab'};
   const src2D = src2D_x.length? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:'加振点'}:null;
@@ -440,8 +449,6 @@ function plotAll(st){
 
   Plotly.newPlot('roomPlot',data3D,roomLayout,{responsive:true,displaylogo:false});
   Plotly.newPlot('slabPlot',data2D,slabLayout,{responsive:true,displaylogo:false});
-
-  _micTraceIndex=roomEdges.length + (showEdges?1:0); // 目安：micTraceはbaseの次
 }
 
 /* ========= Warning・評価 ========= */
@@ -496,9 +503,13 @@ function renderWarnings(w){
   document.getElementById('warnPanel').textContent=html;
 }
 function colorMicByWarning(w){
+  if(!_lastState || _lastState._idxMicPts==null) return;
   const colors=w.perMic.map(m=>m.count>0?'rgb(192,57,43)':'rgb(53,87,255)');
-  // micTraceは固定位置：roomPlotの最初のscatter3d markers+text（簡易：全トレースに対してmarker.color適用）
-  Plotly.restyle('roomPlot',{'marker.color':[colors]});
+  try{
+    Plotly.restyle('roomPlot',{'marker.color':[colors]},[_lastState._idxMicPts]); // Mic点だけ着色
+  }catch(e){
+    console.warn('mic color restyle failed:', e);
+  }
 }
 
 /* ========= プリセット ========= */
@@ -574,7 +585,6 @@ function showBest(st,warn,effSeed){
 
 /* ========= 節マップ / スライス ========= */
 function phiMetricAt(room,modes,x,y,z){
-  // メトリック：min |Φ|（節避け視点で直感的）。必要ならsum等に変更可。
   let minv=1;
   for(const m of modes){
     const v=Math.abs(phiAt(x,y,z,room.Lx,room.Ly,room.Lz,m.nx,m.ny,m.nz));
@@ -612,15 +622,14 @@ function sliceYZ(){
 }
 
 /* ========= 許容公差バブル（XY） ========= */
-// 半径r以内の周方向12方向でサンプリングし分類が変わらない最大rを探索（粗く二分探索）
 function classifyAt(room,modes,eps,x,y,z){ return phiMetricAt(room,modes,x,y,z) < eps ? 'near':'far'; }
 function tolRadiusForMic(st, mic, eps){
   const {modes}=computeModes(st.room,st.isLight);
   const cls0=classifyAt(st.room,modes,eps,mic.x,mic.y,mic.z);
-  const maxR=0.5*Math.min(st.room.Lx,st.room.Ly); // 上限（安全側）
+  const maxR=0.5*Math.min(st.room.Lx,st.room.Ly);
   let lo=0, hi=maxR;
   for(let iter=0;iter<16;iter++){
-    const mid=(lo+hi)/2; // 半径
+    const mid=(lo+hi)/2;
     let ok=true;
     for(let t=0;t<12;t++){
       const th=2*Math.PI*t/12; const px=mic.x+mid*Math.cos(th), py=mic.y+mid*Math.sin(th);
@@ -630,7 +639,7 @@ function tolRadiusForMic(st, mic, eps){
     }
     if(ok) lo=mid; else hi=mid;
   }
-  return lo; // 安全側半径
+  return lo;
 }
 function drawTolBubbles(st){
   const eps=Number(numVal('phiEps'))||0.10;
@@ -647,7 +656,6 @@ function drawTolBubbles(st){
 
 /* ========= コーナー法（16283-3低周波） ========= */
 function suggestCornerMics(room){
-  // 8隅の近傍：壁・床・天井から0.1 m内側（デフォルト）。低周波評価の追加点として扱う。
   const m=0.1;
   const xs=[m, room.Lx-m], ys=[m, room.Ly-m], zs=[m, room.Lz-m];
   const pts=[];
@@ -740,7 +748,7 @@ function printView(st){
 }
 
 /* ========= イベント ========= */
-document.getElementById('btnGenerate').addEventListener('click',()=>{try{applyPreset(0); maybeAddCorner(); setProgress(0); document.getElementById('bestPanel').textContent='（未探索）';}catch(e){console.error(e);setStatus('エラー：'+e.message,false);}});
+document.getElementById('btnGenerate').addEventListener('click',()=>{try{const r=applyPreset(0); _lastState=r.state; setProgress(0); document.getElementById('bestPanel').textContent='（未探索）'; maybeAddCorner(); }catch(e){console.error(e);setStatus('エラー：'+e.message,false);}});
 document.getElementById('btnSearch').addEventListener('click',async()=>{
   const limit=Math.max(1,Number(numVal('searchLimit'))||30);
   setProgress(0);
@@ -752,7 +760,7 @@ document.getElementById('btnSearch').addEventListener('click',async()=>{
     if(!bestScore || (sc.bad<bestScore.bad) || (sc.bad===bestScore.bad && (sc.hits<bestScore.hits || (sc.hits===bestScore.hits && sc.minPhi>bestScore.minPhi)))){
       best={r,w}; bestScore=sc; showBest(r.state,w,r.effSeed);
     }
-    if(bad===0){ setProgress(1); setStatus(`探索：${i+1}回目で警告ゼロ`,true); return; }
+    if(bad===0){ setProgress(1); setStatus(`探索：${i+1}回目で警告ゼロ`,true); _lastState=r.state; return; }
     if(i%10===0){ setProgress((i+1)/limit); await new Promise(res=>requestAnimationFrame(res)); }
   }
   setProgress(1);
@@ -793,7 +801,7 @@ document.getElementById('btnPrint').addEventListener('click',()=>{ if(_lastState
 (function init(){
   document.getElementById('stdSelect').value='JIS';
   document.querySelector('input[name="srcType"][value="light"]').checked=true;
-  applyPreset(0); setProgress(0); document.getElementById('bestPanel').textContent='（未探索）';
+  const r=applyPreset(0); _lastState=r.state; setProgress(0); document.getElementById('bestPanel').textContent='（未探索）';
 })();
 </script>
 </body>
