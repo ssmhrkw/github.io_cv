@@ -390,7 +390,7 @@ function band(isLight,room){
 }
 
 /* ========= タッピング矩形 ========= */
-const TAP_W=0.520, TAP_D=0.260;
+const TAP_W=0.520, TAP_D=0.260; // 520×260 mm
 function rotRect(cx,cy,w,d,ang){
   const dx=w/2, dy=d/2, cs=Math.cos(ang), sn=Math.sin(ang);
   const pts=[[-dx,-dy],[dx,-dy],[dx,dy],[-dx,dy],[-dx,-dy]].map(([x,y])=>({x:cx+x*cs-y*sn,y:cy+x*sn+y*cs}));
@@ -424,10 +424,10 @@ function plotAll(st){
 
   const sizeSrc3D=5,sizeSrc2D=6; const sizeMic3D=Math.max(1,sizeSrc3D-1), sizeMic2D=Math.max(1,sizeSrc2D-1);
 
-  // Mic 3Dは「小丸 + テキスト“x”」
+  // Mic 3Dは「小丸 + テキスト“x”」（互換性のため）
   const micPts3D={type:'scatter3d',mode:'markers',
     x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
-    marker:{size:sizeMic3D}, name:'受音点(点)'}; // 色替え対象はこれ
+    marker:{size:sizeMic3D}, name:'受音点(点)'};
   const micTxt3D={type:'scatter3d',mode:'text',
     x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
     text:pointsMic.map(()=> 'x'), textposition:'middle center', name:'受音点(x)'};
@@ -453,9 +453,9 @@ function plotAll(st){
   // 並び：base → slabEdges → micPts3D → micTxt3D → extra3D → src3D
   const data3D = src3D? [...base,...slabEdges,micPts3D,micTxt3D,...extra3D,src3D] : [...base,...slabEdges,micPts3D,micTxt3D,...extra3D];
 
-  // Micトレースのインデックスを保存
-  st._idxMicPts = base.length + slabEdges.length; // micPts3D
-  st._idxMicTxt = st._idxMicPts + 1;             // micTxt3D
+  // Micトレースのインデックス保持（色付けで使用）
+  st._idxMicPts = base.length + (showEdges?1:0);
+  st._idxMicTxt = st._idxMicPts + 1;
 
   const slabRect={type:'scatter',mode:'lines',x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],hoverinfo:'skip',name:'Slab'};
   const src2D = src2D_x.length? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:'加振点'}:null;
@@ -527,12 +527,13 @@ function colorMicByWarning(w){
   safeRestyle('roomPlot',{'marker.color':[colors]},[_lastState._idxMicPts]);
 }
 
-/* ========= プリセット ========= */
-function applyPreset(seedBump=0){
+/* ========= プリセット（描画ON/OFF切替対応） ========= */
+function applyPreset(seedBump=0, opts={render:true}){
   const dims=readDim(); const cons=readCons();
   const rng=rngFromSeed((document.getElementById('seedInput').value||'seed')+`#${seedBump}`);
   const std=document.getElementById('stdSelect').value;
   const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
+
   function setCounts(n){cons.nSrc=n;cons.nMic=n;document.getElementById('nSrc').value=n;document.getElementById('nMic').value=n;}
   cons.micWallMin=0.5; cons.micFloorMin=0.5; cons.micCeilMin=0.5; cons.micPairMin=0.7; cons.srcEdgeMin=0.5;
 
@@ -562,11 +563,17 @@ function applyPreset(seedBump=0){
 
   const state={room:dims.room, slab:dims.slab, pointsMic, pointsSrc, srcMeta, isLight, std};
   _lastState=state;
-  plotAll(state);
-  const w=computeWarnings(state); renderWarnings(w); colorMicByWarning(w);
-  fillTables(pointsMic,pointsSrc);
-  setStatus(`${std}（${isLight?'軽量':'重量'}）を適用`,true);
-  return {state, warns:w, effSeed:(document.getElementById('seedInput').value||'seed')+`#${seedBump}`};
+
+  const warns=computeWarnings(state);
+
+  if(opts.render){
+    plotAll(state);
+    renderWarnings(warns);
+    colorMicByWarning(warns);
+    fillTables(pointsMic,pointsSrc);
+    setStatus(`${std}（${isLight?'軽量':'重量'}）を適用`,true);
+  }
+  return {state, warns, effSeed:(document.getElementById('seedInput').value||'seed')+`#${seedBump}`};
 }
 
 /* ========= テーブル ========= */
@@ -705,19 +712,21 @@ function avgMicDist(mics){
 function scoreConfig(w,bad,hits,amdist){ return w[0]*bad + w[1]*hits - w[2]*amdist; }
 async function optimize(){
   const trials=Math.max(1,Number(numVal('optTrials'))||200);
-  const wts=(document.getElementById('weights').value||'10,1,0.5').split(',').map(s=>Number(s.trim())||0);
+  const wts=(document.getElementById('weights').value||'10, 1, 0.5').split(',').map(s=>Number(s.trim())||0);
   let best=null, bestScore=Infinity;
   for(let i=0;i<trials;i++){
-    const r=applyPreset(i); const st=r.state; const w=computeWarnings(st);
+    const r=applyPreset(i, {render:false}); // 描画せず評価だけ
+    const st=r.state, w=r.warns;
     const bad=w.perMic.filter(m=>m.count>0).length, hits=w.perMic.reduce((s,m)=>s+m.count,0), amd=avgMicDist(st.pointsMic);
     const sc=scoreConfig(wts,bad,hits,amd);
-    if(sc<bestScore){bestScore=sc; best={r, w, bad, hits, amd}; showBest(st,w,r.effSeed); }
-    if(i%10===0){ setProgress((i+1)/trials); await new Promise(res=>requestAnimationFrame(res)); }
+    if(sc<bestScore){bestScore=sc; best={r,w,bad,hits,amd}; showBest(st,w,r.effSeed); }
+    if(i%50===0){ setProgress((i+1)/trials); await new Promise(res=>setTimeout(res,0)); }
   }
   setProgress(1);
   if(best){
     _lastState=best.r.state;
-    plotAll(_lastState); const w=computeWarnings(_lastState); renderWarnings(w); colorMicByWarning(w);
+    plotAll(_lastState); renderWarnings(best.w); colorMicByWarning(best.w);
+    fillTables(_lastState.pointsMic,_lastState.pointsSrc);
     setStatus(`最適化完了：score=${fmt(bestScore)}（Bad=${best.bad}, Hits=${best.hits}, AvgDist=${fmt(best.amd)}）`,true);
   }else{
     setStatus('最適化で候補を得られませんでした。',false);
@@ -765,24 +774,32 @@ function printView(st){
 
 /* ========= イベント ========= */
 document.getElementById('btnGenerate').addEventListener('click',()=>{try{const r=applyPreset(0); _lastState=r.state; setProgress(0); document.getElementById('bestPanel').textContent='（未探索）'; maybeAddCorner(); }catch(e){console.error(e);setStatus('エラー：'+e.message,false);}});
-document.getElementById('btnSearch').addEventListener('click',async()=>{
+document.getElementById('btnSearch').addEventListener('click', async ()=>{
   const limit=Math.max(1,Number(numVal('searchLimit'))||30);
   setProgress(0);
-  let best=null, bestScore=null;
+  let best=null, score=null;
   for(let i=0;i<limit;i++){
-    const r=applyPreset(i); const w=r.warns;
-    const bad=w.perMic.filter(m=>m.count>0).length, hits=w.perMic.reduce((s,m)=>s+m.count,0), minPhi=Math.min(...w.perMic.map(m=>m.minPhi??1));
+    const r=applyPreset(i, {render:false}); // 描画OFFで評価
+    const w=r.warns;
+    const bad=w.perMic.filter(m=>m.count>0).length;
+    const hits=w.perMic.reduce((s,m)=>s+m.count,0);
+    const minPhi=Math.min(...w.perMic.map(m=>m.minPhi??1));
     const sc={bad,hits,minPhi};
-    if(!bestScore || (sc.bad<bestScore.bad) || (sc.bad===bestScore.bad && (sc.hits<bestScore.hits || (sc.hits===bestScore.hits && sc.minPhi>bestScore.minPhi)))){
-      best={r,w}; bestScore=sc; showBest(r.state,w,r.effSeed);
-    }
-    if(bad===0){ setProgress(1); setStatus(`探索：${i+1}回目で警告ゼロ`,true); _lastState=r.state; return; }
-    if(i%10===0){ setProgress((i+1)/limit); await new Promise(res=>requestAnimationFrame(res)); }
+    const better = !score || (sc.bad<score.bad) || (sc.bad===score.bad && (sc.hits<score.hits || (sc.hits===score.hits && sc.minPhi>score.minPhi)));
+    if(better){ best={r,w}; score=sc; showBest(r.state,w,r.effSeed); }
+    if(bad===0) break;
+    if(i%50===0){ await new Promise(res=>setTimeout(res,0)); } // 息継ぎ
+    setProgress((i+1)/limit);
   }
   setProgress(1);
-  if(best){ _lastState=best.r.state; plotAll(_lastState); const w=computeWarnings(_lastState); renderWarnings(w); colorMicByWarning(w);
-    setStatus(`探索：上限到達。最良候補（実効シードは右パネル参照）`,false);
-  }else setStatus('探索候補なし。制約を緩めてください。',false);
+  if(best){
+    _lastState=best.r.state;
+    plotAll(_lastState); renderWarnings(best.w); colorMicByWarning(best.w);
+    fillTables(_lastState.pointsMic,_lastState.pointsSrc);
+    setStatus(score.bad===0?`探索成功：警告ゼロ`:`探索：上限到達。最良候補を反映`, score.bad===0);
+  }else{
+    setStatus('探索候補なし。制約を緩めてください。',false);
+  }
 });
 document.getElementById('addMicRow').addEventListener('click',()=>addRow(document.querySelector('#micTable tbody'),[{},{},{}]));
 document.getElementById('addSrcRow').addEventListener('click',()=>addRow(document.querySelector('#srcTable tbody'),[{},{}]));
