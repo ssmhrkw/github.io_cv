@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>加振・受音点ツール：モンテカルロ／節マップ／最適化つき（堅牢化版）</title>
+<title>加振・受音点配置ツール：モンテカルロ／節マップ／最適化つき（堅牢化版）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <!-- MathJax (|Φ|式表示) -->
 <script>
@@ -424,7 +424,7 @@ function plotAll(st){
 
   const sizeSrc3D=5,sizeSrc2D=6; const sizeMic3D=Math.max(1,sizeSrc3D-1), sizeMic2D=Math.max(1,sizeSrc2D-1);
 
-  // Mic 3Dは「小丸 + テキスト“x”」（互換性のため）
+  // Mic 3Dは「小丸 + テキスト“x”」
   const micPts3D={type:'scatter3d',mode:'markers',
     x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
     marker:{size:sizeMic3D}, name:'受音点(点)'};
@@ -767,7 +767,7 @@ function printView(st){
   </tbody></table>
   <h2>Warning概要</h2>
   <pre>${document.getElementById('warnPanel').textContent}</pre>
-  <script>window.onload=()=>window.print();</script>
+  <script>window.onload=()=>window.print();<\/script>
   </body></html>`);
   w.document.close();
 }
