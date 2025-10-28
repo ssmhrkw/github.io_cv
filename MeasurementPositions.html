@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>加振・受音点ツール：モンテカルロ／節マップ／最適化つき</title>
+<title>加振・受音点ツール：モンテカルロ／節マップ／最適化つき（堅牢化版）</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <!-- MathJax (|Φ|式表示) -->
 <script>
@@ -281,6 +281,25 @@ input[type="number"],input[type="text"],select{
 </main>
 
 <script>
+/* ========= 基本ユーティリティ & 監視 ========= */
+function statusMsg(msg,cls){ const el=document.getElementById('status'); if(!el) return; el.textContent=msg; el.className = cls?('muted '+cls):'muted'; }
+window.addEventListener('error', e => { statusMsg('実行時エラー: '+(e?.message||'不明'), 'warn'); });
+
+const PLOTLY_OK = () => (typeof Plotly!=='undefined' && typeof Plotly.newPlot==='function');
+function safeNewPlot(id,data,layout,config){
+  if(!PLOTLY_OK()){ statusMsg('Plotly未ロード（CDNブロックの可能性）', 'warn'); return false; }
+  try{ Plotly.newPlot(id,data,layout,config); return true; }
+  catch(e){ console.error(e); statusMsg('Plotly描画エラー: '+e.message,'warn'); return false; }
+}
+function safeRestyle(id,props,traces){
+  if(!PLOTLY_OK()) return;
+  try{ Plotly.restyle(id,props,traces); }catch(e){ console.warn('restyle failed:', e); }
+}
+function safeAddTraces(id,traces){
+  if(!PLOTLY_OK()) return;
+  try{ Plotly.addTraces(id,traces); }catch(e){ console.warn('addTraces failed:', e); }
+}
+
 /* ========= 乱数 ========= */
 function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;}}
 function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;}}
@@ -289,7 +308,7 @@ function randRange(rng,min,max){return min+(max-min)*rng();}
 
 /* ========= Util ========= */
 function numVal(id){const v=document.getElementById(id).value;return (v===""||v==null)?NaN:Number(v);}
-function setStatus(msg,ok=true){const el=document.getElementById('status');el.textContent=msg;el.className=ok?'muted ok':'muted warn';}
+function setStatus(msg,ok=true){statusMsg(msg, ok?'ok':'warn');}
 function fmt(n){return Number(n.toFixed(3));}
 function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
 function dist3(a,b){return Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);}
@@ -405,7 +424,7 @@ function plotAll(st){
 
   const sizeSrc3D=5,sizeSrc2D=6; const sizeMic3D=Math.max(1,sizeSrc3D-1), sizeMic2D=Math.max(1,sizeSrc2D-1);
 
-  // Mic 3Dは「小丸 + テキスト“x”」に分離（scatter3dはsymbol:'x'非対応）
+  // Mic 3Dは「小丸 + テキスト“x”」
   const micPts3D={type:'scatter3d',mode:'markers',
     x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
     marker:{size:sizeMic3D}, name:'受音点(点)'}; // 色替え対象はこれ
@@ -414,7 +433,7 @@ function plotAll(st){
     text:pointsMic.map(()=> 'x'), textposition:'middle center', name:'受音点(x)'};
 
   const lift=Math.max(0.02,0.02*room.Lz);
-  const src3D_x=[],src3D_y=[],src3D_z=[]; // 3Dはsymbol未使用
+  const src3D_x=[],src3D_y=[],src3D_z=[];
   const src2D_x=[],src2D_y=[],src2D_sym=[];
   const extra3D=[], extra2D=[];
   for(let i=0;i<pointsSrc.length;i++){
@@ -431,12 +450,12 @@ function plotAll(st){
   const src3D = src3D_x.length? {type:'scatter3d',mode:'markers',x:src3D_x,y:src3D_y,z:src3D_z,marker:{size:sizeSrc3D},name:'加振点(上階)'}:null;
   const slabEdges = showEdges? [slabFrame3D(slab.Sx,slab.Sy,slab.Sz)] : [];
 
-  // 3Dデータ並び：base → slabEdges → micPts3D → micTxt3D → extra3D → src3D
+  // 並び：base → slabEdges → micPts3D → micTxt3D → extra3D → src3D
   const data3D = src3D? [...base,...slabEdges,micPts3D,micTxt3D,...extra3D,src3D] : [...base,...slabEdges,micPts3D,micTxt3D,...extra3D];
 
-  // Micトレースのインデックスを状態に保存
-  st._idxMicPts = base.length + slabEdges.length;      // micPts3D
-  st._idxMicTxt = st._idxMicPts + 1;                   // micTxt3D
+  // Micトレースのインデックスを保存
+  st._idxMicPts = base.length + slabEdges.length; // micPts3D
+  st._idxMicTxt = st._idxMicPts + 1;             // micTxt3D
 
   const slabRect={type:'scatter',mode:'lines',x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],hoverinfo:'skip',name:'Slab'};
   const src2D = src2D_x.length? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:'加振点'}:null;
@@ -447,8 +466,8 @@ function plotAll(st){
   const roomLayout={scene:{xaxis:{title:'X[m]',range:[-pad*room.Lx,(1+pad)*room.Lx]},yaxis:{title:'Y[m]',range:[-pad*room.Ly,(1+pad)*room.Ly]},zaxis:{title:'Z[m]',range:[-0.05*room.Lz,(1+pad)*room.Lz]},aspectmode:'data',camera:{eye:{x:2.1,y:-2.1,z:1.4}},bgcolor:'#fff'},margin:{l:0,r:0,t:20,b:0},paper_bgcolor:'#fff',plot_bgcolor:'#fff',showlegend:true};
   const slabLayout={xaxis:{title:'X[m]',range:[0,slab.Sx],scaleanchor:'y',scaleratio:1},yaxis:{title:'Y[m]',range:[0,slab.Sy]},margin:{l:50,r:20,t:20,b:40},paper_bgcolor:'#fff',plot_bgcolor:'#fff',showlegend:true};
 
-  Plotly.newPlot('roomPlot',data3D,roomLayout,{responsive:true,displaylogo:false});
-  Plotly.newPlot('slabPlot',data2D,slabLayout,{responsive:true,displaylogo:false});
+  safeNewPlot('roomPlot',data3D,roomLayout,{responsive:true,displaylogo:false});
+  safeNewPlot('slabPlot',data2D,slabLayout,{responsive:true,displaylogo:false});
 }
 
 /* ========= Warning・評価 ========= */
@@ -505,11 +524,7 @@ function renderWarnings(w){
 function colorMicByWarning(w){
   if(!_lastState || _lastState._idxMicPts==null) return;
   const colors=w.perMic.map(m=>m.count>0?'rgb(192,57,43)':'rgb(53,87,255)');
-  try{
-    Plotly.restyle('roomPlot',{'marker.color':[colors]},[_lastState._idxMicPts]); // Mic点だけ着色
-  }catch(e){
-    console.warn('mic color restyle failed:', e);
-  }
+  safeRestyle('roomPlot',{'marker.color':[colors]},[_lastState._idxMicPts]);
 }
 
 /* ========= プリセット ========= */
@@ -584,6 +599,7 @@ function showBest(st,warn,effSeed){
 }
 
 /* ========= 節マップ / スライス ========= */
+const HEAT_SCALE='Viridis';
 function phiMetricAt(room,modes,x,y,z){
   let minv=1;
   for(const m of modes){
@@ -599,7 +615,7 @@ function mapXY(){
   const z=st.pointsMic[micIdx]?.z ?? st.room.Lz/2;
   const X=makeGrid(N,0,st.room.Lx), Y=makeGrid(N,0,st.room.Ly);
   const Z=[]; for(let j=0;j<N;j++){const row=[]; for(let i=0;i<N;i++){row.push(phiMetricAt(st.room,modes,X[i],Y[j],z));} Z.push(row);}
-  Plotly.newPlot('heatXY',[{type:'heatmap',x:X,y:Y,z:Z,colorscale:'Jet',reversescale:true,colorbar:{title:'min |Φ|'}}],
+  safeNewPlot('heatXY',[{type:'heatmap',x:X,y:Y,z:Z,colorscale:HEAT_SCALE,reversescale:true,colorbar:{title:'min |Φ|'}}],
     {xaxis:{title:`X at z=${fmt(z)} m`},yaxis:{title:'Y',scaleanchor:'x',scaleratio:1},margin:{l:60,r:20,t:10,b:40},paper_bgcolor:'#fff',plot_bgcolor:'#fff'},{responsive:true,displaylogo:false});
 }
 function sliceXZ(){
@@ -608,7 +624,7 @@ function sliceXZ(){
   const y=st.pointsMic[micIdx]?.y ?? st.room.Ly/2;
   const X=makeGrid(N,0,st.room.Lx), Zg=makeGrid(N,0,st.room.Lz);
   const V=[]; for(let k=0;k<N;k++){const row=[]; for(let i=0;i<N;i++){row.push(phiMetricAt(st.room,modes,X[i],y,Zg[k]));} V.push(row);}
-  Plotly.newPlot('sliceXZ',[{type:'heatmap',x:X,y:Zg,z:V,colorscale:'Jet',reversescale:true,colorbar:{title:'min |Φ|'}}],
+  safeNewPlot('sliceXZ',[{type:'heatmap',x:X,y:Zg,z:V,colorscale:HEAT_SCALE,reversescale:true,colorbar:{title:'min |Φ|'}}],
     {xaxis:{title:`X at y=${fmt(y)} m`},yaxis:{title:'Z'},margin:{l:60,r:20,t:10,b:40},paper_bgcolor:'#fff',plot_bgcolor:'#fff'},{responsive:true,displaylogo:false});
 }
 function sliceYZ(){
@@ -617,7 +633,7 @@ function sliceYZ(){
   const x=st.pointsMic[micIdx]?.x ?? st.room.Lx/2;
   const Y=makeGrid(N,0,st.room.Ly), Zg=makeGrid(N,0,st.room.Lz);
   const V=[]; for(let k=0;k<N;k++){const row=[]; for(let j=0;j<N;j++){row.push(phiMetricAt(st.room,modes,x,Y[j],Zg[k]));} V.push(row);}
-  Plotly.newPlot('sliceYZ',[{type:'heatmap',x:Y,y:Zg,z:V,colorscale:'Jet',reversescale:true,colorbar:{title:'min |Φ|'}}],
+  safeNewPlot('sliceYZ',[{type:'heatmap',x:Y,y:Zg,z:V,colorscale:HEAT_SCALE,reversescale:true,colorbar:{title:'min |Φ|'}}],
     {xaxis:{title:`Y at x=${fmt(x)} m`},yaxis:{title:'Z'},margin:{l:60,r:20,t:10,b:40},paper_bgcolor:'#fff',plot_bgcolor:'#fff'},{responsive:true,displaylogo:false});
 }
 
@@ -650,7 +666,7 @@ function drawTolBubbles(st){
     for(let i=0;i<=N;i++){const th=2*Math.PI*i/N; xs.push(mic.x+r*Math.cos(th)); ys.push(mic.y+r*Math.sin(th));}
     traces.push({type:'scatter',mode:'lines',x:xs,y:ys,name:`Tol Mic(${fmt(mic.x)},${fmt(mic.y)})`,hoverinfo:'skip',line:{width:2}});
   }
-  Plotly.addTraces('slabPlot',traces);
+  safeAddTraces('slabPlot',traces);
   setStatus(`許容公差バブルを描画（Mic=${st.pointsMic.length}）`,true);
 }
 
@@ -797,12 +813,28 @@ document.getElementById('btnExportCSV').addEventListener('click',()=>{ if(_lastS
 document.getElementById('btnExportJSON').addEventListener('click',()=>{ if(_lastState) saveBlob('points.json', toJSONdata(_lastState),'application/json'); });
 document.getElementById('btnPrint').addEventListener('click',()=>{ if(_lastState) printView(_lastState); });
 
-/* 初期化 */
-(function init(){
-  document.getElementById('stdSelect').value='JIS';
-  document.querySelector('input[name="srcType"][value="light"]').checked=true;
-  const r=applyPreset(0); _lastState=r.state; setProgress(0); document.getElementById('bestPanel').textContent='（未探索）';
-})();
+/* ========= ブート（Plotlyロード監視） ========= */
+function boot(){
+  let tries=0;
+  const t=setInterval(()=>{
+    tries++;
+    if(PLOTLY_OK()){
+      clearInterval(t);
+      try{
+        document.getElementById('stdSelect').value='JIS';
+        document.querySelector('input[name="srcType"][value="light"]').checked=true;
+        const r=applyPreset(0); _lastState=r.state; setProgress(0); document.getElementById('bestPanel').textContent='（未探索）';
+        statusMsg('Plotly読込OK。初期化完了。','ok');
+      }catch(e){ console.error(e); statusMsg('初期化例外: '+e.message,'warn'); }
+    }else if(tries>30){
+      clearInterval(t);
+      statusMsg('Plotlyが読み込めていません。ネットワーク（CDN）を確認、またはローカルplotly.min.jsへ切替を。','warn');
+    }else{
+      statusMsg('Plotly読込待ち…','hint');
+    }
+  }, 200);
+}
+window.addEventListener('load', boot);
 </script>
 </body>
 </html>
