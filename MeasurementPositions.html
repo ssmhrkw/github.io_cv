@@ -112,6 +112,13 @@ input[type="number"],input[type="text"],select{
         </div>
         <div class="progress"><div id="progressBar" class="bar"></div></div>
 
+        <!-- ★ JIS（ランダム）注意書き：向きは丸表示、設置時は45° -->
+        <div id="jisGuidance" class="muted" style="display:none; margin-top:8px">
+          <span class="badge">JIS（ランダム）</span>
+          表示は丸（向き非表示）。JISではタッピングマシンの長手方向を
+          <b>梁/リブ方向に対して45°（±45°）</b>となるように設置してください。
+        </div>
+
         <div class="codebox" id="bestPanel" style="margin-top:8px">（未探索）</div>
       </div>
     </details>
@@ -276,7 +283,7 @@ input[type="number"],input[type="text"],select{
       </div>
     </div>
 
-    <div class="badge">凡例</div> Mic＝“x”、タッピング＝長方形のみ、重量＝●。Room側マーカーサイズはSlab側−1。
+    <div class="badge">凡例</div> Mic＝“x”、タッピング＝長方形/丸、重量＝●。Room側マーカーサイズはSlab側−1。
   </section>
 </main>
 
@@ -331,18 +338,8 @@ function readCons(){
 }
 
 /* ========= 5の目 ========= */
-// [MINFIX] 1/3・2/3 → 1/4・3/4 の「5の目」配置に変更（中心＋四隅1/4オフセット）
 function dice5(Sx,Sy){
-  const cx=Sx/2, cy=Sy/2;
-  const qx=Sx/4, qy=Sy/4, tx=3*Sx/4, ty=3*Sy/4;
-  // 順序: (NW, NE, Center, SW, SE)
-  return[
-    {x:qx, y:ty},       // NW
-    {x:tx, y:ty},       // NE
-    {x:cx, y:cy},       // Center
-    {x:qx, y:qy},       // SW
-    {x:tx, y:qy}        // SE
-  ];
+  return[{x:Sx/3,y:2*Sy/3},{x:2*Sx/3,y:2*Sy/3},{x:Sx/2,y:Sy/2},{x:Sx/3,y:Sy/3},{x:2*Sx/3,y:Sy/3}];
 }
 
 /* ========= サンプリング ========= */
@@ -386,7 +383,7 @@ function modalFreq(c,Lx,Ly,Lz,nx,ny,nz){
 function phiAt(x,y,z,Lx,Ly,Lz,nx,ny,nz){
   return Math.cos(nx*Math.PI*x/Lx)*Math.cos(ny*Math.PI*y/Ly)*Math.cos(nz*Math.PI*z/Lz);
 }
-function angleToNearestNode(a){let r=(a+Math.PI/2)%Math.PI; if(r<0) r+=Math.PI; r-=Math.PI/2; return Math.abs(r);}
+function angleToNearestNode(a){let r=(a+Math.PI/2)%Math.PI; if(r<0) r+=2*Math.PI; r-=Math.PI/2; return Math.abs(r);}
 function distToNode1D(coord,L,n){ if(n===0) return null; const dth=angleToNearestNode(n*Math.PI*coord/L); return dth*L/(n*Math.PI); }
 
 /* ========= 帯域・拡散 ========= */
@@ -410,7 +407,7 @@ function rotRect(cx,cy,w,d,ang){
 /* ========= グローバル状態 ========= */
 let _lastState=null; // {room,slab,pointsMic,pointsSrc,srcMeta,isLight,std,_idxMicPts,_idxMicTxt}
 
-/* ========= 可視化 ========= */
+/* ========= 可視化（JIS×軽量は丸表示＆注意書きON） ========= */
 function roomEdges(Lx,Ly,Lz){
   function xyz(a){return{x:a.map(p=>p[0]),y:a.map(p=>p[1]),z:a.map(p=>p[2])}}
   const b=xyz([[0,0,0],[Lx,0,0],[Lx,Ly,0],[0,Ly,0],[0,0,0]]);
@@ -446,18 +443,30 @@ function plotAll(st){
   const src3D_x=[],src3D_y=[],src3D_z=[];
   const src2D_x=[],src2D_y=[],src2D_sym=[];
   const extra3D=[], extra2D=[];
+
+  // ★ JIS×軽量なら「矩形を描かず丸マーカー」に切替（ロジックは変更しない）
+  const circleForJIS = (st.std==='JIS' && st.isLight===true);
+
   for(let i=0;i<pointsSrc.length;i++){
     const p=pointsSrc[i], meta=srcMeta[i], z3=Math.max(0, slab.Sz - lift);
     if(meta&&meta.type==='tap'){
-      const rx=rotRect(p.x,p.y,meta.w||TAP_W,meta.d||TAP_D,meta.angle||0);
-      extra3D.push({type:'scatter3d',mode:'lines',x:rx.map(o=>o.x),y:rx.map(o=>o.y),z:rx.map(()=>slab.Sz),line:{width:3},name:`Tap ${i+1}`,hoverinfo:'skip'});
-      extra2D.push({type:'scatter',mode:'lines',x:rx.map(o=>o.x),y:rx.map(o=>o.y),name:`Tap ${i+1}`,hoverinfo:'skip'});
+      if(circleForJIS){
+        // 丸マーカー（向き非表示）
+        src3D_x.push(p.x); src3D_y.push(p.y); src3D_z.push(z3);
+        src2D_x.push(p.x); src2D_y.push(p.y); src2D_sym.push('circle');
+      }else{
+        // 矩形（向き表示）
+        const rx=rotRect(p.x,p.y,meta.w||TAP_W,meta.d||TAP_D,meta.angle||0);
+        extra3D.push({type:'scatter3d',mode:'lines',x:rx.map(o=>o.x),y:rx.map(o=>o.y),z:rx.map(()=>slab.Sz),line:{width:3},name:`Tap ${i+1}`,hoverinfo:'skip'});
+        extra2D.push({type:'scatter',mode:'lines',x:rx.map(o=>o.x),y:rx.map(o=>o.y),name:`Tap ${i+1}`,hoverinfo:'skip'});
+      }
     }else{
+      // 重量など：従来どおりポイント
       src3D_x.push(p.x); src3D_y.push(p.y); src3D_z.push(z3);
       src2D_x.push(p.x); src2D_y.push(p.y); src2D_sym.push('circle');
     }
   }
-  const src3D = src3D_x.length? {type:'scatter3d',mode:'markers',x:src3D_x,y:src3D_y,z:src3D_z,marker:{size:sizeSrc3D},name:'加振点(上階)'}:null;
+  const src3D = src3D_x.length? {type:'scatter3d',mode:'markers',x:src3D_x,y:src3D_y,z:src3D_z,marker:{size:sizeSrc3D},name:(circleForJIS?'加振点(丸)':'加振点(上階)')} : null;
   const slabEdges = showEdges? [slabFrame3D(slab.Sx,slab.Sy,slab.Sz)] : [];
 
   // 並び：base → slabEdges → micPts3D → micTxt3D → extra3D → src3D
@@ -468,7 +477,7 @@ function plotAll(st){
   st._idxMicTxt = st._idxMicPts + 1;
 
   const slabRect={type:'scatter',mode:'lines',x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],hoverinfo:'skip',name:'Slab'};
-  const src2D = src2D_x.length? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:'加振点'}:null;
+  const src2D = src2D_x.length? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:(circleForJIS?'加振点(丸)':'加振点')} : null;
   const mic2D={type:'scatter',mode:'markers',x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),marker:{size:sizeMic2D,symbol:'x'},name:'受音点の床投影'};
   const data2D = src2D? [slabRect,...extra2D,src2D,mic2D] : [slabRect,...extra2D,mic2D];
 
@@ -478,6 +487,10 @@ function plotAll(st){
 
   safeNewPlot('roomPlot',data3D,roomLayout,{responsive:true,displaylogo:false});
   safeNewPlot('slabPlot',data2D,slabLayout,{responsive:true,displaylogo:false});
+
+  // ★ 注意書きの表示切替
+  const note=document.getElementById('jisGuidance');
+  if(note){ note.style.display = (circleForJIS ? 'block' : 'none'); }
 }
 
 /* ========= Warning・評価 ========= */
@@ -552,11 +565,10 @@ function applyPreset(seedBump=0, opts={render:true}){
 
   let pointsMic=[], pointsSrc=[], srcMeta=[];
   const joistAngle=Number(numVal('joistAngleDeg'))||0;
-  const tapAngle = rad((isLight? (joistAngle+45) : (joistAngle))%360); // 通常（JIS/ISO/手動）は従来通り
-  const baseAngle = rad((joistAngle)%360); // [MINFIX] INCE/旧JISで対角±45°の基準
+  const tapAngle = rad((isLight? (joistAngle+45) : (joistAngle))%360);
 
   if(std==='INCE' || std==='OLDJIS'){
-    const pts=dice5(dims.slab.Sx,dims.slab.Sy); // [MINFIX] 1/4・3/4格子
+    const pts=dice5(dims.slab.Sx,dims.slab.Sy);
     if(std==='OLDJIS'){
       const zFix=Math.max(cons.micFloorMin, Math.min(1.2, dims.room.Lz-cons.micCeilMin));
       pointsMic=pts.map(p=>({x:p.x,y:p.y,z:zFix}));
@@ -565,16 +577,7 @@ function applyPreset(seedBump=0, opts={render:true}){
       pointsMic=pts.map((p,i)=>({x:p.x,y:p.y,z:zMin+(zMax-zMin)*ratios[i]}));
     }
     pointsSrc=pts.map(p=>({x:p.x,y:p.y,z:dims.slab.Sz}));
-    // [MINFIX] 対角（NW/SEは+45°、NE/SWは-45°）、中央は+45°
-    const cx=dims.slab.Sx/2, cy=dims.slab.Sy/2;
-    const angleByPoint = (p)=>{
-      const dx=p.x-cx, dy=p.y-cy;
-      if(Math.abs(dx)<1e-9 && Math.abs(dy)<1e-9) return baseAngle + Math.PI/4;     // Center: +45°
-      return (dx*dy<0) ? (baseAngle + Math.PI/4) : (baseAngle - Math.PI/4);        // NW/SE:+45°, NE/SW:-45°
-    };
-    srcMeta = isLight
-      ? pts.map(p=>({type:'tap',w:TAP_W,d:TAP_D,angle:angleByPoint(p)}))
-      : pts.map(()=>({type:'heavy'}));
+    srcMeta = isLight? pts.map(()=>({type:'tap',w:TAP_W,d:TAP_D,angle:tapAngle})) : pts.map(()=>({type:'heavy'}));
   }else{
     pointsMic=sampleMic({room:dims.room,cons},rng);
     pointsSrc=sampleSrcWithCenter({slab:dims.slab,cons},rng);
