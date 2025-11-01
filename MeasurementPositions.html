@@ -389,12 +389,21 @@ function distToNode1D(coord,L,n){ if(n===0) return null; const dth=angleToNeares
 /* ========= 帯域・拡散 ========= */
 function SchFreq(rt60,V){ if(!rt60||rt60<=0||!V||V<=0) return null; return 2000*Math.sqrt(rt60/V); }
 function roomV(r){return r.Lx*r.Ly*r.Lz;}
-function band(isLight,room){
-  const base=isLight?{low:125,high:4000}:{low:63,high:500};
-  const fs=SchFreq(Number(numVal('rt60')), roomV(room));
-  document.getElementById('fsInfo').textContent = fs?`fₛ ≈ ${fmt(fs)} Hz（V=${fmt(roomV(room))} m³, RT60=${numVal('rt60')}s）`:'fₛ 未計算';
-  return {low:base.low, high: fs? Math.min(base.high,fs):base.high};
-}
+function band(isLight, room){
+  const OCT = Math.SQRT2;                           // √2
+  const lowCenter  = isLight ? 125 : 63;            // 中心周波数（最下段）
+  const highCenter = isLight ? 4000 : 500;          // 中心周波数（最上段）
+
+  const fs = SchFreq(Number(numVal('rt60')), roomV(room)); // f_s = 2000√(RT60/V)
+
+  const lowEdge  = lowCenter / OCT;                 // 下限 = fc/√2
+  const highEdge = (fs ? Math.min(highCenter * OCT, fs) : highCenter * OCT); // 上限 = min(fc·√2, f_s)
+
+  document.getElementById('fsInfo').textContent =
+    fs ? `fₛ ≈ ${fmt(fs)} Hz（V=${fmt(roomV(room))} m³, RT60=${numVal('rt60')}s）` : 'fₛ 未計算';
+
+  return { low: lowEdge, high: highEdge };
+ }
 
 /* ========= タッピング矩形 ========= */
 const TAP_W=0.520, TAP_D=0.260; // 520×260 mm
