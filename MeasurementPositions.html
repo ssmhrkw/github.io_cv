@@ -56,7 +56,8 @@ input[type="number"],input[type="text"],select{
 <body>
 <header>
   <h1>加振点・受音点配置ツール + モンテカルロ / 節マップ / 最適化</h1>
-  <p>プリセット：INCE／旧JIS／JIS／ISO 16283-3／ISO 10140-3 × 軽量/重量。Mic=“x”、タッピング=長方形のみ、□廃止。帯域：軽量=125–4000、重量=63–500（fₛ=2000√(RT60/V)で上限）。</p>
+  <p>プリセット：INCE／旧JIS／JIS／ISO 16283-3／ISO 10140-3 × 軽量/重量。Mic=“x”、タッピング=長方形のみ、□廃止。帯域：軽量=125–4000、重量=63–500（fₛ=2000√(RT60/V)で上限）。<br>
+  <b>注：</b>軽量（タッピング）は<strong>対角線±45°規則</strong>で自動回転（A対角=+45°, B対角=−45°, 中央は+45°）。</p>
 </header>
 
 <main>
@@ -91,7 +92,7 @@ input[type="number"],input[type="text"],select{
           <div>
             <label>梁/根太の方向 [°]（X軸=0°）</label>
             <input id="joistAngleDeg" type="number" step="1" value="0">
-            <div class="muted">タッピング時は<b>梁方向+45°</b>で矩形を自動回転</div>
+            <div class="muted">※タッピングは「対角線±45°規則」を優先（本入力は重量用の補助）</div>
           </div>
           <div>
             <label>節回避探索：上限反復回数</label>
@@ -332,7 +333,13 @@ function readCons(){
 
 /* ========= 5の目 ========= */
 function dice5(Sx,Sy){
-  return[{x:Sx/3,y:2*Sy/3},{x:2*Sx/3,y:2*Sy/3},{x:Sx/2,y:Sy/2},{x:Sx/3,y:Sy/3},{x:2*Sx/3,y:Sy/3}];
+  return[
+    {x:Sx/3,y:2*Sy/3},   // 左上寄り
+    {x:2*Sx/3,y:2*Sy/3}, // 右上寄り
+    {x:Sx/2,y:Sy/2},     // 中央
+    {x:Sx/3,y:Sy/3},     // 左下寄り
+    {x:2*Sx/3,y:Sy/3}    // 右下寄り
+  ];
 }
 
 /* ========= サンプリング ========= */
@@ -341,8 +348,14 @@ function sampleSrcWithCenter(cfg,rng){
   const xsMin=c.srcEdgeMin, xsMax=Sx-c.srcEdgeMin; const ysMin=c.srcEdgeMin, ysMax=Sy-c.srcEdgeMin;
   if(xsMax<=xsMin||ysMax<=ysMin) throw new Error("加振点の可用領域がありません（縁からの離隔が広すぎます）。");
   const pts=[];
-  const rC=0.15*Math.min(Sx,Sy), cx=Sx/2, cy=Sy/2;
-  {let ok=false,tr=0;while(!ok&&tr<c.maxTries){tr++;const ang=2*Math.PI*rng(), rr=rC*Math.sqrt(rng());let px=cx+rr*Math.cos(ang),py=cy+rr*Math.sin(ang);px=clamp(px,xsMin,xsMax);py=clamp(py,ysMin,ysMax);pts.push({x:px,y:py,z:Sz});ok=true;}}
+  // まず中央近傍1点
+  const cx=Sx/2, cy=Sy/2, rC=0.15*Math.min(Sx,Sy);
+  {let ok=false,tr=0;while(!ok&&tr<c.maxTries){tr++;const ang=2*Math.PI*rng(), rr=rC*Math.sqrt(rng());
+    let px=cx+rr*Math.cos(ang),py=cy+rr*Math.sin(ang);
+    px=clamp(px,xsMin,xsMax);py=clamp(py,ysMin,ysMax);
+    pts.push({x:px,y:py,z:Sz}); ok=true;}
+  }
+  // 残りを制約内で散布
   for(let i=1;i<c.nSrc;i++){
     let ok=false,tr=0;
     while(!ok&&tr<c.maxTries){tr++; const px=randRange(rng,xsMin,xsMax), py=randRange(rng,ysMin,ysMax);
@@ -395,6 +408,46 @@ function rotRect(cx,cy,w,d,ang){
   const dx=w/2, dy=d/2, cs=Math.cos(ang), sn=Math.sin(ang);
   const pts=[[-dx,-dy],[dx,-dy],[dx,dy],[-dx,dy],[-dx,-dy]].map(([x,y])=>({x:cx+x*cs-y*sn,y:cy+x*sn+y*cs}));
   return pts;
+}
+
+/* ========= 対角線±45°の角度付与（軽量タッピング専用） ========= */
+/**
+ * 対角線A: (0,0)↔(Sx,Sy) → +45°
+ * 対角線B: (0,Sy)↔(Sx,0) → −45°
+ * 中央    : いずれでも良い → +45°に統一
+ */
+function anglesByDiagonal(points,Sx,Sy){
+  const midX=Sx/2, midY=Sy/2, eps=1e-9;
+  return points.map(p=>{
+    const isCenter = Math.abs(p.x-midX)<eps && Math.abs(p.y-midY)<eps;
+    if(isCenter) return +Math.PI/4;
+    const onA = ( (p.x<=midX && p.y<=midY) || (p.x>=midX && p.y>=midY) ); // SW/NE
+    return onA ? +Math.PI/4 : -Math.PI/4; // A→+45°, B→−45°
+  });
+}
+
+/* ========= JIS: #3を必ず中央に固定 ========= */
+function enforceJisCenter(points,Sx,Sy){
+  // pointsを5点想定で整形：#3(インデックス2)を中央に
+  const center={x:Sx/2,y:Sy/2,z:points[0]?.z};
+  // 既存の点から中心に最も近い1点を除外し、中心を挿入（制約は別途満たしている前提）
+  let rest=[...points];
+  let minIdx=0, minD=Infinity;
+  for(let i=0;i<rest.length;i++){
+    const d=Math.hypot(rest[i].x-center.x, rest[i].y-center.y);
+    if(d<minD){minD=d;minIdx=i;}
+  }
+  rest.splice(minIdx,1); // 近いものを抜く
+  // 並び：2点（上側）→中央→2点（下側）に近い既存順で適当に整える（既存順温存）
+  const upper = rest.filter(p=>p.y>=Sy/2);
+  const lower = rest.filter(p=>p.y<Sy/2);
+  // 5点に満たなければ埋める（安全側）
+  while(upper.length<2 && lower.length) upper.push(lower.shift());
+  while(lower.length<2 && upper.length) lower.push(upper.shift());
+  const ordered=[...(upper.slice(0,2)), center, ...(lower.slice(0,2))];
+  // もし5点でなければ残りを末尾に（念のため）
+  if(ordered.length<5){ for(const p of rest){ if(ordered.length>=5) break; ordered.push(p); } }
+  return ordered.slice(0,5);
 }
 
 /* ========= グローバル状態 ========= */
@@ -458,7 +511,7 @@ function plotAll(st){
   st._idxMicTxt = st._idxMicPts + 1;
 
   const slabRect={type:'scatter',mode:'lines',x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],hoverinfo:'skip',name:'Slab'};
-  const src2D = src2D_x.length? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:'加振点'}:null;
+  const src2D = (src2D_x.length||extra2D.length)? {type:'scatter',mode:'markers+text',x:src2D_x,y:src2D_y,marker:{size:sizeSrc2D,symbol:src2D_sym},text:src2D_x.map((_,i)=>`S${i+1}`),textposition:'top center',name:'加振点'}:null;
   const mic2D={type:'scatter',mode:'markers',x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),marker:{size:sizeMic2D,symbol:'x'},name:'受音点の床投影'};
   const data2D = src2D? [slabRect,...extra2D,src2D,mic2D] : [slabRect,...extra2D,mic2D];
 
@@ -489,6 +542,7 @@ function computeModes(room,isLight){
   modes.sort((a,b)=>a.f-b.f);
   return {modes, eps, band:bd};
 }
+function phiAtAbs(room,m,x,y,z){ return Math.abs(phiAt(x,y,z,room.Lx,room.Ly,room.Lz,m.nx,m.ny,m.nz)); }
 function computeWarnings(state){
   const {room}=state; const {modes,eps,band}=computeModes(room,state.isLight);
   const perMic=[];
@@ -542,7 +596,6 @@ function applyPreset(seedBump=0, opts={render:true}){
 
   let pointsMic=[], pointsSrc=[], srcMeta=[];
   const joistAngle=Number(numVal('joistAngleDeg'))||0;
-  const tapAngle = rad((isLight? (joistAngle+45) : (joistAngle))%360);
 
   if(std==='INCE' || std==='OLDJIS'){
     const pts=dice5(dims.slab.Sx,dims.slab.Sy);
@@ -554,11 +607,29 @@ function applyPreset(seedBump=0, opts={render:true}){
       pointsMic=pts.map((p,i)=>({x:p.x,y:p.y,z:zMin+(zMax-zMin)*ratios[i]}));
     }
     pointsSrc=pts.map(p=>({x:p.x,y:p.y,z:dims.slab.Sz}));
-    srcMeta = isLight? pts.map(()=>({type:'tap',w:TAP_W,d:TAP_D,angle:tapAngle})) : pts.map(()=>({type:'heavy'}));
+    if(isLight){
+      const angs=anglesByDiagonal(pointsSrc,dims.slab.Sx,dims.slab.Sy);
+      srcMeta = pointsSrc.map((_,i)=>({type:'tap',w:TAP_W,d:TAP_D,angle:angs[i]}));
+    }else{
+      srcMeta = pts.map(()=>({type:'heavy',angle:rad(joistAngle)}));
+    }
   }else{
+    // ISO/JIS 系はMicはサンプリング、加振は中心含めてサンプル
     pointsMic=sampleMic({room:dims.room,cons},rng);
     pointsSrc=sampleSrcWithCenter({slab:dims.slab,cons},rng);
-    srcMeta = isLight? pointsSrc.map(()=>({type:'tap',w:TAP_W,d:TAP_D,angle:tapAngle})) : pointsSrc.map(()=>({type:'heavy'}));
+
+    // --- JISの中央固定（#3=中央） ---
+    if(std==='JIS' && isLight){
+      // 中央を厳密に入れて#3へ
+      pointsSrc = enforceJisCenter(pointsSrc, dims.slab.Sx, dims.slab.Sy);
+    }
+
+    if(isLight){
+      const angs=anglesByDiagonal(pointsSrc,dims.slab.Sx,dims.slab.Sy);
+      srcMeta = pointsSrc.map((_,i)=>({type:'tap',w:TAP_W,d:TAP_D,angle:angs[i]}));
+    }else{
+      srcMeta = pointsSrc.map(()=>({type:'heavy',angle:rad(joistAngle)}));
+    }
   }
 
   const state={room:dims.room, slab:dims.slab, pointsMic, pointsSrc, srcMeta, isLight, std};
@@ -807,8 +878,15 @@ document.getElementById('plotManual').addEventListener('click',()=>{
   try{
     const dims=readDim(); const mic=readTable3D(document.querySelector('#micTable tbody')); const src=readTable2D(document.querySelector('#srcTable tbody'), dims.slab.Sz);
     const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
-    const joistAngle=Number(numVal('joistAngleDeg'))||0; const tapAngle=rad(isLight? (joistAngle+45) : joistAngle);
-    const meta=isLight? src.map(()=>({type:'tap',w:TAP_W,d:TAP_D,angle:tapAngle})): src.map(()=>({type:'heavy'}));
+    const joistAngle=Number(numVal('joistAngleDeg'))||0;
+    let meta;
+    if(isLight){
+      // 手入力時も対角線±45°で向きを付与
+      const angs=anglesByDiagonal(src,dims.slab.Sx,dims.slab.Sy);
+      meta=src.map((_,i)=>({type:'tap',w:TAP_W,d:TAP_D,angle:angs[i]}));
+    }else{
+      meta=src.map(()=>({type:'heavy',angle:rad(joistAngle)}));
+    }
     _lastState={room:dims.room, slab:dims.slab, pointsMic:mic, pointsSrc:src, srcMeta:meta, isLight, std:'MANUAL'};
     plotAll(_lastState); const w=computeWarnings(_lastState); renderWarnings(w); colorMicByWarning(w);
     setStatus(`自由記入を描画（Mic=${mic.length}, Src=${src.length}）`,true); setProgress(0); document.getElementById('bestPanel').textContent='（未探索）';
