@@ -10,7 +10,7 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CSV Segmenter (Web) v4.5 (Adjustable UI)</title>
+  <title>CSV Segmenter (Web) v4.6 (Peak Zoom)</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
@@ -136,7 +136,7 @@
 </head>
 <body>
   <header>
-    <h1>CSV Segmenter (Web) — v4.5 (Adjustable UI)</h1>
+    <h1>CSV Segmenter (Web) — v4.6 (Peak Zoom)</h1>
     <p class="muted"></p>
   </header>
 
@@ -219,14 +219,15 @@
         </div>
         <div id="autoSegmentEdit" class="row">
            <label><b>応答Ch</b> 検出閾値 (x * Noise SD):</label>
-           <input id="autoThresholdResponse" type="number" value="3" step="0.5" style="width:80px;" />
+           <input id="autoThresholdResponse" type="number" value="1.5" step="0.1" style="width:80px;" />
            <button id="btnApplyAutoHybrid" class="btn-green" style="flex:1;">2. 全Chのインパルスを自動検出</button>
         </div>
         <div class="help-box">
-            <b>応答Ch検出閾値:</b> Acc/Micチャネルの検出感度。検出されない場合、この値を小さく（例: 1.5）して再試行してください。
+            <b>応答Ch検出閾値:</b> Acc/Micチャネルの検出感度。検出されない場合、この値を小さく（例: 1.2）して再試行してください。
         </div>
         <div id="autoSegmentStatus" class="muted" style="margin-top: 8px;"></div>
       </div>
+
       <div class="vspacer"></div>
       <h3 class="muted">Metrics（ご提案形式）</h3>
       <div style="overflow:auto; max-height: 260px;">
@@ -262,7 +263,7 @@
       <hr class="hr" style="margin-top:auto; padding-top: 10px;">
       <div class="row">
           <button id="btnExportSegmentDetail" class="btn-primary" style="flex:1;">
-              現在のセグメント (combined_segment_#.csv) を保存
+              現在のセグメント (元ファイル名_segment_#.csv) を保存
           </button>
       </div>
     </section>
@@ -278,14 +279,12 @@
     let mapping = [];
     let mapped = null;
     let selections = {};
-    
     let plotDivs_Overview = {};
     let plotDivs_Detail = {};
-    
     let autoSegments = [];
     let currentSegmentIdx = -1;
-    
-    let summaryRows = []; // export用
+    let summaryRows = []; 
+    let currentSourceFileName = ""; // ★★★ v4.6 追加
 
     // =============================
     // Helpers
@@ -371,6 +370,13 @@
     async function loadCSVFromURL(url) {
       const res = await fetch(url, {mode: "cors"});
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      // ★★★ v4.6: URLからファイル名を取得 ★★★
+      try {
+          const urlObj = new URL(url);
+          currentSourceFileName = urlObj.pathname.split('/').pop().replace(/\.csv$/i, '');
+      } catch (e) {
+          currentSourceFileName = "downloaded_file"; // URLパース失敗時
+      }
       const text = await res.text();
       return parseCSVText(text);
     }
@@ -402,6 +408,8 @@
       return true;
     }
     function loadCSVFromFile(file) {
+      // ★★★ v4.6: ファイル名を取得 ★★★
+      currentSourceFileName = file.name.replace(/\.csv$/i, '');
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => { try { parseCSVText(reader.result); resolve(true); } catch (e) { reject(e); } };
@@ -485,7 +493,7 @@
     }
 
     // =============================
-    // Plotting & Selection (v4.5)
+    // Plotting & Selection (v4.6)
     // =============================
     function renderPlots() {
       const wrap_overview = $("#plots_overview"); wrap_overview.innerHTML = "";
@@ -633,7 +641,7 @@
     }
 
     // =============================
-    // Auto Segment (v4.5)
+    // Auto Segment (v4.6)
     // =============================
     
     function resetAutoSegmentUI() {
@@ -647,7 +655,7 @@
       currentSegmentIdx = -1;
     }
     
-    // ★★★ v4.5 変更: インパルス検出のコアロジック ★★★
+    // ★★★ v4.6 変更: インパルス検出のコアロジック ★★★
     function findImpulseSegment(ch, t_search_start, t_search_end, detection_threshold_factor) {
         const time = mapped.time;
         const data = ch.data;
@@ -745,6 +753,7 @@
       
       const abs_fh = fh_signal.map(v => Math.abs(v));
       
+      // 2. 閾値を超えた点を検出
       const over_threshold_indices = [];
       for (let i = 0; i < abs_fh.length; i++) {
         if (abs_fh[i] > DETECTION_THRESHOLD) {
@@ -759,6 +768,7 @@
         return;
       }
       
+      // 3. インパルスをグループ化 (100ms以上空いたら別)
       const MIN_GAP_SAMPLES = Math.round(0.1 * FS);
       const start_indices = [over_threshold_indices[0]];
       for (let i = 1; i < over_threshold_indices.length; i++) {
@@ -771,7 +781,8 @@
       
       for (let i = 0; i < start_indices.length; i++) {
         const t_search_start = time_data[Math.max(0, start_indices[i] - Math.round(0.01*FS))];
-        const t_search_end = time_data[Math.min(time_data.length - 1, start_indices[i] + Math.round(0.1*FS))];
+        // ★★★ v4.6 変更: 探索窓を短く 50msに ★★★
+        const t_search_end = time_data[Math.min(time_data.length - 1, start_indices[i] + Math.round(0.05*FS))];
         
         const segment = findImpulseSegment(FH, t_search_start, t_search_end, THRESHOLD_FACTOR);
         
@@ -802,9 +813,10 @@
       $("#btnPrevSegment").disabled = (index === 0);
       $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
       
-      const PADDING = 0.01; // 10ms
-      const zoom_start = Math.max(0, segment.Start_Time - PADDING);
-      const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.End_Time + PADDING);
+      // ★★★ v4.6 変更: ズーム範囲をご要望 (Peak ± 0.0025s) に変更 ★★★
+      const PADDING = 0.0025; // 2.5ms
+      const zoom_start = Math.max(0, segment.Peak_Time - PADDING);
+      const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.Peak_Time + PADDING);
 
       const peak_marker = {
         type: 'line',
@@ -827,7 +839,6 @@
       }
     }
     
-    // ★★★ v4.5 変更: 「全Ch自動検出」ボタンのロジック ★★★
     function applyAutoSegmentsHybrid() {
       if (currentSegmentIdx < 0) {
         alert("適用するFHインパルスが選択されていません。");
@@ -836,25 +847,23 @@
       
       const fh_segment = autoSegments[currentSegmentIdx];
       
-      // 1. 探索ウィンドウをFHインパルス周辺に設定
-      const t_search_start = fh_segment.Start_Time - 0.02; // 20ms前から
-      const t_search_end = fh_segment.End_Time + 0.1; // 100ms後まで (Micの遅延を考慮)
+      // ★★★ v4.6 変更: 探索ウィンドウをFH Peak基準に変更 ★★★
+      const t_anchor = fh_segment.Peak_Time;
+      const t_search_start = t_anchor - 0.02; // Peakの20ms前から
+      const t_search_end = t_anchor + 0.03; // Peakの30ms後まで (Micの遅延を考慮)
       
       let segments_found_count = 0;
       
-      // ★★★ v4.5: ユーザーが設定した応答Ch用閾値を取得 ★★★
-      const response_threshold_factor = Number($("#autoThresholdResponse").value) || 3;
+      const response_threshold_factor = Number($("#autoThresholdResponse").value) || 1.5;
       const fh_threshold_factor = Number($("#autoThresholdFH").value) || 5;
 
-      // 2. 全チャネルで個別にインパルス検出を実行
       for (const ch of mapped.channels) {
           let segment = null;
           
           if (ch.role === 'FH') {
-              // FHはFH自身の閾値で再検出
               segment = findImpulseSegment(ch, t_search_start, t_search_end, fh_threshold_factor);
           } else {
-              // ★★★ v4.5: Acc と Mic は「応答Ch閾値」を使う ★★★
+              // Acc と Mic は「応答Ch閾値」を使う
               segment = findImpulseSegment(ch, t_search_start, t_search_end, response_threshold_factor);
           }
           
@@ -868,19 +877,16 @@
           drawSelectionOnPlot(ch.name); // Annotate付きで描画
       }
       
-      // 3. セグメント番号を自動設定
       const segNoInput = $("#segmentNo");
       segNoInput.value = fh_segment.Impulse_No;
       
-      // 4. ステータス表示
       showStatus($("#autoSegmentStatus"), `OK: ${segments_found_count}件のCh別セグメントを自動適用しました。(検出失敗はFH範囲を適用)`, true);
       
-      // 5. 詳細プロットのズームをFHの範囲で更新
       showSegmentDetail(currentSegmentIdx);
     }
     
     // =============================
-    // Metrics (v4.5 - v3.3準拠)
+    // Metrics (v4.6 - v3.3準拠)
     // =============================
     function computeAndRenderMetrics() {
       if (!mapped) throw new Error("データがありません。");
@@ -913,7 +919,7 @@
       tbody.appendChild(trFH);
 
       const segNo = Number($("#segmentNo").value || 1);
-      const sourceFile = ($("#csvUrl").value || ($("#csvFile").files[0]?.name ?? ""));
+      const sourceFile = currentSourceFileName || "calculation"; // v4.6
       summaryRows = []; 
 
       for (const ch of resChs) {
@@ -942,10 +948,11 @@
           <td class="mono right">${isFinite(F_over_v_Max) ? fmt(F_over_v_Max) : ""}</td>
           <td class="mono right">${isFinite(F_over_v_dB_Max) ? fmt(F_over_v_dB_Max) : ""}</td>`;
         tbody.appendChild(tr);
-
+        
+        // ★★★ v4.6 変更: サマリーに行を追加 ★★★
         summaryRows.push({
           SourceFile: sourceFile,
-          SegmentFile: `combined_segment_${segNo}.csv`,
+          SegmentFile: `${sourceFile}_segment_${segNo}.csv`, // v4.6 命名規則
           Channel: ch.name,
           "Sum Abs(S)": sumAbsS,
           "Max_abs(S)": maxAbsS,
@@ -954,13 +961,16 @@
           "F/v_Sum": F_over_v_Sum,
           "F/v_dB_Sum": F_over_v_dB_Sum,
           "F/v_Max": F_over_v_Max,
-          "F/v_dB_Max": F_over_v_dB_Max
+          "F/v_dB_Max": F_over_v_dB_Max,
+          "Seg_Start_Time": chSt.start, // v4.6 追加
+          "Seg_End_Time": chSt.end,     // v4.6 追加
+          "Seg_Duration": chSt.duration // v4.6 追加
         });
       }
     }
 
     // =============================
-    // Exporters (v4.5 - v3.3準拠)
+    // Exporters (v4.6)
     // =============================
     function exportCombinedSegment() {
       if (!mapped) throw new Error("データがありません。");
@@ -998,14 +1008,25 @@
         const vals = mapped.channels.map(ch => (slices[ch.name][i] !== undefined ? slices[ch.name][i] : ""));
         csv += [tSlice[i].toFixed(10), ...vals].join(",") + "\n";
       }
-      downloadText(`combined_segment_${segNo}.csv`, csv);
       
-      showStatus($("#autoSegmentStatus"), `combined_segment_${segNo}.csv をエクスポートしました。`, true);
+      // ★★★ v4.6 変更: 命名規則 ★★★
+      const baseFileName = currentSourceFileName || "combined";
+      const fileName = `${baseFileName}_segment_${segNo}.csv`;
+      
+      downloadText(fileName, csv);
+      
+      showStatus($("#autoSegmentStatus"), `${fileName} をエクスポートしました。`, true);
     }
     
     function exportSummaryCSV() {
       if (summaryRows.length === 0) { alert("先に「メトリクス計算」を実行してください。"); return; }
-      const cols = ["SourceFile","SegmentFile","Channel","Sum Abs(S)","Max_abs(S)","Sum Abs(R)","Max_abs(R)","F/v_Sum","F/v_dB_Sum","F/v_Max","F/v_dB_Max"];
+      // ★★★ v4.6 変更: サマリーに列を追加 ★★★
+      const cols = [
+          "SourceFile","SegmentFile","Channel",
+          "Sum Abs(S)","Max_abs(S)","Sum Abs(R)","Max_abs(R)",
+          "F/v_Sum","F/v_dB_Sum","F/v_Max","F/v_dB_Max",
+          "Seg_Start_Time","Seg_End_Time","Seg_Duration"
+      ];
       let csv = cols.join(",") + "\n";
       for (const r of summaryRows) {
         csv += cols.map(k => {
