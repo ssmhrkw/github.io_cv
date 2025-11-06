@@ -10,7 +10,7 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CSV Segmenter (Web) v4.3 (Hybrid+Delay)</title>
+  <title>CSV Segmenter (Web) v4.4 (Impulse Detect)</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
@@ -46,9 +46,8 @@
     }
     header h1 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: #0f2e54; }
     header p { margin: 0; font-size: 12px; color: var(--muted); }
-    main { padding: 16px; max-width: 1600px; margin: 0 auto; }
+    main { padding: 16px; max-width: 1600px; margin: 0 auto; } 
     
-    /* ★★★ v4.3 変更: メインレイアウトを3列に ★★★ */
     .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
     @media (min-width: 1280px) {
       .grid-3-col {
@@ -61,8 +60,8 @@
       border: 1px solid var(--border);
       border-radius: 14px; padding: 14px;
       box-shadow: 0 6px 16px rgba(148,163,184,0.15);
-      display: flex; /* v4.3: 内部フレックス */
-      flex-direction: column; /* v4.3: 縦積み */
+      display: flex;
+      flex-direction: column;
     }
     .card h2 { margin: 0 0 10px; font-size: 16px; color: #0f2e54; }
     .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -73,11 +72,6 @@
       transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
     }
     input[type="number"] { width: 100px; }
-    input.ok-state { background: var(--ok-bg); border-color: var(--ok-br); box-shadow: 0 0 0 3px rgba(19,121,91,0.12); }
-    input.ng-state { background: var(--ng-bg); border-color: var(--ng-br); box-shadow: 0 0 0 3px rgba(201,42,42,0.12); }
-    .file-wrap { padding: 6px 10px; border: 1px dashed var(--border); border-radius: 10px; background: #fff; }
-    .file-wrap.ok-state { background: var(--ok-bg); border-color: var(--ok-br); }
-    .file-wrap.ng-state { background: var(--ng-bg); border-color: var(--ng-br); }
     button {
       appearance: none; border: 1px solid var(--border); color: var(--text);
       background: #fff;
@@ -92,17 +86,15 @@
     .btn-outline { background: transparent; }
     .muted { color: var(--muted); font-size: 12px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; color: #334155; }
-    .danger { color: var(--danger); }
-    .ok { color: var(--ok); }
-    .warn { color: var(--warn); }
+    .help { font-size: 12px; color: var(--muted); }
+    .hr { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
+    
     .mapping-table { width: 100%; border-collapse: collapse; }
     .mapping-table th, .mapping-table td { border-bottom: 1px dashed var(--border); padding: 6px 8px; font-size: 12px; }
     .mapping-table th { text-align: left; color: #0f2e54; }
     
-    /* ★★★ v4.3 変更: プロットグリッド ★★★ */
     .plots { 
       display: grid; 
-      /* 最小300px、最大1fr(均等)で自動的に列を分割 */
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
       gap: 12px; 
       width: 100%;
@@ -110,7 +102,7 @@
     .plot-card { 
       background: var(--soft); border: 1px solid var(--border); 
       border-radius: 12px; padding: 8px; 
-      flex-grow: 1; /* v4.3: 領域いっぱいに広がる */
+      flex-grow: 1;
     }
     .plot-title { margin: 0 0 6px; font-size: 13px; color: #0f2e54; }
     
@@ -121,15 +113,6 @@
     table.metrics th, table.metrics td { border-bottom: 1px solid var(--border); padding: 6px 8px; }
     table.metrics th { text-align: left; color: #0f2e54; position: sticky; top: 0; background: #fff; z-index: 1; }
     table.metrics td, table.metrics th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #eef2f7; border: 1px solid #d8e0ea; }
-    .footer-note { font-size: 11px; color: var(--muted); }
-    .help { font-size: 12px; color: var(--muted); }
-    .vspacer { height: 6px; }
-    .hr { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
-    .right { text-align: right; }
-    .nowrap { white-space: nowrap; }
-    
-    /* ★★★ v4.3 削除: infoPanel スタイルは不要に ★★★ */
     
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
     .status-ok { background: #22c55e; }
@@ -157,7 +140,7 @@
 </head>
 <body>
   <header>
-    <h1>CSV Segmenter (Web) — v4.3 (Hybrid+Delay)</h1>
+    <h1>CSV Segmenter (Web) — v4.4 (Impulse Detect)</h1>
     <p class="muted"></p>
   </header>
 
@@ -217,36 +200,32 @@
           </div>
         </div>
       </div>
-      <p class="help"><b>推奨ワークフロー:</b> 4) 自動セグメント → 「1. インパルス自動検出」 → 「2. Ch別セグメントを自動適用」 → プレビューで個別にクリックして微調整 → 「メトリクス計算」。</p>
+      <p class="help"><b>推奨ワークフロー:</b> 4) 自動セグメント → 「1. FHインパルス自動検出」 → 「2. 全Chのインパルスを自動検出」 → プレビューで微調整 → 「メトリクス計算」。</p>
 
       <hr class="hr" />
       <h2>4) 自動セグメント (Auto-Segment)</h2>
       <p class="help">FHチャネルに基づき、インパルス（ピーク）を自動検出します。</p>
       <div class="row" style="gap: 12px;">
-        <label>検出閾値 (x * Noise SD):</label>
+        <label>FH検出閾値 (x * Noise SD):</label>
         <input id="autoThreshold" type="number" value="5" step="0.5" style="width:80px;" />
-        <label>静音期間 (ms):</label>
-        <input id="autoQuietMS" type="number" value="10" step="1" style="width:80px;" />
-        <button id="btnAutoDetect" class="btn-primary" style="flex:1;">1. インパルス自動検出</button>
+        <button id="btnAutoDetect" class="btn-primary" style="flex:1;">1. FHインパルス自動検出</button>
       </div>
       <div class="help-box">
-        <b>検出閾値:</b> ノイズの標準偏差(SD)の何倍の大きさの信号を「インパルス開始」と見なすか。 <br />
-        <b>静音期間:</b> ピーク後、ノイズレベルに戻った状態が何ミリ秒続いたら「インパルス終了」と見なすか。
+        <b>FH検出閾値:</b> ノイズの標準偏差(SD)の何倍の大きさの信号を「インパルス開始」と見なすか。
       </div>
       
       <div id="autoSegmentControls">
-        <h4>検出されたインパルス: <span id="autoSegmentTotal" class="ok">0</span> 件</h4>
+        <h4>検出されたFHインパルス: <span id="autoSegmentTotal" class="ok">0</span> 件</h4>
         <div id="autoSegmentNav" class="row">
           <button id="btnPrevSegment" class="btn-outline" disabled>&lt; 前 (Prev)</button>
-          <span class="mono">Impulse #<span id="autoSegmentCurrent">0</span></span>
+          <span class="mono">FH Impulse #<span id="autoSegmentCurrent">0</span></span>
           <button id="btnNextSegment" class="btn-outline" disabled>次 (Next) &gt;</button>
         </div>
         <div id="autoSegmentEdit" class="row">
-          <label>FH Start (s):</label>
-          <input id="autoStartTime" type="number" step="0.0001" />
-          <label>FH End (s):</label>
-          <input id="autoEndTime" type="number" step="0.0001" />
-          <button id="btnApplyAutoHybrid" class="btn-green" style="flex:1;">2. Ch別セグメントを自動適用</button>
+           <button id="btnApplyAutoHybrid" class="btn-green" style="flex:1;">2. 全Chのインパルスを自動検出</button>
+        </div>
+        <div class="help-box">
+            <b>ボタンの動作:</b> 選択中のFHインパルスに基づき、全チャネル（Acc, Mic）の遅延したインパルス開始点・終了点を個別に自動検出し、適用します。
         </div>
         <div id="autoSegmentStatus" class="muted" style="margin-top: 8px;"></div>
       </div>
@@ -274,16 +253,17 @@
 
     <section class="card">
       <h2>プレビュー (全体)</h2>
-      <p class="help">グラフをクリックして、チャネルごとにセグメント範囲（2点）を指定できます。</p>
+      <p class="help">グラフをクリックして、チャネルごとにセグメント範囲（2点）を微調整できます。</p>
       <div id="plots_overview" class="plots"></div>
     </section>
     
     <section class="card">
       <h2>プレビュー (詳細セグメント)</h2>
-      <p class="help">「自動セグメント」で選択中のインパルスを拡大表示します。ここでもクリックして微調整可能です。</p>
+      <p class="help">「自動セグメント」で選択中のFHインパルス周辺を拡大表示します。ここでもクリックして微調整可能です。</p>
       <div id="plots_detail" class="plots"></div>
       
-      <hr class="hr" style="margin-top:auto; padding-top: 10px;"> <div class="row">
+      <hr class="hr" style="margin-top:auto; padding-top: 10px;">
+      <div class="row">
           <button id="btnExportSegmentDetail" class="btn-primary" style="flex:1;">
               現在のセグメント (combined_segment_#.csv) を保存
           </button>
@@ -295,7 +275,6 @@
     // =============================
     // Constants & Global State
     // =============================
-    // const FS = 51200; // v4.3: 動的に取得
     const rho = 1.21, c = 343;
     let rawRows = [];
     let headers = [];
@@ -323,14 +302,7 @@
       el.innerHTML = (ok ? '<span class="status-dot status-ok"></span>' : '<span class="status-dot status-ng"></span>') + msg;
       el.className = ok ? "muted ok" : "muted danger";
     }
-    function markInputState(el, ok=true) {
-      el.classList.remove("ok-state","ng-state");
-      el.classList.add(ok ? "ok-state" : "ng-state");
-    }
-    function markRowState(row, ok=true) {
-      row.classList.remove("ok-state","ng-state");
-      row.classList.add(ok ? "ok-state" : "ng-state");
-    }
+    
     function downloadText(filename, text) {
       const blob = new Blob([text], {type: "text/csv;charset=utf-8"});
       const url = URL.createObjectURL(blob);
@@ -371,16 +343,10 @@
     }
     function absSum(arr, idxs) { let s = 0; for (const i of idxs) s += Math.abs(arr[i]); return s; }
     function absMax(arr, idxs) { let m = 0; for (const i of idxs) { const v = Math.abs(arr[i]); if (v > m) m = v; } return m; }
-    function absMin(arr, idxs) { let m = Infinity; for (const i of idxs) { const v = arr[i]; if (v < m) m = v; } return m; }
     function fmt(v, d=2) { return (v===null || v===undefined || !isFinite(v)) ? "" : Number(v).toFixed(d); }
 
-    // FH helpers
     function getFH() { return mapped ? (mapped.channels.find(c => c.role === "FH") || null) : null; }
-    function fhSel() { const fh = getFH(); if (!fh) return null; const s = selections[fh.name]; return (s && s.clicks.length>=2) ? s : null; }
-    function fhClicks() { const s = fhSel(); return s ? s.clicks.slice(0,2) : null; }
-    function fhDuration() { const cks = fhClicks(); return cks ? Math.abs(cks[1]-cks[0]) : null; }
-    
-    // ★★★ v4.3 変更: selectionStatsForをヘルパーとして復活 (v4.2から) ★★★
+
     function selectionStatsFor(ch) {
       const sel = selections[ch.name];
       if (!sel) return null;
@@ -397,9 +363,8 @@
       const x0 = Math.min(t0, t1), x1 = Math.max(t0, t1);
       const idxs = idxBetween(mapped.time, x0, x1); if (idxs.length===0) return null;
       const maxv = absMax(ch.data, idxs);
-      const minv = (function(){ let m=Infinity; for(const i of idxs){ const v=ch.data[i]; if(v<m) m=v; } return m; })();
       const dur = x1 - x0;
-      return { start:x0, end:x1, duration:dur, max:maxv, min:minv };
+      return { start:x0, end:x1, duration:dur, max:maxv };
     }
 
 
@@ -431,8 +396,6 @@
       buildMappingUI();
       $("#plots_overview").innerHTML = "";
       $("#plots_detail").innerHTML = "";
-      // $("#infoTableWrap").innerHTML = ""; // v4.3: 削除
-      // $("#fhInfo").textContent = ""; // v4.3: 削除
       $("#metricsBody").innerHTML = "";
       selections = {};
       plotDivs_Overview = {};
@@ -508,7 +471,6 @@
       mapped = { time: timeFinal, channels };
       showStatus($("#mapStatus"), `OK: ${channels.length}ch 反映 (FH:${channels.filter(c=>c.role==='FH').length}, Acc:${channels.filter(c=>c.role==='Acc').length}, Mic:${channels.filter(c=>c.role==='Mic').length})`, true);
       renderPlots();
-      // updateInfoPanel(); // v4.3: 削除
       resetAutoSegmentUI();
     }
 
@@ -526,7 +488,7 @@
     }
 
     // =============================
-    // Plotting & Selection (v4.3)
+    // Plotting & Selection (v4.4)
     // =============================
     function renderPlots() {
       const wrap_overview = $("#plots_overview"); wrap_overview.innerHTML = "";
@@ -551,10 +513,10 @@
 
         const trace = { x: Array.from(mapped.time), y: Array.from(ch.data), mode: "lines", line: { width: 1 }, hoverinfo: "x+y", name: ch.name };
         const layout_ov = {
-          margin: { l: 40, r: 10, t: 30, b: 22 }, // v4.3: tを30に (Annotateのため)
+          margin: { l: 40, r: 10, t: 30, b: 22 }, 
           xaxis: { title: "Time (s)", color: "#1f2937" },
           yaxis: { title: "Amp.", color: "#1f2937" },
-          shapes: [], annotations: [], // v4.3: Annotations追加
+          shapes: [], annotations: [], 
           showlegend: false, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1f2937" },
         };
         Plotly.newPlot(plot_ov, [trace], layout_ov, { responsive: true });
@@ -589,7 +551,6 @@
       }
     }
     
-    // ★★★ v4.3 変更: Annotate機能を追加 ★★★
     function drawSelectionOnPlot(name) {
       const plot_ov = plotDivs_Overview[name];
       const plot_dt = plotDivs_Detail[name];
@@ -602,11 +563,10 @@
       
       let dt_guide = null;
       if (FH && name !== FH.name) {
-          const fhSelObj = fhSel();
-          if (fhSelObj) dt_guide = Math.abs(fhSelObj.clicks[1] - fhSelObj.clicks[0]);
+          const fhSelObj = selectionStatsFor(FH); // v4.4: 確定したStatsを参照
+          if (fhSelObj) dt_guide = fhSelObj.duration;
       }
       
-      // v3.3/v4.2のガイドロジックを再利用
       if (sel.clicks.length === 1 && dt_guide && isFinite(dt_guide)) {
         const x0 = sel.clicks[0]; const x1 = x0 + dt_guide;
         shapes.push(
@@ -631,13 +591,12 @@
         }
       }
       
-      // ★★★ v4.3 追加: ここでAnnotateを生成 ★★★
       const st = selectionStatsFor(mapped.channels.find(c => c.name === name));
       if (st) {
           const annot_text = `<b>${fmt(st.start, 4)}s - ${fmt(st.end, 4)}s</b> (Dur: ${fmt(st.duration, 4)}s | Max: ${fmt(st.max, 2)})`;
           annotations.push({
               text: annot_text,
-              align: 'left', x: 0.01, y: 1.15, // y=1.15でタイトルの上
+              align: 'left', x: 0.01, y: 1.15, 
               xref: 'paper', yref: 'paper',
               showarrow: false, font: {size: 10, color: '#0f2e54'},
               bgcolor: 'rgba(255,255,255,0.0)'
@@ -675,11 +634,10 @@
           }
         }
       }
-      // updateInfoPanel(); // v4.3: 削除 (drawSelectionOnPlotが担当)
     }
 
     // =============================
-    // Auto Segment (v4.3)
+    // Auto Segment (v4.4)
     // =============================
     
     function resetAutoSegmentUI() {
@@ -688,14 +646,87 @@
       $("#autoSegmentCurrent").textContent = "0";
       $("#btnPrevSegment").disabled = true;
       $("#btnNextSegment").disabled = true;
-      $("#autoStartTime").value = "";
-      $("#autoEndTime").value = "";
       $("#autoSegmentStatus").textContent = "";
       autoSegments = [];
       currentSegmentIdx = -1;
     }
+    
+    // ★★★ v4.4 変更: インパルス検出のコアロジック ★★★
+    function findImpulseSegment(ch, t_search_start, t_search_end, detection_threshold_factor) {
+        const time = mapped.time;
+        const data = ch.data;
+        const FS = getFS();
+        let start_idx = -1, end_idx = -1;
+        
+        // 1. 探索ウィンドウのインデックスを見つける
+        for(let i=0; i<time.length; i++) {
+            if(time[i] >= t_search_start && start_idx === -1) start_idx = i;
+            if(time[i] >= t_search_end) { end_idx = i; break; }
+        }
+        if(end_idx === -1) end_idx = time.length - 1;
+        if(start_idx === -1) start_idx = 0; // 見つからなければ最初から
 
-    function autoDetectSegments() {
+        // 2. ノイズフロアの計算 (ウィンドウ内)
+        let sum = 0, sum_abs_dev = 0;
+        const n_samples = end_idx - start_idx;
+        if (n_samples <= 0) return null;
+        
+        for(let i=start_idx; i<=end_idx; i++) sum += data[i];
+        const mean = sum / n_samples;
+        for(let i=start_idx; i<=end_idx; i++) sum_abs_dev += Math.abs(data[i] - mean);
+        const NOISE_FLOOR_ESTIMATE = (sum_abs_dev / n_samples) * 1.25; // MAD -> SD
+        
+        const PEAK_THRESHOLD = NOISE_FLOOR_ESTIMATE * detection_threshold_factor;
+
+        // 3. ウィンドウ内でピークを見つける (閾値以上)
+        let peak_val = 0, peak_idx = -1;
+        for(let i=start_idx; i<=end_idx; i++) {
+            const val = Math.abs(data[i]);
+            if(val > peak_val && val > PEAK_THRESHOLD) {
+                peak_val = val;
+                peak_idx = i;
+            }
+        }
+        
+        if (peak_idx === -1) return null; // 閾値を超えるピークなし
+
+        // 4. ピークから逆方向に探索し、開始点(ピークの5%)を見つける
+        const START_THRESHOLD_VAL = peak_val * 0.05; 
+        let segment_start_idx = peak_idx;
+        const lookback_samples = Math.round(0.01 * FS); // 最大10ms遡る
+        const search_start_limit = Math.max(0, peak_idx - lookback_samples);
+        
+        for(let i=peak_idx; i >= search_start_limit; i--) {
+            if(Math.abs(data[i]) < START_THRESHOLD_VAL) {
+                segment_start_idx = i + 1; // 閾値を下回った点の *次*
+                break;
+            }
+        }
+        
+        // 5. ピークから順方向に探索し、終了点（最初のゼロクロス）を見つける
+        let segment_end_idx = peak_idx;
+        const lookforward_samples = Math.round(0.02 * FS); // 最大20ms探索
+        const search_end_limit = Math.min(data.length - 1, peak_idx + lookforward_samples);
+        const peak_sign = Math.sign(data[peak_idx]);
+        
+        for(let i=peak_idx; i <= search_end_limit; i++) {
+            if (Math.sign(data[i]) !== peak_sign) {
+                segment_end_idx = i; // 符号が変わった点
+                break;
+            }
+        }
+        if (segment_end_idx === peak_idx) segment_end_idx = search_end_limit; // 見つからなければ探索終了点
+
+        return {
+            Start_Time: time[segment_start_idx],
+            End_Time: time[segment_end_idx],
+            Peak_Time: time[peak_idx],
+            Peak_Val: peak_val,
+        };
+    }
+
+    // ★★★ v4.4 変更: FHの検出ロジック ★★★
+    function autoDetectFHSegments() {
       const FH = getFH();
       if (!FH) {
         alert("エラー: FH (加振力) チャンネルがマッピングされていません。");
@@ -705,23 +736,19 @@
       const FS = getFS();
       const fh_signal = FH.data;
       const time_data = mapped.time;
-      
       const THRESHOLD_FACTOR = Number($("#autoThreshold").value) || 5;
-      const QUIET_MS = Number($("#autoQuietMS").value) || 10;
-      const QUIET_SAMPLES = Math.max(1, Math.round((QUIET_MS / 1000) * FS));
-      
-      let sum = 0;
+
+      // 1. ノイズフロアの計算 (全データ)
+      let sum = 0, sum_abs_dev = 0;
       for (const v of fh_signal) sum += v;
       const mean = sum / fh_signal.length;
-      let sum_abs_dev = 0;
       for (const v of fh_signal) sum_abs_dev += Math.abs(v - mean);
-      const NOISE_FLOOR_ESTIMATE = (sum_abs_dev / fh_signal.length) * 1.25; // MAD -> SD
-      
+      const NOISE_FLOOR_ESTIMATE = (sum_abs_dev / fh_signal.length) * 1.25;
       const DETECTION_THRESHOLD = THRESHOLD_FACTOR * NOISE_FLOOR_ESTIMATE;
-      const DECAY_THRESHOLD = 2 * NOISE_FLOOR_ESTIMATE;
       
       const abs_fh = fh_signal.map(v => Math.abs(v));
       
+      // 2. 閾値を超えた点を検出
       const over_threshold_indices = [];
       for (let i = 0; i < abs_fh.length; i++) {
         if (abs_fh[i] > DETECTION_THRESHOLD) {
@@ -730,12 +757,13 @@
       }
       
       if (over_threshold_indices.length === 0) {
-        showStatus($("#autoSegmentStatus"), "インパルスが検出されませんでした (閾値が高すぎる可能性があります)。", false);
+        showStatus($("#autoSegmentStatus"), "FHインパルスが検出されませんでした (閾値が高すぎる可能性があります)。", false);
         resetAutoSegmentUI();
         $("#autoSegmentControls").style.display = "block";
         return;
       }
       
+      // 3. インパルスをグループ化 (100ms以上空いたら別)
       const MIN_GAP_SAMPLES = Math.round(0.1 * FS);
       const start_indices = [over_threshold_indices[0]];
       for (let i = 1; i < over_threshold_indices.length; i++) {
@@ -747,56 +775,24 @@
       autoSegments = [];
       
       for (let i = 0; i < start_indices.length; i++) {
-        const start_idx = start_indices[i];
+        const t_search_start = time_data[Math.max(0, start_indices[i] - Math.round(0.01*FS))];
+        const t_search_end = time_data[Math.min(time_data.length - 1, start_indices[i] + Math.round(0.1*FS))];
         
-        const PRE_TRIGGER_SAMPLES = Math.round(0.01 * FS);
-        const segment_start_idx = Math.max(0, start_idx - PRE_TRIGGER_SAMPLES);
+        // ★★★ v4.4: 新しいインパルス検出ロジックをFHに適用 ★★★
+        const segment = findImpulseSegment(FH, t_search_start, t_search_end, THRESHOLD_FACTOR);
         
-        const peak_search_end = Math.min(fh_signal.length, start_idx + Math.round(0.1 * FS));
-        let peak_idx = start_idx;
-        let peak_max_val = abs_fh[start_idx];
-        
-        for (let j = start_idx + 1; j < peak_search_end; j++) {
-          if (abs_fh[j] > peak_max_val) {
-            peak_max_val = abs_fh[j];
-            peak_idx = j;
-          }
+        if (segment) {
+          autoSegments.push({
+            Impulse_No: i + 1,
+            ...segment
+          });
         }
-        
-        let segment_end_idx = peak_idx;
-        for (let j = peak_idx; j < fh_signal.length - QUIET_SAMPLES; j++) {
-          if (abs_fh[j] < DECAY_THRESHOLD) {
-            let is_quiet = true;
-            for (let k = 1; k < QUIET_SAMPLES; k++) {
-              if (abs_fh[j+k] >= DECAY_THRESHOLD) {
-                is_quiet = false;
-                j += k; 
-                break;
-              }
-            }
-            if (is_quiet) {
-              segment_end_idx = j + QUIET_SAMPLES;
-              break;
-            }
-          }
-        }
-        
-        if (segment_end_idx === peak_idx) {
-          segment_end_idx = Math.min(fh_signal.length - 1, peak_idx + Math.round(0.1 * FS));
-        }
-
-        autoSegments.push({
-          Impulse_No: i + 1,
-          Start_Time: time_data[segment_start_idx],
-          End_Time: time_data[segment_end_idx],
-          Peak_Time: time_data[peak_idx],
-          FH_Max: peak_max_val,
-        });
       }
       
+      // 7. UIを更新
       $("#autoSegmentControls").style.display = "block";
       $("#autoSegmentTotal").textContent = autoSegments.length;
-      showStatus($("#autoSegmentStatus"), `検出完了: ${autoSegments.length} 件のインパルスが見つかりました。`, true);
+      showStatus($("#autoSegmentStatus"), `検出完了: ${autoSegments.length} 件のFHインパルスが見つかりました。`, true);
       
       if (autoSegments.length > 0) {
         showSegmentDetail(0);
@@ -813,10 +809,7 @@
       $("#btnPrevSegment").disabled = (index === 0);
       $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
       
-      $("#autoStartTime").value = segment.Start_Time.toFixed(6);
-      $("#autoEndTime").value = segment.End_Time.toFixed(6);
-      
-      // ★★★ v4.3 変更: ズーム範囲をご要望 (-0.01, +0.01) に変更 ★★★
+      // ★★★ v4.4 変更: ズーム範囲をご要望 (-0.01, +0.01) に変更 ★★★
       const PADDING = 0.01; // 10ms
       const zoom_start = Math.max(0, segment.Start_Time - PADDING);
       const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.End_Time + PADDING);
@@ -831,7 +824,6 @@
       for (const ch of mapped.channels) {
         const plot_dt = plotDivs_Detail[ch.name];
         if (plot_dt) {
-          // v4.3: 各チャネルの既存のセレクション形状を取得
           const shapes = (plot_dt.layout.shapes || []).filter(s => s.type === 'rect' || (s.type === 'line' && s.line.color === '#0b6bcb'));
           shapes.push(peak_marker);
           
@@ -843,102 +835,51 @@
       }
     }
     
-    // ★★★ v4.3 追加: 遅延検出ロジック ★★★
-    function findSignalStart(ch, t_search_start, t_search_end) {
-        const time = mapped.time;
-        const data = ch.data;
-        let start_idx = -1, end_idx = -1;
-
-        // 1. 探索ウィンドウのインデックスを見つける
-        for(let i=0; i<time.length; i++) {
-            if(time[i] >= t_search_start && start_idx === -1) start_idx = i;
-            if(time[i] >= t_search_end) { end_idx = i; break; }
-        }
-        if(end_idx === -1) end_idx = time.length - 1;
-        if(start_idx === -1) return null;
-
-        // 2. 探索ウィンドウ内でピークを見つける
-        let peak_val = 0, peak_idx = start_idx;
-        for(let i=start_idx; i<=end_idx; i++) {
-            const val = Math.abs(data[i]);
-            if(val > peak_val) {
-                peak_val = val;
-                peak_idx = i;
-            }
-        }
-        
-        if (peak_val === 0) return null; // 信号なし
-
-        // 3. ピークから逆方向に探索し、開始点(ピークの10%)を見つける
-        const START_THRESHOLD = peak_val * 0.10; // ピークの10%
-        let signal_start_idx = peak_idx;
-        for(let i=peak_idx; i>=start_idx; i--) {
-            if(Math.abs(data[i]) < START_THRESHOLD) {
-                signal_start_idx = i + 1; // 閾値を下回った点の *次* の点
-                break;
-            }
-        }
-        
-        return time[signal_start_idx];
-    }
-    
-    // ★★★ v4.3 変更: 「適用」ボタンのロジック ★★★
+    // ★★★ v4.4 変更: 「全Ch自動検出」ボタンのロジック ★★★
     function applyAutoSegmentsHybrid() {
       if (currentSegmentIdx < 0) {
-        alert("適用するセグメントが選択されていません。");
+        alert("適用するFHインパルスが選択されていません。");
         return;
       }
       
-      const t_fh_start = Number($("#autoStartTime").value);
-      const t_fh_end = Number($("#autoEndTime").value);
+      const fh_segment = autoSegments[currentSegmentIdx];
       
-      if (isNaN(t_fh_start) || isNaN(t_fh_end) || t_fh_end <= t_fh_start) {
-        alert("エラー: FH Start/End の値が無効です。");
-        return;
-      }
+      // 1. 探索ウィンドウをFHインパルス周辺に設定
+      const t_search_start = fh_segment.Start_Time - 0.02; // 20ms前から
+      const t_search_end = fh_segment.End_Time + 0.1; // 100ms後まで (Micの遅延を考慮)
       
-      // 手動変更を autoSegments データに永続化
-      autoSegments[currentSegmentIdx].Start_Time = t_fh_start;
-      autoSegments[currentSegmentIdx].End_Time = t_fh_end;
-      const fh_duration = t_fh_end - t_fh_start;
+      let segments_found_count = 0;
       
-      // 1. 全チャネルのグローバルセレクションを更新
+      // 2. 全チャネルで個別にインパルス検出を実行
       for (const ch of mapped.channels) {
-          let t_start_ch = t_fh_start;
-          let t_end_ch = t_fh_end;
+          // FH/AccはFHと同じ閾値、Micは少し感度を上げる (x3)
+          const threshold_factor = (ch.role === 'Mic') ? 3 : (Number($("#autoThreshold").value) || 5);
           
-          // ★★★ v4.3: Micチャネルのみ遅延検出を試行 ★★★
-          if (ch.role === 'Mic') {
-              const t_search_start = t_fh_start;
-              const t_search_end = t_fh_start + 0.1; // FH開始から100ms先までを探索
-              const detected_mic_start = findSignalStart(ch, t_search_start, t_search_end);
-              
-              if (detected_mic_start && detected_mic_start < t_search_end) {
-                  t_start_ch = detected_mic_start;
-                  t_end_ch = t_start_ch + fh_duration; // FHと同じ時間幅を適用
-              }
-              // FH/AccはFHの値をそのまま使用
+          const segment = findImpulseSegment(ch, t_search_start, t_search_end, threshold_factor);
+          
+          if (segment) {
+              selections[ch.name].clicks = [segment.Start_Time, segment.End_Time];
+              segments_found_count++;
+          } else {
+              // 見つからなかった場合はFHの値を暫定で入れる
+              selections[ch.name].clicks = [fh_segment.Start_Time, fh_segment.End_Time];
           }
-        
-        selections[ch.name].clicks = [t_start_ch, t_end_ch];
-        drawSelectionOnPlot(ch.name); // Annotate付きで描画
+          drawSelectionOnPlot(ch.name); // Annotate付きで描画
       }
-      
-      // 2. Infoパネルは不要 (Annotateが描画)
       
       // 3. セグメント番号を自動設定
       const segNoInput = $("#segmentNo");
-      segNoInput.value = autoSegments[currentSegmentIdx].Impulse_No;
+      segNoInput.value = fh_segment.Impulse_No;
       
       // 4. ステータス表示
-      showStatus($("#autoSegmentStatus"), `OK: Impulse #${currentSegmentIdx+1} のCh別セグメントを適用しました。(Micは遅延検出済)`, true);
+      showStatus($("#autoSegmentStatus"), `OK: ${segments_found_count}件のCh別セグメントを自動適用しました。セグメント番号を ${segNoInput.value} に設定。`, true);
       
       // 5. 詳細プロットのズームをFHの範囲で更新
       showSegmentDetail(currentSegmentIdx);
     }
     
     // =============================
-    // Metrics (v4.3 - v3.3準拠)
+    // Metrics (v4.4 - v3.3準拠)
     // =============================
     function computeAndRenderMetrics() {
       if (!mapped) throw new Error("データがありません。");
@@ -1018,7 +959,7 @@
     }
 
     // =============================
-    // Exporters (v4.3 - v3.3準拠)
+    // Exporters (v4.4 - v3.3準拠)
     // =============================
     function exportCombinedSegment() {
       if (!mapped) throw new Error("データがありません。");
@@ -1031,7 +972,7 @@
           break;
         }
       }
-      if (!all_selected) throw new Error("すべてのチャネルの範囲が未選択です (2点クリックまたはガイド(1クリック)が必要です)。");
+      if (!all_selected) throw new Error("すべてのチャネルの範囲が未選択です (2点クリックまたは自動検出が必要です)。");
 
       const slices = {};
       let minLen = Infinity;
@@ -1083,14 +1024,9 @@
         const url = $("#csvUrl").value.trim();
         if (!url) return alert("CSV URL を入力してください。");
         await loadCSVFromURL(url);
-        showStatus($("#urlStatus"), "URL読み込み成功", true);
-        markInputState($("#csvUrl"), true);
-        markRowState($("#urlRow"), true);
       } catch (e) {
         console.error(e);
         showStatus($("#urlStatus"), `URL読み込み失敗: ${e.message}`, false);
-        markInputState($("#csvUrl"), false);
-        markRowState($("#urlRow"), false);
       }
     });
     $("#btnLoadFile").addEventListener("click", async () => {
@@ -1098,12 +1034,9 @@
         const f = $("#csvFile").files[0];
         if (!f) return alert("CSVファイルを選択してください。");
         await loadCSVFromFile(f);
-        showStatus($("#fileStatus"), "ファイル読み込み成功", true);
-        markRowState($("#fileRow"), true);
       } catch (e) {
         console.error(e);
         showStatus($("#fileStatus"), `ファイル読み込み失敗: ${e.message}`, false);
-        markRowState($("#fileRow"), false);
       }
     });
     $("#btnApplyMapping").addEventListener("click", () => { try { applyMapping(); } catch (e) { console.error(e); showStatus($("#mapStatus"), `エラー: ${e.message}`, false); } });
@@ -1131,16 +1064,13 @@
               Plotly.redraw(plot);
           }
       });
-      // updateInfoPanel(); // v4.3: 削除
     });
     $("#btnCompute").addEventListener("click", () => { try { computeAndRenderMetrics(); } catch (e) { alert(e.message); } });
     
-    // ★★★ v4.3 変更: イベントリスナー ★★★
-    $("#btnExportSegmentDetail").addEventListener("click", () => { try { exportCombinedSegment(); } catch (e) { alert(e.message); } }); // v4.3: 新しい保存ボタン
-    
+    $("#btnExportSegmentDetail").addEventListener("click", () => { try { exportCombinedSegment(); } catch (e) { alert(e.message); } }); 
     $("#btnExportSummary").addEventListener("click", () => { exportSummaryCSV(); });
     
-    $("#btnAutoDetect").addEventListener("click", () => { try { autoDetectSegments(); } catch (e) { alert(e.message); console.error(e); } });
+    $("#btnAutoDetect").addEventListener("click", () => { try { autoDetectFHSegments(); } catch (e) { alert(e.message); console.error(e); } });
     $("#btnPrevSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx - 1); });
     $("#btnNextSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx + 1); });
     $("#btnApplyAutoHybrid").addEventListener("click", () => { try { applyAutoSegmentsHybrid(); } catch (e) { alert(e.message); } });
