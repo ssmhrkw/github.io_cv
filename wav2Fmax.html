@@ -1,121 +1,187 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>wav2Fmax — Pro v3 (transposed table)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>wav2Fmax — Pro v3 (UI improved)</title>
 
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){ dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-HFR5WYG42Q');
-  </script>
-  <script type="module">
-    import {
-      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
-      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-    } from "./acoustics-core.js";
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-HFR5WYG42Q');
+  </script>
+  <script type="module">
+    import {
+      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
+      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+    } from "./acoustics-core.js";
 
-    Object.assign(window, {
-      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
-      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-    });
-  </script>
-  <script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
+    Object.assign(window, {
+      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
+      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
+    });
+  </script>
+  <script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
 
-  <style>
-    /* (CSSは 10:17 のコード (Layout A) のもの) */
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;color:#0f172a;background:#fff;margin:12px}
-    .wrap{max-width:1280px;margin:0 auto}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .btn{padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
-    .btn.primary{background:#0ea5a4;color:#fff;border:none}
-    #process-btn.processing,
-    #process-btn.processing:disabled{
-      background:#dc2626 !important;
-      color:#fff !important;
-      border:none !important;
-      opacity:1 !important;
-      filter:none !important;
-    }
-    .file-name{min-width:200px;max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #e2e8f0;padding:6px;border-radius:8px;background:#fff}
-    .card{border:1px solid #e5e7eb;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
-    label.small{font-size:13px;color:#334155}
-    input[type="number"]{width:110px;padding:6px;border-radius:10px;border:1px solid #cbd5e1}
-    select{padding:6px;border-radius:10px;border:1px solid #cbd5e1}
-    #log{font-size:12px;white-space:pre-wrap;border:1px dashed #cbd5e1;border-radius:10px;padding:6px;max-height:160px;overflow:auto}
-    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
-    .tab{padding:6px 12px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer}
-    .tab.active{background:#0ea5a4;color:#fff;border:none}
-    .hidden{display:none}
-    .muted{color:#64748b;font-size:12px}
-    table{border-collapse:collapse;width:100%}
-    th,td{border:1px solid #e5e7eb;padding:6px;font-size:12px;text-align:right}
-    th{background:#f1f5f9;text-align:center}
-    td.f{font-variant-numeric:tabular-nums;text-align:right}
-    td.sel{background:#ecfeff}
-    .band-plot{height:170px;margin-top:8px}
-    #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.25);backdrop-filter:saturate(0.1) blur(1px);display:flex;z-index:999;align-items:center;justify-content:center;color:#fff;font-size:20px;pointer-events:auto}
-    #overlay.hidden{display:none;pointer-events:none}
-  </style>
+  <style>
+    /* Improved UI/CSS: responsive two-column layout, clearer controls, accessible focus states */
+    :root{
+      --bg:#0f172a;
+      --muted:#64748b;
+      --card:#ffffff;
+      --accent:#0ea5a4;
+      --danger:#dc2626;
+      --border:#e5e7eb;
+      --radius:12px;
+      --gap:12px;
+      --maxw:1280px;
+    }
+    html,body{height:100%;}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif;
+      color:var(--bg); background:#f8fafc; margin:12px; -webkit-font-smoothing:antialiased;
+    }
+    .wrap{max-width:var(--maxw);margin:0 auto;display:grid;grid-template-columns:360px 1fr;gap:var(--gap);align-items:start}
+    header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+    h2{font-size:1.2rem;margin:0}
+    .sub{color:var(--muted);font-size:13px}
+
+    /* left panel (controls) */
+    .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+    .controls{display:flex;flex-direction:column;gap:10px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    label.small{font-size:13px;color:#334155}
+    .file-name{min-width:160px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #e2e8f0;padding:8px;border-radius:8px;background:#fff}
+    .file-input-row{display:flex;gap:8px;align-items:center}
+
+    .btn{padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#fff;border:none}
+    .btn.ghost{background:transparent;border:1px dashed var(--border)}
+    .btn:focus{outline:3px solid rgba(14,165,164,0.18)}
+    .btn.processing{background:var(--danger)!important;color:#fff}
+
+    input[type="number"], select, input[type="text"]{padding:6px;border-radius:10px;border:1px solid #cbd5e1}
+    input[type="file"]{display:none}
+
+    /* right main */
+    .main{display:flex;flex-direction:column;gap:12px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+    #summary-title{font-weight:600}
+
+    /* tabs: horizontal scroll with selected state */
+    .tabs{display:flex;gap:6px;overflow:auto;padding-bottom:6px}
+    .tab{flex:0 0 auto;padding:8px 12px;border:1px solid var(--border);border-radius:999px;cursor:pointer;background:#fff}
+    .tab.active{background:var(--accent);color:#fff;border:none}
+
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid var(--border);padding:6px;font-size:12px;text-align:right}
+    th{background:#f1f5f9;text-align:center}
+    td.f{font-variant-numeric:tabular-nums;text-align:right}
+    td.sel{background:#ecfeff}
+
+    .band-plot{height:180px;margin-top:10px;border-radius:8px;border:1px solid #eef2f7}
+
+    #log{font-size:12px;white-space:pre-wrap;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;max-height:140px;overflow:auto;background:#fbfdfe}
+
+    /* overlay spinner */
+    #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;z-index:9999;align-items:center;justify-content:center;color:#fff;font-size:18px}
+    .spinner{width:64px;height:64px;border-radius:50%;border:6px solid rgba(255,255,255,0.18);border-top-color:#fff;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* responsive: collapse to single column on small screens */
+    @media (max-width:900px){
+      .wrap{grid-template-columns:1fr;}
+      .file-name{max-width:200px}
+    }
+
+    /* small helpers */
+    .muted{color:var(--muted);font-size:12px}
+    .flex-between{display:flex;justify-content:space-between;align-items:center}
+    .hidden{display:none}
+
+  </style>
 </head>
 <body>
 <div class="wrap">
-    <h2>wav2Fmax — Pro v3</h2>
-  <div class="row">
-    <input id="file-input" type="file" accept=".wav,.wave,.csv,.txt" multiple />
-    <button id="load-btn" class="btn primary" type="button">Load</button>
-    <div id="file-name" class="file-name">No file selected</div>
-    <span id="status" class="muted">Ready</span>
-  </div>
-  <div id="setup" class="card hidden">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <strong>Channel setup</strong><span class="muted">対象CH選択・ロール名・補正係数</span>
-    </div>
-    <div id="setup-body"></div>
-  </div>
-  <div id="config" class="card hidden">
-    <div class="row">
-      <label class="small">Bands:
-        <select id="band-type">
-          <option value="oct">1/1 Octave</option>
-          <option value="third">1/3 Octave</option>
-        </select>
-      </label>
-      <label class="small">Lo(Hz): <select id="band-lo"></select></label>
-      <label class="small">Hi(Hz): <select id="band-hi"></select></label>
-      <label class="small">Time weighting:
-        <select id="time-weight">
-          <option value="none">None</option>
-          <option value="fast" selected>Fast(125 ms)</option>
-          <option value="slow">Slow(1 s)</option>
-          <option value="leq">Leq(window s)</option>
-          <option value="maxhold">MaxHold</option>
-        </select>
-      </label>
-      <label class="small">Leq window(s): <input id="leq-win" type="number" step="0.1" value="1.0" /></label>
-      <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
-      <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
-      <button id="process-btn" class="btn primary" type="button" disabled style="padding:10px 16px">Process</button>
-    </div>
-  </div>
-  <div id="tabs" class="tabs hidden"></div>
-  <div id="summary" class="card hidden">
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <strong id="summary-title">Summary</strong>
-      <span class="muted">表頭＝周波数，表側＝指標。周波数ヘッダをクリックで該当プロットへスクロール。</span>
-    </div>
-    <div id="table-wrap"></div>
-    <div id="plots-wrap"></div>
-  </div>
-  <div class="card">
-    <div class="muted">Log</div>
-    <div id="log"></div>
-  </div>
+  <header>
+    <div>
+      <h2>wav2Fmax — Pro v3</h2>
+      <div class="sub">transposed table · improved UI</div>
+    </div>
+    <div class="muted">Ready</div>
+  </header>
+
+  <!-- LEFT PANEL: Controls -->
+  <aside class="panel">
+    <div class="controls">
+      <div class="file-input-row">
+        <label class="btn primary" for="file-input" id="load-btn">Select files</label>
+        <input id="file-input" type="file" accept=".wav,.wave,.csv,.txt" multiple />
+        <div id="file-name" class="file-name">No file selected</div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between"><strong>Channel setup</strong><span class="muted">対象CH選択・ロール名・補正係数</span></div>
+        <div id="setup" class="hidden" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <div class="flex-between"><strong>Analysis</strong><span class="muted">Bands・Time weighting 等</span></div>
+        <div id="config" class="hidden" style="margin-top:8px">
+          <div class="row">
+            <label class="small">Bands:
+              <select id="band-type">
+                <option value="oct">1/1 Octave</option>
+                <option value="third">1/3 Octave</option>
+              </select>
+            </label>
+            <label class="small">Lo(Hz): <select id="band-lo"></select></label>
+            <label class="small">Hi(Hz): <select id="band-hi"></select></label>
+          </div>
+          <div style="margin-top:8px" class="row">
+            <label class="small">Time weighting:
+              <select id="time-weight">
+                <option value="none">None</option>
+                <option value="fast" selected>Fast(125 ms)</option>
+                <option value="slow">Slow(1 s)</option>
+                <option value="leq">Leq(window s)</option>
+                <option value="maxhold">MaxHold</option>
+              </select>
+            </label>
+            <label class="small">Leq window(s): <input id="leq-win" type="number" step="0.1" value="1.0" /></label>
+          </div>
+          <div style="margin-top:8px" class="row">
+            <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
+            <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
+            <button id="process-btn" class="btn primary" type="button" disabled style="padding:10px 16px">Process</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="muted">Log</div>
+        <div id="log"></div>
+      </div>
+
+      <div class="muted" style="text-align:center;font-size:12px">Tip: タブやプロットは選択したチャンネルに応じて動きます</div>
+    </div>
+  </aside>
+
+  <!-- RIGHT MAIN: Tabs, summary, plots -->
+  <main class="main">
+    <div class="card">
+      <div class="flex-between"><strong id="summary-title">Summary</strong><span class="muted">表頭＝周波数，表側＝指標。周波数ヘッダをクリックで該当プロットへスクロール。</span></div>
+      <div id="tabs" class="tabs hidden" style="margin-top:8px"></div>
+      <div id="table-wrap" style="margin-top:8px"></div>
+    </div>
+
+    <div id="plots-wrap"></div>
+  </main>
+
 </div>
 
-<div id="overlay" class="hidden">計算中…</div>
+<div id="overlay" class="hidden"><div style="text-align:center"><div class="spinner"></div><div style="margin-top:8px">計算中…</div></div></div>
 
 <script>
 /* overlay, logging, state, constants (変更なし) */
@@ -123,591 +189,450 @@ const overlayEl = document.getElementById('overlay');
 function showOverlay(){ overlayEl.classList.remove('hidden'); }
 function hideOverlay(){ overlayEl.classList.add('hidden'); }
 function logln(s){
-  const el=document.getElementById('log');
-  const t=new Date().toLocaleTimeString();
-  el.textContent += `[${t}] ${s}\n`;
-  el.scrollTop=el.scrollHeight;
+  const el=document.getElementById('log');
+  const t=new Date().toLocaleTimeString();
+  el.textContent += `[${t}] ${s}\n`;
+  el.scrollTop=el.scrollHeight;
 }
-function setStatus(s){ document.getElementById('status').textContent=s; logln(s); }
+function setStatus(s){ document.querySelector('header .muted').textContent=s; logln(s); }
 window.addEventListener('error', e=>{ setStatus('JS error: '+(e.message||e)); });
 window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : e.reason)); });
 let g = { files:[], csv:{rows:[], headerTokens:[], headerLike:false}, srCSV:25600, audio:null, results:null, setup:[] };
 const P0 = 2e-5; // Pa
 
 /* CSV parse */
-// --- ▼▼▼ 修正(A): バグ修正 ▼▼▼ ---
-// splitCSV のバグを修正 (\\t -> \t, \\s+ -> \s+)
 function splitCSV(line){
-  const out=[]; let cur=''; let inQ=false;
-  for(let i=0;i<line.length;i++){
-    const ch=line[i];
-    if(ch=='"'){ inQ=!inQ; continue; }
-    // (修正) '\\t' (リテラルな\) ではなく '\t' (タブ文字) を使う
-    if(!inQ&&(ch===','||ch=== '\t')){ out.push(cur.trim()); cur=''; continue; }
-    cur+=ch;
-  }
-  out.push(cur.trim());
-  // (修正) '/\\s+/' (リテラルな\s) ではなく '/\s+/' (空白文字) を使う
-  if(out.length===1 && out[0].includes(' ')) return out[0].split(/\s+/);
-  return out;
+  const out=[]; let cur=''; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch=='"'){ inQ=!inQ; continue; }
+    if(!inQ&&(ch===','||ch=== '\t')){ out.push(cur.trim()); cur=''; continue; }
+    cur+=ch;
+  }
+  out.push(cur.trim());
+  if(out.length===1 && out[0].includes(' ')) return out[0].split(/\s+/);
+  return out;
 }
-// --- ▲▲▲ 修正(A) ▲▲▲ ---
 
-// --- ▼▼▼ 修正 (1) ▼▼▼ ---
-// 巨大CSV (S1_100.csv) 対策: 従来の parseCSV (丸ごと読み込み) を、
-// ストリーム(chunk)で処理する parseCSVStream に置き換える。
 async function parseCSVStream(file, hasHeader = true) {
-    const rows = [];
-    let headerTokens = [];
-    // 'utf-8' を明示。'shift-jis' 等の場合はここを変更する
-    const decoder = new TextDecoder('utf-8'); 
-    let leftover = ''; // チャンクをまたぐ不完全な行
-    let firstChunk = true; // BOMスキップ用
-
-    // File オブジェクトから ReadableStream を取得
-    // (これがサポートされていないブラウザでは動作しない)
-    const stream = file.stream();
-    const reader = stream.getReader();
-    logln('CSV stream parsing started...');
-
-    while (true) {
-        const { done, value } = await reader.read(); // value = Uint8Array
-        if (done) break; 
-        let textChunk = decoder.decode(value, { stream: true });
-        
-        if (firstChunk) {
-            if (textChunk.startsWith('\uFEFF')) { // BOM削除
-                textChunk = textChunk.substring(1);
-            }
-            firstChunk = false;
-        }
-        
-        textChunk = leftover + textChunk; // 前の残りと結合
-        const lines = textChunk.split(/\r?\n/);
-        leftover = lines.pop(); // 最後の不完全な行を次へ
-
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.length === 0) continue; 
-            if (hasHeader && headerTokens.length === 0) {
-                // 1行目をヘッダーとして処理
-                headerTokens = splitCSV(trimmedLine); // 修正(A)済みの splitCSV が呼ばれる
-            } else {
-                // データ行として処理
-                const row = splitCSV(trimmedLine).map(t => { // 修正(A)済みの splitCSV が呼ばれる
-                    const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN;
-                });
-                rows.push(row);
-            }
-        }
-    }
-
-    // 最後の残り (leftover) を処理
-    const trimmedLeftover = leftover.trim();
-    if (trimmedLeftover.length > 0) {
-        if (hasHeader && headerTokens.length === 0) {
-            headerTokens = splitCSV(trimmedLeftover);
-        } else {
-            const row = splitCSV(trimmedLeftover).map(t => {
-                const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN;
-            });
-            rows.push(row);
-        }
-    }
-    
-    // (ヘッダーなし の場合のダミーヘッダー作成ロジックは、10:17のコードに忠実に、省略)
-
-    logln(`CSV stream parsing finished. ${rows.length} rows loaded.`);
-    return { rows, headerTokens, headerLike: hasHeader };
+    const rows = [];
+    let headerTokens = [];
+    const decoder = new TextDecoder('utf-8');
+    let leftover = '';
+    let firstChunk = true;
+    const stream = file.stream();
+    const reader = stream.getReader();
+    logln('CSV stream parsing started...');
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        let textChunk = decoder.decode(value, { stream: true });
+        if (firstChunk) {
+            if (textChunk.startsWith('\uFEFF')) { textChunk = textChunk.substring(1); }
+            firstChunk = false;
+        }
+        textChunk = leftover + textChunk;
+        const lines = textChunk.split(/\r?\n/);
+        leftover = lines.pop();
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.length === 0) continue;
+            if (hasHeader && headerTokens.length === 0) {
+                headerTokens = splitCSV(trimmedLine);
+            } else {
+                const row = splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
+                rows.push(row);
+            }
+        }
+    }
+    const trimmedLeftover = leftover.trim();
+    if (trimmedLeftover.length > 0) {
+        if (hasHeader && headerTokens.length === 0) {
+            headerTokens = splitCSV(trimmedLeftover);
+        } else {
+            const row = splitCSV(trimmedLeftover).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
+            rows.push(row);
+        }
+    }
+    logln(`CSV stream parsing finished. ${rows.length} rows loaded.`);
+    return { rows, headerTokens, headerLike: hasHeader };
 }
-// --- ▲▲▲ 修正 (1) ▲▲▲ ---
-
 
 /* WAV decode (変更なし) */
 function readWavHeader(buf){
-  const v=new DataView(buf);
-  function str(o,n){ return String.fromCharCode(...new Uint8Array(buf,o,n)); }
-  if(str(0,4)!=='RIFF' || str(8,4)!=='WAVE') throw new Error('Not WAVE');
-  let off=12, fmt=-1, data=-1, dl=0, ba=0, bps=0, ch=0, sr=0, af=0;
-  while(off+8<=v.byteLength){
-    const id=str(off,4); const len=v.getUint32(off+4,true); off+=8;
-    if(id==='fmt '){ af=v.getUint16(off+0,true); ch=v.getUint16(off+2,true); sr=v.getUint32(off+4,true); ba=v.getUint16(off+12,true); bps=v.getUint16(off+14,true); }
-    else if(id==='data'){ data=off; dl=len; }
-    off+=len;
-  }
-  return {audioFormat:af, numChannels:ch, sampleRate:sr, bitsPerSample:bps, blockAlign:ba, dataOffset:data, dataLength:dl};
+  const v=new DataView(buf);
+  function str(o,n){ return String.fromCharCode(...new Uint8Array(buf,o,n)); }
+  if(str(0,4)!=='RIFF' || str(8,4)!=='WAVE') throw new Error('Not WAVE');
+  let off=12, fmt=-1, data=-1, dl=0, ba=0, bps=0, ch=0, sr=0, af=0;
+  while(off+8<=v.byteLength){
+    const id=str(off,4); const len=v.getUint32(off+4,true); off+=8;
+    if(id==='fmt '){ af=v.getUint16(off+0,true); ch=v.getUint16(off+2,true); sr=v.getUint32(off+4,true); ba=v.getUint16(off+12,true); bps=v.getUint16(off+14,true); }
+    else if(id==='data'){ data=off; dl=len; }
+    off+=len;
+  }
+  return {audioFormat:af, numChannels:ch, sampleRate:sr, bitsPerSample:bps, blockAlign:ba, dataOffset:data, dataLength:dl};
 }
 function decodePCM(buf){
-  const h=readWavHeader(buf);
-  const v=new DataView(buf, h.dataOffset, h.dataLength);
-  const frames=Math.floor(h.dataLength/h.blockAlign);
-  const out=Array.from({length:h.numChannels}, ()=>new Float32Array(frames));
-  let p=0;
-  for(let i=0;i<frames;i++){
-    for(let c=0;c<h.numChannels;c++){
-      let y=0;
-      if(h.audioFormat===1){
-        if(h.bitsPerSample===16){ y=v.getInt16(p,true)/32768; p+=2; }
-        else if(h.bitsPerSample===24){ const b0=v.getUint8(p), b1=v.getUint8(p+1), b2=v.getUint8(p+2); let x=(b2<<16)|(b1<<8)|b0; if(x&0x800000) x|=0xFF000000; y=x/8388608; p+=3; }
-        else if(h.bitsPerSample===32){ y=v.getInt32(p,true)/2147483648; p+=4; }
-        else throw new Error('PCM bits '+h.bitsPerSample);
-      }else if(h.audioFormat===3){
-        if(h.bitsPerSample!==32) throw new Error('float bits '+h.bitsPerSample);
-        y=v.getFloat32(p,true); p+=4;
-      }else{ throw new Error('fmt '+h.audioFormat); }
-      out[c][i]=y;
-    }
-  }
-  return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
+  const h=readWavHeader(buf);
+  const v=new DataView(buf, h.dataOffset, h.dataLength);
+  const frames=Math.floor(h.dataLength/h.blockAlign);
+  const out=Array.from({length:h.numChannels}, ()=>new Float32Array(frames));
+  let p=0;
+  for(let i=0;i<frames;i++){
+    for(let c=0;c<h.numChannels;c++){
+      let y=0;
+      if(h.audioFormat===1){
+        if(h.bitsPerSample===16){ y=v.getInt16(p,true)/32768; p+=2; }
+        else if(h.bitsPerSample===24){ const b0=v.getUint8(p), b1=v.getUint8(p+1), b2=v.getUint8(p+2); let x=(b2<<16)|(b1<<8)|b0; if(x&0x800000) x|=0xFF000000; y=x/8388608; p+=3; }
+        else if(h.bitsPerSample===32){ y=v.getInt32(p,true)/2147483648; p+=4; }
+        else throw new Error('PCM bits '+h.bitsPerSample);
+      }else if(h.audioFormat===3){
+        if(h.bitsPerSample!==32) throw new Error('float bits '+h.bitsPerSample);
+        y=v.getFloat32(p,true); p+=4;
+      }else{ throw new Error('fmt '+h.audioFormat); }
+      out[c][i]=y;
+    }
+  }
+  return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
 /* UI actions */
-// (refreshBandRangeUI は変更なし)
 function refreshBandRangeUI(){
-  const type = document.getElementById('band-type').value;
-  const loSel = document.getElementById('band-lo');
-  const hiSel = document.getElementById('band-hi');
-  const list = fullCenters(type);
-  loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
-  hiSel.innerHTML = loSel.innerHTML;
-  loSel.value = list[0];
-  hiSel.value = list[list.length-1];
+  const type = document.getElementById('band-type').value;
+  const loSel = document.getElementById('band-lo');
+  const hiSel = document.getElementById('band-hi');
+  const list = fullCenters(type);
+  loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
+  hiSel.innerHTML = loSel.innerHTML;
+  loSel.value = list[0];
+  hiSel.value = list[list.length-1];
 }
 
-// --- ▼▼▼ 修正 (1) & (2) ▼▼▼ ---
-// 修正(1): ストリーム処理(await)のため、async (非同期) 関数に変更
 async function onClickLoad(){
-// --- ▲▲▲ 修正 (1) & (2) ▲▲▲ ---
-  if(!g.files || g.files.length===0){ alert('ファイルを選択してください'); return; }
-  const f=g.files[0];
-  const ext=f.name.toLowerCase().split('.').pop();
-  setStatus('Loading '+f.name+' ...');
-  const fr=new FileReader(); // (WAV読み込み用に残す)
+  if(!g.files || g.files.length===0){ alert('ファイルを選択してください'); return; }
+  const f=g.files[0];
+  const ext=f.name.toLowerCase().split('.').pop();
+  setStatus('Loading '+f.name+' ...');
+  const fr=new FileReader();
 
-  if(ext==='csv' || ext==='txt'){
-    // 修正(1): 従来の fr.readAsText() をやめ、ストリームパーサー(parseCSVStream)を呼ぶ
-    try{
-      const hasHeader=document.getElementById('has-header').checked;
-      // (修正1) await でストリームパーサーを呼び、結果を g.csv に格納
-      // g.csv = parseCSV(txt, hasHeader); (オリジナル)
-      g.csv = await parseCSVStream(f, hasHeader);
-      
-      // SR推定 (変更なし)
-      if(g.csv.rows.length>4){
-        const t = g.csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
-        if(t.length>4){
-          const dt=[]; for(let i=1;i<t.length;i++){ const d=t[i]-t[i-1]; if(isFinite(d) && d>0) dt.push(d); }
-          if(dt.length){
-            const sorted=Float64Array.from(dt).sort();
-            const med = sorted[Math.floor(sorted.length/2)] || 0;
-            if(med>0){ g.srCSV = 1/med; document.getElementById('csv-sr').value = Math.round(g.srCSV); }
-          }
-        }
-      }
-      document.getElementById('config').classList.remove('hidden');
-      document.getElementById('process-btn').disabled=false;
-
-      // (修正2) CSVの列数をチャンネル数(nch)として認識する
-      // 1列目(Time)を除く列数を nch として取得
-      // (修正(A)の splitCSV バグ修正により、ここが正しく列数をカウントするようになる)
-      const nch = g.csv.headerLike ? Math.max(0, g.csv.headerTokens.length - 1) : (g.csv.rows.length > 0 ? Math.max(0, g.csv.rows[0].length - 1) : 0);
-      // 1列目(Time)を除くヘッダー名 (FH, Acc, Mic) を取得
-      const colNames = g.csv.headerLike ? g.csv.headerTokens.slice(1) : []; 
-
-      ensureSetup(nch, colNames); // (修正2) nch と colNames を渡す (オリジナルは ensureSetup(1))
-      buildTabs(nch, colNames);   // (修正2) nch と colNames を渡す (オリジナルは buildTabs(1))
-
-      refreshBandRangeUI();
-      // (修正2) ログに行数と「列数」を表示
-      setStatus('CSV loaded (streamed): '+g.csv.rows.length+' rows, '+nch+' data cols, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
-  
-    }catch(err){ 
-      setStatus('CSV load error: '+err.message); 
-      if (err.message.includes('stream') || err.message.includes('not a function')) {
-        setStatus('CSV load error: '+err.message + ' (ブラウザがStreaming API未対応の可能性)');
-      }
-    }
-    // fr.readAsText(f); (オリジナルは削除)
-  }else{
-    // WAV読み込み
-    fr.onload = ()=>{
-      try{
-        const buf=fr.result;
-        g.audio = decodePCM(buf);
-        document.getElementById('csv-sr').value = g.audio.sampleRate;
-        document.getElementById('config').classList.remove('hidden');
-        document.getElementById('process-btn').disabled=false;
-        
-        // --- ▼▼▼ 修正 (2) ▼▼▼ ---
-        // WAVの場合は colNames は不要 (空配列)
-        ensureSetup(g.audio.numberOfChannels, []); // colNames引数[]を追加 (オリジナルは ensureSetup(g.audio.numberOfChannels))
-        buildTabs(g.audio.numberOfChannels, []); // colNames引数[]を追加 (オリジナルは buildTabs(g.audio.numberOfChannels))
-        // --- ▲▲▲ 修正 (2) ▲▲▲ ---
-
-        refreshBandRangeUI();
-        setStatus(`WAV loaded: ${g.audio.numberOfChannels} ch, ${g.audio.sampleRate} Hz, ${g.audio.length} frames`);
-      }catch(err){ setStatus('WAV load error: '+err.message); }
-    };
-    fr.readAsArrayBuffer(f);
-  }
+  if(ext==='csv' || ext==='txt'){
+    try{
+      const hasHeader=document.getElementById('has-header').checked;
+      g.csv = await parseCSVStream(f, hasHeader);
+      if(g.csv.rows.length>4){
+        const t = g.csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
+        if(t.length>4){
+          const dt=[]; for(let i=1;i<t.length;i++){ const d=t[i]-t[i-1]; if(isFinite(d) && d>0) dt.push(d); }
+          if(dt.length){
+            const sorted=Float64Array.from(dt).sort();
+            const med = sorted[Math.floor(sorted.length/2)] || 0;
+            if(med>0){ g.srCSV = 1/med; document.getElementById('csv-sr').value = Math.round(g.srCSV); }
+          }
+        }
+      }
+      document.getElementById('config').classList.remove('hidden');
+      document.getElementById('process-btn').disabled=false;
+      const nch = g.csv.headerLike ? Math.max(0, g.csv.headerTokens.length - 1) : (g.csv.rows.length > 0 ? Math.max(0, g.csv.rows[0].length - 1) : 0);
+      const colNames = g.csv.headerLike ? g.csv.headerTokens.slice(1) : [];
+      ensureSetup(nch, colNames);
+      buildTabs(nch, colNames);
+      refreshBandRangeUI();
+      setStatus('CSV loaded (streamed): '+g.csv.rows.length+' rows, '+nch+' data cols, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
+    }catch(err){
+      setStatus('CSV load error: '+err.message);
+      if (err.message.includes('stream') || err.message.includes('not a function')) {
+        setStatus('CSV load error: '+err.message + ' (ブラウザがStreaming API未対応の可能性)');
+      }
+    }
+  }else{
+    fr.onload = ()=>{
+      try{
+        const buf=fr.result;
+        g.audio = decodePCM(buf);
+        document.getElementById('csv-sr').value = g.audio.sampleRate;
+        document.getElementById('config').classList.remove('hidden');
+        document.getElementById('process-btn').disabled=false;
+        ensureSetup(g.audio.numberOfChannels, []);
+        buildTabs(g.audio.numberOfChannels, []);
+        refreshBandRangeUI();
+        setStatus(`WAV loaded: ${g.audio.numberOfChannels} ch, ${g.audio.sampleRate} Hz, ${g.audio.length} frames`);
+      }catch(err){ setStatus('WAV load error: '+err.message); }
+    };
+    fr.readAsArrayBuffer(f);
+  }
 }
 
 /* Channel setup UI */
-// --- ▼▼▼ 修正 (2) ▼▼▼ ---
-// function ensureSetup(nch){ -> function ensureSetup(nch, colNames=[]){
-// colNames はCSVのヘッダー名 (Time列を除く) の配列 (例: ["FH", "Acc", "Mic"])
 function ensureSetup(nch, colNames=[]){
-// --- ▲▲▲ 修正 (2) ▲▲▲ ---
-  const root = document.getElementById('setup');
-  const body = document.getElementById('setup-body');
-  root.classList.remove('hidden');
+  const root = document.getElementById('setup');
+  root.classList.remove('hidden');
+  const body = root;
+  if(g.setup.length !== nch){
+    g.setup = [];
+    for(let i=0; i<nch; i++){
+      const colName = (colNames && colNames[i]) ? colNames[i].trim() : '';
+      let defaultRole = 'Microphone';
+      if (colName.toLowerCase().includes('fh') || colName.toLowerCase().includes('force')) defaultRole = 'Force hammer';
+      else if (colName.toLowerCase().includes('acc')) defaultRole = 'Accelerometer';
+      g.setup.push({use:i===0?true:false, role:defaultRole, gain:1.0});
+    }
+  }
+  let html = '<table style="width:100%"><thead><tr><th style="text-align:left">Use</th><th>CH</th><th>Role</th><th>Correction ×</th></tr></thead><tbody>';
+  for(let i=0;i<nch;i++){
+    const st = g.setup[i];
+    html += '<tr>'
+      + `<td style="text-align:center"><input type="checkbox" data-k="${i}" class="ck-use" ${st.use?'checked':''}></td>`
+      + `<td style="text-align:center">CH${i+1}</td>`
+      + `<td style="text-align:center"><select data-k="${i}" class="sel-role">`
+      + ['Force hammer','Accelerometer','Microphone'].map(r=>`<option value="${r}" ${st.role===r?'selected':''}>${r}</option>`).join('')
+      + `</select></td>`
+      + `<td><input type="number" step="any" value="${st.gain}" data-k="${i}" class="num-gain" style="width:120px"></td>`
+      + '</tr>';
+  }
+  html += '</tbody></table>';
+  body.innerHTML = html;
+  const nDataCols = g.audio ? g.audio.numberOfChannels : nch;
+  const csvColNames = g.audio ? [] : colNames;
 
-  // (修正2) チャンネル数が異なる場合はセットアップを強制的に再構築する
-  if(g.setup.length !== nch){
-    g.setup = []; // リセット
-    for(let i=0; i<nch; i++){
-      // 列名(colName)からデフォルトのRoleを推測する
-      const colName = (colNames && colNames[i]) ? colNames[i].trim() : '';
-      let defaultRole = 'Microphone'; // デフォルト
-      if (colName.toLowerCase().includes('fh') || colName.toLowerCase().includes('force')) defaultRole = 'Force hammer';
-      else if (colName.toLowerCase().includes('acc')) defaultRole = 'Accelerometer';
-      
-      // 1番目のデータ列(i=0, S1_100.csvではFH) だけデフォルトで Use=true にする
-      g.setup.push({use:i===0?true:false, role:defaultRole, gain:1.0});
-    }
-  }
-  
-  // (修正2) UI構築
-  // (注) CSVの場合でも「不細工」と言われないよう、オリジナルのUI(CH${i+1})を維持する
-  // CSVの列名 (FH, Acc...) は、この下の buildTabs() で「タブ」に表示する
-  let html = '<table><thead><tr><th style="text-align:left">Use</th><th>CH</th><th>Role</th><th>Correction ×</th></tr></thead><tbody>';
-  for(let i=0;i<nch;i++){
-    const st = g.setup[i]; // g.setup[i] は上記で必ず存在する
-    
-    html += '<tr>'
-      + `<td style="text-align:center"><input type="checkbox" data-k="${i}" class="ck-use" ${st.use?'checked':''}></td>`
-      + `<td style="text-align:center">CH${i+1}</td>` // (修正2) オリジナルのUIを維持 (colName を使わない)
-      + `<td style="text-align:center"><select data-k="${i}" class="sel-role">`
-      + ['Force hammer','Accelerometer','Microphone'].map(r=>`<option value="${r}" ${st.role===r?'selected':''}>${r}</option>`).join('')
-      + `</select></td>`
-      + `<td><input type="number" step="any" value="${st.gain}" data-k="${i}" class="num-gain" style="width:120px"></td>`
-      + '</tr>';
-  }
-  html += '</tbody></table>';
-  body.innerHTML = html;
-
-  // (修正2) イベントリスナー内の buildTabs 呼び出しを修正
-  const nDataCols = g.audio ? g.audio.numberOfChannels : nch;
-  const csvColNames = g.audio ? [] : colNames; // (colNames を buildTabs に渡す)
-
-  body.querySelectorAll('.ck-use').forEach(el=> el.addEventListener('change', ev=>{
-    const k=+ev.target.dataset.k; g.setup[k].use = ev.target.checked; 
-    buildTabs(nDataCols, csvColNames); // (修正2) (オリジナルは buildTabs(g.audio?g.audio.numberOfChannels:1))
-  }));
-  body.querySelectorAll('.sel-role').forEach(el=> el.addEventListener('change', ev=>{
-    const k=+ev.target.dataset.k; g.setup[k].role = ev.target.value; 
-    buildTabs(nDataCols, csvColNames); // (修正2)
-  }));
-  body.querySelectorAll('.num-gain').forEach(el=> el.addEventListener('input', ev=>{
-    const k=+ev.target.dataset.k; const v=parseFloat(ev.target.value); g.setup[k].gain = isFinite(v)?v:1.0;
-  }));
+  body.querySelectorAll('.ck-use').forEach(el=> el.addEventListener('change', ev=>{
+    const k=+ev.target.dataset.k; g.setup[k].use = ev.target.checked;
+    buildTabs(nDataCols, csvColNames);
+  }));
+  body.querySelectorAll('.sel-role').forEach(el=> el.addEventListener('change', ev=>{
+    const k=+ev.target.dataset.k; g.setup[k].role = ev.target.value;
+    buildTabs(nDataCols, csvColNames);
+  }));
+  body.querySelectorAll('.num-gain').forEach(el=> el.addEventListener('input', ev=>{
+    const k=+ev.target.dataset.k; const v=parseFloat(ev.target.value); g.setup[k].gain = isFinite(v)?v:1.0;
+  }));
 }
 
 /* CH tabs */
-// --- ▼▼▼ 修正 (2) ▼▼▼ ---
-// function buildTabs(nch){ -> function buildTabs(nch, colNames=[]){
 function buildTabs(nch, colNames=[]){
-// --- ▲▲▲ 修正 (2) ▲▲▲ ---
-  const tabs=document.getElementById('tabs'); tabs.innerHTML=''; tabs.classList.remove('hidden');
-  for(let ch=0; ch<nch; ch++){
-    if(g.setup[ch] && g.setup[ch].use){
-      const d=document.createElement('div'); d.className='tab'+(tabs.children.length===0?' active':'');
-      
-      // (修正2) タブ名にCSVヘッダー名(colName)を表示する
-      // (WAVの場合は 'CH'+(ch+1) を表示する)
-      const isCSV = !g.audio && colNames.length > 0;
-      const colName = (isCSV && colNames[ch]) ? colNames[ch].trim() : ('CH'+(ch+1));
-      const nm = g.setup[ch].role || 'Role N/A';
-      d.textContent = `${colName} (${nm})`; // (例: "FH (Force hammer)" や "CH1 (Microphone)")
-      // (オリジナルは d.textContent = `CH${ch+1} (${nm})`;)
-
-      d.dataset.ch=ch; // ch は 0-based インデックス (0: FH, 1: Acc, 2: Mic)
-      d.addEventListener('click', ()=>{
-        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-        d.classList.add('active'); renderChannel(ch);
-      });
-      tabs.appendChild(d);
-    }
-  }
-  document.getElementById('summary').classList.remove('hidden');
-  const first = tabs.querySelector('.tab');
-  if(first){ renderChannel(+first.dataset.ch); }
-  else {
-    document.getElementById('summary-title').textContent='No channel selected';
-    document.getElementById('table-wrap').innerHTML='';
-    document.getElementById('plots-wrap').innerHTML='';
-  }
+  const tabs=document.getElementById('tabs'); tabs.innerHTML=''; tabs.classList.remove('hidden');
+  for(let ch=0; ch<nch; ch++){
+    if(g.setup[ch] && g.setup[ch].use){
+      const d=document.createElement('div'); d.className='tab'+(tabs.children.length===0?' active':'');
+      const isCSV = !g.audio && colNames.length > 0;
+      const colName = (isCSV && colNames[ch]) ? colNames[ch].trim() : ('CH'+(ch+1));
+      const nm = g.setup[ch].role || 'Role N/A';
+      d.textContent = `${colName} (${nm})`;
+      d.dataset.ch=ch;
+      d.addEventListener('click', ()=>{
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        d.classList.add('active'); renderChannel(ch);
+      });
+      tabs.appendChild(d);
+    }
+  }
+  const first = tabs.querySelector('.tab');
+  if(first){ renderChannel(+first.dataset.ch); }
+  else {
+    document.getElementById('summary-title').textContent='No channel selected';
+    document.getElementById('table-wrap').innerHTML='';
+    document.getElementById('plots-wrap').innerHTML='';
+  }
 }
 
-// --- ▼▼▼ 修正 (4) ▼▼▼ ---
-// 10:17 のコードにはなかったが、処理中のボタン制御ロジックを追加
 function setBtnProcessing(on){
-  const btn = document.getElementById('process-btn');
-  if(!btn) return;
-  if(on){
-    btn.classList.add('processing');
-    btn.disabled = true;
-    btn.style.setProperty('background','#dc2626','important');
-    btn.style.setProperty('color','#fff','important');
-    btn.style.setProperty('border','none','important');
-    btn.setAttribute('aria-busy','true');
-  }else{
-    btn.classList.remove('processing');
-    btn.disabled = false;
-    btn.style.removeProperty('background');
-    btn.style.removeProperty('color');
-    btn.style.removeProperty('border');
-    btn.removeAttribute('aria-busy');
-  }
-  logln(`btn processing=${on} class=${btn.classList.contains('processing')} disabled=${btn.disabled}`);
+  const btn = document.getElementById('process-btn');
+  if(!btn) return;
+  if(on){
+    btn.classList.add('processing');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy','true');
+  }else{
+    btn.classList.remove('processing');
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+  }
+  logln(`btn processing=${on} class=${btn.classList.contains('processing')} disabled=${btn.disabled}`);
 }
-// --- ▲▲▲ 修正 (4) ▲▲▲ ---
 
 /* processing */
 async function onProcess(){
-  // const btn = ... (オリジナル)
-  try{
-    // (修正4) 開始制御
-    setBtnProcessing(true); // (オリジナルは btn.classList.add...)
-    showOverlay();
-    document.getElementById('table-wrap').innerHTML = '';
-    document.getElementById('plots-wrap').innerHTML = '';
-    setStatus('Processing...');
-    await Promise.resolve(); // (10:30 のコードから移植)
-    await new Promise(requestAnimationFrame);
+  try{
+    setBtnProcessing(true);
+    showOverlay();
+    document.getElementById('table-wrap').innerHTML = '';
+    document.getElementById('plots-wrap').innerHTML = '';
+    setStatus('Processing...');
+    await Promise.resolve();
+    await new Promise(requestAnimationFrame);
 
-    const N = 36; // (10:17 のコードでは N=36)
-    const bandType = document.getElementById('band-type').value;
-    const centersAll = bandType==='oct' ? centersOct() : centersThird();
-    const lo = Number(document.getElementById('band-lo').value)||16;
-    const hi = Number(document.getElementById('band-hi').value)||8000;
-    const centers = centersAll.filter(f=> f>=lo && f<=hi);
+    const N = 36;
+    const bandType = document.getElementById('band-type').value;
+    const centersAll = bandType==='oct' ? centersOct() : centersThird();
+    const lo = Number(document.getElementById('band-lo').value)||16;
+    const hi = Number(document.getElementById('band-hi').value)||8000;
+    const centers = centersAll.filter(f=> f>=lo && f<=hi);
 
-    let sr=0, nch=0, getData=null;
-    if(g.audio){ sr=g.audio.sampleRate; nch=g.audio.numberOfChannels; getData=i=>g.audio.getChannelData(i); }
-    else if(g.csv.rows.length){ 
-      sr=Number(document.getElementById('csv-sr').value)||g.srCSV||25600; 
-      
-      // --- ▼▼▼ 修正 (3) ▼▼▼ ---
-      // CSVの場合、nchは決め打ち(1)ではなく、setupの数 (FH, Acc, Mic なら 3)
-      nch = g.setup.length; 
-      // getData(i) が呼ばれたら、i (0, 1, 2...) に 1 を足した列 (1, 2, 3...) のデータを返す
-      getData = i => {
-        const colIdx = i + 1; // 0-based(i) -> 1-based(colIdx)
-        // (安全装置) 存在しない列 (Time列を含むヘッダー長 or 最初のデータ行の列長 を超えた) にアクセスしようとしたらエラー
-        const maxCols = (g.csv.headerTokens.length > 0) ? g.csv.headerTokens.length : (g.csv.rows.length > 0 ? g.csv.rows[0].length : 0);
-        if (colIdx >= maxCols) {
-          setStatus(`Error: Tried to access invalid CSV column index ${colIdx} (Max: ${maxCols})`);
-          return new Float32Array(0); // 空の配列を返す
-        }
-        
-        try {
-          // (オリジナルは r[1] 決め打ちだった)
-          return Float32Array.from(g.csv.rows.map(r => Number(r[colIdx]) || 0));
-        } catch (e) {
-          setStatus(`Error processing CSV column ${colIdx}: ${e.message}`);
-          return new Float32Array(0);
-        }
-      };
-      // (オリジナルのコード: nch=1; const y=Float32Array.from(g.csv.rows.map(r=> Number(r[1])||0)); getData=i=>y;)
-      // --- ▲▲▲ 修正 (3) ▲▲▲ ---
-    } 
-    else{ throw new Error('no data'); }
+    let sr=0, nch=0, getData=null;
+    if(g.audio){ sr=g.audio.sampleRate; nch=g.audio.numberOfChannels; getData=i=>g.audio.getChannelData(i); }
+    else if(g.csv.rows.length){
+      sr=Number(document.getElementById('csv-sr').value)||g.srCSV||25600;
+      nch = g.setup.length;
+      getData = i => {
+        const colIdx = i + 1;
+        const maxCols = (g.csv.headerTokens.length > 0) ? g.csv.headerTokens.length : (g.csv.rows.length > 0 ? g.csv.rows[0].length : 0);
+        if (colIdx >= maxCols) { setStatus(`Error: Tried to access invalid CSV column index ${colIdx} (Max: ${maxCols})`); return new Float32Array(0); }
+        try { return Float32Array.from(g.csv.rows.map(r => Number(r[colIdx]) || 0)); } catch (e) { setStatus(`Error processing CSV column ${colIdx}: ${e.message}`); return new Float32Array(0); }
+      };
+    }
+    else{ throw new Error('no data'); }
 
-    const timeMode = document.getElementById('time-weight').value;
-    const leqWin = Math.max(1e-3, Number(document.getElementById('leq-win').value)||1);
-    // (修正3) nch は CSV の場合 3 になっているので、usedIdx も [0, 1, 2] のように正しく設定される
-    const usedIdx = []; for(let ch=0; ch<nch; ch++){ if(g.setup[ch] && g.setup[ch].use) usedIdx.push(ch); }
+    const timeMode = document.getElementById('time-weight').value;
+    const leqWin = Math.max(1e-3, Number(document.getElementById('leq-win').value)||1);
+    const usedIdx = []; for(let ch=0; ch<nch; ch++){ if(g.setup[ch] && g.setup[ch].use) usedIdx.push(ch); }
 
-    const results = [];
-    // (修正3) ch は 0, 1, 2... (setupのインデックス) となる
-    for(const ch of usedIdx){
-      const cfg = g.setup[ch];
-      // (修正3) getData(ch) で CSVの ch+1 列目のデータが取得される
-      let x = getData(ch); 
-      if(x.length === 0) {
-        setStatus(`Skipping CH ${ch+1} due to data load error.`);
-        continue; // データ取得に失敗したらスキップ
-      }
-      if(cfg.gain && cfg.gain!==1){ const xx=new Float32Array(x.length); for(let i=0;i<x.length;i++) xx[i]=x[i]*cfg.gain; x=xx; }
-      
-      const byBand = {};
-      for(let i=0;i<centers.length;i++){
-        const fc=centers[i];
-        if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
-        const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
-        const y  = sosFilter(x, sos);
-        const T = y.length/sr;
-        const mean_p2 = (()=>{ let s=0; for(let k=0;k<y.length;k++) s+=y[k]*y[k]; return s/Math.max(1,y.length); })();
-        const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
-        const LE  = Leq + 10*Math.log10(Math.max(1e-24, T));
-        const sFast = ewmaSquaredToSPL(y, sr, 0.125);
-        const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
-        let series =
-          timeMode==='fast' || timeMode==='none' ? sFast :
-          timeMode==='slow' ? sSlow :
-          timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
-          (()=>{
-            const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length);
-            for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; }
-            return out;
-          })();
-        const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
-        const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
-        const L05 = percentile(series, 0.95);
-        const L10 = percentile(series, 0.90);
-        const L50 = percentile(series, 0.50);
-        const L90 = percentile(series, 0.10);
-        const L95 = percentile(series, 0.05);
-        byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
-      }
-      // (修正3) channelIndex は 0-based の setup インデックス
-      results.push({channelIndex:ch, role:cfg.role, byBand, centers, sr});
-    }
-    g.results = {results, centers, sr};
-    setStatus('Processed');
-    const active = document.querySelector('#tabs .tab.active');
-    if(active){ renderChannel(+active.dataset.ch); }
-  }catch(err){
-    setStatus('Process error: '+err.message);
-  }finally{
-    // (修正4) 終了制御
-    hideOverlay();
-    setBtnProcessing(false); // (オリジナルは btn.classList.remove...)
-  }
+    const results = [];
+    for(const ch of usedIdx){
+      const cfg = g.setup[ch];
+      let x = getData(ch);
+      if(x.length === 0) { setStatus(`Skipping CH ${ch+1} due to data load error.`); continue; }
+      if(cfg.gain && cfg.gain!==1){ const xx=new Float32Array(x.length); for(let i=0;i<x.length;i++) xx[i]=x[i]*cfg.gain; x=xx; }
+      const byBand = {};
+      for(let i=0;i<centers.length;i++){
+        const fc=centers[i];
+        if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
+        const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
+        const y  = sosFilter(x, sos);
+        const T = y.length/sr;
+        const mean_p2 = (()=>{ let s=0; for(let k=0;k<y.length;k++) s+=y[k]*y[k]; return s/Math.max(1,y.length); })();
+        const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
+        const LE  = Leq + 10*Math.log10(Math.max(1e-24, T));
+        const sFast = ewmaSquaredToSPL(y, sr, 0.125);
+        const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
+        let series =
+          timeMode==='fast' || timeMode==='none' ? sFast :
+          timeMode==='slow' ? sSlow :
+          timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
+          (()=>{ const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length); for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; } return out; })();
+        const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
+        const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
+        const L05 = percentile(series, 0.95);
+        const L10 = percentile(series, 0.90);
+        const L50 = percentile(series, 0.50);
+        const L90 = percentile(series, 0.10);
+        const L95 = percentile(series, 0.05);
+        byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
+      }
+      results.push({channelIndex:ch, role:cfg.role, byBand, centers, sr});
+    }
+    g.results = {results, centers, sr};
+    setStatus('Processed');
+    const active = document.querySelector('#tabs .tab.active');
+    if(active){ renderChannel(+active.dataset.ch); }
+  }catch(err){
+    setStatus('Process error: '+err.message);
+  }finally{
+    hideOverlay();
+    setBtnProcessing(false);
+  }
 }
 
 /*** render per channel ***/
 function renderChannel(ch){
-  if(!g.results){ document.getElementById('summary-title').textContent='Summary'; return; }
-  // (修正2) ch は 0-based setup インデックス (0, 1, 2...)
-  const rec = g.results.results.find(r=>r.channelIndex===ch); 
-  if(!rec){
-    document.getElementById('summary-title').textContent=`CH${ch+1} (omitted)`;
-    document.getElementById('table-wrap').innerHTML='';
-    document.getElementById('plots-wrap').innerHTML='';
-    return;
-  }
+  if(!g.results){ document.getElementById('summary-title').textContent='Summary'; return; }
+  const rec = g.results.results.find(r=>r.channelIndex===ch);
+  if(!rec){
+    document.getElementById('summary-title').textContent=`CH${ch+1} (omitted)`;
+    document.getElementById('table-wrap').innerHTML='';
+    document.getElementById('plots-wrap').innerHTML='';
+    return;
+  }
+  const setup = g.setup[ch];
+  const isCSV = !g.audio && g.csv.headerLike;
+  const chName = (isCSV && g.csv.headerTokens[ch+1]) ? g.csv.headerTokens[ch+1].trim() : ('CH'+(ch+1));
+  document.getElementById('summary-title').textContent = `Channel ${chName} (${setup.role}) — ${document.getElementById('band-type').value==='oct'?'1/1':'1/3'} octave`;
 
-  // --- ▼▼▼ 修正 (2) ▼▼▼ ---
-  // チャンネルタイトル表示を、CSV/WAV両対応にする
-  const setup = g.setup[ch]; // ch (0, 1, 2...) に対応する setup を取得
-  const isCSV = !g.audio && g.csv.headerLike;
-  const chName = (isCSV && g.csv.headerTokens[ch+1]) 
-                  ? g.csv.headerTokens[ch+1].trim() // CSVなら "FH", "Acc" など
-                  : ('CH'+(ch+1));                 // WAVなら "CH1", "CH2" など
+  const centers = rec.centers;
+  const metrics = [
+    {key:'Lfmax', label:'Lfmax(dB)'},
+    {key:'Lsmax', label:'Lsmax(dB)'},
+    {key:'Leq',   label:'Leq(dB)'},
+    {key:'LE',    label:'LE(dB)'},
+    {key:'L05',   label:'L05'},
+    {key:'L10',   label:'L10'},
+    {key:'L50',   label:'L50'},
+    {key:'L90',   label:'L90'},
+    {key:'L95',   label:'L95'},
+  ];
 
-  document.getElementById('summary-title').textContent = 
-    `Channel ${chName} (${setup.role}) — ${document.getElementById('band-type').value==='oct'?'1/1':'1/3'} octave`;
-  // (オリジナルは: `Channel ${ch+1} (${rec.role}) — ...`)
-  // --- ▲▲▲ 修正 (2) ▲▲▲ ---
+  let html = '<table><thead><tr><th style="text-align:left">Metric \\ f(Hz)</th>';
+  for(const f of centers){ html += `<th data-f="${f}" class="f">${Math.round(f)}</th>`; }
+  html += '</tr></thead><tbody>';
+  for(const m of metrics){
+    html += `<tr><td style="text-align:left">${m.label}</td>`;
+    for(const f of centers){
+      const s = rec.byBand[f];
+      if(!s){ html += '<td></td>'; continue; }
+      const val = s[m.key];
+      html += `<td>${(typeof val==='number' ? val.toFixed(1) : '')}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
 
-  const centers = rec.centers;
-  const metrics = [
-    {key:'Lfmax', label:'Lfmax(dB)'},
-    {key:'Lsmax', label:'Lsmax(dB)'},
-    {key:'Leq',   label:'Leq(dB)'},
-    {key:'LE',    label:'LE(dB)'},
-    {key:'L05',   label:'L05'},
-    {key:'L10',   label:'L10'},
-    {key:'L50',   label:'L50'},
-    {key:'L90',   label:'L90'},
-    {key:'L95',   label:'L95'},
-  ];
+  const wrap = document.getElementById('table-wrap');
+  wrap.innerHTML = html;
 
-  // (!!!) これが Layout A (10:17) のUIです (Metricがタテ)
+  wrap.querySelectorAll('thead th[data-f]').forEach(th=>{
+    th.style.cursor='pointer';
+    th.title='クリックで該当バンドへ移動';
+    th.addEventListener('click', ()=>{
+      const f = Number(th.dataset.f);
+      const target = document.getElementById(`band-${Math.round(f)}`);
+      if(target){ target.scrollIntoView({behavior:'smooth', block:'center'}); }
+    });
+  });
 
-  let html = '<table><thead><tr><th style="text-align:left">Metric \\ f(Hz)</th>';
-  for(const f of centers){ html += `<th data-f="${f}" class="f">${Math.round(f)}</th>`; }
-  html += '</tr></thead><tbody>';
-  for(const m of metrics){
-    html += `<tr><td style="text-align:left">${m.label}</td>`;
-    for(const f of centers){
-      const s = rec.byBand[f];
-      if(!s){ html += '<td></td>'; continue; }
-      const val = s[m.key];
-      html += `<td>${(typeof val==='number' ? val.toFixed(1) : '')}</td>`;
-    }
-    html += '</tr>';
-  }
-  html += '</tbody></table>';
+  const host = document.getElementById('plots-wrap');
+  host.innerHTML = '';
+  for(const f of centers){
+    const m = rec.byBand[f]; if(!m) continue;
+    const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
+    const y=m.y; const sr=m.sr;
+    const x = Array.from({length:y.length}, (_,i)=>i/sr);
+    const env = (()=>{
+      const tau=0.125; const N=m.y.length; const out=new Float32Array(N);
+      const alpha=1 - Math.exp(-1/(sr*tau)); let s=0;
+      for(let i=0;i<N;i++){ s += alpha*(m.y[i]*m.y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
+      return out;
+    })();
+    const sFast = ewmaSquaredToSPL(m.y, sr, 0.125);
+    let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
+    const tmax = kmax/sr; const ystar = env[kmax];
+    const ds1 = downsampleForPlot(x, m.y, 2000);
+    const ds2 = downsampleForPlot(x, env, 2000);
 
-  const wrap = document.getElementById('table-wrap');
-  wrap.innerHTML = html;
-
-  // (Layout A (10:17) のイベントリスナー)
-  // (修正5: 10:48のコードで混入した Layout B の 'tbody tr' リスナーは削除)
-  wrap.querySelectorAll('thead th[data-f]').forEach(th=>{
-    th.style.cursor='pointer';
-    th.title='クリックで該当バンドへ移動';
-    th.addEventListener('click', ()=>{
-      const f = Number(th.dataset.f);
-      const target = document.getElementById(`band-${Math.round(f)}`);
-      if(target){ target.scrollIntoView({behavior:'smooth', block:'center'}); }
-    });
-  });
-
-  // プロット (変更なし)
-  const host = document.getElementById('plots-wrap');
-  host.innerHTML = '';
-  for(const f of centers){
-    const m = rec.byBand[f]; if(!m) continue;
-    const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
-    const y=m.y; const sr=m.sr;
-/* --- ▼▼▼ 修正(B): 構文エラーの原因となるゴミを削除 ▼▼▼ --- */
-// (元のコードにあった D-Type: ... や {"text":" ... の行を削除)
-/* --- ▲▲▲ 修正(B) ▲▲▲ --- */
-    const x = Array.from({length:y.length}, (_,i)=>i/sr);
-    const env = (()=>{
-      const tau=0.125; const N=m.y.length; const out=new Float32Array(N);
-      const alpha=1 - Math.exp(-1/(sr*tau)); let s=0;
-      for(let i=0;i<N;i++){ s += alpha*(m.y[i]*m.y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
-      return out;
-    })();
-    const sFast = ewmaSquaredToSPL(m.y, sr, 0.125);
-    let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
-    const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = downsampleForPlot(x, m.y, 2000);
-    const ds2 = downsampleForPlot(x, env, 2000);
-
-    Plotly.react(div,[
-      {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
-      {x:ds2.x, y:ds2.y, name:'Env(Fast)', type:'scatter', mode:'lines'},
-      {x:[tmax], y:[ystar], name:'Fast max-hold', mode:'markers', marker:{symbol:'star', size:12, line:{width:1}}}
-    ], {
-      title:`${Math.round(f)} Hz`,
-      legend:{orientation:'h'},
-      margin:{l:40,r:10,t:30,b:30},
-      annotations: [
-        { x:tmax, y:ystar, text:`${m.Lfmax.toFixed(1)} dB`, showarrow:false, yshift:-12, font:{size:10} }
-      ]
-    });
-    // (修正5: 10:48のコードで混入した構文エラーを削除)
-  }
+    Plotly.react(div,[
+      {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
+      {x:ds2.x, y:ds2.y, name:'Env(Fast)', type:'scatter', mode:'lines'},
+      {x:[tmax], y:[ystar], name:'Fast max-hold', mode:'markers', marker:{symbol:'star', size:12, line:{width:1}}}
+    ], {
+      title:`${Math.round(f)} Hz`,
+      legend:{orientation:'h'},
+      margin:{l:40,r:10,t:30,b:30},
+      annotations: [
+        { x:tmax, y:ystar, text:`${m.Lfmax.toFixed(1)} dB`, showarrow:false, yshift:-12, font:{size:10} }
+      ]
+    });
+  }
 }
 
 /* 初期化 */
-// (修正5: 10:48のコードで混入した重複を削除)
 window.addEventListener('DOMContentLoaded', ()=>{
-  hideOverlay();
-  document.getElementById('load-btn').addEventListener('click', onClickLoad);
-  document.getElementById('process-btn').addEventListener('click', onProcess);
-  document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
-  document.getElementById('file-input').addEventListener('change', e=>{
-    const f=e.target.files && e.target.files[0]; if(!f) return;
-    g.files=[...e.target.files];
-    document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
-  });
+  hideOverlay();
+  document.getElementById('load-btn').addEventListener('click', ()=>document.getElementById('file-input').click());
+  document.getElementById('process-btn').addEventListener('click', onProcess);
+  document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
+  document.getElementById('file-input').addEventListener('change', e=>{
+    const files = Array.from(e.target.files || []);
+    if(!files.length) return;
+    g.files = files;
+    document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
+  });
 });
 </script>
 </body>
