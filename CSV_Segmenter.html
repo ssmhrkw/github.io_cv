@@ -220,6 +220,7 @@
         </div>
         <div id="autoSegmentStatus" class="muted" style="margin-top: 8px;"></div>
       </div>
+
       <div class="vspacer"></div>
       <h3 class="muted">Metrics（ご提案形式）</h3>
       <div style="overflow:auto; max-height: 260px;">
@@ -518,4 +519,520 @@
 
         // --- 2. 詳細(Detail)プロット ---
         const div_dt = document.createElement("div");
-        div_dt
+        div_dt.className = "plot-card";
+        const title_dt = document.createElement("div");
+        title_dt.className = "plot-title";
+        title_dt.textContent = `Channel: ${ch.name} (${ch.role})`;
+        const plot_dt = document.createElement("div");
+        plot_dt.style.height = "200px";
+        plot_dt.dataset.chan = ch.name;
+        div_dt.appendChild(title_dt); div_dt.appendChild(plot_dt); wrap_detail.appendChild(div_dt);
+        plotDivs_Detail[ch.name] = plot_dt;
+        
+        const layout_dt = JSON.parse(JSON.stringify(layout_ov));
+        layout_dt.xaxis.range = [mapped.time[0], mapped.time[0] + 0.1];
+        Plotly.newPlot(plot_dt, [trace], layout_dt, { responsive: true });
+        
+        selections[ch.name] = { clicks: [], guide: null };
+
+        plot_ov.on("plotly_click", (ev) => {
+          if (!ev || !ev.points || !ev.points.length) return;
+          handleClickOnChannel(ch.name, ev.points[0].x);
+        });
+        plot_dt.on("plotly_click", (ev) => {
+          if (!ev || !ev.points || !ev.points.length) return;
+          handleClickOnChannel(ch.name, ev.points[0].x);
+        });
+      }
+    }
+    
+    function drawSelectionOnPlot(name) {
+      const plot_ov = plotDivs_Overview[name];
+      const plot_dt = plotDivs_Detail[name];
+      if (!plot_ov || !plot_dt) return;
+      
+      const sel = selections[name];
+      const shapes = [];
+      const annotations = [];
+      const FH = getFH();
+      
+      let dt_guide = null;
+      if (FH && name !== FH.name) {
+          const fhSelObj = selectionStatsFor(FH);
+          if (fhSelObj) dt_guide = fhSelObj.duration;
+      }
+      
+      if (sel.clicks.length === 1 && dt_guide && isFinite(dt_guide)) {
+        const x0 = sel.clicks[0]; const x1 = x0 + dt_guide;
+        shapes.push(
+          { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper",
+            fillcolor: "rgba(255,170,0,0.18)", line: { color: "rgba(199,125,0,0.8)", width: 1, dash: "dot" } },
+          { type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper",
+            line: { color: "#c77d00", width: 2, dash: "dot" } }
+        );
+        sel.guide = { x0, x1, dt: dt_guide };
+      } else { 
+        sel.guide = null; 
+        if (sel.clicks.length === 1) {
+          const x0 = sel.clicks[0];
+          shapes.push({ type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } });
+        } else if (sel.clicks.length >= 2) {
+          const [a,b] = sel.clicks.slice(0,2); const x0 = Math.min(a,b), x1 = Math.max(a,b);
+          shapes.push(
+            { type: "line", x0: a, x1: a, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
+            { type: "line", x0: b, x1: b, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
+            { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper", fillcolor: "rgba(11,107,203,0.12)", line: { width: 0 } }
+          );
+        }
+      }
+      
+      const st = selectionStatsFor(mapped.channels.find(c => c.name === name));
+      if (st) {
+          const annot_text = `<b>${fmt(st.start, 4)}s - ${fmt(st.end, 4)}s</b> (Dur: ${fmt(st.duration, 4)}s | Max: ${fmt(st.max, 2)})`;
+          annotations.push({
+              text: annot_text,
+              align: 'left', x: 0.01, y: 1.15, 
+              xref: 'paper', yref: 'paper',
+              showarrow: false, font: {size: 10, color: '#0f2e54'},
+              bgcolor: 'rgba(255,255,255,0.0)'
+          });
+      }
+
+      // 詳細プロットのPeakマーカーを維持
+      if (currentSegmentIdx >= 0) {
+          const segment = autoSegments[currentSegmentIdx];
+          shapes.push({
+            type: 'line',
+            x0: segment.Peak_Time, x1: segment.Peak_Time,
+            y0: 0, y1: 1, yref: 'paper',
+            line: { color: 'red', width: 2, dash: 'dash' }
+          });
+      }
+      
+      Plotly.relayout(plot_ov, { shapes: shapes, annotations: annotations });
+      Plotly.relayout(plot_dt, { shapes: shapes, annotations: annotations });
+    }
+
+    function handleClickOnChannel(name, x) {
+      const sel = selections[name]; if (!sel) return;
+      
+      if (sel.clicks.length >= 2) sel.clicks = []; 
+      sel.clicks.push(x);
+      
+      drawSelectionOnPlot(name); 
+      
+      const FH = getFH();
+      if (FH && name === FH.name) { 
+        for (const ch of mapped.channels) {
+          if (ch.name !== FH.name && selections[ch.name].clicks.length === 1) {
+            drawSelectionOnPlot(ch.name);
+          }
+        }
+      }
+    }
+
+    // =============================
+    // Auto Segment (v4.7)
+    // =============================
+    
+    function resetAutoSegmentUI() {
+      $("#autoSegmentControls").style.display = "none";
+      $("#autoSegmentTotal").textContent = "0";
+      $("#autoSegmentCurrent").textContent = "0";
+      $("#btnPrevSegment").disabled = true;
+      $("#btnNextSegment").disabled = true;
+      $("#autoSegmentStatus").textContent = "";
+      autoSegments = [];
+      currentSegmentIdx = -1;
+    }
+    
+    // ★★★ v4.7 変更: このロジックはFHの検出にのみ使用 ★★★
+    function findImpulseSegment(ch, t_search_start, t_search_end, detection_threshold_factor) {
+        const time = mapped.time;
+        const data = ch.data;
+        const FS = getFS();
+        let start_idx = -1, end_idx = -1;
+        
+        for(let i=0; i<time.length; i++) {
+            if(time[i] >= t_search_start && start_idx === -1) start_idx = i;
+            if(time[i] >= t_search_end) { end_idx = i; break; }
+        }
+        if(end_idx === -1) end_idx = time.length - 1;
+        if(start_idx === -1) start_idx = 0; 
+
+        let sum = 0, sum_abs_dev = 0;
+        const n_samples = end_idx - start_idx;
+        if (n_samples <= 0) return null;
+        
+        for(let i=start_idx; i<=end_idx; i++) sum += data[i];
+        const mean = sum / n_samples;
+        for(let i=start_idx; i<=end_idx; i++) sum_abs_dev += Math.abs(data[i] - mean);
+        const NOISE_FLOOR_ESTIMATE = (sum_abs_dev / n_samples) * 1.25;
+        
+        const PEAK_THRESHOLD = NOISE_FLOOR_ESTIMATE * detection_threshold_factor;
+
+        let peak_val = 0, peak_idx = -1;
+        for(let i=start_idx; i<=end_idx; i++) {
+            const val = Math.abs(data[i]);
+            if(val > peak_val && val > PEAK_THRESHOLD) {
+                peak_val = val;
+                peak_idx = i;
+            }
+        }
+        
+        if (peak_idx === -1) return null; 
+
+        const START_THRESHOLD_VAL = peak_val * 0.05; 
+        let segment_start_idx = peak_idx;
+        const lookback_samples = Math.round(0.01 * FS); 
+        const search_start_limit = Math.max(0, peak_idx - lookback_samples);
+        
+        for(let i=peak_idx; i >= search_start_limit; i--) {
+            if(Math.abs(data[i]) < START_THRESHOLD_VAL) {
+                segment_start_idx = i + 1;
+                break;
+            }
+        }
+        
+        let segment_end_idx = peak_idx;
+        const lookforward_samples = Math.round(0.02 * FS); 
+        const search_end_limit = Math.min(data.length - 1, peak_idx + lookforward_samples);
+        const peak_sign = Math.sign(data[peak_idx]);
+        
+        for(let i=peak_idx; i <= search_end_limit; i++) {
+            if (Math.sign(data[i]) !== peak_sign && Math.sign(data[i]) !== 0) {
+                segment_end_idx = i;
+                break;
+            }
+        }
+        if (segment_end_idx === peak_idx) segment_end_idx = search_end_limit;
+
+        return {
+            Start_Time: time[segment_start_idx],
+            End_Time: time[segment_end_idx],
+            Peak_Time: time[peak_idx],
+            Peak_Val: peak_val,
+        };
+    }
+
+    function autoDetectFHSegments() {
+      const FH = getFH();
+      if (!FH) {
+        alert("エラー: FH (加振力) チャンネルがマッピングされていません。");
+        return;
+      }
+      
+      const FS = getFS();
+      const fh_signal = FH.data;
+      const time_data = mapped.time;
+      const THRESHOLD_FACTOR = Number($("#autoThresholdFH").value) || 5;
+
+      let sum = 0, sum_abs_dev = 0;
+      for (const v of fh_signal) sum += v;
+      const mean = sum / fh_signal.length;
+      for (const v of fh_signal) sum_abs_dev += Math.abs(v - mean);
+      const NOISE_FLOOR_ESTIMATE = (sum_abs_dev / fh_signal.length) * 1.25;
+      const DETECTION_THRESHOLD = THRESHOLD_FACTOR * NOISE_FLOOR_ESTIMATE;
+      
+      const abs_fh = fh_signal.map(v => Math.abs(v));
+      
+      const over_threshold_indices = [];
+      for (let i = 0; i < abs_fh.length; i++) {
+        if (abs_fh[i] > DETECTION_THRESHOLD) {
+          over_threshold_indices.push(i);
+        }
+      }
+      
+      if (over_threshold_indices.length === 0) {
+        showStatus($("#autoSegmentStatus"), "FHインパルスが検出されませんでした (閾値が高すぎる可能性があります)。", false);
+        resetAutoSegmentUI();
+        $("#autoSegmentControls").style.display = "block";
+        return;
+      }
+      
+      const MIN_GAP_SAMPLES = Math.round(0.1 * FS);
+      const start_indices = [over_threshold_indices[0]];
+      for (let i = 1; i < over_threshold_indices.length; i++) {
+        if (over_threshold_indices[i] - over_threshold_indices[i-1] > MIN_GAP_SAMPLES) {
+          start_indices.push(over_threshold_indices[i]);
+        }
+      }
+      
+      autoSegments = [];
+      
+      for (let i = 0; i < start_indices.length; i++) {
+        const t_search_start = time_data[Math.max(0, start_indices[i] - Math.round(0.01*FS))];
+        const t_search_end = time_data[Math.min(time_data.length - 1, start_indices[i] + Math.round(0.05*FS))];
+        
+        const segment = findImpulseSegment(FH, t_search_start, t_search_end, THRESHOLD_FACTOR);
+        
+        if (segment) {
+          autoSegments.push({
+            Impulse_No: i + 1,
+            ...segment
+          });
+        }
+      }
+      
+      $("#autoSegmentControls").style.display = "block";
+      $("#autoSegmentTotal").textContent = autoSegments.length;
+      showStatus($("#autoSegmentStatus"), `検出完了: ${autoSegments.length} 件のFHインパルスが見つかりました。`, true);
+      
+      if (autoSegments.length > 0) {
+        // ★★★ v4.7 変更: セグメント番号を自動で #1 に設定 ★★★
+        $("#segmentNo").value = 1;
+        showSegmentDetail(0);
+      }
+    }
+    
+    function showSegmentDetail(index) {
+      if (index < 0 || index >= autoSegments.length) return;
+      
+      currentSegmentIdx = index;
+      const segment = autoSegments[index];
+      
+      $("#autoSegmentCurrent").textContent = segment.Impulse_No;
+      $("#btnPrevSegment").disabled = (index === 0);
+      $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
+      
+      // ★★★ v4.7 変更: ズーム範囲をご要望 (Peak ± 0.0025s) に変更 ★★★
+      const PADDING = 0.0025; // 2.5ms
+      const zoom_start = Math.max(0, segment.Peak_Time - PADDING);
+      const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.Peak_Time + PADDING);
+
+      const peak_marker = {
+        type: 'line',
+        x0: segment.Peak_Time, x1: segment.Peak_Time,
+        y0: 0, y1: 1, yref: 'paper',
+        line: { color: 'red', width: 2, dash: 'dash' }
+      };
+
+      for (const ch of mapped.channels) {
+        const plot_dt = plotDivs_Detail[ch.name];
+        if (plot_dt) {
+          // ★★★ v4.7 変更: ズーム時に既存のセレクションをクリアしない ★★★
+          const shapes = (plot_dt.layout.shapes || []).filter(s => s.type === 'rect' || (s.type === 'line' && s.line.color === '#0b6bcb'));
+          shapes.push(peak_marker);
+          
+          Plotly.relayout(plot_dt, {
+            'xaxis.range': [zoom_start, zoom_end],
+            'shapes': shapes
+          });
+        }
+      }
+      
+      // ★★★ v4.7 変更: セグメント番号を自動更新 ★★★
+      $("#segmentNo").value = segment.Impulse_No;
+    }
+    
+    // =============================
+    // Metrics (v4.7)
+    // =============================
+    function computeAndRenderMetrics() {
+      if (!mapped) throw new Error("データがありません。");
+      const fh = getFH();
+      const resChs = mapped.channels.filter(c => c.role !== "FH");
+      if (!fh) throw new Error("FH チャンネルが必要です。");
+      if (resChs.length === 0) throw new Error("FH以外のチャンネルが必要です。");
+
+      const fhSt = selectionStatsFor(fh);
+      if (!fhSt) throw new Error("FH の範囲が未選択です (グラフを2回クリックしてください)。");
+      
+      const fhIdxs = idxBetween(mapped.time, fhSt.start, fhSt.end);
+      if (fhIdxs.length === 0) throw new Error("FH 範囲にデータ点がありません。");
+
+      const sumAbsS = absSum(fh.data, fhIdxs);
+      const maxAbsS = absMax(fh.data, fhIdxs);
+
+      const tbody = $("#metricsBody");
+      tbody.innerHTML = "";
+
+      const trFH = document.createElement("tr");
+      trFH.innerHTML = `
+        <td class="mono nowrap">${fh.name}</td>
+        <td class="mono right">${fmt(sumAbsS)}</td>
+        <td class="mono right">${fmt(maxAbsS)}</td>
+        <td class="mono right">-</td>
+        <td class="mono right">-</td>
+        <td class="mono right">-</td>
+        <td class="mono right">-</td>`;
+      tbody.appendChild(trFH);
+
+      const segNo = Number($("#segmentNo").value || 1);
+      const sourceFile = currentSourceFileName || "calculation";
+      summaryRows = []; 
+
+      for (const ch of resChs) {
+        const chSt = selectionStatsFor(ch); 
+        if (!chSt) continue; 
+
+        const idxs = idxBetween(mapped.time, chSt.start, chSt.end);
+        if (idxs.length === 0) continue;
+
+        const sumAbsR_raw = absSum(ch.data, idxs);
+        const maxAbsR_raw = absMax(ch.data, idxs);
+        const vSum = (ch.role === "Mic") ? (sumAbsR_raw / (rho*c)) : sumAbsR_raw;
+        const vMax = (ch.role === "Mic") ? (maxAbsR_raw / (rho*c)) : maxAbsR_raw;
+        const F_over_v_Sum = (vSum === 0) ? NaN : (sumAbsS / vSum);
+        const F_over_v_Max = (vMax === 0) ? NaN : (maxAbsS / vMax);
+        const F_over_v_dB_Sum = (!isFinite(F_over_v_Sum) || F_over_v_Sum<=0) ? NaN : (20*Math.log10(F_over_v_Sum));
+        const F_over_v_dB_Max = (!isFinite(F_over_v_Max) || F_over_v_Max<=0) ? NaN : (20*Math.log10(F_over_v_Max));
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="mono nowrap">${ch.name}</td>
+          <td class="mono right">${fmt(sumAbsR_raw)}</td>
+          <td class="mono right">${fmt(maxAbsR_raw)}</td>
+          <td class="mono right">${isFinite(F_over_v_Sum) ? fmt(F_over_v_Sum) : ""}</td>
+          <td class="mono right">${isFinite(F_over_v_dB_Sum) ? fmt(F_over_v_dB_Sum) : ""}</td>
+          <td class="mono right">${isFinite(F_over_v_Max) ? fmt(F_over_v_Max) : ""}</td>
+          <td class="mono right">${isFinite(F_over_v_dB_Max) ? fmt(F_over_v_dB_Max) : ""}</td>`;
+        tbody.appendChild(tr);
+        
+        summaryRows.push({
+          SourceFile: sourceFile,
+          SegmentFile: `${sourceFile}_segment_${segNo}.csv`, 
+          Channel: ch.name,
+          "Sum Abs(S)": sumAbsS,
+          "Max_abs(S)": maxAbsS,
+          "Sum Abs(R)": sumAbsR_raw,
+          "Max_abs(R)": maxAbsR_raw,
+          "F/v_Sum": F_over_v_Sum,
+          "F/v_dB_Sum": F_over_v_dB_Sum,
+          "F/v_Max": F_over_v_Max,
+          "F/v_dB_Max": F_over_v_dB_Max,
+          "Seg_Start_Time": chSt.start, 
+          "Seg_End_Time": chSt.end,     
+          "Seg_Duration": chSt.duration 
+        });
+      }
+    }
+
+    // =============================
+    // Exporters (v4.7)
+    // =============================
+    function exportCombinedSegment() {
+      if (!mapped) throw new Error("データがありません。");
+      
+      let all_selected = true;
+      for (const ch of mapped.channels) {
+        const st = selectionStatsFor(ch);
+        if (!st) {
+          all_selected = false;
+          break;
+        }
+      }
+      if (!all_selected) throw new Error("すべてのチャネルの範囲が未選択です (各チャネルを2回クリックしてください)。");
+
+      const slices = {};
+      let minLen = Infinity;
+
+      for (const ch of mapped.channels) {
+        const st = selectionStatsFor(ch); 
+        const idxs = idxBetween(mapped.time, st.start, st.end);
+        slices[ch.name] = idxs.map(i => ch.data[i]);
+        if (idxs.length < minLen) minLen = idxs.length;
+      }
+
+      const st0 = selectionStatsFor(mapped.channels[0]);
+      const tIdxs = idxBetween(mapped.time, st0.start, st0.end).slice(0, minLen);
+      const tSlice = tIdxs.map(i => mapped.time[i]);
+      
+      if (minLen === 0) throw new Error("選択範囲にデータ点がありません。");
+
+      const segNo = Number($("#segmentNo").value || 1);
+      const cols = ["Time (s)", ...mapped.channels.map(ch => ch.name)];
+      let csv = cols.join(",") + "\n";
+      for (let i = 0; i < minLen; i++) {
+        const vals = mapped.channels.map(ch => (slices[ch.name][i] !== undefined ? slices[ch.name][i] : ""));
+        csv += [tSlice[i].toFixed(10), ...vals].join(",") + "\n";
+      }
+      
+      const baseFileName = currentSourceFileName || "combined";
+      const fileName = `${baseFileName}_segment_${segNo}.csv`;
+      
+      downloadText(fileName, csv);
+      
+      showStatus($("#autoSegmentStatus"), `${fileName} をエクスポートしました。`, true);
+    }
+    
+    function exportSummaryCSV() {
+      if (summaryRows.length === 0) { alert("先に「メトリクス計算」を実行してください。"); return; }
+      const cols = [
+          "SourceFile","SegmentFile","Channel",
+          "Sum Abs(S)","Max_abs(S)","Sum Abs(R)","Max_abs(R)",
+          "F/v_Sum","F/v_dB_Sum","F/v_Max","F/v_dB_Max",
+          "Seg_Start_Time","Seg_End_Time","Seg_Duration"
+      ];
+      let csv = cols.join(",") + "\n";
+      for (const r of summaryRows) {
+        csv += cols.map(k => {
+          const v = r[k];
+          if (typeof v === "number") return Number.isFinite(v) ? v.toFixed(6) : "";
+          return (v ?? "");
+        }).join(",") + "\n";
+      }
+      downloadText("calculation_summary.csv", csv);
+    }
+
+    // =============================
+    // Event Wiring
+    // =============================
+    $("#btnLoadUrl").addEventListener("click", async () => {
+      try {
+        const url = $("#csvUrl").value.trim();
+        if (!url) return alert("CSV URL を入力してください。");
+        await loadCSVFromURL(url);
+      } catch (e) {
+        console.error(e);
+        showStatus($("#urlStatus"), `URL読み込み失敗: ${e.message}`, false);
+      }
+    });
+    $("#btnLoadFile").addEventListener("click", async () => {
+      try {
+        const f = $("#csvFile").files[0];
+        if (!f) return alert("CSVファイルを選択してください。");
+        await loadCSVFromFile(f);
+      } catch (e) {
+        console.error(e);
+        showStatus($("#fileStatus"), `ファイル読み込み失敗: ${e.message}`, false);
+      }
+    });
+    $("#btnApplyMapping").addEventListener("click", () => { try { applyMapping(); } catch (e) { console.error(e); showStatus($("#mapStatus"), `エラー: ${e.message}`, false); } });
+    $("#btnResetMapping").addEventListener("click", () => {
+      buildMappingUI();
+      $("#plots_overview").innerHTML = ""; $("#plots_detail").innerHTML = "";
+      $("#metricsBody").innerHTML = "";
+      selections = {}; plotDivs_Overview = {}; plotDivs_Detail = {}; summaryRows = [];
+      resetAutoSegmentUI();
+      showStatus($("#mapStatus"), "マッピングをリセットしました。", true);
+    });
+    $("#btnPreset1").addEventListener("click", applyPreset1);
+    $("#btnClearSelections").addEventListener("click", () => {
+      Object.keys(selections).forEach(name => { selections[name].clicks = []; selections[name].guide = null; });
+      $$("#plots_overview .plot-card > div:last-child").forEach(plot => { 
+          if(plot.layout) {
+              plot.layout.shapes = []; plot.layout.annotations = [];
+              Plotly.redraw(plot);
+          }
+      });
+      $$("#plots_detail .plot-card > div:last-child").forEach(plot => { 
+          if(plot.layout) {
+              plot.layout.shapes = (plot.layout.shapes || []).filter(s => s.line && s.line.color === 'red'); 
+              plot.layout.annotations = [];
+              Plotly.redraw(plot);
+          }
+      });
+    });
+    $("#btnCompute").addEventListener("click", () => { try { computeAndRenderMetrics(); } catch (e) { alert(e.message); } });
+    
+    $("#btnExportSegmentDetail").addEventListener("click", () => { try { exportCombinedSegment(); } catch (e) { alert(e.message); } }); 
+    $("#btnExportSummary").addEventListener("click", () => { exportSummaryCSV(); });
+    
+    $("#btnAutoDetect").addEventListener("click", () => { try { autoDetectFHSegments(); } catch (e) { alert(e.message); console.error(e); } });
+    $("#btnPrevSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx - 1); });
+    $("#btnNextSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx + 1); });
+    
+  </script>
+</body>
+</html>
