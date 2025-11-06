@@ -10,7 +10,7 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CSV Segmenter (Web) v4.7 (Auto-Zoom)</title>
+  <title>CSV Segmenter (Web) v4.8 (Theoretical Delay)</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
@@ -134,7 +134,7 @@
 </head>
 <body>
   <header>
-    <h1>CSV Segmenter (Web) — v4.7 (Auto-Zoom)</h1>
+    <h1>CSV Segmenter (Web) — v4.8 (Theoretical Delay)</h1>
     <p class="muted"></p>
   </header>
 
@@ -163,7 +163,7 @@
       <div class="row">
         <button id="btnApplyMapping" class="btn-green">マッピング適用 / 反映</button>
         <button id="btnResetMapping" class="btn-outline">リセット</button>
-        <button id="btnPreset1" class="btn-outline">プリセット1（Time, FH, Acc, Acc, Mic×5）</button>
+        <button id="btnPreset1" class="btn-outline">プリセット1 (w/ Mic Delay)</button>
         <span id="mapStatus" class="muted"></span>
       </div>
 
@@ -194,7 +194,7 @@
           </div>
         </div>
       </div>
-      <p class="help"><b>推奨ワークフロー:</b> 4) 自動セグメント → 「1. FHインパルス自動検出」 → リストからインパルスを選択（自動ズーム） → 全Chのグラフをクリックして手動セグメント → 「メトリクス計算」。</p>
+      <p class="help"><b>推奨ワークフロー:</b> 4) 自動セグメント → 「1. FHインパルス自動検出」 → リストからインパルスを選択（自動ズーム） → <b>FH/Accを手動クリック</b> → <b>「2. 理論遅延を Acc/Mic に適用」</b> → 「メトリクス計算」。</p>
 
       <hr class="hr" />
       <h2>4) 自動セグメント (Auto-Zoom)</h2>
@@ -215,8 +215,11 @@
           <span class="mono">FH Impulse #<span id="autoSegmentCurrent">0</span></span>
           <button id="btnNextSegment" class="btn-outline" disabled>次 (Next) &gt;</button>
         </div>
+        <div class="row" style="margin-top: 10px;">
+           <button id="btnApplyTheoreticalDelay" class="btn-green" style="flex:1;">2. 理論遅延を Acc/Mic に適用</button>
+        </div>
         <div class="help-box">
-            インパルスを選択すると、「詳細プレビュー」が自動でズームされます。その後、<b>各グラフをクリックして手動でセグメントを決定</b>してください。
+            <b>ボタンの動作:</b> FHの手動セグメントに基づき、Acc(遅延0)とMic(マッピング距離/340m/s)のセグメントを自動設定します。
         </div>
         <div id="autoSegmentStatus" class="muted" style="margin-top: 8px;"></div>
       </div>
@@ -267,6 +270,7 @@
     // Constants & Global State
     // =============================
     const rho = 1.21, c = 343;
+    const soundVelocity = 340; // ★★★ v4.8 追加: 音速(m/s) ★★★
     let rawRows = [];
     let headers = [];
     let mapping = [];
@@ -470,21 +474,44 @@
       resetAutoSegmentUI();
     }
 
-    // プリセット1：Time, FH, Acc, Acc, Mic×5
+    // ★★★ v4.8 変更: プリセット1のロジック ★★★
     function applyPreset1() {
       const seq = ["Time","FH","Acc","Acc","Mic","Mic","Mic","Mic","Mic"];
+      const mic_distances = [0.1, 0.4, 0.7, 1.0, 1.3];
+      
       const selects = $$("#mappingArea select.role");
+      const dists = $$("#mappingArea input.dist");
+      
+      let mic_count = 0;
+      
       for (let i = 0; i < selects.length; i++) {
         const role = (i < seq.length) ? seq[i] : "Ignore";
         selects[i].value = role;
         mapping[i].role = role;
+        
+        // 距離を自動入力
+        if (role === "Mic") {
+          if (mic_count < mic_distances.length) {
+            const dist_val = mic_distances[mic_count];
+            dists[i].value = dist_val;
+            mapping[i].distance = dist_val;
+            mic_count++;
+          } else {
+            dists[i].value = "";
+            mapping[i].distance = "";
+          }
+        } else {
+          dists[i].value = "";
+          mapping[i].distance = "";
+        }
       }
-      showStatus($("#mapStatus"), "プリセット1を適用しました。必要に応じて距離(m)を入力してください。", true);
+      
+      showStatus($("#mapStatus"), "プリセット1 (w/ Mic距離) を適用しました。", true);
       try { applyMapping(); } catch (e) { console.error(e); showStatus($("#mapStatus"), `エラー: ${e.message}`, false); }
     }
 
     // =============================
-    // Plotting & Selection (v4.7)
+    // Plotting & Selection (v4.8)
     // =============================
     function renderPlots() {
       const wrap_overview = $("#plots_overview"); wrap_overview.innerHTML = "";
@@ -598,7 +625,6 @@
           });
       }
 
-      // 詳細プロットのPeakマーカーを維持
       if (currentSegmentIdx >= 0) {
           const segment = autoSegments[currentSegmentIdx];
           shapes.push({
@@ -632,7 +658,7 @@
     }
 
     // =============================
-    // Auto Segment (v4.7)
+    // Auto Segment (v4.8)
     // =============================
     
     function resetAutoSegmentUI() {
@@ -646,7 +672,7 @@
       currentSegmentIdx = -1;
     }
     
-    // ★★★ v4.7 変更: このロジックはFHの検出にのみ使用 ★★★
+    // v4.7のFHインパルス検出ロジック (変更なし)
     function findImpulseSegment(ch, t_search_start, t_search_end, detection_threshold_factor) {
         const time = mapped.time;
         const data = ch.data;
@@ -715,6 +741,7 @@
         };
     }
 
+    // v4.7のFH検出ロジック (変更なし)
     function autoDetectFHSegments() {
       const FH = getFH();
       if (!FH) {
@@ -779,12 +806,12 @@
       showStatus($("#autoSegmentStatus"), `検出完了: ${autoSegments.length} 件のFHインパルスが見つかりました。`, true);
       
       if (autoSegments.length > 0) {
-        // ★★★ v4.7 変更: セグメント番号を自動で #1 に設定 ★★★
         $("#segmentNo").value = 1;
         showSegmentDetail(0);
       }
     }
     
+    // v4.7の自動ズームロジック (v4.6から変更)
     function showSegmentDetail(index) {
       if (index < 0 || index >= autoSegments.length) return;
       
@@ -795,7 +822,7 @@
       $("#btnPrevSegment").disabled = (index === 0);
       $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
       
-      // ★★★ v4.7 変更: ズーム範囲をご要望 (Peak ± 0.0025s) に変更 ★★★
+      // ★★★ v4.7/v4.8: ズーム範囲を Peak ± 0.0025s に ★★★
       const PADDING = 0.0025; // 2.5ms
       const zoom_start = Math.max(0, segment.Peak_Time - PADDING);
       const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.Peak_Time + PADDING);
@@ -810,7 +837,6 @@
       for (const ch of mapped.channels) {
         const plot_dt = plotDivs_Detail[ch.name];
         if (plot_dt) {
-          // ★★★ v4.7 変更: ズーム時に既存のセレクションをクリアしない ★★★
           const shapes = (plot_dt.layout.shapes || []).filter(s => s.type === 'rect' || (s.type === 'line' && s.line.color === '#0b6bcb'));
           shapes.push(peak_marker);
           
@@ -821,12 +847,68 @@
         }
       }
       
-      // ★★★ v4.7 変更: セグメント番号を自動更新 ★★★
       $("#segmentNo").value = segment.Impulse_No;
     }
     
+    // ★★★ v4.8 追加: 理論遅延適用ロジック ★★★
+    function applyTheoreticalDelay() {
+      const fh = getFH();
+      if (!fh) {
+          alert("エラー: FH チャンネルがマッピングされていません。");
+          return;
+      }
+      
+      const fhSt = selectionStatsFor(fh);
+      if (!fhSt) {
+          alert("エラー: 最初にFHチャネルのセグメントを手動で（2クリックして）確定してください。");
+          return;
+      }
+      
+      const fh_start = fhSt.start;
+      const fh_duration = fhSt.duration;
+      let applied_count = 0;
+      
+      // 全チャネルをループ
+      for (const ch of mapped.channels) {
+          let t_start_ch = fh_start;
+          let t_end_ch = fhSt.end;
+          
+          if (ch.role === 'Acc') {
+              // AccはFHと同じと仮定 (遅延 0)
+              selections[ch.name].clicks = [fh_start, fhSt.end];
+              applied_count++;
+          } else if (ch.role === 'Mic') {
+              // Micは理論遅延を計算
+              const dist = ch.distance; // マッピングで設定された距離
+              if (typeof dist === 'number' && dist > 0) {
+                  const delay_s = dist / soundVelocity;
+                  t_start_ch = fh_start + delay_s;
+                  t_end_ch = t_start_ch + fh_duration; // FHと同じ時間幅を適用
+                  selections[ch.name].clicks = [t_start_ch, t_end_ch];
+                  applied_count++;
+              } else {
+                  // 距離が未設定のMicはFHと同じにする
+                  selections[ch.name].clicks = [fh_start, fhSt.end];
+              }
+          } else if (ch.role === 'FH') {
+              // FHはそのまま
+              continue;
+          }
+          
+          drawSelectionOnPlot(ch.name); // Annotate付きで描画
+      }
+      
+      const segNoInput = $("#segmentNo");
+      if (currentSegmentIdx >= 0) {
+          segNoInput.value = autoSegments[currentSegmentIdx].Impulse_No;
+      }
+      
+      showStatus($("#autoSegmentStatus"), `OK: ${applied_count}件のAcc/Micチャネルに理論遅延を適用しました。`, true);
+    }
+
+    
     // =============================
-    // Metrics (v4.7)
+    // Metrics (v4.8)
     // =============================
     function computeAndRenderMetrics() {
       if (!mapped) throw new Error("データがありません。");
@@ -909,7 +991,7 @@
     }
 
     // =============================
-    // Exporters (v4.7)
+    // Exporters (v4.8)
     // =============================
     function exportCombinedSegment() {
       if (!mapped) throw new Error("データがありません。");
@@ -1032,6 +1114,9 @@
     $("#btnAutoDetect").addEventListener("click", () => { try { autoDetectFHSegments(); } catch (e) { alert(e.message); console.error(e); } });
     $("#btnPrevSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx - 1); });
     $("#btnNextSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx + 1); });
+    
+    // ★★★ v4.8 追加: 新しいボタンのリスナー ★★★
+    $("#btnApplyTheoreticalDelay").addEventListener("click", () => { try { applyTheoreticalDelay(); } catch (e) { alert(e.message); } });
     
   </script>
 </body>
