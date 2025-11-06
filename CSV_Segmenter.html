@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
+  <script async src="https://www.googagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
@@ -10,7 +10,7 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CSV Segmenter (Web) v4.0</title>
+  <title>CSV Segmenter (Web) v4.2</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
@@ -46,9 +46,16 @@
     }
     header h1 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: #0f2e54; }
     header p { margin: 0; font-size: 12px; color: var(--muted); }
-    main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+    main { padding: 16px; max-width: 1600px; margin: 0 auto; } /* v4.2: 幅を拡大 */
+    
+    /* ★★★ v4.2 変更: メインレイアウトを3列に変更 ★★★ */
     .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-    @media (min-width: 1024px) { .grid-2 { grid-template-columns: 1.2fr 1fr; } }
+    @media (min-width: 1280px) {
+      .grid-3-col {
+        grid-template-columns: 1.2fr 1fr 1fr; /* 左:設定 | 中:全体 | 右:詳細 */
+      }
+    }
+    
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -115,7 +122,7 @@
     .status-ok { background: #22c55e; }
     .status-ng { background: #ef4444; }
     
-    /* ★★★ v4.0 追加スタイル ★★★ */
+    /* ★★★ v4.0/4.2 追加スタイル ★★★ */
     #autoSegmentControls {
       background: var(--soft); border: 1px solid var(--border);
       border-radius: 12px; padding: 12px;
@@ -129,16 +136,21 @@
     #autoSegmentNav span { font-size: 16px; font-weight: bold; color: var(--accent); }
     #autoSegmentEdit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     #autoSegmentEdit label { font-size: 13px; }
-    /* ★★★ v4.0 スタイルここまで ★★★ */
+    
+    /* v4.2: ヘルプテキストのスタイル */
+    .help-box {
+        background: #f0f4f8; border: 1px solid #d0d8e0; border-radius: 8px;
+        padding: 8px 10px; font-size: 11px; color: #334155; margin: 5px 0 0;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>CSV Segmenter (Web) — v4.0 (Auto-Segment)</h1>
+    <h1>CSV Segmenter (Web) — v4.2 (Hybrid Segment)</h1>
     <p class="muted"></p>
   </header>
 
-  <main class="grid grid-2">
+  <main class="grid grid-3-col">
     <section class="card">
       <h2>1) データ入力</h2>
       <div class="row" id="urlRow">
@@ -195,17 +207,21 @@
           </div>
         </div>
       </div>
-      <p class="help"><b>推奨ワークフロー:</b> 4) 自動セグメント → 「1. インパルス自動検出」 → 「2. このセグメントを適用」 → 「メトリクス計算」。</p>
+      <p class="help"><b>推奨ワークフロー:</b> 4) 自動セグメント → 「1. インパルス自動検出」 → 「2. このセグメントを全Chに適用」 → プレビューで個別にクリックして微調整 → 「メトリクス計算」。</p>
 
       <hr class="hr" />
       <h2>4) 自動セグメント (Auto-Segment)</h2>
-      <p class="help">FHチャネルに基づき、インパルス（ピーク）を自動検出します。検出されたセグメントは「プレビュー（詳細）」に拡大表示され、手動で微調整できます。</p>
+      <p class="help">FHチャネルに基づき、インパルス（ピーク）を自動検出します。</p>
       <div class="row" style="gap: 12px;">
         <label>検出閾値 (x * Noise SD):</label>
         <input id="autoThreshold" type="number" value="5" step="0.5" style="width:80px;" />
         <label>静音期間 (ms):</label>
         <input id="autoQuietMS" type="number" value="5" step="1" style="width:80px;" />
         <button id="btnAutoDetect" class="btn-primary" style="flex:1;">1. インパルス自動検出</button>
+      </div>
+      <div class="help-box">
+        <b>検出閾値:</b> ノイズの標準偏差(SD)の何倍の大きさの信号を「インパルス開始」と見なすか。 <br />
+        <b>静音期間:</b> ピーク後、ノイズレベルに戻った状態が何ミリ秒続いたら「インパルス終了」と見なすか。
       </div>
       
       <div id="autoSegmentControls">
@@ -220,12 +236,12 @@
           <input id="autoStartTime" type="number" step="0.0001" />
           <label>End (s):</label>
           <input id="autoEndTime" type="number" step="0.0001" />
-          <button id="btnApplyManualSegment" class="btn-green" style="flex:1;">2. このセグメントを適用</button>
+          <button id="btnApplySegmentToAll" class="btn-green" style="flex:1;">2. このセグメントを全Chに適用</button>
         </div>
         <div id="autoSegmentStatus" class="muted" style="margin-top: 8px;"></div>
       </div>
       <div id="infoPanel">
-        <h3>Information（Max / Min / Duration）</h3>
+        <h3>Information (チャネルごと)</h3>
         <div id="fhInfo" class="muted" style="margin-bottom:6px;"></div>
         <div id="infoTableWrap"></div>
       </div>
@@ -253,21 +269,22 @@
 
     <section class="card">
       <h2>プレビュー (全体)</h2>
+      <p class="help">グラフをクリックして、チャネルごとにセグメント範囲（2点）を指定できます。</p>
       <div id="plots_overview" class="plots"></div>
-      
-      <hr class="hr" style="margin: 16px 0;" />
-      
+    </section>
+    
+    <section class="card">
       <h2>プレビュー (詳細セグメント)</h2>
-      <p class="help">「自動セグメント」セクションで選択中のインパルスが、ここに拡大表示されます。</p>
+      <p class="help">「自動セグメント」で選択中のインパルスを拡大表示します。ここでもクリックして微調整可能です。</p>
       <div id="plots_detail" class="plots"></div>
-      </section>
+    </section>
   </main>
 
   <script>
     // =============================
     // Constants & Global State
     // =============================
-    // const FS = 51200; // v4.0: 動的に取得
+    // const FS = 51200; // v4.2: 動的に取得
     const rho = 1.21, c = 343;
     let rawRows = [];
     let headers = [];
@@ -275,11 +292,9 @@
     let mapped = null;
     let selections = {};
     
-    // ★★★ v4.0 変更: プロットDivsを分割 ★★★
     let plotDivs_Overview = {};
     let plotDivs_Detail = {};
     
-    // ★★★ v4.0 追加: 自動セグメント用グローバル変数 ★★★
     let autoSegments = [];
     let currentSegmentIdx = -1;
     
@@ -291,7 +306,6 @@
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
     
-    // ★★★ v4.0 追加: Fs取得ヘルパー ★★★
     const getFS = () => Number($("#samplingRate").value) || 51200;
 
     function showStatus(el, msg, ok=true) {
@@ -324,7 +338,6 @@
     function autoTimeIfMissing(rows) {
       const timeKey = headers.find(h => h.toLowerCase().trim() === "time (s)");
       if (timeKey) return rows.map((r,i)=> Number(r[timeKey]));
-      // ★★★ v4.0 変更: Fsを動的に使用 ★★★
       const FS = getFS();
       return rows.map((_,i) => i / FS);
     }
@@ -352,6 +365,7 @@
 
     // FH helpers
     function getFH() { return mapped ? (mapped.channels.find(c => c.role === "FH") || null) : null; }
+    // ★★★ v4.2 変更: FHセレクションのヘルパーを更新 (チャネルごとになったため) ★★★
     function fhSel() { const fh = getFH(); if (!fh) return null; const s = selections[fh.name]; return (s && s.clicks.length>=2) ? s : null; }
     function fhClicks() { const s = fhSel(); return s ? s.clicks.slice(0,2) : null; }
     function fhDuration() { const cks = fhClicks(); return cks ? Math.abs(cks[1]-cks[0]) : null; }
@@ -369,10 +383,8 @@
       const out = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
       if (out.errors && out.errors.length) console.warn("Papa parse errors:", out.errors);
       
-      // ★★★ v4.0 変更: 列名からスペースを除去 ★★★
       rawRows = out.data;
       headers = (out.meta.fields || Object.keys(rawRows[0] || {})).map(h => h.trim());
-      // 元の行データもキーをトリムする
       if (out.meta.fields) {
           rawRows = rawRows.map(row => {
               const newRow = {};
@@ -382,10 +394,8 @@
               return newRow;
           });
       }
-      // ★★★ v4.0 変更ここまで ★★★
 
       buildMappingUI();
-      // ★★★ v4.0 変更: プロットエリアをリセット ★★★
       $("#plots_overview").innerHTML = "";
       $("#plots_detail").innerHTML = "";
       $("#infoTableWrap").innerHTML = "";
@@ -395,7 +405,7 @@
       plotDivs_Overview = {};
       plotDivs_Detail = {};
       summaryRows = [];
-      resetAutoSegmentUI(); // ★★★ v4.0 追加
+      resetAutoSegmentUI();
       return true;
     }
     function loadCSVFromFile(file) {
@@ -466,7 +476,7 @@
       showStatus($("#mapStatus"), `OK: ${channels.length}ch 反映 (FH:${channels.filter(c=>c.role==='FH').length}, Acc:${channels.filter(c=>c.role==='Acc').length}, Mic:${channels.filter(c=>c.role==='Mic').length})`, true);
       renderPlots();
       updateInfoPanel();
-      resetAutoSegmentUI(); // マッピング変更時もリセット
+      resetAutoSegmentUI();
     }
 
     // プリセット1：Time, FH, Acc, Acc, Mic×5
@@ -483,10 +493,9 @@
     }
 
     // =============================
-    // Plotting & Selection
+    // Plotting & Selection (v4.2)
     // =============================
     function renderPlots() {
-      // ★★★ v4.0 変更: 2つのエリアに描画 ★★★
       const wrap_overview = $("#plots_overview"); wrap_overview.innerHTML = "";
       const wrap_detail = $("#plots_detail"); wrap_detail.innerHTML = "";
       
@@ -528,79 +537,110 @@
         div_dt.appendChild(title_dt); div_dt.appendChild(plot_dt); wrap_detail.appendChild(div_dt);
         plotDivs_Detail[ch.name] = plot_dt;
         
-        // レイアウトをディープコピーして個別管理
         const layout_dt = JSON.parse(JSON.stringify(layout_ov));
-        // 詳細プロットには初期ズーム（最初の0.1秒など）を設定
         layout_dt.xaxis.range = [mapped.time[0], mapped.time[0] + 0.1];
         Plotly.newPlot(plot_dt, [trace], layout_dt, { responsive: true });
         
-        // --- 3. セレクション管理 ---
+        // --- 3. セレクション管理 (v3.3 準拠) ---
         selections[ch.name] = { clicks: [], guide: null };
 
-        // ★★★ v4.0 変更: クリックイベントは全体プロットにのみ残す ★★★
+        // ★★★ v4.2 変更: クリックイベントを両方のプロットに設定 ★★★
         plot_ov.on("plotly_click", (ev) => {
           if (!ev || !ev.points || !ev.points.length) return;
-          const x = ev.points[0].x;
-          handleClickOnChannel(ch.name, x);
+          handleClickOnChannel(ch.name, ev.points[0].x);
+        });
+        plot_dt.on("plotly_click", (ev) => {
+          if (!ev || !ev.points || !ev.points.length) return;
+          handleClickOnChannel(ch.name, ev.points[0].x);
         });
       }
     }
     
-    // ★★★ v4.S.0 変更: 描画関数を分割 ★★★
     function drawSelectionOnPlot(name) {
+      const plot_ov = plotDivs_Overview[name];
+      const plot_dt = plotDivs_Detail[name];
+      if (!plot_ov || !plot_dt) return;
+      
       const sel = selections[name];
       const shapes = [];
-      const dt = fhDuration();
+      const FH = getFH();
       
-      // ... (既存のshapeロジックは変更なし) ...
-      if (sel.clicks.length === 1 && dt && isFinite(dt)) {
-        const x0 = sel.clicks[0]; const x1 = x0 + dt;
+      // ★★★ v4.2 変更: v3.3 のガイドロジックを復活 ★★★
+      let dt_guide = null;
+      if (FH && name !== FH.name) {
+          const fhSelObj = fhSel();
+          if (fhSelObj) dt_guide = Math.abs(fhSelObj.clicks[1] - fhSelObj.clicks[0]);
+      }
+      
+      if (sel.clicks.length === 1 && dt_guide && isFinite(dt_guide)) {
+        // FH範囲が確定しており、他chで1クリックの場合 (v3.3 ガイド機能)
+        const x0 = sel.clicks[0]; const x1 = x0 + dt_guide;
         shapes.push(
           { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper",
             fillcolor: "rgba(255,170,0,0.18)", line: { color: "rgba(199,125,0,0.8)", width: 1, dash: "dot" } },
           { type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper",
             line: { color: "#c77d00", width: 2, dash: "dot" } }
         );
-        sel.guide = { x0, x1, dt };
-      } else { sel.guide = null; }
-      if (sel.clicks.length === 1 && !dt) {
-        const x0 = sel.clicks[0];
-        shapes.push({ type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } });
-      } else if (sel.clicks.length >= 2) {
-        const [a,b] = sel.clicks.slice(0,2); const x0 = Math.min(a,b), x1 = Math.max(a,b);
-        shapes.push(
-          { type: "line", x0: a, x1: a, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
-          { type: "line", x0: b, x1: b, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
-          { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper", fillcolor: "rgba(11,107,203,0.12)", line: { width: 0 } }
-        );
+        sel.guide = { x0, x1, dt: dt_guide };
+      } else { 
+        sel.guide = null; 
+        if (sel.clicks.length === 1) {
+          // 1クリック目 (ガイドなし)
+          const x0 = sel.clicks[0];
+          shapes.push({ type: "line", x0, x1: x0, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } });
+        } else if (sel.clicks.length >= 2) {
+          // 2クリック (範囲確定)
+          const [a,b] = sel.clicks.slice(0,2); const x0 = Math.min(a,b), x1 = Math.max(a,b);
+          shapes.push(
+            { type: "line", x0: a, x1: a, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
+            { type: "line", x0: b, x1: b, y0: 0, y1: 1, xref: "x", yref: "paper", line: { color: "#0b6bcb", width: 2, dash: "dot" } },
+            { type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper", fillcolor: "rgba(11,107,203,0.12)", line: { width: 0 } }
+          );
+        }
       }
 
-      // ★★★ v4.0 変更: 両方のプロットに形状を描画 ★★★
-      const plot_ov = plotDivs_Overview[name];
-      if (plot_ov) {
-        plot_ov.layout.shapes = shapes;
-        Plotly.redraw(plot_ov);
+      // 両方のプロットに形状を描画
+      plot_ov.layout.shapes = shapes;
+      plot_dt.layout.shapes = JSON.parse(JSON.stringify(shapes)); // Peakマーカーと共存させるためコピー
+      
+      // ★★★ v4.2 変更: 詳細プロットのPeakマーカーを維持 ★★★
+      if (currentSegmentIdx >= 0) {
+          const segment = autoSegments[currentSegmentIdx];
+          plot_dt.layout.shapes.push({
+            type: 'line',
+            x0: segment.Peak_Time, x1: segment.Peak_Time,
+            y0: 0, y1: 1, yref: 'paper',
+            line: { color: 'red', width: 2, dash: 'dash' }
+          });
       }
-      const plot_dt = plotDivs_Detail[name];
-      if (plot_dt) {
-        plot_dt.layout.shapes = shapes;
-        Plotly.redraw(plot_dt);
-      }
+      
+      Plotly.redraw(plot_ov);
+      Plotly.redraw(plot_dt);
     }
 
+    // ★★★ v4.2 変更: v3.3 のクリックロジックを復活 ★★★
     function handleClickOnChannel(name, x) {
-      // v4.0: この手動クリックは自動セグメント適用によって上書きされる
       const sel = selections[name]; if (!sel) return;
-      if (sel.clicks.length >= 2) sel.clicks = [];
+      
+      if (sel.clicks.length >= 2) sel.clicks = []; // 2回クリックしたらリセット
       sel.clicks.push(x);
-      drawSelectionOnPlot(name);
+      
+      drawSelectionOnPlot(name); // クリックしたチャネルを更新
+      
       const FH = getFH();
-      if (FH && name === FH.name) { for (const ch of mapped.channels) { if (ch.name !== FH.name) drawSelectionOnPlot(ch.name); } }
+      if (FH && name === FH.name) { 
+        // FHをクリックしたら、ガイド(1クリック)状態の他チャネルも更新
+        for (const ch of mapped.channels) {
+          if (ch.name !== FH.name && selections[ch.name].clicks.length === 1) {
+            drawSelectionOnPlot(ch.name);
+          }
+        }
+      }
       updateInfoPanel();
     }
 
     // =============================
-    // ★★★ v4.0 追加: 自動セグメントロジック ★★★
+    // Auto Segment (v4.2)
     // =============================
     
     function resetAutoSegmentUI() {
@@ -631,12 +671,10 @@
       const QUIET_MS = Number($("#autoQuietMS").value) || 5;
       const QUIET_SAMPLES = Math.max(1, Math.round((QUIET_MS / 1000) * FS));
       
-      // 1. 閾値の決定
-      // (簡略化のため、numpy.stdの代わりに全体の平均絶対偏差の定数倍を使用)
+      let sum = 0;
+      for (const v of fh_signal) sum += v;
+      const mean = sum / fh_signal.length;
       let sum_abs_dev = 0;
-      let mean = 0;
-      for (const v of fh_signal) mean += v;
-      mean /= fh_signal.length;
       for (const v of fh_signal) sum_abs_dev += Math.abs(v - mean);
       const NOISE_FLOOR_ESTIMATE = (sum_abs_dev / fh_signal.length) * 1.25; // MAD -> SD
       
@@ -645,7 +683,6 @@
       
       const abs_fh = fh_signal.map(v => Math.abs(v));
       
-      // 2. インパルスイベントの開始インデックスを特定
       const over_threshold_indices = [];
       for (let i = 0; i < abs_fh.length; i++) {
         if (abs_fh[i] > DETECTION_THRESHOLD) {
@@ -660,7 +697,6 @@
         return;
       }
       
-      // 3. インパルスをグループ化 (100ms以上空いたら別)
       const MIN_GAP_SAMPLES = Math.round(0.1 * FS);
       const start_indices = [over_threshold_indices[0]];
       for (let i = 1; i < over_threshold_indices.length; i++) {
@@ -669,16 +705,14 @@
         }
       }
       
-      autoSegments = []; // グローバル変数をリセット
+      autoSegments = [];
       
       for (let i = 0; i < start_indices.length; i++) {
         const start_idx = start_indices[i];
         
-        // 4. セグメント開始点 (プリトリガー 10ms)
         const PRE_TRIGGER_SAMPLES = Math.round(0.01 * FS);
         const segment_start_idx = Math.max(0, start_idx - PRE_TRIGGER_SAMPLES);
         
-        // 5. ピーク探索 (開始から100ms)
         const peak_search_end = Math.min(fh_signal.length, start_idx + Math.round(0.1 * FS));
         let peak_idx = start_idx;
         let peak_max_val = abs_fh[start_idx];
@@ -690,7 +724,6 @@
           }
         }
         
-        // 6. 終了インデックスの探索 (減衰基準)
         let segment_end_idx = peak_idx;
         for (let j = peak_idx; j < fh_signal.length - QUIET_SAMPLES; j++) {
           if (abs_fh[j] < DECAY_THRESHOLD) {
@@ -698,7 +731,7 @@
             for (let k = 1; k < QUIET_SAMPLES; k++) {
               if (abs_fh[j+k] >= DECAY_THRESHOLD) {
                 is_quiet = false;
-                j += k; // 静かでない点までジャンプ
+                j += k; 
                 break;
               }
             }
@@ -709,7 +742,6 @@
           }
         }
         
-        // 減衰終了点が見つからない場合のフォールバック (ピーク後 100ms)
         if (segment_end_idx === peak_idx) {
           segment_end_idx = Math.min(fh_signal.length - 1, peak_idx + Math.round(0.1 * FS));
         }
@@ -723,13 +755,12 @@
         });
       }
       
-      // 7. UIを更新
       $("#autoSegmentControls").style.display = "block";
       $("#autoSegmentTotal").textContent = autoSegments.length;
       showStatus($("#autoSegmentStatus"), `検出完了: ${autoSegments.length} 件のインパルスが見つかりました。`, true);
       
       if (autoSegments.length > 0) {
-        showSegmentDetail(0); // 最初のセグメントを表示
+        showSegmentDetail(0);
       }
     }
     
@@ -739,19 +770,16 @@
       currentSegmentIdx = index;
       const segment = autoSegments[index];
       
-      // 1. ナビゲーションUIを更新
       $("#autoSegmentCurrent").textContent = segment.Impulse_No;
       $("#btnPrevSegment").disabled = (index === 0);
       $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
       
-      // 2. 編集UIを更新
+      // ★★★ v4.2 変更: 手動変更値を保持するため、autoSegmentsの値を参照 ★★★
       $("#autoStartTime").value = segment.Start_Time.toFixed(6);
       $("#autoEndTime").value = segment.End_Time.toFixed(6);
       
-      // 3. 詳細プロットをズーム
-      // セグメントの前後にパディングを追加
-      const duration = segment.End_Time - segment.Start_Time;
-      const PADDING = Math.max(0.02, duration * 0.2); // 20msか20%のどちらか大きい方
+      // ★★★ v4.2 変更: ズーム範囲をご要望 (-0.01, +0.01) に変更 ★★★
+      const PADDING = 0.01; // 10ms
       const zoom_start = Math.max(0, segment.Start_Time - PADDING);
       const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.End_Time + PADDING);
 
@@ -765,14 +793,8 @@
       for (const ch of mapped.channels) {
         const plot_dt = plotDivs_Detail[ch.name];
         if (plot_dt) {
-          // ★★★ v4.0 変更: セレクションとマーカーを両方描画 ★★★
-          const current_selection = selections[ch.name];
-          const shapes = [];
-          if (current_selection && current_selection.clicks.length >= 2) {
-             const [a,b] = current_selection.clicks.slice(0,2);
-             const x0=Math.min(a,b), x1=Math.max(a,b);
-             shapes.push({ type: "rect", x0, x1, y0: 0, y1: 1, xref: "x", yref: "paper", fillcolor: "rgba(11,107,203,0.12)", line: { width: 0 } });
-          }
+          // v4.2: 各チャネルの既存のセレクション形状を取得
+          const shapes = plot_dt.layout.shapes.filter(s => s.type === 'rect' || (s.type === 'line' && s.line.color === '#0b6bcb'));
           shapes.push(peak_marker); // ピークマーカーを追加
           
           Plotly.relayout(plot_dt, {
@@ -783,12 +805,13 @@
       }
     }
     
-    function applyManualSegment() {
+    function applySegmentToAll() {
       if (currentSegmentIdx < 0) {
         alert("適用するセグメントが選択されていません。");
         return;
       }
       
+      // ★★★ v4.2 変更: 手動入力値を読み取り、autoSegments配列に保存 ★★★
       const t_start = Number($("#autoStartTime").value);
       const t_end = Number($("#autoEndTime").value);
       
@@ -797,7 +820,11 @@
         return;
       }
       
-      // 1. グローバルセレクションを更新
+      // 手動変更を autoSegments データに永続化
+      autoSegments[currentSegmentIdx].Start_Time = t_start;
+      autoSegments[currentSegmentIdx].End_Time = t_end;
+      
+      // 1. 全チャネルのグローバルセレクションを更新
       for (const ch of mapped.channels) {
         selections[ch.name].clicks = [t_start, t_end];
         drawSelectionOnPlot(ch.name); // 両方のプロットの矩形を更新
@@ -808,35 +835,50 @@
       
       // 3. セグメント番号を自動インクリメント
       const segNoInput = $("#segmentNo");
-      segNoInput.value = Number(segNoInput.value) + 1;
+      segNoInput.value = autoSegments[currentSegmentIdx].Impulse_No;
       
       // 4. ステータス表示
       const seg = autoSegments[currentSegmentIdx];
-      showStatus($("#autoSegmentStatus"), `OK: Impulse #${seg.Impulse_No} のセグメント (t=${t_start.toFixed(3)}s - ${t_end.toFixed(3)}s) を適用しました。\nセグメント番号を ${segNoInput.value} に更新。`, true);
+      showStatus($("#autoSegmentStatus"), `OK: Impulse #${seg.Impulse_No} のセグメント (t=${t_start.toFixed(3)}s - ${t_end.toFixed(3)}s) を【全チャネル】に適用しました。`, true);
       
-      // 5. 詳細プロットのズームを維持しつつ、セレクションを更新
+      // 5. 詳細プロットのズームを更新
       showSegmentDetail(currentSegmentIdx);
     }
     
     // =============================
-    // Info Panel
+    // Info Panel (v4.2 - v3.3準拠)
     // =============================
     function selectionStatsFor(ch) {
-      const sel = selections[ch.name]; if (!sel || sel.clicks.length < 2) return null;
-      const [a,b] = sel.clicks; const x0 = Math.min(a,b), x1 = Math.max(a,b);
+      const sel = selections[ch.name];
+      if (!sel) return null;
+      
+      // ★★★ v4.2 変更: v3.3のガイドロジックを反映 ★★★
+      let t0, t1;
+      if (sel.clicks.length === 1 && sel.guide) {
+          t0 = sel.guide.x0; t1 = sel.guide.x1;
+      } else if (sel.clicks.length >= 2) {
+          t0 = sel.clicks[0]; t1 = sel.clicks[1];
+      } else {
+          return null; // 選択未完了
+      }
+
+      const x0 = Math.min(t0, t1), x1 = Math.max(t0, t1);
       const idxs = idxBetween(mapped.time, x0, x1); if (idxs.length===0) return null;
       const maxv = absMax(ch.data, idxs);
       const minv = (function(){ let m=Infinity; for(const i of idxs){ const v=ch.data[i]; if(v<m) m=v; } return m; })();
       const dur = x1 - x0;
       return { start:x0, end:x1, duration:dur, max:maxv, min:minv };
     }
+    
     function updateInfoPanel() {
+      // ★★★ v4.2 変更: FHのDurationは参考情報として表示 ★★★
       const dt = fhDuration();
-      $("#fhInfo").innerHTML = dt ? `<span class="pill">FH Duration = ${fmt(dt)}</span>` : `<span class="muted">FH Duration = 未決定</span>`;
+      $("#fhInfo").innerHTML = dt ? `<span class="pill">FH Duration (参考) = ${fmt(dt)}</span>` : `<span class="muted">FH Duration = 未決定</span>`;
+      
       const rows = [];
       if (mapped) {
         for (const ch of mapped.channels) {
-          const st = selectionStatsFor(ch);
+          const st = selectionStatsFor(ch); // v4.2: チャネルごとに呼び出す
           rows.push(`
             <tr>
               <td class="mono nowrap">${ch.name}</td>
@@ -859,17 +901,20 @@
     }
 
     // =============================
-    // Metrics（ご提案形式）
+    // Metrics (v4.2 - v3.3準拠)
     // =============================
     function computeAndRenderMetrics() {
       if (!mapped) throw new Error("データがありません。");
-      const fh = mapped.channels.find(c => c.role === "FH");
+      const fh = getFH();
       const resChs = mapped.channels.filter(c => c.role !== "FH");
       if (!fh) throw new Error("FH チャンネルが必要です。");
       if (resChs.length === 0) throw new Error("FH以外のチャンネルが必要です。");
 
-      const fhSelObj = fhSel(); if (!fhSelObj) throw new Error("FH の範囲が未選択です。");
-      const fhIdxs = idxBetween(mapped.time, fhSelObj.clicks[0], fhSelObj.clicks[1]);
+      // ★★★ v4.2 変更: FHのセレクションをv3.3の方法で取得 ★★★
+      const fhSt = selectionStatsFor(fh);
+      if (!fhSt) throw new Error("FH の範囲が未選択です (グラフを2回クリックしてください)。");
+      
+      const fhIdxs = idxBetween(mapped.time, fhSt.start, fhSt.end);
       if (fhIdxs.length === 0) throw new Error("FH 範囲にデータ点がありません。");
 
       const sumAbsS = absSum(fh.data, fhIdxs);
@@ -878,10 +923,9 @@
       const tbody = $("#metricsBody");
       tbody.innerHTML = "";
 
-      // FH行
       const trFH = document.createElement("tr");
       trFH.innerHTML = `
-        <td class="mono nowrap">FH</td>
+        <td class="mono nowrap">${fh.name}</td>
         <td class="mono right">${fmt(sumAbsS)}</td>
         <td class="mono right">${fmt(maxAbsS)}</td>
         <td class="mono right">-</td>
@@ -892,14 +936,15 @@
 
       const segNo = Number($("#segmentNo").value || 1);
       const sourceFile = ($("#csvUrl").value || ($("#csvFile").files[0]?.name ?? ""));
-      summaryRows = []; // reset each compute
+      summaryRows = []; 
 
-      // 応答チャンネル行
+      // ★★★ v4.2 変更: 応答チャネルのループをv3.3のロジックに戻す ★★★
       for (const ch of resChs) {
-        const sel = selections[ch.name];
-        // ★★★ v4.0 変更: FHと同じセレクションを使うように強制 ★★★
-        const idxs = idxBetween(mapped.time, fhSelObj.clicks[0], fhSelObj.clicks[1]);
-        if (idxs.length === 0) continue; // FHにデータがなければ応答もスキップ
+        const chSt = selectionStatsFor(ch); // チャネルごとのStatsを取得
+        if (!chSt) continue; // 選択されていなければスキップ
+
+        const idxs = idxBetween(mapped.time, chSt.start, chSt.end);
+        if (idxs.length === 0) continue;
 
         const sumAbsR_raw = absSum(ch.data, idxs);
         const maxAbsR_raw = absMax(ch.data, idxs);
@@ -921,7 +966,6 @@
           <td class="mono right">${isFinite(F_over_v_dB_Max) ? fmt(F_over_v_dB_Max) : ""}</td>`;
         tbody.appendChild(tr);
 
-        // export用
         summaryRows.push({
           SourceFile: sourceFile,
           SegmentFile: `combined_segment_${segNo}.csv`,
@@ -939,43 +983,50 @@
     }
 
     // =============================
-    // Exporters
+    // Exporters (v4.2 - v3.3準拠)
     // =============================
     function exportCombinedSegment() {
       if (!mapped) throw new Error("データがありません。");
-      // ★★★ v4.0 変更: 全チャネルがFHと同じセレクションを持つことを前提とする ★★★
-      const fhSelObj = fhSel();
-      if (!fhSelObj) throw new Error("FH の範囲が未選択です。");
       
-      const [t0_fh, t1_fh] = fhSelObj.clicks;
-      const t0 = Math.min(t0_fh, t1_fh);
-      const t1 = Math.max(t0_fh, t1_fh);
+      // ★★★ v4.2 変更: v3.3のロジックに戻す ★★★
+      let all_selected = true;
+      for (const ch of mapped.channels) {
+        const st = selectionStatsFor(ch);
+        if (!st) {
+          all_selected = false;
+          break;
+        }
+      }
+      if (!all_selected) throw new Error("すべてのチャネルの範囲が未選択です (2点クリックまたはガイド(1クリック)が必要です)。");
 
       const slices = {};
       let minLen = Infinity;
 
-      // FHと同じ時間範囲で全チャネルをスライス
-      const tIdxs = idxBetween(mapped.time, t0, t1);
-      const tSlice = tIdxs.map(i => mapped.time[i]);
-      minLen = tIdxs.length;
-
-      if (minLen === 0) throw new Error("選択範囲にデータ点がありません。");
-
       for (const ch of mapped.channels) {
-        slices[ch.name] = tIdxs.map(i => ch.data[i]);
+        const st = selectionStatsFor(ch); // ここでチャネルごとのStart/Endを取得
+        const idxs = idxBetween(mapped.time, st.start, st.end);
+        slices[ch.name] = idxs.map(i => ch.data[i]);
+        if (idxs.length < minLen) minLen = idxs.length;
       }
+
+      // タイムスタンプは最初のチャネルのものを基準にする
+      const st0 = selectionStatsFor(mapped.channels[0]);
+      const tIdxs = idxBetween(mapped.time, st0.start, st0.end).slice(0, minLen);
+      const tSlice = tIdxs.map(i => mapped.time[i]);
+      
+      if (minLen === 0) throw new Error("選択範囲にデータ点がありません。");
 
       const segNo = Number($("#segmentNo").value || 1);
       const cols = ["Time (s)", ...mapped.channels.map(ch => ch.name)];
       let csv = cols.join(",") + "\n";
       for (let i = 0; i < minLen; i++) {
-        const vals = mapped.channels.map(ch => slices[ch.name][i]);
+        const vals = mapped.channels.map(ch => (slices[ch.name][i] !== undefined ? slices[ch.name][i] : ""));
         csv += [tSlice[i].toFixed(10), ...vals].join(",") + "\n";
       }
       downloadText(`combined_segment_${segNo}.csv`, csv);
-      // ★★★ v4.0 変更: セグメント番号は自動適用時にインクリメントされるため、ここではしない ★★★
-      // $("#segmentNo").value = String(segNo + 1); 
+      
       showStatus($("#autoSegmentStatus"), `combined_segment_${segNo}.csv をエクスポートしました。`, true);
+      // セグメント番号は自動ではインクリメントしない (v3.3の挙動)
     }
     
     function exportSummaryCSV() {
@@ -1036,20 +1087,25 @@
     $("#btnClearSelections").addEventListener("click", () => {
       Object.keys(selections).forEach(name => { selections[name].clicks = []; selections[name].guide = null; });
       $$("#plots_overview .plot-card > div:last-child").forEach(plot => { plot.layout = plot.layout || {}; plot.layout.shapes = []; Plotly.redraw(plot); });
-      $$("#plots_detail .plot-card > div:last-child").forEach(plot => { plot.layout = plot.layout || {}; plot.layout.shapes = []; Plotly.redraw(plot); });
+      $$("#plots_detail .plot-card > div:last-child").forEach(plot => { 
+          if(plot.layout) {
+              // ピークマーカーだけ残す
+              plot.layout.shapes = plot.layout.shapes.filter(s => s.line && s.line.color === 'red'); 
+              Plotly.redraw(plot);
+          }
+      });
       updateInfoPanel();
     });
     $("#btnCompute").addEventListener("click", () => { try { computeAndRenderMetrics(); } catch (e) { alert(e.message); } });
     $("#btnExportSegment").addEventListener("click", () => { try { exportCombinedSegment(); } catch (e) { alert(e.message); } });
     $("#btnExportSummary").addEventListener("click", () => { exportSummaryCSV(); });
     
-    // ★★★ v4.0 追加: イベントリスナー ★★★
+    // ★★★ v4.2 変更: イベントリスナー ★★★
     $("#btnAutoDetect").addEventListener("click", () => { try { autoDetectSegments(); } catch (e) { alert(e.message); console.error(e); } });
     $("#btnPrevSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx - 1); });
     $("#btnNextSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx + 1); });
-    $("#btnApplyManualSegment").addEventListener("click", () => { try { applyManualSegment(); } catch (e) { alert(e.message); } });
-    // ★★★ v4.0 追加ここまで ★★★
-
+    $("#btnApplySegmentToAll").addEventListener("click", () => { try { applySegmentToAll(); } catch (e) { alert(e.message); } });
+    
   </script>
 </body>
 </html>
