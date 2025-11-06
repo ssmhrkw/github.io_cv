@@ -10,7 +10,7 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CSV Segmenter (Web) v4.7 (Auto-Zoom)</title>
+  <title>CSV Segmenter (Web) v4.8 (Y-Axis Fixed)</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
@@ -134,7 +134,7 @@
 </head>
 <body>
   <header>
-    <h1>CSV Segmenter (Web) — v4.7 (Auto-Zoom)</h1>
+    <h1>CSV Segmenter (Web) — v4.8 (Y-Axis Fixed)</h1>
     <p class="muted"></p>
   </header>
 
@@ -484,7 +484,7 @@
     }
 
     // =============================
-    // Plotting & Selection (v4.7)
+    // Plotting & Selection (v4.8)
     // =============================
     function renderPlots() {
       const wrap_overview = $("#plots_overview"); wrap_overview.innerHTML = "";
@@ -511,7 +511,7 @@
         const layout_ov = {
           margin: { l: 40, r: 10, t: 30, b: 22 }, 
           xaxis: { title: "Time (s)", color: "#1f2937" },
-          yaxis: { title: "Amp.", color: "#1f2937" },
+          yaxis: { title: "Amp.", color: "#1f2937", autorange: true }, // 全体は自動調整
           shapes: [], annotations: [], 
           showlegend: false, paper_bgcolor: "#ffffff", plot_bgcolor: "#ffffff", font: { color: "#1f2937" },
         };
@@ -531,6 +531,10 @@
         
         const layout_dt = JSON.parse(JSON.stringify(layout_ov));
         layout_dt.xaxis.range = [mapped.time[0], mapped.time[0] + 0.1];
+        // ★★★ v4.8 変更: 詳細プロットのY軸を [-1, 1] に固定 ★★★
+        layout_dt.yaxis.range = [-1, 1];
+        layout_dt.yaxis.autorange = false;
+        
         Plotly.newPlot(plot_dt, [trace], layout_dt, { responsive: true });
         
         selections[ch.name] = { clicks: [], guide: null };
@@ -632,7 +636,7 @@
     }
 
     // =============================
-    // Auto Segment (v4.7)
+    // Auto Segment (v4.8 - v4.7準拠)
     // =============================
     
     function resetAutoSegmentUI() {
@@ -646,7 +650,7 @@
       currentSegmentIdx = -1;
     }
     
-    // ★★★ v4.7 変更: このロジックはFHの検出にのみ使用 ★★★
+    // この関数はFHのインパルス検出にのみ使用
     function findImpulseSegment(ch, t_search_start, t_search_end, detection_threshold_factor) {
         const time = mapped.time;
         const data = ch.data;
@@ -779,7 +783,6 @@
       showStatus($("#autoSegmentStatus"), `検出完了: ${autoSegments.length} 件のFHインパルスが見つかりました。`, true);
       
       if (autoSegments.length > 0) {
-        // ★★★ v4.7 変更: セグメント番号を自動で #1 に設定 ★★★
         $("#segmentNo").value = 1;
         showSegmentDetail(0);
       }
@@ -795,7 +798,7 @@
       $("#btnPrevSegment").disabled = (index === 0);
       $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
       
-      // ★★★ v4.7 変更: ズーム範囲をご要望 (Peak ± 0.0025s) に変更 ★★★
+      // ★★★ v4.8 変更: ズーム範囲を Peak ± 0.0025s に ★★★
       const PADDING = 0.0025; // 2.5ms
       const zoom_start = Math.max(0, segment.Peak_Time - PADDING);
       const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.Peak_Time + PADDING);
@@ -810,7 +813,6 @@
       for (const ch of mapped.channels) {
         const plot_dt = plotDivs_Detail[ch.name];
         if (plot_dt) {
-          // ★★★ v4.7 変更: ズーム時に既存のセレクションをクリアしない ★★★
           const shapes = (plot_dt.layout.shapes || []).filter(s => s.type === 'rect' || (s.type === 'line' && s.line.color === '#0b6bcb'));
           shapes.push(peak_marker);
           
@@ -821,12 +823,14 @@
         }
       }
       
-      // ★★★ v4.7 変更: セグメント番号を自動更新 ★★★
       $("#segmentNo").value = segment.Impulse_No;
+      
+      // ★★★ v4.7: 自動適用ボタンは無いため、ステータス表示のみ ★★★
+      showStatus($("#autoSegmentStatus"), `Impulse #${segment.Impulse_No} 周辺にズームしました。各グラフをクリックして手動でセグメントを設定してください。`, true);
     }
     
     // =============================
-    // Metrics (v4.7)
+    // Metrics
     // =============================
     function computeAndRenderMetrics() {
       if (!mapped) throw new Error("データがありません。");
@@ -909,7 +913,7 @@
     }
 
     // =============================
-    // Exporters (v4.7)
+    // Exporters (v4.8 - v4.6準拠)
     // =============================
     function exportCombinedSegment() {
       if (!mapped) throw new Error("データがありません。");
