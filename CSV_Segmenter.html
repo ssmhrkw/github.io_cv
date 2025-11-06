@@ -10,7 +10,7 @@
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CSV Segmenter (Web) v4.8 (Theoretical Delay)</title>
+  <title>CSV Segmenter (Web) v4.9 (Multi-Zoom)</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
   <style>
@@ -134,7 +134,7 @@
 </head>
 <body>
   <header>
-    <h1>CSV Segmenter (Web) — v4.8 (Theoretical Delay)</h1>
+    <h1>CSV Segmenter (Web) — v4.9 (Multi-Zoom)</h1>
     <p class="muted"></p>
   </header>
 
@@ -219,7 +219,7 @@
            <button id="btnApplyTheoreticalDelay" class="btn-green" style="flex:1;">2. 理論遅延を Acc/Mic に適用</button>
         </div>
         <div class="help-box">
-            <b>ボタンの動作:</b> FHの手動セグメントに基づき、Acc(遅延0)とMic(マッピング距離/340m/s)のセグメントを自動設定します。
+            <b>ボタンの動作:</b> FHの手動セグメントに基づき、Acc(遅延0)とMic(マッピング距離/340m/s)のセグメントを自動設定し、<b>各詳細窓を個別にズーム</b>します。
         </div>
         <div id="autoSegmentStatus" class="muted" style="margin-top: 8px;"></div>
       </div>
@@ -270,7 +270,7 @@
     // Constants & Global State
     // =============================
     const rho = 1.21, c = 343;
-    const soundVelocity = 340; // ★★★ v4.8 追加: 音速(m/s) ★★★
+    const soundVelocity = 340; // v4.8
     let rawRows = [];
     let headers = [];
     let mapping = [];
@@ -474,7 +474,6 @@
       resetAutoSegmentUI();
     }
 
-    // ★★★ v4.8 変更: プリセット1のロジック ★★★
     function applyPreset1() {
       const seq = ["Time","FH","Acc","Acc","Mic","Mic","Mic","Mic","Mic"];
       const mic_distances = [0.1, 0.4, 0.7, 1.0, 1.3];
@@ -489,7 +488,6 @@
         selects[i].value = role;
         mapping[i].role = role;
         
-        // 距離を自動入力
         if (role === "Mic") {
           if (mic_count < mic_distances.length) {
             const dist_val = mic_distances[mic_count];
@@ -511,7 +509,7 @@
     }
 
     // =============================
-    // Plotting & Selection (v4.8)
+    // Plotting & Selection (v4.9)
     // =============================
     function renderPlots() {
       const wrap_overview = $("#plots_overview"); wrap_overview.innerHTML = "";
@@ -625,6 +623,7 @@
           });
       }
 
+      // 詳細プロットのPeakマーカーを維持
       if (currentSegmentIdx >= 0) {
           const segment = autoSegments[currentSegmentIdx];
           shapes.push({
@@ -658,7 +657,7 @@
     }
 
     // =============================
-    // Auto Segment (v4.8)
+    // Auto Segment (v4.9)
     // =============================
     
     function resetAutoSegmentUI() {
@@ -672,7 +671,6 @@
       currentSegmentIdx = -1;
     }
     
-    // v4.7のFHインパルス検出ロジック (変更なし)
     function findImpulseSegment(ch, t_search_start, t_search_end, detection_threshold_factor) {
         const time = mapped.time;
         const data = ch.data;
@@ -741,7 +739,6 @@
         };
     }
 
-    // v4.7のFH検出ロジック (変更なし)
     function autoDetectFHSegments() {
       const FH = getFH();
       if (!FH) {
@@ -811,7 +808,6 @@
       }
     }
     
-    // v4.7の自動ズームロジック (v4.6から変更)
     function showSegmentDetail(index) {
       if (index < 0 || index >= autoSegments.length) return;
       
@@ -822,10 +818,10 @@
       $("#btnPrevSegment").disabled = (index === 0);
       $("#btnNextSegment").disabled = (index === autoSegments.length - 1);
       
-      // ★★★ v4.7/v4.8: ズーム範囲を Peak ± 0.0025s に ★★★
-      const PADDING = 0.0025; // 2.5ms
-      const zoom_start = Math.max(0, segment.Peak_Time - PADDING);
-      const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.Peak_Time + PADDING);
+      // ★★★ v4.9 変更: ズーム範囲をインパルス全体が見えるように変更 ★★★
+      const PADDING = 0.01; // 10ms
+      const zoom_start = Math.max(0, segment.Start_Time - PADDING);
+      const zoom_end = Math.min(mapped.time[mapped.time.length - 1], segment.End_Time + PADDING);
 
       const peak_marker = {
         type: 'line',
@@ -850,7 +846,7 @@
       $("#segmentNo").value = segment.Impulse_No;
     }
     
-    // ★★★ v4.8 追加: 理論遅延適用ロジック ★★★
+    // ★★★ v4.9 変更: 理論遅延適用 + 個別ズーム ★★★
     function applyTheoreticalDelay() {
       const fh = getFH();
       if (!fh) {
@@ -896,6 +892,18 @@
           }
           
           drawSelectionOnPlot(ch.name); // Annotate付きで描画
+          
+          // ★★★ v4.9 新機能: 個別ズーム ★★★
+          const plot_dt = plotDivs_Detail[ch.name];
+          if (plot_dt) {
+              const PADDING = 0.01; // 10ms
+              const zoom_start = Math.max(0, t_start_ch - PADDING);
+              const zoom_end = Math.min(mapped.time[mapped.time.length - 1], t_end_ch + PADDING);
+              
+              Plotly.relayout(plot_dt, {
+                  'xaxis.range': [zoom_start, zoom_end]
+              });
+          }
       }
       
       const segNoInput = $("#segmentNo");
@@ -903,12 +911,12 @@
           segNoInput.value = autoSegments[currentSegmentIdx].Impulse_No;
       }
       
-      showStatus($("#autoSegmentStatus"), `OK: ${applied_count}件のAcc/Micチャネルに理論遅延を適用しました。`, true);
+      showStatus($("#autoSegmentStatus"), `OK: ${applied_count}件のAcc/Micチャネルに理論遅延を適用し、各窓をズームしました。`, true);
     }
 
     
     // =============================
-    // Metrics (v4.8)
+    // Metrics (v4.9)
     // =============================
     function computeAndRenderMetrics() {
       if (!mapped) throw new Error("データがありません。");
@@ -991,7 +999,7 @@
     }
 
     // =============================
-    // Exporters (v4.8)
+    // Exporters (v4.9)
     // =============================
     function exportCombinedSegment() {
       if (!mapped) throw new Error("データがありません。");
@@ -1115,7 +1123,6 @@
     $("#btnPrevSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx - 1); });
     $("#btnNextSegment").addEventListener("click", () => { showSegmentDetail(currentSegmentIdx + 1); });
     
-    // ★★★ v4.8 追加: 新しいボタンのリスナー ★★★
     $("#btnApplyTheoreticalDelay").addEventListener("click", () => { try { applyTheoreticalDelay(); } catch (e) { alert(e.message); } });
     
   </script>
