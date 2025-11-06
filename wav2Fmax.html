@@ -38,15 +38,8 @@
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
     .btn.primary{background:#0ea5a4;color:#fff;border:none}
-    /* 処理中スタイル（優先度を上げて強制） */
-    #process-btn.processing,
-    #process-btn.processing:disabled{
-      background:#dc2626 !important;
-      color:#fff !important;
-      border:none !important;
-      opacity:1 !important;
-      filter:none !important;
-    }
+    /* 処理中スタイル */
+    #process-btn.processing{background:#dc2626;color:#fff}
     .file-name{min-width:200px;max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid #e2e8f0;padding:6px;border-radius:8px;background:#fff}
     .card{border:1px solid #e5e7eb;border-radius:12px;padding:10px;background:#fff;margin-top:10px}
     label.small{font-size:13px;color:#334155}
@@ -64,9 +57,7 @@
     td.f{font-variant-numeric:tabular-nums;text-align:right}
     td.sel{background:#ecfeff}
     .band-plot{height:170px;margin-top:8px}
-    /* Overlay をクラスで制御 */
-    #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.25);backdrop-filter:saturate(0.1) blur(1px);display:flex;z-index:999;align-items:center;justify-content:center;color:#fff;font-size:20px;pointer-events:auto}
-    #overlay.hidden{display:none;pointer-events:none}
+    #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.25);backdrop-filter:saturate(0.1) blur(1px);display:none;z-index:999;align-items:center;justify-content:center;color:#fff;font-size:20px}
   </style>
 </head>
 <body>
@@ -75,7 +66,7 @@
 
   <div class="row">
     <input id="file-input" type="file" accept=".wav,.wave,.csv,.txt" multiple />
-    <button id="load-btn" class="btn primary" type="button">Load</button>
+    <button id="load-btn" class="btn primary">Load</button>
     <div id="file-name" class="file-name">No file selected</div>
     <span id="status" class="muted">Ready</span>
   </div>
@@ -98,7 +89,7 @@
       </label>
       <label class="small">Lo(Hz): <select id="band-lo"></select></label>
       <label class="small">Hi(Hz): <select id="band-hi"></select></label>
-      <!-- Filterブロックは完全削除 -->
+      <!-- Filterブロックを完全削除 -->
       <label class="small">Order N(LP原型): <input id="filter-order" type="number" min="1" step="1" value="12" /></label>
       <label class="small">Time weighting:
         <select id="time-weight">
@@ -112,8 +103,8 @@
       <label class="small">Leq window(s): <input id="leq-win" type="number" step="0.1" value="1.0" /></label>
       <label class="small">CSV SR(Hz): <input id="csv-sr" type="number" value="25600" /></label>
       <label class="small"><input id="has-header" type="checkbox" checked /> header row</label>
-      <button id="process-btn" class="btn primary" type="button" disabled style="padding:10px 16px">Process</button>
-      <!-- progress系DOMは削除 -->
+      <button id="process-btn" class="btn primary" disabled style="padding:10px 16px">Process</button>
+      <!-- progressとp-labelを完全削除 -->
     </div>
   </div>
 
@@ -122,7 +113,7 @@
   <div id="summary" class="card hidden">
     <div class="row" style="justify-content:space-between;align-items:center">
       <strong id="summary-title">Summary</strong>
-        <span class="muted">クリックで行を選択→該当バンド位置へスクロール</span>
+      <span class="muted">クリックで行を選択→該当バンド位置へスクロール</span>
     </div>
     <div id="table-wrap"></div>
     <div id="plots-wrap"></div>
@@ -134,14 +125,9 @@
   </div>
 </div>
 
-<div id="overlay" class="hidden">計算中…</div>
+<div id="overlay">計算中…</div>
 
 <script>
-/* overlay helpers */
-const overlayEl = document.getElementById('overlay');
-function showOverlay(){ overlayEl.classList.remove('hidden'); }
-function hideOverlay(){ overlayEl.classList.add('hidden'); }
-
 /* logging */
 function logln(s){
   const el=document.getElementById('log');
@@ -221,7 +207,16 @@ function decodePCM(buf){
   return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
-/* UI actions */
+/* UI wiring */
+document.getElementById('file-input').addEventListener('change', e=>{
+  const f=e.target.files && e.target.files[0]; if(!f) return;
+  g.files=[...e.target.files];
+  document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
+});
+document.getElementById('load-btn').addEventListener('click', onClickLoad);
+document.getElementById('process-btn').addEventListener('click', onProcess);
+document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
+
 function refreshBandRangeUI(){
   const type = document.getElementById('band-type').value;
   const loSel = document.getElementById('band-lo');
@@ -232,7 +227,7 @@ function refreshBandRangeUI(){
   loSel.value = list[0];
   hiSel.value = list[list.length-1];
 
-  // Order Nの自動設定
+  // 追加: band-typeに応じてOrder Nのデフォルト値を設定
   const orderEl = document.getElementById('filter-order');
   if(type === 'oct') orderEl.value = 36;
   else if(type === 'third') orderEl.value = 24;
@@ -276,7 +271,7 @@ function onClickLoad(){
       try{
         const buf=fr.result;
         g.audio = decodePCM(buf);
-        document.getElementById('csv-sr').value = g.audio.sampleRate;
+        document.getElementById('csv-sr').value = g.audio.sampleRate; // WAV → CSV SR
         document.getElementById('config').classList.remove('hidden');
         document.getElementById('process-btn').disabled=false;
         ensureSetup(g.audio.numberOfChannels);
@@ -351,9 +346,9 @@ async function onProcess(){
   const btn = document.getElementById('process-btn');
   try{
     // 開始時のUI制御
-    btn.classList.add('processing');   // 先にクラス
-    btn.disabled = true;               // 続いて無効化
-    showOverlay();
+    btn.classList.add('processing');
+    btn.disabled = true;
+    document.getElementById('overlay').style.display = 'flex';
     document.getElementById('table-wrap').innerHTML = '';
     document.getElementById('plots-wrap').innerHTML = '';
     setStatus('Processing...');
@@ -388,15 +383,16 @@ async function onProcess(){
         const T = y.length/sr;
         const mean_p2 = (()=>{ let s=0; for(let k=0;k<y.length;k++) s+=y[k]*y[k]; return s/Math.max(1,y.length); })();
         const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
-        const LE  = Leq + 10*Math.log10(Math.max(1e-24, T));
+        const LE  = Leq + 10*Math.log10(Math.max(1e-24, T)); // 1s基準
         const sFast = ewmaSquaredToSPL(y, sr, 0.125);
         const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
 
-        // timeMode: none は fast と同じ
+        // timeMode処理: none は fast と同様に扱う
         let series =
           timeMode==='fast' || timeMode==='none' ? sFast :
           timeMode==='slow' ? sSlow :
           timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
+          // maxhold
           (()=>{
             const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length);
             for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; }
@@ -421,7 +417,8 @@ async function onProcess(){
   }catch(err){
     setStatus('Process error: '+err.message);
   }finally{
-    hideOverlay();
+    // 終了時のUI制御
+    document.getElementById('overlay').style.display = 'none';
     btn.classList.remove('processing');
     btn.disabled = false;
   }
@@ -465,18 +462,17 @@ function renderChannel(ch){
   for(const f of centers){
     const m = rec.byBand[f]; if(!m) continue;
     const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
-    const y=m.y; const sr=m.sr; const x = new Array(y.length); for(let i=0;i<y.length;i++) x=i/sr;
+    const y=m.y; const sr=m.sr; const x = new Array(y.length); for(let i=0;i<y.length;i++) x[i]=i/sr;
     const env = (()=>{
-      const tau=0.125; const N=m.y.length; const out=new Float32Array(N);
+      const tau=0.125; const N=y.length; const out=new Float32Array(N);
       const alpha=1 - Math.exp(-1/(sr*tau)); let s=0;
-      for(let i=0;i<N;i++){ s += alpha*(m.y[i]*m.y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
+      for(let i=0;i<N;i++){ s += alpha*(y[i]*y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
       return out;
     })();
-    const sFast = ewmaSquaredToSPL(m.y, sr, 0.125);
+    const sFast = ewmaSquaredToSPL(y, sr, 0.125);
     let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
     const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = downsampleForPlot(Array.from({length:m.y.length},(_,i)=>i/sr), m.y, 2000);
-    const ds2 = downsampleForPlot(Array.from({length:env.length},(_,i)=>i/sr), env, 2000);
+    const ds1 = downsampleForPlot(x,y,2000); const ds2 = downsampleForPlot(x,env,2000);
 
     Plotly.react(div,[
       {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
@@ -487,24 +483,18 @@ function renderChannel(ch){
       legend:{orientation:'h'},
       margin:{l:40,r:10,t:30,b:30},
       annotations: [
-        { x:tmax, y:ystar, text:`${m.Lfmax.toFixed(1)} dB`, showarrow:false, yshift:-12, font:{size:10} }
+        {
+          x: tmax,
+          y: ystar,
+          text: `${m.Lfmax.toFixed(1)} dB`,
+          showarrow: false,
+          yshift: -12,
+          font: {size:10}
+        }
       ]
     });
   }
 }
-
-/* 初期化: DOM構築後にハンドラ登録とオーバーレイ非表示 */
-window.addEventListener('DOMContentLoaded', ()=>{
-  hideOverlay();
-  document.getElementById('load-btn').addEventListener('click', onClickLoad);
-  document.getElementById('process-btn').addEventListener('click', onProcess);
-  document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
-  document.getElementById('file-input').addEventListener('change', e=>{
-    const f=e.target.files && e.target.files[0]; if(!f) return;
-    g.files=[...e.target.files];
-    document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
-  });
-});
 </script>
 </body>
 </html>
