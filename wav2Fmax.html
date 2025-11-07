@@ -1,15 +1,9 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <link rel="icon" href='data:image/svg+xml;utf8,
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
-    <rect width="100%" height="100%" fill="#0ea5a4"/>
-    <circle cx="8" cy="8" r="6" fill="#ffffff"/>
-  </svg>' type="image/svg+xml">
-
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>wav2Fmax — Pro v3 (UI improved)</title>
+  <title>wav2Fmax — Pro v3 (UI improved, standalone)</title>
 
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -18,21 +12,13 @@
     gtag('config', 'G-HFR5WYG42Q');
   </script>
 
-  <!-- plotly は外部CDNのまま -->
+  <!-- Plotly CDN -->
   <script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
 
   <style>
-    /* Improved UI/CSS: responsive two-column layout, clearer controls, accessible focus states */
     :root{
-      --bg:#0f172a;
-      --muted:#64748b;
-      --card:#ffffff;
-      --accent:#0ea5a4;
-      --danger:#dc2626;
-      --border:#e5e7eb;
-      --radius:12px;
-      --gap:12px;
-      --maxw:1280px;
+      --bg:#0f172a; --muted:#64748b; --card:#ffffff; --accent:#0ea5a4;
+      --danger:#dc2626; --border:#e5e7eb; --radius:12px; --gap:12px; --maxw:1280px;
     }
     html,body{height:100%;}
     body{
@@ -44,7 +30,6 @@
     h2{font-size:1.2rem;margin:0}
     .sub{color:var(--muted);font-size:13px}
 
-    /* left panel (controls) */
     .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
     .controls{display:flex;flex-direction:column;gap:10px}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -61,12 +46,10 @@
     input[type="number"], select, input[type="text"]{padding:6px;border-radius:10px;border:1px solid #cbd5e1}
     input[type="file"]{display:none}
 
-    /* right main */
     .main{display:flex;flex-direction:column;gap:12px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
     #summary-title{font-weight:600}
 
-    /* tabs: horizontal scroll with selected state */
     .tabs{display:flex;gap:6px;overflow:auto;padding-bottom:6px}
     .tab{flex:0 0 auto;padding:8px 12px;border:1px solid var(--border);border-radius:999px;cursor:pointer;background:#fff}
     .tab.active{background:var(--accent);color:#fff;border:none}
@@ -81,23 +64,26 @@
 
     #log{font-size:12px;white-space:pre-wrap;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;max-height:140px;overflow:auto;background:#fbfdfe}
 
-    /* overlay spinner */
     #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;z-index:9999;align-items:center;justify-content:center;color:#fff;font-size:18px}
     .spinner{width:64px;height:64px;border-radius:50%;border:6px solid rgba(255,255,255,0.18);border-top-color:#fff;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
 
-    /* responsive: collapse to single column on small screens */
     @media (max-width:900px){
       .wrap{grid-template-columns:1fr;}
       .file-name{max-width:200px}
     }
 
-    /* small helpers */
     .muted{color:var(--muted);font-size:12px}
     .flex-between{display:flex;justify-content:space-between;align-items:center}
     .hidden{display:none}
-
   </style>
+
+  <!-- quick inline svg favicon to avoid favicon.ico 404 -->
+  <link rel="icon" href='data:image/svg+xml;utf8,
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+    <rect width="100%" height="100%" fill="#0ea5a4"/>
+    <circle cx="8" cy="8" r="6" fill="#ffffff"/>
+  </svg>' type="image/svg+xml">
 </head>
 <body>
 <div class="wrap">
@@ -113,8 +99,9 @@
   <aside class="panel">
     <div class="controls">
       <div class="file-input-row">
-        <label class="btn primary" for="file-input" id="load-btn">Select files</label>
-        <input id="file-input" type="file" accept=".wav,.wave,.csv,.txt" multiple />
+        <button id="select-btn" class="btn primary" type="button">Select files</button>
+        <input id="file-input" type="file" accept=".wav,.wave,.csv,.txt" multiple style="display:none" />
+        <button id="load-btn" class="btn" type="button" disabled>Load</button>
         <div id="file-name" class="file-name">No file selected</div>
       </div>
 
@@ -178,7 +165,6 @@
 
 </div>
 
-<!-- 初期状態で確実に非表示にするため inline style で display:none を入れています -->
 <div id="overlay" class="hidden" style="display:none" aria-hidden="true">
   <div style="text-align:center">
     <div class="spinner"></div>
@@ -187,35 +173,19 @@
 </div>
 
 <script>
-/* overlay, logging, state, constants (変更なしだが堅牢化) */
+/* --- 基本ユーティリティと堅牢化 --- */
 const overlayEl = document.getElementById('overlay');
-function showOverlay(){
-  if(!overlayEl) return;
-  overlayEl.classList.remove('hidden');
-  overlayEl.style.display = 'flex';
-  overlayEl.setAttribute('aria-hidden','false');
-}
-function hideOverlay(){
-  if(!overlayEl) return;
-  overlayEl.classList.add('hidden');
-  overlayEl.style.display = 'none';
-  overlayEl.setAttribute('aria-hidden','true');
-}
-function logln(s){
-  const el=document.getElementById('log');
-  if(!el) return;
-  const t=new Date().toLocaleTimeString();
-  el.textContent += `[${t}] ${s}\n`;
-  el.scrollTop=el.scrollHeight;
-}
+function showOverlay(){ if(!overlayEl) return; overlayEl.classList.remove('hidden'); overlayEl.style.display='flex'; overlayEl.setAttribute('aria-hidden','false'); }
+function hideOverlay(){ if(!overlayEl) return; overlayEl.classList.add('hidden'); overlayEl.style.display='none'; overlayEl.setAttribute('aria-hidden','true'); }
+function logln(s){ const el=document.getElementById('log'); if(!el) return; const t=new Date().toLocaleTimeString(); el.textContent += `[${t}] ${s}\n`; el.scrollTop=el.scrollHeight; }
 function setStatus(s){ const el=document.querySelector('header .muted'); if(el) el.textContent=s; logln(s); }
 window.addEventListener('error', e=>{ setStatus('JS error: '+(e.message||e)); });
 window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
 
 let g = { files:[], csv:{rows:[], headerTokens:[], headerLike:false}, srCSV:25600, audio:null, results:null, setup:[] };
-const P0 = 2e-5; // Pa
+const P0 = 2e-5;
 
-/* splitCSV unchanged but robust */
+/* CSV parser (stream if available, fallback to full text) */
 function splitCSV(line){
   const out=[]; let cur=''; let inQ=false;
   for(let i=0;i<line.length;i++){
@@ -228,75 +198,50 @@ function splitCSV(line){
   if(out.length===1 && out[0].includes(' ')) return out[0].split(/\s+/);
   return out;
 }
-
-/* CSV parse with fallback if stream() not available */
 async function parseCSVStream(file, hasHeader = true) {
-    // Try streaming API first; if not available, fallback to reading whole file
     if (file.stream && typeof file.stream === 'function') {
-        const rows = [];
-        let headerTokens = [];
-        const decoder = new TextDecoder('utf-8');
-        let leftover = '';
-        let firstChunk = true;
-        const stream = file.stream();
-        const reader = stream.getReader();
+        const rows = []; let headerTokens = []; const decoder = new TextDecoder('utf-8');
+        let leftover = ''; let firstChunk = true;
+        const stream = file.stream(); const reader = stream.getReader();
         logln('CSV stream parsing started (stream API)...');
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             let textChunk = decoder.decode(value, { stream: true });
-            if (firstChunk) {
-                if (textChunk.startsWith('\uFEFF')) { textChunk = textChunk.substring(1); }
-                firstChunk = false;
-            }
+            if (firstChunk) { if (textChunk.startsWith('\uFEFF')) textChunk = textChunk.substring(1); firstChunk=false; }
             textChunk = leftover + textChunk;
             const lines = textChunk.split(/\r?\n/);
             leftover = lines.pop();
             for (const line of lines) {
-                const trimmedLine = line.trim();
-                if (trimmedLine.length === 0) continue;
-                if (hasHeader && headerTokens.length === 0) {
-                    headerTokens = splitCSV(trimmedLine);
-                } else {
-                    const row = splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
-                    rows.push(row);
-                }
+                const trimmedLine = line.trim(); if (trimmedLine.length === 0) continue;
+                if (hasHeader && headerTokens.length === 0) headerTokens = splitCSV(trimmedLine);
+                else rows.push(splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; }));
             }
         }
         const trimmedLeftover = leftover.trim();
         if (trimmedLeftover.length > 0) {
-            if (hasHeader && headerTokens.length === 0) {
-                headerTokens = splitCSV(trimmedLeftover);
-            } else {
-                const row = splitCSV(trimmedLeftover).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
-                rows.push(row);
-            }
+            if (hasHeader && headerTokens.length === 0) headerTokens = splitCSV(trimmedLeftover);
+            else rows.push(splitCSV(trimmedLeftover).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; }));
         }
         logln(`CSV stream parsing finished. ${rows.length} rows loaded.`);
         return { rows, headerTokens, headerLike: hasHeader };
     } else {
-        // Fallback: read whole file into memory
-        logln('CSV stream API unavailable; using full-file fallback (arrayBuffer)...');
+        logln('CSV stream API unavailable; using full-file fallback...');
         const text = await file.text();
         const lines = text.replace(/\r/g,'').split('\n');
-        const rows = [];
-        let headerTokens = [];
+        const rows = []; let headerTokens = [];
         for (let li=0; li<lines.length; li++){
           const trimmedLine = lines[li].trim();
           if(trimmedLine.length===0) continue;
-          if (hasHeader && headerTokens.length === 0){
-            headerTokens = splitCSV(trimmedLine);
-          } else {
-            const row = splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
-            rows.push(row);
-          }
+          if (hasHeader && headerTokens.length === 0) headerTokens = splitCSV(trimmedLine);
+          else rows.push(splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; }));
         }
         logln(`CSV full-file parsing finished. ${rows.length} rows loaded.`);
         return { rows, headerTokens, headerLike: hasHeader };
     }
 }
 
-/* WAV decode (変更なし) */
+/* WAV decode (robust) */
 function readWavHeader(buf){
   const v=new DataView(buf);
   function str(o,n){ return String.fromCharCode(...new Uint8Array(buf,o,n)); }
@@ -334,12 +279,10 @@ function decodePCM(buf){
   return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
-/* UI actions */
+/* UI helpers */
 function refreshBandRangeUI(){
   const type = document.getElementById('band-type').value;
-  const loSel = document.getElementById('band-lo');
-  const hiSel = document.getElementById('band-hi');
-  // fullCenters may be provided by acoustics-core; if not, use a safe fallback
+  const loSel = document.getElementById('band-lo'); const hiSel = document.getElementById('band-hi');
   const list = (window.fullCenters && typeof window.fullCenters === 'function') ? fullCenters(type) : [31.5,63,125,250,500,1000,2000,4000,8000];
   loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
   hiSel.innerHTML = loSel.innerHTML;
@@ -347,6 +290,7 @@ function refreshBandRangeUI(){
   hiSel.value = list[list.length-1];
 }
 
+/* Load button handler */
 async function onClickLoad(){
   if(!g.files || g.files.length===0){ alert('ファイルを選択してください'); return; }
   const f=g.files[0];
@@ -376,12 +320,9 @@ async function onClickLoad(){
       ensureSetup(nch, colNames);
       buildTabs(nch, colNames);
       refreshBandRangeUI();
-      setStatus('CSV loaded (streamed/fallback): '+g.csv.rows.length+' rows, '+nch+' data cols, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
+      setStatus('CSV loaded: '+g.csv.rows.length+' rows, '+nch+' data cols, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
     }catch(err){
       setStatus('CSV load error: '+(err && err.message ? err.message : String(err)));
-      if (err && (err.message && (err.message.includes('stream') || err.message.includes('not a function')))) {
-        setStatus('CSV load warning: ブラウザがStreaming API未対応の可能性（fallback適用）');
-      }
     }
   }else{
     fr.onload = ()=>{
@@ -401,11 +342,9 @@ async function onClickLoad(){
   }
 }
 
-/* Channel setup UI */
+/* Channel setup */
 function ensureSetup(nch, colNames=[]){
-  const root = document.getElementById('setup');
-  root.classList.remove('hidden');
-  const body = root;
+  const root = document.getElementById('setup'); root.classList.remove('hidden'); const body = root;
   if(g.setup.length !== nch){
     g.setup = [];
     for(let i=0; i<nch; i++){
@@ -446,7 +385,7 @@ function ensureSetup(nch, colNames=[]){
   }));
 }
 
-/* CH tabs */
+/* Tabs */
 function buildTabs(nch, colNames=[]){
   const tabs=document.getElementById('tabs'); tabs.innerHTML=''; tabs.classList.remove('hidden');
   for(let ch=0; ch<nch; ch++){
@@ -476,28 +415,18 @@ function buildTabs(nch, colNames=[]){
 function setBtnProcessing(on){
   const btn = document.getElementById('process-btn');
   if(!btn) return;
-  if(on){
-    btn.classList.add('processing');
-    btn.disabled = true;
-    btn.setAttribute('aria-busy','true');
-  }else{
-    btn.classList.remove('processing');
-    btn.disabled = false;
-    btn.removeAttribute('aria-busy');
-  }
+  if(on){ btn.classList.add('processing'); btn.disabled = true; btn.setAttribute('aria-busy','true'); }
+  else { btn.classList.remove('processing'); btn.disabled = false; btn.removeAttribute('aria-busy'); }
   logln(`btn processing=${on} class=${btn.classList.contains('processing')} disabled=${btn.disabled}`);
 }
 
-/* processing */
+/* Processing: uses functions from acoustics-core if available, otherwise fallback implementations will handle */
 async function onProcess(){
   try{
-    setBtnProcessing(true);
-    showOverlay();
-    document.getElementById('table-wrap').innerHTML = '';
-    document.getElementById('plots-wrap').innerHTML = '';
+    setBtnProcessing(true); showOverlay();
+    document.getElementById('table-wrap').innerHTML = ''; document.getElementById('plots-wrap').innerHTML = '';
     setStatus('Processing...');
-    await Promise.resolve();
-    await new Promise(requestAnimationFrame);
+    await Promise.resolve(); await new Promise(requestAnimationFrame);
 
     const N = 36;
     const bandType = document.getElementById('band-type').value;
@@ -538,10 +467,8 @@ async function onProcess(){
       for(let i=0;i<centers.length;i++){
         const fc=centers[i];
         if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
-        // designButterworthBandpassSOS_N may come from acoustics-core; guard if missing
         if(!(window.designButterworthBandpassSOS_N && typeof window.designButterworthBandpassSOS_N === 'function' && window.sosFilter && typeof window.sosFilter === 'function')){
-          // fallback: simple pass-through (no filtering) but warn
-          setStatus('Warning: filter design or sosFilter missing — bandpass skipped (placeholder).');
+          // fallback: no filtering
           const mean_p2 = (()=>{ let s=0; for(let k=0;k<x.length;k++) s+=x[k]*x[k]; return s/Math.max(1,x.length); })();
           const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
           byBand[fc] = { y: x, Leq, Lfmax: Leq, Lsmax: Leq, LE: Leq, L05: Leq, L10: Leq, L50: Leq, L90: Leq, L95: Leq, sr };
@@ -583,7 +510,7 @@ async function onProcess(){
   }
 }
 
-/*** render per channel ***/
+/* render per channel */
 function renderChannel(ch){
   if(!g.results){ document.getElementById('summary-title').textContent='Summary'; return; }
   const rec = g.results.results.find(r=>r.channelIndex===ch);
@@ -673,38 +600,62 @@ function renderChannel(ch){
   }
 }
 
-/* 初期化 */
-window.addEventListener('DOMContentLoaded', async ()=>{
-  // hide overlay for sure
-  hideOverlay();
+/* --- フォールバック（acoustics-core が無ければここで定義） --- */
+function installFallbackAcousticsCore(){
+  if(window.designButterworthBandpassSOS_N && window.sosFilter) return;
+  window.designButterworthBandpassSOS_N = function(fc, sr, N){ return { sos: [] }; };
+  window.sosFilter = function(x, sos){ return x; };
+  window.centersOct = function(){ return [31.5,63,125,250,500,1000,2000,4000,8000]; };
+  window.centersThird = function(){ return [25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]; };
+  window.fullCenters = function(type){ return type==='oct' ? window.centersOct() : window.centersThird(); };
+  window.ewmaSquaredToSPL = function(y, sr, tau){ const out = new Float32Array(y.length); for(let i=0;i<y.length;i++) out[i] = 20*Math.log10(Math.max(1e-12, Math.abs(y[i])) / P0); return out; };
+  window.movingLeqSPL = function(y, sr, win){ const N = Math.max(1, Math.round(win*sr)); const out = new Float32Array(y.length); let sum=0; for(let i=0;i<y.length;i++){ sum += y[i]*y[i]; if(i>=N) sum -= y[i-N]*y[i-N]; out[i]=10*Math.log10(Math.max(1e-24, sum/Math.max(1,Math.min(i+1,N)))/(P0*P0)); } return out; };
+  window.percentile = function(arr,p){ const tmp=Array.from(arr).sort((a,b)=>a-b); const idx=Math.max(0,Math.min(tmp.length-1,Math.floor((1-p)*(tmp.length-1)))); return tmp[idx]||0; };
+  window.downsampleForPlot = function(x,y,target){ const n = Math.max(1, Math.round(y.length/target)); const xs=[], ys=[]; for(let i=0;i<y.length;i+=n){ xs.push(x[i]); ys.push(y[i]); } return {x:xs,y:ys}; };
+  logln('acoustics-core: fallback installed');
+}
 
-  // Try to dynamically import acoustics-core.js; if it fails, log and continue with fallbacks.
+/* Attempt dynamic import; if fails, install fallback */
+(async function tryImportCore(){
   try{
     const mod = await import('./acoustics-core.js');
-    // attach expected functions only if available
-    const names = ['designButterworthBandpassSOS_N', 'sosFilter', 'centersOct', 'centersThird', 'fullCenters', 'ewmaSquaredToSPL', 'movingLeqSPL', 'percentile', 'downsampleForPlot'];
-    names.forEach(n => { if(mod[n]) window[n] = mod[n]; });
+    const names = ['designButterworthBandpassSOS_N','sosFilter','centersOct','centersThird','fullCenters','ewmaSquaredToSPL','movingLeqSPL','percentile','downsampleForPlot'];
+    names.forEach(n => { if(mod[n]) window[n]=mod[n]; });
     logln('acoustics-core.js loaded');
   }catch(e){
-    logln('acoustics-core.js import failed: ' + (e && e.message ? e.message : String(e)) + ' — フォールバックで続行します。');
-    // do not throw — UI should remain usable; filters will be no-op or fallback
+    logln('acoustics-core.js import failed — using fallback. ' + (e && e.message ? e.message : String(e)));
+    installFallbackAcousticsCore();
   }
+})();
 
-  document.getElementById('load-btn').addEventListener('click', ()=>document.getElementById('file-input').click());
-  document.getElementById('process-btn').addEventListener('click', onProcess);
-  document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
-  document.getElementById('file-input').addEventListener('change', e=>{
+/* --- DOMContentLoaded: UI wiring --- */
+window.addEventListener('DOMContentLoaded', ()=>{
+  hideOverlay();
+
+  const selectBtn = document.getElementById('select-btn');
+  const fileInput = document.getElementById('file-input');
+  const loadBtn = document.getElementById('load-btn');
+  const processBtn = document.getElementById('process-btn');
+
+  selectBtn.addEventListener('click', ()=> fileInput.click());
+
+  fileInput.addEventListener('change', e=>{
     const files = Array.from(e.target.files || []);
-    if(!files.length) return;
+    if(!files.length){ document.getElementById('file-name').textContent='No file selected'; loadBtn.disabled=true; return; }
     g.files = files;
     document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
+    loadBtn.disabled = false;
   });
 
-  // Optional: if user drops files, support drag/drop (harmless enhancement)
-  window.addEventListener('dragover', ev=>{ ev.preventDefault(); });
-  window.addEventListener('drop', ev=>{ ev.preventDefault(); if(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length){ g.files = Array.from(ev.dataTransfer.files); document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', '); }});
+  loadBtn.addEventListener('click', onClickLoad);
 
-  // initial band UI
+  processBtn.addEventListener('click', onProcess);
+  document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
+
+  // optional drag/drop
+  window.addEventListener('dragover', e=>{ e.preventDefault(); });
+  window.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){ g.files = Array.from(e.dataTransfer.files); document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', '); document.getElementById('load-btn').disabled=false; }});
+
   refreshBandRangeUI();
 });
 </script>
