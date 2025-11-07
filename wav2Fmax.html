@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>wav2Fmax — Pro v3 (UI improved, standalone)</title>
+  <title>wav2Fmax — Pro v3 (acoustics-core enabled)</title>
 
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -12,7 +12,6 @@
     gtag('config', 'G-HFR5WYG42Q');
   </script>
 
-  <!-- Plotly CDN -->
   <script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
 
   <style>
@@ -57,9 +56,6 @@
     table{border-collapse:collapse;width:100%}
     th,td{border:1px solid var(--border);padding:6px;font-size:12px;text-align:right}
     th{background:#f1f5f9;text-align:center}
-    td.f{font-variant-numeric:tabular-nums;text-align:right}
-    td.sel{background:#ecfeff}
-
     .band-plot{height:180px;margin-top:10px;border-radius:8px;border:1px solid #eef2f7}
 
     #log{font-size:12px;white-space:pre-wrap;border:1px dashed #cbd5e1;border-radius:8px;padding:8px;max-height:140px;overflow:auto;background:#fbfdfe}
@@ -78,7 +74,6 @@
     .hidden{display:none}
   </style>
 
-  <!-- quick inline svg favicon to avoid favicon.ico 404 -->
   <link rel="icon" href='data:image/svg+xml;utf8,
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
     <rect width="100%" height="100%" fill="#0ea5a4"/>
@@ -90,12 +85,11 @@
   <header>
     <div>
       <h2>wav2Fmax — Pro v3</h2>
-      <div class="sub">transposed table · improved UI</div>
+      <div class="sub">transposed table · acoustics-core enabled</div>
     </div>
     <div class="muted">Ready</div>
   </header>
 
-  <!-- LEFT PANEL: Controls -->
   <aside class="panel">
     <div class="controls">
       <div class="file-input-row">
@@ -148,11 +142,10 @@
         <div id="log"></div>
       </div>
 
-      <div class="muted" style="text-align:center;font-size:12px">Tip: タブやプロットは選択したチャンネルに応じて動きます</div>
+      <div class="muted" style="text-align:center;font-size:12px">Tip: Select → Load → Process の順で操作してください</div>
     </div>
   </aside>
 
-  <!-- RIGHT MAIN: Tabs, summary, plots -->
   <main class="main">
     <div class="card">
       <div class="flex-between"><strong id="summary-title">Summary</strong><span class="muted">表頭＝周波数，表側＝指標。周波数ヘッダをクリックで該当プロットへスクロール。</span></div>
@@ -162,7 +155,6 @@
 
     <div id="plots-wrap"></div>
   </main>
-
 </div>
 
 <div id="overlay" class="hidden" style="display:none" aria-hidden="true">
@@ -173,7 +165,7 @@
 </div>
 
 <script>
-/* --- 基本ユーティリティと堅牢化 --- */
+/* --- utilities --- */
 const overlayEl = document.getElementById('overlay');
 function showOverlay(){ if(!overlayEl) return; overlayEl.classList.remove('hidden'); overlayEl.style.display='flex'; overlayEl.setAttribute('aria-hidden','false'); }
 function hideOverlay(){ if(!overlayEl) return; overlayEl.classList.add('hidden'); overlayEl.style.display='none'; overlayEl.setAttribute('aria-hidden','true'); }
@@ -183,9 +175,10 @@ window.addEventListener('error', e=>{ setStatus('JS error: '+(e.message||e)); })
 window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
 
 let g = { files:[], csv:{rows:[], headerTokens:[], headerLike:false}, srCSV:25600, audio:null, results:null, setup:[] };
+let acoustics = null; // will hold imported module functions
 const P0 = 2e-5;
 
-/* CSV parser (stream if available, fallback to full text) */
+/* CSV parse (stream or fallback) */
 function splitCSV(line){
   const out=[]; let cur=''; let inQ=false;
   for(let i=0;i<line.length;i++){
@@ -241,7 +234,7 @@ async function parseCSVStream(file, hasHeader = true) {
     }
 }
 
-/* WAV decode (robust) */
+/* WAV decode (same as your implementation) */
 function readWavHeader(buf){
   const v=new DataView(buf);
   function str(o,n){ return String.fromCharCode(...new Uint8Array(buf,o,n)); }
@@ -279,18 +272,19 @@ function decodePCM(buf){
   return {sampleRate:h.sampleRate, numberOfChannels:h.numChannels, length:frames, duration:frames/h.sampleRate, getChannelData:(i)=>out[i]};
 }
 
-/* UI helpers */
+/* UI helpers from previous version */
 function refreshBandRangeUI(){
   const type = document.getElementById('band-type').value;
-  const loSel = document.getElementById('band-lo'); const hiSel = document.getElementById('band-hi');
-  const list = (window.fullCenters && typeof window.fullCenters === 'function') ? fullCenters(type) : [31.5,63,125,250,500,1000,2000,4000,8000];
+  const loSel = document.getElementById('band-lo');
+  const hiSel = document.getElementById('band-hi');
+  const list = (acoustics && acoustics.fullCenters) ? acoustics.fullCenters(type) : [31.5,63,125,250,500,1000,2000,4000,8000];
   loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
   hiSel.innerHTML = loSel.innerHTML;
   loSel.value = list[0];
   hiSel.value = list[list.length-1];
 }
 
-/* Load button handler */
+/* onClickLoad: uses CSV/WAV parsing above */
 async function onClickLoad(){
   if(!g.files || g.files.length===0){ alert('ファイルを選択してください'); return; }
   const f=g.files[0];
@@ -342,9 +336,11 @@ async function onClickLoad(){
   }
 }
 
-/* Channel setup */
+/* Channel setup UI */
 function ensureSetup(nch, colNames=[]){
-  const root = document.getElementById('setup'); root.classList.remove('hidden'); const body = root;
+  const root = document.getElementById('setup');
+  root.classList.remove('hidden');
+  const body = root;
   if(g.setup.length !== nch){
     g.setup = [];
     for(let i=0; i<nch; i++){
@@ -385,7 +381,7 @@ function ensureSetup(nch, colNames=[]){
   }));
 }
 
-/* Tabs */
+/* Tabs builder */
 function buildTabs(nch, colNames=[]){
   const tabs=document.getElementById('tabs'); tabs.innerHTML=''; tabs.classList.remove('hidden');
   for(let ch=0; ch<nch; ch++){
@@ -420,7 +416,7 @@ function setBtnProcessing(on){
   logln(`btn processing=${on} class=${btn.classList.contains('processing')} disabled=${btn.disabled}`);
 }
 
-/* Processing: uses functions from acoustics-core if available, otherwise fallback implementations will handle */
+/* --- Core processing: uses acoustics.designButterworthBandpassSOS_N and acoustics.sosFilter --- */
 async function onProcess(){
   try{
     setBtnProcessing(true); showOverlay();
@@ -430,7 +426,7 @@ async function onProcess(){
 
     const N = 36;
     const bandType = document.getElementById('band-type').value;
-    const centersAll = (window.centersOct && window.centersThird) ? (bandType==='oct' ? centersOct() : centersThird()) : (bandType==='oct' ? [31.5,63,125,250,500,1000,2000,4000,8000] : [25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]);
+    const centersAll = (acoustics && acoustics.centersOct && acoustics.centersThird) ? (bandType==='oct' ? acoustics.centersOct() : acoustics.centersThird()) : (bandType==='oct' ? [31.5,63,125,250,500,1000,2000,4000,8000] : [25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]);
     const lo = Number(document.getElementById('band-lo').value)||16;
     const hi = Number(document.getElementById('band-hi').value)||8000;
     const centers = centersAll.filter(f=> f>=lo && f<=hi);
@@ -466,35 +462,36 @@ async function onProcess(){
       const byBand = {};
       for(let i=0;i<centers.length;i++){
         const fc=centers[i];
-        if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
-        if(!(window.designButterworthBandpassSOS_N && typeof window.designButterworthBandpassSOS_N === 'function' && window.sosFilter && typeof window.sosFilter === 'function')){
-          // fallback: no filtering
+        // design cutoff band edges inside function
+        if(acoustics && typeof acoustics.designButterworthBandpassSOS_N === 'function' && typeof acoustics.sosFilter === 'function'){
+          // design sos for band centered at fc
+          const sos = acoustics.designButterworthBandpassSOS_N(fc, sr, N);
+          // apply sos cascade
+          const y = acoustics.sosFilter(x, sos);
+          const T = y.length/sr;
+          // energy / SPL metrics using acoustics helpers if present
+          const mean_p2 = (()=>{ let s=0; for(let k=0;k<y.length;k++) s+=y[k]*y[k]; return s/Math.max(1,y.length); })();
+          const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
+          const LE  = Leq + 10*Math.log10(Math.max(1e-24, T));
+          const sFast = (acoustics.ewmaSquaredToSPL) ? acoustics.ewmaSquaredToSPL(y, sr, 0.125) : (()=>{ const out=new Float32Array(y.length); for(let k=0;k<y.length;k++) out[k]=20*Math.log10(Math.max(1e-12, Math.abs(y[k]))/P0); return out; })();
+          const sSlow = (acoustics.ewmaSquaredToSPL) ? acoustics.ewmaSquaredToSPL(y, sr, 1.0) : sFast;
+          const series = (timeMode==='fast' || timeMode==='none') ? sFast : (timeMode==='slow' ? sSlow : (timeMode==='leq' ? (acoustics.movingLeqSPL ? acoustics.movingLeqSPL(y,sr,leqWin) : sFast) : (()=>{
+            const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length); for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; } return out;
+          })()));
+          const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
+          const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
+          const L05 = (acoustics.percentile) ? acoustics.percentile(series,0.95) : percentile(series,0.95);
+          const L10 = (acoustics.percentile) ? acoustics.percentile(series,0.90) : percentile(series,0.90);
+          const L50 = (acoustics.percentile) ? acoustics.percentile(series,0.50) : percentile(series,0.50);
+          const L90 = (acoustics.percentile) ? acoustics.percentile(series,0.10) : percentile(series,0.10);
+          const L95 = (acoustics.percentile) ? acoustics.percentile(series,0.05) : percentile(series,0.05);
+          byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
+        } else {
+          // safety fallback: no filter available
           const mean_p2 = (()=>{ let s=0; for(let k=0;k<x.length;k++) s+=x[k]*x[k]; return s/Math.max(1,x.length); })();
           const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
           byBand[fc] = { y: x, Leq, Lfmax: Leq, Lsmax: Leq, LE: Leq, L05: Leq, L10: Leq, L50: Leq, L90: Leq, L95: Leq, sr };
-          continue;
         }
-        const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
-        const y  = sosFilter(x, sos);
-        const T = y.length/sr;
-        const mean_p2 = (()=>{ let s=0; for(let k=0;k<y.length;k++) s+=y[k]*y[k]; return s/Math.max(1,y.length); })();
-        const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
-        const LE  = Leq + 10*Math.log10(Math.max(1e-24, T));
-        const sFast = ewmaSquaredToSPL(y, sr, 0.125);
-        const sSlow = ewmaSquaredToSPL(y, sr, 1.0);
-        let series =
-          timeMode==='fast' || timeMode==='none' ? sFast :
-          timeMode==='slow' ? sSlow :
-          timeMode==='leq'  ? movingLeqSPL(y, sr, leqWin) :
-          (()=>{ const sps=sFast; let mx=-1e9; const out=new Float32Array(sps.length); for(let k=0;k<sps.length;k++){ mx=Math.max(mx,sps[k]); out[k]=mx; } return out; })();
-        const Lfmax = (()=>{ let m=-1e9; for(let k=0;k<sFast.length;k++) if(sFast[k]>m) m=sFast[k]; return m; })();
-        const Lsmax = (()=>{ let m=-1e9; for(let k=0;k<sSlow.length;k++) if(sSlow[k]>m) m=sSlow[k]; return m; })();
-        const L05 = percentile(series, 0.95);
-        const L10 = percentile(series, 0.90);
-        const L50 = percentile(series, 0.50);
-        const L90 = percentile(series, 0.10);
-        const L95 = percentile(series, 0.05);
-        byBand[fc] = {y, Leq, Lfmax, Lsmax, LE, L05, L10, L50, L90, L95, sr};
       }
       results.push({channelIndex:ch, role:cfg.role, byBand, centers, sr});
     }
@@ -510,7 +507,7 @@ async function onProcess(){
   }
 }
 
-/* render per channel */
+/* renderChannel: unchanged except it uses acoustics.downsampleForPlot if available */
 function renderChannel(ch){
   if(!g.results){ document.getElementById('summary-title').textContent='Summary'; return; }
   const rec = g.results.results.find(r=>r.channelIndex===ch);
@@ -579,11 +576,11 @@ function renderChannel(ch){
       for(let i=0;i<N;i++){ s += alpha*(m.y[i]*m.y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
       return out;
     })();
-    const sFast = (window.ewmaSquaredToSPL && typeof ewmaSquaredToSPL === 'function') ? ewmaSquaredToSPL(m.y, sr, 0.125) : env.map(v=>20*Math.log10(Math.max(1e-12, v/(P0))));
+    const sFast = (acoustics && acoustics.ewmaSquaredToSPL) ? acoustics.ewmaSquaredToSPL(m.y, sr, 0.125) : env.map(v=>20*Math.log10(Math.max(1e-12, v/(P0))));
     let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
     const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = (window.downsampleForPlot && typeof downsampleForPlot === 'function') ? downsampleForPlot(x, m.y, 2000) : {x, y: Array.from(m.y)};
-    const ds2 = (window.downsampleForPlot && typeof downsampleForPlot === 'function') ? downsampleForPlot(x, env, 2000) : {x, y: Array.from(env)};
+    const ds1 = (acoustics && acoustics.downsampleForPlot) ? acoustics.downsampleForPlot(x, m.y, 2000) : {x, y: Array.from(m.y)};
+    const ds2 = (acoustics && acoustics.downsampleForPlot) ? acoustics.downsampleForPlot(x, env, 2000) : {x, y: Array.from(env)};
 
     Plotly.react(div,[
       {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
@@ -600,38 +597,33 @@ function renderChannel(ch){
   }
 }
 
-/* --- フォールバック（acoustics-core が無ければここで定義） --- */
-function installFallbackAcousticsCore(){
-  if(window.designButterworthBandpassSOS_N && window.sosFilter) return;
-  window.designButterworthBandpassSOS_N = function(fc, sr, N){ return { sos: [] }; };
-  window.sosFilter = function(x, sos){ return x; };
-  window.centersOct = function(){ return [31.5,63,125,250,500,1000,2000,4000,8000]; };
-  window.centersThird = function(){ return [25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]; };
-  window.fullCenters = function(type){ return type==='oct' ? window.centersOct() : window.centersThird(); };
-  window.ewmaSquaredToSPL = function(y, sr, tau){ const out = new Float32Array(y.length); for(let i=0;i<y.length;i++) out[i] = 20*Math.log10(Math.max(1e-12, Math.abs(y[i])) / P0); return out; };
-  window.movingLeqSPL = function(y, sr, win){ const N = Math.max(1, Math.round(win*sr)); const out = new Float32Array(y.length); let sum=0; for(let i=0;i<y.length;i++){ sum += y[i]*y[i]; if(i>=N) sum -= y[i-N]*y[i-N]; out[i]=10*Math.log10(Math.max(1e-24, sum/Math.max(1,Math.min(i+1,N)))/(P0*P0)); } return out; };
-  window.percentile = function(arr,p){ const tmp=Array.from(arr).sort((a,b)=>a-b); const idx=Math.max(0,Math.min(tmp.length-1,Math.floor((1-p)*(tmp.length-1)))); return tmp[idx]||0; };
-  window.downsampleForPlot = function(x,y,target){ const n = Math.max(1, Math.round(y.length/target)); const xs=[], ys=[]; for(let i=0;i<y.length;i+=n){ xs.push(x[i]); ys.push(y[i]); } return {x:xs,y:ys}; };
-  logln('acoustics-core: fallback installed');
+/* small percentile fallback used in some branches */
+function percentile(arr,p){
+  if(!arr || !arr.length) return NaN;
+  const a = Array.from(arr).sort((a,b)=>a-b);
+  const pos = (a.length-1)*p;
+  const lo = Math.floor(pos), hi = Math.ceil(pos), w = pos-lo;
+  return (1-w)*a[lo] + w*a[hi];
 }
 
-/* Attempt dynamic import; if fails, install fallback */
-(async function tryImportCore(){
+/* --- Try to import acoustics-core.js (prefer real module). If success, set acoustics variable. */
+(async function loadAcousticsCore(){
   try{
     const mod = await import('./acoustics-core.js');
-    const names = ['designButterworthBandpassSOS_N','sosFilter','centersOct','centersThird','fullCenters','ewmaSquaredToSPL','movingLeqSPL','percentile','downsampleForPlot'];
-    names.forEach(n => { if(mod[n]) window[n]=mod[n]; });
-    logln('acoustics-core.js loaded');
+    acoustics = mod;
+    setStatus('acoustics-core.js loaded');
+    // update band UI if present
+    if(document.readyState === 'complete' || document.readyState === 'interactive') refreshBandRangeUI();
   }catch(e){
-    logln('acoustics-core.js import failed — using fallback. ' + (e && e.message ? e.message : String(e)));
-    installFallbackAcousticsCore();
+    acoustics = null;
+    setStatus('acoustics-core.js import failed — fallback disabled. (' + (e && e.message ? e.message : String(e)) + ')');
+    logln('acoustics-core.js import failed: ' + (e && e.stack ? e.stack : String(e)));
   }
 })();
 
-/* --- DOMContentLoaded: UI wiring --- */
+/* --- DOM wiring --- */
 window.addEventListener('DOMContentLoaded', ()=>{
   hideOverlay();
-
   const selectBtn = document.getElementById('select-btn');
   const fileInput = document.getElementById('file-input');
   const loadBtn = document.getElementById('load-btn');
@@ -652,7 +644,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
   processBtn.addEventListener('click', onProcess);
   document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
 
-  // optional drag/drop
   window.addEventListener('dragover', e=>{ e.preventDefault(); });
   window.addEventListener('drop', e=>{ e.preventDefault(); if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){ g.files = Array.from(e.dataTransfer.files); document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', '); document.getElementById('load-btn').disabled=false; }});
 
