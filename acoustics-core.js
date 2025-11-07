@@ -120,12 +120,34 @@ export function sosFilter(xFloat32, sosArray){
 }
 
 /** Band centers */
-export function centersOct(){ const a=[]; let f=16; while(f<=8000){ a.push(f); f*=2; } return a; }
-export function centersThird(){
-  const a=[]; let f=16; const step=Math.pow(2,1/3);
-  while(f<=8000){ a.push(Number(f.toFixed(6))); f*=step; }
+export function centersOct(){
+  const a = [];
+  for(let x = -16; x <= 13; x++){
+    const fc = 1000 * Math.pow(10, x / 10);
+    if(fc >= 16 && fc <= 16000) a.push(fc);
+  }
   return a;
 }
+
+export function centersThird(){
+  const a = [];
+  for(let x = -16; x <= 13; x++){
+    const fc = 1000 * Math.pow(10, x / 30);
+    if(fc >= 16 && fc <= 16000) a.push(fc);
+  }
+  return a;
+}
+
+export function preferredLabel(f){
+  const pref = [16,20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000];
+  let best = pref[0], d0 = Math.abs(f - best);
+  for(let i=1;i<pref.length;i++){
+    const d = Math.abs(f - pref[i]);
+    if(d < d0){ d0 = d; best = pref[i]; }
+  }
+  return best;
+}
+
 export function fullCenters(type){ return type==='oct' ? centersOct() : centersThird(); }
 
 /** Analysis helpers */
