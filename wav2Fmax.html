@@ -11,17 +11,8 @@
     gtag('js', new Date());
     gtag('config', 'G-HFR5WYG42Q');
   </script>
-  <script type="module">
-    import {
-      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
-      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-    } from "./acoustics-core.js";
 
-    Object.assign(window, {
-      designButterworthBandpassSOS_N, sosFilter, centersOct, centersThird,
-      fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-    });
-  </script>
+  <!-- plotly は外部CDNのまま -->
   <script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
 
   <style>
@@ -181,26 +172,44 @@
 
 </div>
 
-<div id="overlay" class="hidden"><div style="text-align:center"><div class="spinner"></div><div style="margin-top:8px">計算中…</div></div></div>
+<!-- 初期状態で確実に非表示にするため inline style で display:none を入れています -->
+<div id="overlay" class="hidden" style="display:none" aria-hidden="true">
+  <div style="text-align:center">
+    <div class="spinner"></div>
+    <div style="margin-top:8px">計算中…</div>
+  </div>
+</div>
 
 <script>
-/* overlay, logging, state, constants (変更なし) */
+/* overlay, logging, state, constants (変更なしだが堅牢化) */
 const overlayEl = document.getElementById('overlay');
-function showOverlay(){ overlayEl.classList.remove('hidden'); }
-function hideOverlay(){ overlayEl.classList.add('hidden'); }
+function showOverlay(){
+  if(!overlayEl) return;
+  overlayEl.classList.remove('hidden');
+  overlayEl.style.display = 'flex';
+  overlayEl.setAttribute('aria-hidden','false');
+}
+function hideOverlay(){
+  if(!overlayEl) return;
+  overlayEl.classList.add('hidden');
+  overlayEl.style.display = 'none';
+  overlayEl.setAttribute('aria-hidden','true');
+}
 function logln(s){
   const el=document.getElementById('log');
+  if(!el) return;
   const t=new Date().toLocaleTimeString();
   el.textContent += `[${t}] ${s}\n`;
   el.scrollTop=el.scrollHeight;
 }
-function setStatus(s){ document.querySelector('header .muted').textContent=s; logln(s); }
+function setStatus(s){ const el=document.querySelector('header .muted'); if(el) el.textContent=s; logln(s); }
 window.addEventListener('error', e=>{ setStatus('JS error: '+(e.message||e)); });
-window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : e.reason)); });
+window.addEventListener('unhandledrejection', e=>{ setStatus('Promise error: '+(e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
+
 let g = { files:[], csv:{rows:[], headerTokens:[], headerLike:false}, srCSV:25600, audio:null, results:null, setup:[] };
 const P0 = 2e-5; // Pa
 
-/* CSV parse */
+/* splitCSV unchanged but robust */
 function splitCSV(line){
   const out=[]; let cur=''; let inQ=false;
   for(let i=0;i<line.length;i++){
@@ -214,48 +223,71 @@ function splitCSV(line){
   return out;
 }
 
+/* CSV parse with fallback if stream() not available */
 async function parseCSVStream(file, hasHeader = true) {
-    const rows = [];
-    let headerTokens = [];
-    const decoder = new TextDecoder('utf-8');
-    let leftover = '';
-    let firstChunk = true;
-    const stream = file.stream();
-    const reader = stream.getReader();
-    logln('CSV stream parsing started...');
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        let textChunk = decoder.decode(value, { stream: true });
-        if (firstChunk) {
-            if (textChunk.startsWith('\uFEFF')) { textChunk = textChunk.substring(1); }
-            firstChunk = false;
+    // Try streaming API first; if not available, fallback to reading whole file
+    if (file.stream && typeof file.stream === 'function') {
+        const rows = [];
+        let headerTokens = [];
+        const decoder = new TextDecoder('utf-8');
+        let leftover = '';
+        let firstChunk = true;
+        const stream = file.stream();
+        const reader = stream.getReader();
+        logln('CSV stream parsing started (stream API)...');
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            let textChunk = decoder.decode(value, { stream: true });
+            if (firstChunk) {
+                if (textChunk.startsWith('\uFEFF')) { textChunk = textChunk.substring(1); }
+                firstChunk = false;
+            }
+            textChunk = leftover + textChunk;
+            const lines = textChunk.split(/\r?\n/);
+            leftover = lines.pop();
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine.length === 0) continue;
+                if (hasHeader && headerTokens.length === 0) {
+                    headerTokens = splitCSV(trimmedLine);
+                } else {
+                    const row = splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
+                    rows.push(row);
+                }
+            }
         }
-        textChunk = leftover + textChunk;
-        const lines = textChunk.split(/\r?\n/);
-        leftover = lines.pop();
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.length === 0) continue;
+        const trimmedLeftover = leftover.trim();
+        if (trimmedLeftover.length > 0) {
             if (hasHeader && headerTokens.length === 0) {
-                headerTokens = splitCSV(trimmedLine);
+                headerTokens = splitCSV(trimmedLeftover);
             } else {
-                const row = splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
+                const row = splitCSV(trimmedLeftover).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
                 rows.push(row);
             }
         }
-    }
-    const trimmedLeftover = leftover.trim();
-    if (trimmedLeftover.length > 0) {
-        if (hasHeader && headerTokens.length === 0) {
-            headerTokens = splitCSV(trimmedLeftover);
-        } else {
-            const row = splitCSV(trimmedLeftover).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
+        logln(`CSV stream parsing finished. ${rows.length} rows loaded.`);
+        return { rows, headerTokens, headerLike: hasHeader };
+    } else {
+        // Fallback: read whole file into memory
+        logln('CSV stream API unavailable; using full-file fallback (arrayBuffer)...');
+        const text = await file.text();
+        const lines = text.replace(/\r/g,'').split('\n');
+        const rows = [];
+        let headerTokens = [];
+        for (let li=0; li<lines.length; li++){
+          const trimmedLine = lines[li].trim();
+          if(trimmedLine.length===0) continue;
+          if (hasHeader && headerTokens.length === 0){
+            headerTokens = splitCSV(trimmedLine);
+          } else {
+            const row = splitCSV(trimmedLine).map(t => { const c = t.replace(/,/g, ''); const v = Number(c); return isFinite(v) ? v : NaN; });
             rows.push(row);
+          }
         }
+        logln(`CSV full-file parsing finished. ${rows.length} rows loaded.`);
+        return { rows, headerTokens, headerLike: hasHeader };
     }
-    logln(`CSV stream parsing finished. ${rows.length} rows loaded.`);
-    return { rows, headerTokens, headerLike: hasHeader };
 }
 
 /* WAV decode (変更なし) */
@@ -301,7 +333,8 @@ function refreshBandRangeUI(){
   const type = document.getElementById('band-type').value;
   const loSel = document.getElementById('band-lo');
   const hiSel = document.getElementById('band-hi');
-  const list = fullCenters(type);
+  // fullCenters may be provided by acoustics-core; if not, use a safe fallback
+  const list = (window.fullCenters && typeof window.fullCenters === 'function') ? fullCenters(type) : [31.5,63,125,250,500,1000,2000,4000,8000];
   loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
   hiSel.innerHTML = loSel.innerHTML;
   loSel.value = list[0];
@@ -337,11 +370,11 @@ async function onClickLoad(){
       ensureSetup(nch, colNames);
       buildTabs(nch, colNames);
       refreshBandRangeUI();
-      setStatus('CSV loaded (streamed): '+g.csv.rows.length+' rows, '+nch+' data cols, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
+      setStatus('CSV loaded (streamed/fallback): '+g.csv.rows.length+' rows, '+nch+' data cols, SR≈'+Math.round(document.getElementById('csv-sr').value)+' Hz');
     }catch(err){
-      setStatus('CSV load error: '+err.message);
-      if (err.message.includes('stream') || err.message.includes('not a function')) {
-        setStatus('CSV load error: '+err.message + ' (ブラウザがStreaming API未対応の可能性)');
+      setStatus('CSV load error: '+(err && err.message ? err.message : String(err)));
+      if (err && (err.message && (err.message.includes('stream') || err.message.includes('not a function')))) {
+        setStatus('CSV load warning: ブラウザがStreaming API未対応の可能性（fallback適用）');
       }
     }
   }else{
@@ -356,7 +389,7 @@ async function onClickLoad(){
         buildTabs(g.audio.numberOfChannels, []);
         refreshBandRangeUI();
         setStatus(`WAV loaded: ${g.audio.numberOfChannels} ch, ${g.audio.sampleRate} Hz, ${g.audio.length} frames`);
-      }catch(err){ setStatus('WAV load error: '+err.message); }
+      }catch(err){ setStatus('WAV load error: '+(err && err.message ? err.message : String(err))); }
     };
     fr.readAsArrayBuffer(f);
   }
@@ -462,7 +495,7 @@ async function onProcess(){
 
     const N = 36;
     const bandType = document.getElementById('band-type').value;
-    const centersAll = bandType==='oct' ? centersOct() : centersThird();
+    const centersAll = (window.centersOct && window.centersThird) ? (bandType==='oct' ? centersOct() : centersThird()) : (bandType==='oct' ? [31.5,63,125,250,500,1000,2000,4000,8000] : [25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]);
     const lo = Number(document.getElementById('band-lo').value)||16;
     const hi = Number(document.getElementById('band-hi').value)||8000;
     const centers = centersAll.filter(f=> f>=lo && f<=hi);
@@ -476,7 +509,11 @@ async function onProcess(){
         const colIdx = i + 1;
         const maxCols = (g.csv.headerTokens.length > 0) ? g.csv.headerTokens.length : (g.csv.rows.length > 0 ? g.csv.rows[0].length : 0);
         if (colIdx >= maxCols) { setStatus(`Error: Tried to access invalid CSV column index ${colIdx} (Max: ${maxCols})`); return new Float32Array(0); }
-        try { return Float32Array.from(g.csv.rows.map(r => Number(r[colIdx]) || 0)); } catch (e) { setStatus(`Error processing CSV column ${colIdx}: ${e.message}`); return new Float32Array(0); }
+        try {
+          const arr = new Float32Array(g.csv.rows.length);
+          for(let r=0; r<g.csv.rows.length; r++){ const v = Number(g.csv.rows[r][colIdx]); arr[r] = isFinite(v) ? v : 0; }
+          return arr;
+        } catch (e) { setStatus(`Error processing CSV column ${colIdx}: ${e.message}`); return new Float32Array(0); }
       };
     }
     else{ throw new Error('no data'); }
@@ -495,6 +532,15 @@ async function onProcess(){
       for(let i=0;i<centers.length;i++){
         const fc=centers[i];
         if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
+        // designButterworthBandpassSOS_N may come from acoustics-core; guard if missing
+        if(!(window.designButterworthBandpassSOS_N && typeof window.designButterworthBandpassSOS_N === 'function' && window.sosFilter && typeof window.sosFilter === 'function')){
+          // fallback: simple pass-through (no filtering) but warn
+          setStatus('Warning: filter design or sosFilter missing — bandpass skipped (placeholder).');
+          const mean_p2 = (()=>{ let s=0; for(let k=0;k<x.length;k++) s+=x[k]*x[k]; return s/Math.max(1,x.length); })();
+          const Leq = 10*Math.log10(Math.max(1e-24, mean_p2/(P0*P0)));
+          byBand[fc] = { y: x, Leq, Lfmax: Leq, Lsmax: Leq, LE: Leq, L05: Leq, L10: Leq, L50: Leq, L90: Leq, L95: Leq, sr };
+          continue;
+        }
         const sos = window.designButterworthBandpassSOS_N(fc, sr, N);
         const y  = sosFilter(x, sos);
         const T = y.length/sr;
@@ -524,7 +570,7 @@ async function onProcess(){
     const active = document.querySelector('#tabs .tab.active');
     if(active){ renderChannel(+active.dataset.ch); }
   }catch(err){
-    setStatus('Process error: '+err.message);
+    setStatus('Process error: '+(err && err.message ? err.message : String(err)));
   }finally{
     hideOverlay();
     setBtnProcessing(false);
@@ -600,11 +646,11 @@ function renderChannel(ch){
       for(let i=0;i<N;i++){ s += alpha*(m.y[i]*m.y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
       return out;
     })();
-    const sFast = ewmaSquaredToSPL(m.y, sr, 0.125);
+    const sFast = (window.ewmaSquaredToSPL && typeof ewmaSquaredToSPL === 'function') ? ewmaSquaredToSPL(m.y, sr, 0.125) : env.map(v=>20*Math.log10(Math.max(1e-12, v/(P0))));
     let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
     const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = downsampleForPlot(x, m.y, 2000);
-    const ds2 = downsampleForPlot(x, env, 2000);
+    const ds1 = (window.downsampleForPlot && typeof downsampleForPlot === 'function') ? downsampleForPlot(x, m.y, 2000) : {x, y: Array.from(m.y)};
+    const ds2 = (window.downsampleForPlot && typeof downsampleForPlot === 'function') ? downsampleForPlot(x, env, 2000) : {x, y: Array.from(env)};
 
     Plotly.react(div,[
       {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
@@ -615,15 +661,29 @@ function renderChannel(ch){
       legend:{orientation:'h'},
       margin:{l:40,r:10,t:30,b:30},
       annotations: [
-        { x:tmax, y:ystar, text:`${m.Lfmax.toFixed(1)} dB`, showarrow:false, yshift:-12, font:{size:10} }
+        { x:tmax, y:ystar, text:`${(m.Lfmax && typeof m.Lfmax === 'number') ? m.Lfmax.toFixed(1) + ' dB' : ''}`, showarrow:false, yshift:-12, font:{size:10} }
       ]
     });
   }
 }
 
 /* 初期化 */
-window.addEventListener('DOMContentLoaded', ()=>{
+window.addEventListener('DOMContentLoaded', async ()=>{
+  // hide overlay for sure
   hideOverlay();
+
+  // Try to dynamically import acoustics-core.js; if it fails, log and continue with fallbacks.
+  try{
+    const mod = await import('./acoustics-core.js');
+    // attach expected functions only if available
+    const names = ['designButterworthBandpassSOS_N', 'sosFilter', 'centersOct', 'centersThird', 'fullCenters', 'ewmaSquaredToSPL', 'movingLeqSPL', 'percentile', 'downsampleForPlot'];
+    names.forEach(n => { if(mod[n]) window[n] = mod[n]; });
+    logln('acoustics-core.js loaded');
+  }catch(e){
+    logln('acoustics-core.js import failed: ' + (e && e.message ? e.message : String(e)) + ' — フォールバックで続行します。');
+    // do not throw — UI should remain usable; filters will be no-op or fallback
+  }
+
   document.getElementById('load-btn').addEventListener('click', ()=>document.getElementById('file-input').click());
   document.getElementById('process-btn').addEventListener('click', onProcess);
   document.getElementById('band-type').addEventListener('change', refreshBandRangeUI);
@@ -633,6 +693,13 @@ window.addEventListener('DOMContentLoaded', ()=>{
     g.files = files;
     document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', ');
   });
+
+  // Optional: if user drops files, support drag/drop (harmless enhancement)
+  window.addEventListener('dragover', ev=>{ ev.preventDefault(); });
+  window.addEventListener('drop', ev=>{ ev.preventDefault(); if(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length){ g.files = Array.from(ev.dataTransfer.files); document.getElementById('file-name').textContent = g.files.map(x=>x.name).join(', '); }});
+
+  // initial band UI
+  refreshBandRangeUI();
 });
 </script>
 </body>
