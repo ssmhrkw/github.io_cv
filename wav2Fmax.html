@@ -16,8 +16,15 @@
 
   <style>
     :root{
-      --bg:#0f172a; --muted:#64748b; --card:#ffffff; --accent:#0ea5a4;
-      --danger:#dc2626; --border:#e5e7eb; --radius:12px; --gap:12px; --maxw:1280px;
+      --bg:#0f172a;
+      --muted:#64748b;
+      --card:#ffffff;
+      --accent:#0ea5a4;
+      --danger:#dc2626;
+      --border:#e5e7eb;
+      --radius:12px;
+      --gap:12px;
+      --maxw:1280px;
     }
     html,body{height:100%;}
     body{
@@ -278,7 +285,13 @@ function refreshBandRangeUI(){
   const loSel = document.getElementById('band-lo');
   const hiSel = document.getElementById('band-hi');
   const list = (acoustics && acoustics.fullCenters) ? acoustics.fullCenters(type) : [31.5,63,125,250,500,1000,2000,4000,8000];
-  loSel.innerHTML = list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
+
+  const makeLabel = f => {
+    if (acoustics && typeof acoustics.preferredLabel === 'function') return acoustics.preferredLabel(f);
+    return (Math.abs(f - Math.round(f)) < 1e-6) ? String(Math.round(f)) : f.toFixed(1);
+  };
+
+  loSel.innerHTML = list.map(f=>`<option value="${f}">${makeLabel(f)}</option>`).join('');
   hiSel.innerHTML = loSel.innerHTML;
   loSel.value = list[0];
   hiSel.value = list[list.length-1];
@@ -465,6 +478,8 @@ async function onProcess(){
         // design cutoff band edges inside function
         if(acoustics && typeof acoustics.designButterworthBandpassSOS_N === 'function' && typeof acoustics.sosFilter === 'function'){
           // design sos for band centered at fc
+          // skip if fc too high for sampling rate
+          if(fc/Math.SQRT2 >= sr/2){ byBand[fc]=null; continue; }
           const sos = acoustics.designButterworthBandpassSOS_N(fc, sr, N);
           // apply sos cascade
           const y = acoustics.sosFilter(x, sos);
@@ -507,7 +522,7 @@ async function onProcess(){
   }
 }
 
-/* renderChannel: unchanged except it uses acoustics.downsampleForPlot if available */
+/*** renderChannel (full corrected version) ***/
 function renderChannel(ch){
   if(!g.results){ document.getElementById('summary-title').textContent='Summary'; return; }
   const rec = g.results.results.find(r=>r.channelIndex===ch);
@@ -535,9 +550,18 @@ function renderChannel(ch){
     {key:'L95',   label:'L95'},
   ];
 
+  // frequency header helper
+  function formatFreqLabel(f){
+    if(window.acoustics && typeof acoustics.preferredLabel === 'function'){
+      return acoustics.preferredLabel(f);
+    }
+    return (Math.abs(f - Math.round(f)) < 1e-6) ? String(Math.round(f)) : f.toFixed(1);
+  }
+
   let html = '<table><thead><tr><th style="text-align:left">Metric \\ f(Hz)</th>';
-  for(const f of centers){ html += `<th data-f="${f}" class="f">${Math.round(f)}</th>`; }
+  for(const f of centers){ html += `<th data-f="${f}" class="f">${formatFreqLabel(f)}</th>`; }
   html += '</tr></thead><tbody>';
+
   for(const m of metrics){
     html += `<tr><td style="text-align:left">${m.label}</td>`;
     for(const f of centers){
@@ -563,6 +587,7 @@ function renderChannel(ch){
     });
   });
 
+  // plots
   const host = document.getElementById('plots-wrap');
   host.innerHTML = '';
   for(const f of centers){
@@ -570,28 +595,35 @@ function renderChannel(ch){
     const div = document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
     const y=m.y; const sr=m.sr;
     const x = Array.from({length:y.length}, (_,i)=>i/sr);
+
     const env = (()=>{
-      const tau=0.125; const N=m.y.length; const out=new Float32Array(N);
+      const tau=0.125; const N=y.length; const out=new Float32Array(N);
       const alpha=1 - Math.exp(-1/(sr*tau)); let s=0;
-      for(let i=0;i<N;i++){ s += alpha*(m.y[i]*m.y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
+      for(let i=0;i<N;i++){ s += alpha*(y[i]*y[i]-s); out[i]=Math.sqrt(Math.max(0,s)); }
       return out;
     })();
-    const sFast = (acoustics && acoustics.ewmaSquaredToSPL) ? acoustics.ewmaSquaredToSPL(m.y, sr, 0.125) : env.map(v=>20*Math.log10(Math.max(1e-12, v/(P0))));
+
+    const sFast = (acoustics && acoustics.ewmaSquaredToSPL) ? acoustics.ewmaSquaredToSPL(y, sr, 0.125) : env.map(v=>20*Math.log10(Math.max(1e-12, v/(P0))));
     let kmax = 0; for(let k=1;k<sFast.length;k++){ if(sFast[k]>sFast[kmax]) kmax=k; }
     const tmax = kmax/sr; const ystar = env[kmax];
-    const ds1 = (acoustics && acoustics.downsampleForPlot) ? acoustics.downsampleForPlot(x, m.y, 2000) : {x, y: Array.from(m.y)};
+    const ds1 = (acoustics && acoustics.downsampleForPlot) ? acoustics.downsampleForPlot(x, y, 2000) : {x, y: Array.from(y)};
     const ds2 = (acoustics && acoustics.downsampleForPlot) ? acoustics.downsampleForPlot(x, env, 2000) : {x, y: Array.from(env)};
+
+    const label = (window.acoustics && typeof acoustics.preferredLabel === 'function')
+                  ? acoustics.preferredLabel(f)
+                  : (Math.abs(f - Math.round(f)) < 1e-6 ? String(Math.round(f)) : f.toFixed(1));
 
     Plotly.react(div,[
       {x:ds1.x, y:ds1.y, name:'BP', type:'scatter', mode:'lines'},
       {x:ds2.x, y:ds2.y, name:'Env(Fast)', type:'scatter', mode:'lines'},
       {x:[tmax], y:[ystar], name:'Fast max-hold', mode:'markers', marker:{symbol:'star', size:12, line:{width:1}}}
     ], {
-      title:`${Math.round(f)} Hz`,
+      title:`${label} Hz`,
       legend:{orientation:'h'},
       margin:{l:40,r:10,t:30,b:30},
       annotations: [
-        { x:tmax, y:ystar, text:`${(m.Lfmax && typeof m.Lfmax === 'number') ? m.Lfmax.toFixed(1) + ' dB' : ''}`, showarrow:false, yshift:-12, font:{size:10} }
+        { x:tmax, y:ystar, text:`${m.Lfmax && typeof m.Lfmax === 'number' ? m.Lfmax.toFixed(1) : ''} dB (${label} Hz)`,
+          showarrow:false, yshift:-12, font:{size:10} }
       ]
     });
   }
