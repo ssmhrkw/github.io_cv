@@ -634,189 +634,183 @@ import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
   let latestResults = [];
 
   // ====== ここから B案を最小実装した analyze() ======
-  async function analyze(){
-    if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
-    if(!lastBuffer){ setState('no audio'); return; }
-    const fs = lastBuffer.fs, x = lastBuffer.data;
+async function analyze(){
+  if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
+  if(!lastBuffer){ setState('no audio'); return; }
+  const fs = lastBuffer.fs, x = lastBuffer.data;
 
-    const trigDb = -20;
-    const clap = detectClapStart(x, fs, trigDb);
-    if (clap.idx < 0){
-      setState(`clap not detected (peak ${clap.peakDb.toFixed(1)} dBFS < ${trigDb} dBFS)`);
-      return;
-    }
-
-    // 窓長
-    const preN  = Math.max(1, Math.floor(0.5*fs));  // 暗騒音 0.5 s
-    const postN = Math.max(1, Math.floor(0.2*fs));  // 信号 0.2 s
-
-    // 暗騒音窓：プレロール不足時は後段0.6–0.9 sに切替
-    let bg0 = Math.max(0, clap.idx - preN);
-    let bg1 = clap.idx;
-    if (clap.idx < preN + Math.floor(0.05*fs)) { // 先頭寄り
-      bg0 = Math.min(x.length-1, clap.idx + Math.floor(0.6*fs));
-      bg1 = Math.min(x.length,     clap.idx + Math.floor(0.9*fs));
-    }
-
-    // SNR用の生波形電力
-    let pbg=0, psig=0;
-    for(let i=bg0; i<bg1; i++){ const v=x[i]||0; pbg += v*v; }
-    for(let i=0;i<postN;i++){ const v=x[clap.idx+i]||0; psig += v*v; }
-    pbg /= Math.max(1, bg1-bg0);
-    psig/= Math.max(1, postN);
-
-    // 解析は発音点から 1.0 s 固定
-    const xcut = sliceForAnalysis(x, fs, clap.idx);
-
-    // 帯域処理
-    const bandType = $('#bandType').value;
-    const bands = makeBands(bandType);
-    const include63 = $('#snrInclude63').checked;
-    const noiseComp = $('#noiseComp').checked;
-
-    const results=[];
-    for(const fc of bands){
-      const y = await bandpassFilter(x, fs, fc, bandType);
-
-      // 帯域ごとのSNR（同じbg0–bg1とclap.idx基準）
-      let pbg_b=0, psig_b=0;
-      for(let i=bg0; i<bg1; i++){ const v=y[i]||0; pbg_b += v*v; }
-      for(let i=0;i<postN;i++){ const v=y[clap.idx+i]||0; psig_b += v*v; }
-      pbg_b /= Math.max(1, bg1-bg0);
-      psig_b/= Math.max(1, postN);
-      const SNR = db10(psig_b/(pbg_b||1e-24));
-
-      // 減衰計算は発音点起点の切り出しに同じBPFを適用
-      const ycut = await bandpassFilter(xcut, fs, fc, bandType);
-
-      let dec;
-      if(noiseComp){
-        dec = schroederDBNoiseComp(ycut, pbg_b);
-      }else{
-        dec = schroederDB(ycut);
-        const shift = dec[0]; for(let i=0;i<dec.length;i++) dec[i] -= shift;
-      }
-
-      const {fits, rep, tag} = fitAll(dec, fs);
-
-      results.push({
-        fc,
-        EDT: fits.EDT.T, T10:fits.T10.T, T20:fits.T20.T, T30:fits.T30.T,
-        R2: isFinite(rep.r2)?rep.r2.toFixed(3):'',
-        repTag: tag,
-        SNR,
-        judge: (fc===63 && !include63)? '—' : (SNR >= 20.0 ? 'OK':'NG'),
-        decay: dec, fit: rep, fits,
-        T20_manual: NaN
-      });
-    }
-
-    latestResults = results;
-
-    // テーブル描画（既存ロジックそのまま）
-    const tbody = $('#results tbody'); tbody.innerHTML='';
-    const manualMode = manualChk.checked;
-    for(const r of results){
-      let markT10='', markT20='', markT30='';
-      const rt10=r.fits.T10.T, rt20=r.fits.T20.T, rt30=r.fits.T30.T;
-      const rtsFinite = [rt10, rt20, rt30].filter(isFinite);
-      if (rtsFinite.length >= 2 && rtsFinite.every(t => t <= 1.0)) {
-        const maxDiff = Math.max(...rtsFinite) - Math.min(...rtsFinite);
-        if (maxDiff >= 0.3) {
-          if(isFinite(rt10)) markT10 += '※';
-          if(isFinite(rt20)) markT20 += '※';
-          if(isFinite(rt30)) markT30 += '※';
-        }
-      }
-      if (rtsFinite.length >= 2){
-        const tmin = Math.min(...rtsFinite);
-        const tmax = Math.max(...rtsFinite);
-        if (tmax - tmin >= 0.1 * tmin){
-          if(isFinite(rt10)) markT10 += '!!';
-          if(isFinite(rt20)) markT20 += '!!';
-          if(isFinite(rt30)) markT30 += '!!';
-        }
-      }
-      if (isFinite(rt10) && rt10 >= 10) markT10 += '!!';
-      if (isFinite(rt20) && rt20 >= 10) markT20 += '!!';
-
-      const edtCell = manualMode ? '' : (isFinite(r.EDT)?r.EDT.toFixed(3):'');
-      const t10Cell = manualMode ? '' : (isFinite(r.T10)?r.T10.toFixed(3)+markT10:'');
-      let t20Cell = '';
-      if(manualMode){
-        t20Cell = isFinite(r.T20_manual) ? r.T20_manual.toFixed(3)+' (M)' : '';
-      }else{
-        t20Cell = isFinite(r.T20)?r.T20.toFixed(3)+markT20:'';
-      }
-      const t30Cell = manualMode ? '' : (isFinite(r.T30)?r.T30.toFixed(3)+markT30:'');
-      const r2Cell  = manualMode ? '' : r.R2;
-
-      const tr=document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.fc.toFixed(1)}</td>
-        <td>${edtCell}</td>
-        <td>${t10Cell}</td>
-        <td>${t20Cell}</td>
-        <td>${t30Cell}</td>
-        <td>${r2Cell}</td>
-        <td>${r.SNR.toFixed(1)}</td>
-        <td>${r.judge}</td>`;
-      tbody.appendChild(tr);
-    }
-
-    // Overall
-    const th = 20.0;
-    const valid = results.filter(r => (r.fc!==63 || $('#snrInclude63').checked));
-    const okList = valid.filter(r => r.SNR>=th);
-    const overall = (okList.length >= Math.ceil(valid.length*0.6)) ? 'OK' : 'NG';
-    $('#overallJudge').className = 'judge ' + (overall==='OK'?'ok':'ng');
-    $('#overallJudge').textContent = overall;
-    $('#overallNote').textContent = `OK数 ${okList.length}/${valid.length}`;
-
-    // 詳細Plotly
-    detailBandSel.innerHTML = '';
-    for(const r of results){
-      const opt=document.createElement('option');
-      opt.value = String(r.fc); opt.textContent = `${r.fc} Hz`;
-      detailBandSel.appendChild(opt);
-    }
-    const defaultFc = results[0]?.fc;
-    if(defaultFc!=null){ detailBandSel.value=String(defaultFc); }
-    const renderCurrent = ()=>{
-      const fc = parseFloat(detailBandSel.value);
-      const r = results.find(v=>v.fc===fc) || results[0];
-      if(!r) return;
-      zoomStartEl.value = Number(zoomStartEl.value || 0).toFixed(2);
-      zoomEndEl.value   = Number(zoomEndEl.value || (r.decay.length/fs)).toFixed(2);
-      renderDecayPlot('decayPlot', r, fs, parseFloat(zoomStartEl.value), parseFloat(zoomEndEl.value));
-    };
-    detailBandSel.onchange = renderCurrent;
-    applyZoomBtn.onclick = renderCurrent;
-    renderCurrent();
-
-    // 手動UI表示切替
-    manualUI.style.display = manualMode ? 'block' : 'none';
-
-    // 波形：青帯＝bg0–bg1、表示範囲＝clap.idx..clap.idx+1.0 s
-    const markers = [
-      {idx:0, color:'#999'},
-      {idx:clap.idx, color:'#ef4444'},
-      {idx:clap.idx, idx2:clap.idx+Math.floor(0.2*fs), color:'#16a34a', band:true},
-      {idx:bg0, idx2:bg1, color:'#0ea5e9', band:true}
-    ];
-    drawWave($('#wave'), x, fs, markers, clap.idx, clap.idx + Math.floor(1.0*fs));
-
-    // CSV
-    csvBtn.disabled=false;
-    csvBtn.onclick = ()=>{
-      const blob = makeCSV(results);
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob); a.download='revtime_results.csv'; a.click();
-      URL.revokeObjectURL(a.href);
-    };
-
-    setState('analyzed');
+  const trigDb = -20;
+  const clap = detectClapStart(x, fs, trigDb);
+  if (clap.idx < 0){
+    setState(`clap not detected (peak ${clap.peakDb.toFixed(1)} dBFS < ${trigDb} dBFS)`);
+    return;
   }
+
+  // --- timing params (UIで可変にしてもよい) ---
+  const backBeforePeak_s = 0.125;      // 125 ms を解析開始の余裕として使う
+  const bg_end_beforePeak_s = 0.125;   // BG 窓の終了は peak - 0.125 s
+  const bg_start_beforePeak_s = 0.875; // BG 窓の開始は peak - 0.875 s
+  const maxAnalysisDur_s = 20.0;       // 安全上の上限（録音が長い場合）
+  const postN = Math.max(1, Math.floor(0.2 * fs)); // 直後 200 ms 用
+
+  const peakIdx = clap.peakIdx;
+
+  // 解析開始 index（ピークより少し前）
+  const analysisStart = Math.max(0, peakIdx - Math.floor(backBeforePeak_s * fs));
+  // 解析対象信号（開始から末尾または上限まで）
+  const xcut = sliceForAnalysis(x, fs, analysisStart, maxAnalysisDur_s);
+
+  // BG 窓：優先的に -0.875 .. -0.125 s を使う（取れなければフォールバック）
+  let bg0 = Math.max(0, peakIdx - Math.floor(bg_start_beforePeak_s * fs));
+  let bg1 = Math.max(0, peakIdx - Math.floor(bg_end_beforePeak_s * fs));
+  if (bg1 - bg0 < 1) {
+    // 先頭寄りすぎる場合の既存フォールバック（後段 0.6–0.9 s）
+    bg0 = Math.min(x.length-1, peakIdx + Math.floor(0.6 * fs));
+    bg1 = Math.min(x.length,     peakIdx + Math.floor(0.9 * fs));
+  }
+
+  // 生波形での SNR 基礎（BG 窓 & 直後 200 ms）
+  let pbg = 0, psig = 0;
+  for(let i = bg0; i < bg1; i++){ const v = x[i]||0; pbg += v*v; }
+  for(let i = 0; i < postN; i++){ const v = x[peakIdx + i] || 0; psig += v*v; }
+  pbg /= Math.max(1, bg1 - bg0);
+  psig /= Math.max(1, postN);
+
+  // 帯域処理
+  const bandType = $('#bandType').value;
+  const bands = makeBands(bandType);
+  const include63 = $('#snrInclude63').checked;
+  const noiseComp = $('#noiseComp').checked;
+
+  const results = [];
+  for(const fc of bands){
+    // SNR（バンドごと）: bandpass を原始波形 x にかけて BG と signal を評価
+    const y_full = await bandpassFilter(x, fs, fc, bandType);
+
+    let pbg_b = 0, psig_b = 0;
+    for(let i = bg0; i < bg1; i++){ const v = y_full[i] || 0; pbg_b += v*v; }
+    for(let i = 0; i < postN; i++){ const v = y_full[peakIdx + i] || 0; psig_b += v*v; }
+    pbg_b /= Math.max(1, bg1 - bg0);
+    psig_b /= Math.max(1, postN);
+    const SNR = db10(psig_b / (pbg_b || 1e-24));
+
+    // 減衰計算は analysisStart から取り、同じ BPF を適用
+    const ycut = await bandpassFilter(xcut, fs, fc, bandType);
+
+    let dec;
+    if (noiseComp){
+      dec = schroederDBNoiseComp(ycut, pbg_b);
+    } else {
+      dec = schroederDB(ycut);
+      const shift = dec[0] || 0;
+      for(let i=0;i<dec.length;i++) dec[i] -= shift;
+    }
+
+    const {fits, rep, tag} = fitAll(dec, fs);
+
+    results.push({
+      fc,
+      EDT: fits.EDT.T, T10: fits.T10.T, T20: fits.T20.T, T30: fits.T30.T,
+      R2: isFinite(rep.r2) ? rep.r2.toFixed(3) : '',
+      repTag: tag,
+      SNR,
+      judge: (fc === 63 && !include63) ? '—' : (SNR >= 20.0 ? 'OK' : 'NG'),
+      decay: dec, fit: rep, fits,
+      T20_manual: NaN
+    });
+  }
+
+  latestResults = results;
+
+  // --- 表描画（既存ロジックをそのまま） ---
+  const tbody = $('#results tbody'); tbody.innerHTML = '';
+  const manualMode = manualChk.checked;
+  for(const r of results){
+    let markT10='', markT20='', markT30='';
+    const rt10=r.fits.T10.T, rt20=r.fits.T20.T, rt30=r.fits.T30.T;
+    const rtsFinite = [rt10, rt20, rt30].filter(isFinite);
+    if (rtsFinite.length >= 2 && rtsFinite.every(t => t <= 1.0)) {
+      const maxDiff = Math.max(...rtsFinite) - Math.min(...rtsFinite);
+      if (maxDiff >= 0.3) { if(isFinite(rt10)) markT10 += '※'; if(isFinite(rt20)) markT20 += '※'; if(isFinite(rt30)) markT30 += '※'; }
+    }
+    if (rtsFinite.length >= 2){
+      const tmin = Math.min(...rtsFinite), tmax = Math.max(...rtsFinite);
+      if (tmax - tmin >= 0.1 * tmin){ if(isFinite(rt10)) markT10 += '!!'; if(isFinite(rt20)) markT20 += '!!'; if(isFinite(rt30)) markT30 += '!!'; }
+    }
+    if (isFinite(rt10) && rt10 >= 10) markT10 += '!!';
+    if (isFinite(rt20) && rt20 >= 10) markT20 += '!!';
+
+    const edtCell = manualMode ? '' : (isFinite(r.EDT) ? r.EDT.toFixed(3) : '');
+    const t10Cell = manualMode ? '' : (isFinite(r.T10) ? r.T10.toFixed(3)+markT10 : '');
+    let t20Cell = '';
+    if(manualMode){
+      t20Cell = isFinite(r.T20_manual) ? r.T20_manual.toFixed(3)+' (M)' : '';
+    }else{
+      t20Cell = isFinite(r.T20) ? r.T20.toFixed(3)+markT20 : '';
+    }
+    const t30Cell = manualMode ? '' : (isFinite(r.T30) ? r.T30.toFixed(3)+markT30 : '');
+    const r2Cell  = manualMode ? '' : r.R2;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.fc.toFixed(1)}</td>
+      <td>${edtCell}</td>
+      <td>${t10Cell}</td>
+      <td>${t20Cell}</td>
+      <td>${t30Cell}</td>
+      <td>${r2Cell}</td>
+      <td>${r.SNR.toFixed(1)}</td>
+      <td>${r.judge}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  // Overall 判定
+  const th = 20.0;
+  const valid = results.filter(r => (r.fc !== 63 || $('#snrInclude63').checked));
+  const okList = valid.filter(r => r.SNR >= th);
+  const overall = (okList.length >= Math.ceil(valid.length * 0.6)) ? 'OK' : 'NG';
+  $('#overallJudge').className = 'judge ' + (overall === 'OK' ? 'ok' : 'ng');
+  $('#overallJudge').textContent = overall;
+  $('#overallNote').textContent = `OK数 ${okList.length}/${valid.length}`;
+
+  // 詳細Plotly の選択肢と初期描画
+  detailBandSel.innerHTML = '';
+  for(const r of results){ const opt = document.createElement('option'); opt.value = String(r.fc); opt.textContent = `${r.fc} Hz`; detailBandSel.appendChild(opt); }
+  if(results[0]) detailBandSel.value = String(results[0].fc);
+  const renderCurrent = ()=>{
+    const fc = parseFloat(detailBandSel.value);
+    const r = results.find(v => v.fc === fc) || results[0];
+    if(!r) return;
+    zoomStartEl.value = Number(zoomStartEl.value || 0).toFixed(2);
+    zoomEndEl.value   = Number(zoomEndEl.value || (r.decay.length / fs)).toFixed(2);
+    renderDecayPlot('decayPlot', r, fs, parseFloat(zoomStartEl.value), parseFloat(zoomEndEl.value));
+  };
+  detailBandSel.onchange = renderCurrent;
+  applyZoomBtn.onclick = renderCurrent;
+  renderCurrent();
+
+  // 手動UI 表示切替
+  manualUI.style.display = manualMode ? 'block' : 'none';
+
+  // 波形表示（解析開始～末尾を表示）
+  drawWave($('#wave'), x, fs, [
+    {idx: peakIdx, color:'#ef4444'},
+    {idx: peakIdx, idx2: peakIdx + postN, color:'#16a34a', band:true},
+    {idx: bg0, idx2: bg1, color:'#0ea5e9', band:true}
+  ], analysisStart, x.length);
+
+  // CSV 有効化
+  csvBtn.disabled = false;
+  csvBtn.onclick = ()=>{
+    const blob = makeCSV(results);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'revtime_results.csv'; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  setState('analyzed');
+}
+
   // ====== B案実装ここまで ======
 
   // 手動T20ボタン
