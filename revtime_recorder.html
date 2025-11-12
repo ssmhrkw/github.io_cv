@@ -1,176 +1,908 @@
-async function analyze(){
-  if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
-  if(!lastBuffer){ setState('no audio'); return; }
-  const fs = lastBuffer.fs, x = lastBuffer.data;
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RT Cal 20251022</title>
 
-  const trigDb = -20;
-  const clap = detectClapStart(x, fs, trigDb);
-  if (clap.idx < 0){
-    setState(`clap not detected (peak ${clap.peakDb.toFixed(1)} dBFS < ${trigDb} dBFS)`);
-    return;
-  }
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date()); gtag('config','G-HFR5WYG42Q');
+  </script>
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 
-  // --- timing params (UIで可変にしてもよい) ---
-  const backBeforePeak_s = 0.125;      // 125 ms を解析開始の余裕として使う
-  const bg_end_beforePeak_s = 0.125;   // BG 窓の終了は peak - 0.125 s
-  const bg_start_beforePeak_s = 0.875; // BG 窓の開始は peak - 0.875 s
-  const maxAnalysisDur_s = 20.0;       // 安全上の上限（録音が長い場合）
-  const postN = Math.max(1, Math.floor(0.2 * fs)); // 直後 200 ms 用
-
-  const peakIdx = clap.peakIdx;
-
-  // 解析開始 index（ピークより少し前）
-  const analysisStart = Math.max(0, peakIdx - Math.floor(backBeforePeak_s * fs));
-  // 解析対象信号（開始から末尾または上限まで）
-  const xcut = sliceForAnalysis(x, fs, analysisStart, maxAnalysisDur_s);
-
-  // BG 窓：優先的に -0.875 .. -0.125 s を使う（取れなければフォールバック）
-  let bg0 = Math.max(0, peakIdx - Math.floor(bg_start_beforePeak_s * fs));
-  let bg1 = Math.max(0, peakIdx - Math.floor(bg_end_beforePeak_s * fs));
-  if (bg1 - bg0 < 1) {
-    // 先頭寄りすぎる場合の既存フォールバック（後段 0.6–0.9 s）
-    bg0 = Math.min(x.length-1, peakIdx + Math.floor(0.6 * fs));
-    bg1 = Math.min(x.length,     peakIdx + Math.floor(0.9 * fs));
-  }
-
-  // 生波形での SNR 基礎（BG 窓 & 直後 200 ms）
-  let pbg = 0, psig = 0;
-  for(let i = bg0; i < bg1; i++){ const v = x[i]||0; pbg += v*v; }
-  for(let i = 0; i < postN; i++){ const v = x[peakIdx + i] || 0; psig += v*v; }
-  pbg /= Math.max(1, bg1 - bg0);
-  psig /= Math.max(1, postN);
-
-  // 帯域処理
-  const bandType = $('#bandType').value;
-  const bands = makeBands(bandType);
-  const include63 = $('#snrInclude63').checked;
-  const noiseComp = $('#noiseComp').checked;
-
-  const results = [];
-  for(const fc of bands){
-    // SNR（バンドごと）: bandpass を原始波形 x にかけて BG と signal を評価
-    const y_full = await bandpassFilter(x, fs, fc, bandType);
-
-    let pbg_b = 0, psig_b = 0;
-    for(let i = bg0; i < bg1; i++){ const v = y_full[i] || 0; pbg_b += v*v; }
-    for(let i = 0; i < postN; i++){ const v = y_full[peakIdx + i] || 0; psig_b += v*v; }
-    pbg_b /= Math.max(1, bg1 - bg0);
-    psig_b /= Math.max(1, postN);
-    const SNR = db10(psig_b / (pbg_b || 1e-24));
-
-    // 減衰計算は analysisStart から取り、同じ BPF を適用
-    const ycut = await bandpassFilter(xcut, fs, fc, bandType);
-
-    let dec;
-    if (noiseComp){
-      dec = schroederDBNoiseComp(ycut, pbg_b);
-    } else {
-      dec = schroederDB(ycut);
-      const shift = dec[0] || 0;
-      for(let i=0;i<dec.length;i++) dec[i] -= shift;
+  <style>
+    :root{
+      --bg:#f7f8fb; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+      --accent:#2563eb; --ok:#16a34a; --warn:#eab308; --err:#dc2626;
+      --mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
     }
+    *{box-sizing:border-box}
+    body{ margin:0; color:var(--ink); background:var(--bg);
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic","ヒラギノ角ゴ ProN W3","メイリオ",sans-serif; line-height:1.55; }
+    header{ position:sticky; top:0; z-index:10; background:linear-gradient(90deg,#fff,#f5f9ff); border-bottom:1px solid #e2e8f0; }
+    .wrap{ max-width:1200px; margin:0 auto; padding:16px; display:flex; gap:12px; align-items:center; justify-content:space-between;}
+    .lang{ display:flex; gap:6px; }
+    .lang button{ background:#e2e8f0; color:#0f172a; padding:6px 10px; border-radius:10px; border:1px solid #cbd5e1; }
+    h1{ font-size:clamp(20px,2.4vw,28px); margin:0 0 2px; }
+    .sub{ color:var(--muted); font-size:14px; }
+    main{ max-width:1200px; margin:18px auto; padding:0 16px 40px; }
+    .grid{ display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
+    .card{ background:var(--card); border:1px solid #e5e7eb; border-radius:18px; padding:16px; box-shadow:0 6px 24px rgba(30,41,59,0.06); }
+    .card h2{ margin:0 0 10px; font-size:18px }
+    .controls{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+    button{ appearance:none; border:0; border-radius:14px; padding:10px 14px; font-weight:600; cursor:pointer; background:var(--accent); color:white; box-shadow:0 6px 16px rgba(37,99,235,0.2); }
+    button.secondary{ background:#e2e8f0; color:#0f172a; }
+    button.ghost{ background:transparent; color:var(--accent); border:1px solid #c7d2fe}
+    button:disabled{ opacity:.6; cursor:not-allowed }
+    label{ font-size:14px; color:var(--muted) }
+    select, input[type="number"], input[type="text"]{
+      border:1px solid #e5e7eb; background:white; color:#0f172a; border-radius:12px; padding:8px 10px; min-width:100px;
+    }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:12px }
+    .hint{ font-size:12px; color:var(--muted) }
+    .mono{ font-family:var(--mono); }
+    .judge{ font-weight:800; padding:4px 10px; border-radius:999px; display:inline-block; }
+    .judge.ok{ background:#ecfdf5; color:#065f46; border:1px solid #34d399; }
+    .judge.ng{ background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+    table{ width:100%; border-collapse:collapse; }
+    th, td{ padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric:tabular-nums; vertical-align:middle; }
+    th:first-child, td:first-child{ text-align:left }
+    @media (max-width:920px){ .grid{ grid-template-columns: repeat(6,1fr); } }
+    @media (max-width:640px){ .grid{ grid-template-columns: repeat(4,1fr); } .controls{ gap:8px } }
+    canvas#wave{ width:100%; height:150px; background:#fff; border-radius:12px; border:1px solid #e5e7eb }
 
-    const {fits, rep, tag} = fitAll(dec, fs);
+    /* 録音状態フィードバック */
+    button.recording { background: var(--err); box-shadow: 0 6px 16px rgba(220,38,38,0.2); }
+    button.recorded  { background: var(--muted); box-shadow: 0 6px 16px rgba(100,116,139,0.2); }
 
-    results.push({
-      fc,
-      EDT: fits.EDT.T, T10: fits.T10.T, T20: fits.T20.T, T30: fits.T30.T,
-      R2: isFinite(rep.r2) ? rep.r2.toFixed(3) : '',
-      repTag: tag,
-      SNR,
-      judge: (fc === 63 && !include63) ? '—' : (SNR >= 20.0 ? 'OK' : 'NG'),
-      decay: dec, fit: rep, fits,
-      T20_manual: NaN
+    /* 詳細プロット */
+    #decay-controls{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+    #decay-controls .note{ color:#64748b; font-size:12px }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div>
+      <h1 data-i18n="title">手をたたいて残響時間を推定（コンセプト）</h1>
+      <div class="sub" data-i18n="subtitle">録音 → 1/1 または 1/3 オクターブBPF → シュレーダー積分 → 直線回帰（EDT/T10/T20/T30）／ 事前暗騒音と比較したSNRでOK/NG</div>
+    </div>
+    <div class="lang">
+      <button id="btnJP">JP</button>
+      <button id="btnEN">EN</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+    <!-- 1) 測定 -->
+    <section class="card" style="grid-column: span 12;">
+      <h2 data-i18n="sec1">1) 測定と入力</h2>
+      <div class="controls">
+        <button id="btnRecord"><span id="recLabel" data-i18n="recStart">録音開始</span></button>
+        <button id="btnStop" class="secondary" disabled data-i18n="stop">停止</button>
+        <label data-i18n="recLenL">録音長（秒）<input type="number" id="recSec" value="5" step="1" min="3" max="20" /></label>
+
+        <label data-i18n="measCountL">測定点数
+          <select id="measCount">
+            <option value="1" selected>1</option>
+            <option value="3">3</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+
+        <button id="btnCommit" class="ghost" disabled data-i18n="saveThis">この測定を保存</button>
+        <button id="btnAvg" class="ghost" disabled data-i18n="avg">平均を計算</button>
+
+        <input
+          type="file"
+          id="fileInput"
+          accept=".wav,audio/wav,audio/x-wav,audio/*,.mp3,audio/mpeg,.m4a,audio/mp4,.aac,audio/aac,.webm,audio/webm"
+        />
+        <span id="state" class="pill">idle</span>
+      </div>
+      <p class="hint" data-i18n="hint1">静かな部屋で、<b>ボタンを押して約1秒後に1回だけ強く手を叩いてください</b>。端末側のNR/AGCは無効化要求を出しますが、OS依存で完全には止まりません。</p>
+      <audio id="player" controls playsinline style="width:100%; display:none;"></audio>
+      <div id="envInfo" class="footer-note mono"></div>
+      <div class="footer-note" data-i18n="constraint">デバイス処理要求: echoCancellation=false / noiseSuppression=false / autoGainControl=false（適用可否は端末次第）</div>
+    </section>
+
+    <!-- 2) 解析設定 -->
+    <section class="card" style="grid-column: span 12;">
+      <h2 data-i18n="sec2">2) 解析・判定設定</h2>
+      <div class="controls">
+        <label data-i18n="bandL">帯域
+          <select id="bandType">
+            <option value="ob_63_4k" selected>1/1 Octave（63 Hz ～ 4 kHz）</option>
+            <option value="tb_50_4k">1/3 Octave（50 Hz ～ 4 kHz）</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="snrInclude63" checked/> <span data-i18n="include63">判定に63 Hzも含める</span></label>
+        <label><input type="checkbox" id="noiseComp" checked/> <span data-i18n="bgsub">BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）</span></label>
+        <label><input type="checkbox" id="manualRegress"/> <span data-i18n="manualChk">減衰曲線をグラフで確認し手動で回帰区間を決定する</span></label>
+
+        <button id="btnAnalyze" class="ghost" disabled data-i18n="analyze">解析する</button>
+        <button id="btnDownloadCsv" class="ghost" disabled data-i18n="saveCsv">CSVを保存</button>
+      </div>
+      <p class="hint" data-i18n="snrRule">SNRは<b>手拍子直後200 ms</b>の平均パワーと<b>手拍子前0.5 s</b>の平均パワーの比（10log10）。<span style="font-weight:700">中央値SNR</span>がしきい値(20 dB)以上なら<b>OK</b>。</p>
+      <div><span data-i18n="overall">全体判定</span>：<span id="overallJudge" class="judge ng">NG</span> <span id="overallNote" class="mono" style="margin-left:8px;"></span></div>
+      <div class="footer-note" data-i18n="savedCount">測定保存数: <span id="measSaved" class="mono">0</span> / <span id="measTarget" class="mono">1</span></div>
+    </section>
+
+    <!-- 3) 結果テーブル -->
+    <section class="card" style="grid-column: span 12;">
+      <h2 data-i18n="sec3">3) 結果（帯域別）</h2>
+      <div id="resultsWrap">
+        <table id="results">
+          <thead>
+            <tr>
+              <th data-i18n="fc">中心周波数 [Hz]</th>
+              <th>EDT [s]</th>
+              <th>T10 [s]</th>
+              <th>T20 [s]</th>
+              <th>T30 [s]</th>
+              <th data-i18n="r2rep">R²（代表回帰）</th>
+              <th>SNR [dB]</th>
+              <th data-i18n="judge">判定</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="footer-note" id="resultNote">
+          判定に使用した回帰＝T30優先→T20→T10→EDT。<br>
+          <b>!!</b>: 信頼性警告（例: Tの相対差が大きい、T10/T20が異常に長い10s以上）<br>
+          <b>※</b>: ショートRT不一致警告（すべて1.0s以下かつ最大差0.3s以上）
+        </div>
+      </div>
+    </section>
+
+    <!-- 4) 詳細Plotly -->
+    <section class="card" style="grid-column: span 12;">
+      <h2 data-i18n="sec4">4) 減衰曲線（詳細）</h2>
+      <div id="decay-controls">
+        <label data-i18n="showBand">表示帯域
+          <select id="detailBand"></select>
+        </label>
+        <label data-i18n="zoomStartL">開始時間[s] <input type="number" id="zoomStart" value="0" step="0.05" min="0"></label>
+        <label data-i18n="zoomEndL">終了時間[s] <input type="number" id="zoomEnd" value="1.0" step="0.05" min="0.1"></label>
+        <button id="applyZoom" class="ghost" data-i18n="applyZoom">開始時間と終了時間に対するズーム適用</button>
+        <span class="note" data-i18n="decayNote">曲線＝Schroeder（相対dB）。着色帯＝回帰区間。回帰線は指標ごとに線種を変更。</span>
+      </div>
+
+      <!-- 手動回帰UI -->
+      <div id="manualRegressControls" style="display:none; margin-top:10px;">
+        <span class="note" style="font-weight:700;" data-i18n="manualT20">手動T20設定:</span>
+        <label data-i18n="t20Start">開始時間[s] (-5 dB想定) <input type="number" id="manualT20Start" value="" step="0.01" style="width:80px;"></label>
+        <label data-i18n="t20End">終了時間[s] (-25 dB想定) <input type="number" id="manualT20End" value="" step="0.01" style="width:80px;"></label>
+        <button id="btnManualT20Regress" class="ghost secondary" data-i18n="calcT20">T20を手動計算</button>
+        <span id="manualT20Result" class="mono" style="margin-left:10px;">RT: —</span>
+        <span class="note" style="margin-left:8px;" data-i18n="dragHint">グラフ上をドラッグ（選択）すると開始と終了が自動入力されます。</span>
+      </div>
+
+      <div id="decayPlot" style="width:100%;height:420px;"></div>
+    </section>
+
+    <!-- 5) 波形 -->
+    <section class="card" style="grid-column: span 12%;">
+      <h2 data-i18n="sec5">5) 元信号の切り取り位置</h2>
+      <canvas id="wave"></canvas>
+      <div class="footer-note" data-i18n="waveNote">解析に用いた切り出し範囲の元の波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓。</div>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import { designButterworthBandpassSOS_N, sosFilter } from "./acoustics-core.js";
+
+(() => {
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>Array.from(document.querySelectorAll(s));
+  const db10 = (x)=>10*Math.log10(Math.max(1e-24, x));
+  const db20 = (x)=>20*Math.log10(Math.max(1e-12, Math.abs(x)));
+
+  // i18n
+  const L = {
+    jp: { /* 省略せず元の定義そのまま */ 
+      title:"手をたたいて残響時間を推定（コンセプト）",
+      subtitle:"録音 → 1/1 または 1/3 オクターブBPF → シュレーダー積分 → 直線回帰（EDT/T10/T20/T30）／ 事前暗騒音と比較したSNRでOK/NG",
+      sec1:"1) 測定と入力",
+      sec2:"2) 解析・判定設定",
+      sec3:"3) 結果（帯域別）",
+      sec4:"4) 減衰曲線（詳細）",
+      sec5:"5) 元信号の切り取り位置",
+      recStart:"録音開始", stop:"停止",
+      recLenL:"録音長（秒）",
+      measCountL:"測定点数",
+      saveThis:"この測定を保存", avg:"平均を計算",
+      hint1:"静かな部屋で、ボタンを押して約1秒後に1回だけ強く手を叩いてください。端末側のNR/AGCは無効化要求を出しますが、OS依存で完全には止まりません。",
+      constraint:"デバイス処理要求: echoCancellation=false / noiseSuppression=false / autoGainControl=false（適用可否は端末次第）",
+      bandL:"帯域", include63:"判定に63 Hzも含める", bgsub:"BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）",
+      manualChk:"減衰曲線をグラフで確認し手動で回帰区間を決定する",
+      analyze:"解析する", saveCsv:"CSVを保存",
+      snrRule:"SNRは手拍子直後200 msの平均パワーと手拍子前0.5 sの平均パワーの比（10log10）。中央値SNRがしきい値(20 dB)以上ならOK。",
+      overall:"全体判定", savedCount:"測定保存数:",
+      fc:"中心周波数 [Hz]", r2rep:"R²（代表回帰）", judge:"判定",
+      showBand:"表示帯域", zoomStartL:"開始時間[s]", zoomEndL:"終了時間[s]",
+      applyZoom:"開始時間と終了時間に対するズーム適用",
+      decayNote:"曲線＝Schroeder（相対dB）。着色帯＝回帰区間。回帰線は指標ごとに線種を変更。",
+      manualT20:"手動T20設定:", t20Start:"開始時間[s] (-5 dB想定)", t20End:"終了時間[s] (-25 dB想定)",
+      calcT20:"T20を手動計算", dragHint:"グラフ上をドラッグ（選択）すると開始と終了が自動入力されます。",
+      waveNote:"解析に用いた切り出し範囲の元の波形。赤＝手拍子検出点、青帯＝事前暗騒音窓、緑帯＝直後200 ms窓。"
+    },
+    en: {
+      title:"Estimate Reverberation Time by Hand Clap (Concept)",
+      subtitle:"Record → 1/1 or 1/3 octave BPF → Schroeder integration → Linear regression (EDT/T10/T20/T30) / SNR vs. pre-noise for OK/NG",
+      sec1:"1) Recording and Input",
+      sec2:"2) Analysis & Judgment",
+      sec3:"3) Results by Band",
+      sec4:"4) Decay Curves (Detail)",
+      sec5:"5) Original Waveform Window",
+      recStart:"Record", stop:"Stop",
+      recLenL:"Duration [s]",
+      measCountL:"Measurements",
+      saveThis:"Save this take", avg:"Average",
+      hint1:"In a quiet room, press the button and clap once strongly about 1 s later. NR/AGC is requested off but may persist depending on OS.",
+      constraint:"Constraints: echoCancellation=false / noiseSuppression=false / autoGainControl=false (device dependent)",
+      bandL:"Bands", include63:"Include 63 Hz in judgment", bgsub:"BG-noise compensation (subtract pre-noise power in Schroeder)",
+      manualChk:"Decide regression window manually on the graph",
+      analyze:"Analyze", saveCsv:"Save CSV",
+      snrRule:"SNR = 10log10(power 200 ms after clap / power 0.5 s before). If median SNR ≥ 20 dB then OK.",
+      overall:"Overall", savedCount:"Saved:",
+      fc:"Center freq [Hz]", r2rep:"R² (chosen fit)", judge:"Judge",
+      showBand:"Display band", zoomStartL:"Start [s]", zoomEndL:"End [s]",
+      applyZoom:"Apply zoom to start/end",
+      decayNote:"Curve = Schroeder (relative dB). Shaded = regression windows. Line styles differ per metric.",
+      manualT20:"Manual T20:", t20Start:"Start [s] (≈−5 dB)", t20End:"End [s] (≈−25 dB)",
+      calcT20:"Compute T20 manually", dragHint:"Drag-select on the graph to auto-fill start/end.",
+      waveNote:"Original waveform used for analysis. Red=clap, Blue=pre-noise, Green=200 ms after."
+    }
+  };
+
+  function applyLang(lang){
+    const dict = L[lang];
+    $$('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      if (dict[key] == null) return;
+      const tn = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+      if (tn) {
+        tn.textContent = dict[key];
+      } else if (el.children.length === 0) {
+        el.textContent = dict[key];
+      }
     });
   }
 
-  latestResults = results;
+  $('#btnJP').onclick=()=>applyLang('jp');
+  $('#btnEN').onclick=()=>applyLang('en');
 
-  // --- 表描画（既存ロジックをそのまま） ---
-  const tbody = $('#results tbody'); tbody.innerHTML = '';
-  const manualMode = manualChk.checked;
-  for(const r of results){
-    let markT10='', markT20='', markT30='';
-    const rt10=r.fits.T10.T, rt20=r.fits.T20.T, rt30=r.fits.T30.T;
-    const rtsFinite = [rt10, rt20, rt30].filter(isFinite);
-    if (rtsFinite.length >= 2 && rtsFinite.every(t => t <= 1.0)) {
-      const maxDiff = Math.max(...rtsFinite) - Math.min(...rtsFinite);
-      if (maxDiff >= 0.3) { if(isFinite(rt10)) markT10 += '※'; if(isFinite(rt20)) markT20 += '※'; if(isFinite(rt30)) markT30 += '※'; }
-    }
-    if (rtsFinite.length >= 2){
-      const tmin = Math.min(...rtsFinite), tmax = Math.max(...rtsFinite);
-      if (tmax - tmin >= 0.1 * tmin){ if(isFinite(rt10)) markT10 += '!!'; if(isFinite(rt20)) markT20 += '!!'; if(isFinite(rt30)) markT30 += '!!'; }
-    }
-    if (isFinite(rt10) && rt10 >= 10) markT10 += '!!';
-    if (isFinite(rt20) && rt20 >= 10) markT20 += '!!';
+  const player = $('#player');
+  const stateEl = $('#state');
+  const recBtn = $('#btnRecord');
+  const stopBtn = $('#btnStop');
+  const analyzeBtn = $('#btnAnalyze');
+  const csvBtn = $('#btnDownloadCsv');
+  const fileInput = $('#fileInput');
 
-    const edtCell = manualMode ? '' : (isFinite(r.EDT) ? r.EDT.toFixed(3) : '');
-    const t10Cell = manualMode ? '' : (isFinite(r.T10) ? r.T10.toFixed(3)+markT10 : '');
-    let t20Cell = '';
-    if(manualMode){
-      t20Cell = isFinite(r.T20_manual) ? r.T20_manual.toFixed(3)+' (M)' : '';
+  const detailBandSel = $('#detailBand');
+  const applyZoomBtn  = $('#applyZoom');
+  const zoomStartEl   = $('#zoomStart');
+  const zoomEndEl     = $('#zoomEnd');
+  const manualChk     = $('#manualRegress');
+  const manualUI      = $('#manualRegressControls');
+  const manualStartEl = $('#manualT20Start');
+  const manualEndEl   = $('#manualT20End');
+  const manualBtn     = $('#btnManualT20Regress');
+  const manualOut     = $('#manualT20Result');
+
+  let mediaStream = null;
+  let recorder = null;
+  let recordedChunks = [];
+  let lastBuffer = null;  // {fs, data: Float32Array}
+  let userConfirmed = false;
+
+  // consent
+  function initConsent(){
+    const msg = [
+      'このツールは簡易測定用であり、標準的な残響時間測定の要件を満たしません。',
+      'スマホ内蔵マイクは低域（～100 Hz）で感度が低く、63 HzはSNR不足になりがちです。',
+      'getUserMediaでechoCancellation/noiseSuppression/autoGainControlをfalse指定しますが、iOS Safari等では完全に無効化できない場合があります。',
+      '厳密測定には標準化手順・信号の使用を推奨します。',
+      '測定結果の正確性について保証はできません。よろしいですか？'
+    ].join('\n\n');
+    const ok = window.confirm(msg);
+    userConfirmed = !!ok;
+    if(!userConfirmed){
+      recBtn.disabled = true; fileInput.disabled = true;
+      analyzeBtn.disabled = true; csvBtn.disabled = true; stopBtn.disabled = true;
+      stateEl.textContent = '警告確認待ち';
     }else{
-      t20Cell = isFinite(r.T20) ? r.T20.toFixed(3)+markT20 : '';
+      stateEl.textContent = 'idle';
     }
-    const t30Cell = manualMode ? '' : (isFinite(r.T30) ? r.T30.toFixed(3)+markT30 : '');
-    const r2Cell  = manualMode ? '' : r.R2;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.fc.toFixed(1)}</td>
-      <td>${edtCell}</td>
-      <td>${t10Cell}</td>
-      <td>${t20Cell}</td>
-      <td>${t30Cell}</td>
-      <td>${r2Cell}</td>
-      <td>${r.SNR.toFixed(1)}</td>
-      <td>${r.judge}</td>`;
-    tbody.appendChild(tr);
   }
 
-  // Overall 判定
-  const th = 20.0;
-  const valid = results.filter(r => (r.fc !== 63 || $('#snrInclude63').checked));
-  const okList = valid.filter(r => r.SNR >= th);
-  const overall = (okList.length >= Math.ceil(valid.length * 0.6)) ? 'OK' : 'NG';
-  $('#overallJudge').className = 'judge ' + (overall === 'OK' ? 'ok' : 'ng');
-  $('#overallJudge').textContent = overall;
-  $('#overallNote').textContent = `OK数 ${okList.length}/${valid.length}`;
+  // bands
+  function makeBands(kind){
+    if(kind==='ob_63_4k')  return [63,125,250,500,1000,2000,4000];
+    if(kind==='tb_50_4k')  return [50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000];
+    return [63,125,250,500,1000,2000,4000];
+  }
 
-  // 詳細Plotly の選択肢と初期描画
-  detailBandSel.innerHTML = '';
-  for(const r of results){ const opt = document.createElement('option'); opt.value = String(r.fc); opt.textContent = `${r.fc} Hz`; detailBandSel.appendChild(opt); }
-  if(results[0]) detailBandSel.value = String(results[0].fc);
-  const renderCurrent = ()=>{
+  function pickRecorderMime(){
+    const cands = ['audio/mp4;codecs=aac','audio/aac','audio/mp4','audio/webm;codecs=opus','audio/webm'];
+    for(const t of cands){ if(window.MediaRecorder && MediaRecorder.isTypeSupported?.(t)) return t; }
+    return '';
+  }
+
+  // 1/1:36次, 1/3:24次
+  async function bandpassFilter(samples, fs, fc, bandType){
+    const N = bandType.includes('tb_') ? 24 : 36;
+    const sos = designButterworthBandpassSOS_N(fc, fs, N);
+    return sosFilter(samples, sos);
+  }
+
+  function detectClapStart(samples, fs, trigDb){
+    let maxAbs=0, maxIdx=0;
+    for(let i=0;i<samples.length;i++){
+      const a=Math.abs(samples[i]);
+      if(a>maxAbs){ maxAbs=a; maxIdx=i; }
+    }
+    const peakDb = db20(maxAbs);
+    if(peakDb < trigDb) return {idx:-1, peakDb};
+    const pre = Math.floor(0.01*fs);
+    return {idx: Math.max(0, maxIdx-pre), peakDb};
+  }
+
+  // 解析用切り出し：開始indexと最大長[s]で切る
+  function sliceForAnalysis(samples, fs, startIdx, maxDur_s = 1.0){
+    const maxDur = maxDur_s > 0 ? maxDur_s : 1.0;
+    const N = Math.min(samples.length - startIdx, Math.floor(maxDur * fs));
+    const out = new Float32Array(N);
+    let mean = 0;
+    for(let i=0;i<N;i++) mean += samples[startIdx+i];
+    mean /= Math.max(1, N);
+    for(let i=0;i<N;i++) out[i] = samples[startIdx+i] - mean;
+    return out;
+  }
+
+  function schroederDB(x){
+    const N=x.length; const e=new Float64Array(N);
+    for(let i=0;i<N;i++){ const v=x[i]; e[i]=v*v; }
+    for(let i=N-2;i>=0;i--) e[i]+=e[i+1];
+    const e0=e[0] + 1e-12;
+    const out=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const r=Math.max(e[i]/e0,1e-12);
+      out[i]=10*Math.log10(r);
+    }
+    return out;
+  }
+
+  function schroederDBNoiseComp(x, pbg){
+    const N = x.length;
+    const e = new Float64Array(N);
+    let acc = 0;
+    for(let i=N-1;i>=0;i--){
+      const pi = x[i]*x[i] - pbg;
+      acc += (pi > 0 ? pi : 0);
+      e[i] = acc;
+    }
+    const e0 = e[0] + 1e-12;
+    const out = new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const r = Math.max(e[i]/e0, 1e-12);
+      out[i] = 10*Math.log10(r);
+    }
+    return out;
+  }
+
+  function pickSegment(dBcurve, mode){
+    let hi, lo;
+    if(mode==='EDT'){ hi=0; lo=-10; }
+    else if(mode==='T10'){ hi=-5; lo=-15; }
+    else if(mode==='T20'){ hi=-5; lo=-25; }
+    else if(mode==='T30'){ hi=-5; lo=-35; }
+    else { hi=0; lo=-10; }
+    const N=dBcurve.length; let i0=-1, i1=-1;
+    for(let i=0;i<N;i++){ if(dBcurve[i]<hi){ i0=i; break; } }
+    if(i0<0) return null;
+    for(let i=i0;i<N;i++){ if(dBcurve[i]<lo){ i1=i; break; } }
+    if(i1<0 || i1-i0<100) return null;
+    return [i0,i1];
+  }
+
+  function linreg(x, y){
+    const n = x.length; if(n<2) return {a:NaN,b:NaN,r2:NaN};
+    let sx=0, sy=0, sxy=0, sxx=0, syy=0;
+    for(let i=0;i<n;i++){
+      const xi=x[i], yi=y[i];
+      sx+=xi; sy+=yi; sxy+=xi*yi; sxx+=xi*xi; syy+=yi*yi;
+    }
+    const denom = n*sxx - sx*sx; if(Math.abs(denom)<1e-12) return {a:NaN,b:NaN,r2:NaN};
+    const a = (n*sxy - sx*sy)/denom;
+    const b = (sy - a*sx)/n;
+    const ym = sy/n; let ssT=0, ssR=0;
+    for(let i=0;i<n;i++){
+      const yi=y[i], yh=a*x[i]+b;
+      ssT+=(yi-ym)**2; ssR+=(yi-yh)**2;
+    }
+    const r2 = ssT>0? 1-ssR/ssT : NaN;
+    return {a,b,r2};
+  }
+
+  function fitRT(dBcurve, fs, mode){
+    const seg = pickSegment(dBcurve, mode);
+    if(!seg) return {T:NaN,a:NaN,b:NaN,r2:NaN,seg:null, used:null};
+    const [i0,i1]=seg; const n=i1-i0;
+    const x=new Float64Array(n), y=new Float64Array(n);
+    for(let k=0;k<n;k++){ x[k]=i0+k; y[k]=dBcurve[i0+k]; }
+    const {a,b,r2}=linreg(x,y);
+    if(!isFinite(a) || Math.abs(a)<1e-12) return {T:NaN,a,b,r2,seg, used:mode};
+    const T60 = -60/(a*fs);
+    if(T60<=0 || T60>20) return {T:NaN,a,b,r2,seg, used:mode};
+    return {T:T60,a,b,r2,seg, used:mode};
+  }
+
+  function manualFitRT(resultItem, fs, tStart, tEnd){
+    const dec = resultItem.decay;
+    if(!dec || !isFinite(tStart) || !isFinite(tEnd) || tEnd<=tStart)
+      return {T:NaN, r2:NaN, a:NaN, b:NaN, seg:null};
+    const i0 = Math.max(0, Math.floor(tStart*fs));
+    const i1 = Math.min(dec.length, Math.ceil(tEnd*fs));
+    const n = i1 - i0;
+    if(n < 20) return {T:NaN, r2:NaN, a:NaN, b:NaN, seg:null};
+    const x = new Float64Array(n), y = new Float64Array(n);
+    for(let k=0;k<n;k++){ x[k]=i0+k; y[k]=dec[i0+k]; }
+    const {a,b,r2} = linreg(x,y);
+    const T60 = isFinite(a) && a<0 ? -60/(a*fs) : NaN;
+    return {T:T60, r2, a, b, seg:[i0,i1]};
+  }
+
+  function drawWave(canvas, data, fs, markers, i_start = 0, i_end = -1){
+    const ctx=canvas.getContext('2d');
+    const W=canvas.width=canvas.clientWidth, H=canvas.height=canvas.clientHeight;
+    ctx.clearRect(0,0,W,H); ctx.strokeStyle='#0f172a22'; ctx.strokeRect(0,0,W,H);
+    if(!data || data.length === 0) return;
+
+    if(i_end === -1) i_end = data.length;
+    i_start = Math.max(0, i_start);
+    i_end = Math.min(data.length, i_end);
+    const N_disp = i_end - i_start;
+    if(N_disp <= 0) return;
+
+    ctx.strokeStyle='#0f172a'; ctx.beginPath();
+    for(let x=0; x<W; x++){
+      const i = i_start + Math.floor(x * N_disp / W);
+      const y = data[i] || 0;
+      const yy = H*(0.5-0.45*y);
+      if(x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+    }
+    ctx.stroke();
+
+    if(markers){
+      for(const m of markers){
+        const x = Math.floor(((m.idx - i_start) / N_disp) * W);
+        ctx.strokeStyle = m.color;
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+        if(m.band){
+          ctx.fillStyle = m.color+'33';
+          const x2 = Math.floor(((m.idx2 - i_start) / N_disp) * W);
+          ctx.fillRect(Math.min(x,x2), 0, Math.abs(x2-x), H);
+        }
+      }
+    }
+  }
+
+  function renderDecayPlot(containerId, r, fs, zoomStart=0, zoomEnd=1.0){
+    const N  = r.decay.length;
+    const t  = Array.from({length:N}, (_,i)=> i/fs);
+    const y  = Array.from(r.decay);
+
+    const shapes = [];
+    const segStyle = {
+      EDT : {fill:'rgba(148,163,184,0.25)', line:'rgba(148,163,184,1)', dash:'solid'},
+      T10 : {fill:'rgba(59,130,246,0.25)', line:'rgba(59,130,246,1)', dash:'dash'},
+      T20 : {fill:'rgba(34,197,94,0.25)',  line:'rgba(34,197,94,1)',  dash:'dashdot'},
+      T30 : {fill:'rgba(245,158,11,0.25)', line:'rgba(245,158,11,1)', dash:'dot'},
+    };
+
+    const traces = [{
+      name:'Schroeder',
+      x:t, y:y, mode:'lines',
+      line:{width:1.5, color:'#0f172a'}
+    }];
+
+    for(const key of ['EDT','T10','T20','T30']){
+      const f = r.fits[key];
+      if(f && f.seg){
+        const [i0,i1] = f.seg;
+        const x0=t[i0], x1=t[Math.max(i1-1,i0)];
+        shapes.push({
+          type:'rect', xref:'x', yref:'paper',
+          x0:x0, x1:x1, y0:0, y1:1,
+          fillcolor: segStyle[key].fill, line:{width:0}
+        });
+        if(isFinite(f.a)){
+          const y0 = f.a*i0 + f.b;
+          const y1 = f.a*(i1-1) + f.b;
+          traces.push({
+            name:`${key} fit`,
+            x:[x0,x1], y:[y0,y1], mode:'lines',
+            line:{dash:segStyle[key].dash, width:2, color:segStyle[key].line}
+          });
+        }
+      }
+    }
+
+    const layout = {
+      margin:{l:60,r:20,t:10,b:40},
+      xaxis:{title:'Time [s]', range:[zoomStart, zoomEnd]},
+      yaxis:{title:'Level [dB]', range:[-80,0]},
+      showlegend:true,
+      dragmode: manualChk.checked ? 'select' : 'zoom',
+      shapes
+    };
+    Plotly.newPlot(containerId, traces, layout, {responsive:true, displaylogo:false});
+
+    const gd = document.getElementById(containerId);
+    gd.on('plotly_selected', (ev)=>{
+      if(!manualChk.checked || !ev || !ev.range || !ev.range.x) return;
+      const x0 = Math.max(0, ev.range.x[0]);
+      const x1 = Math.max(0, ev.range.x[1]);
+      manualStartEl.value = x0.toFixed(3);
+      manualEndEl.value   = x1.toFixed(3);
+      Plotly.relayout(gd, {'dragmode':'select', 'selectedpoints':null});
+    });
+  }
+
+  function makeCSV(rows){
+    const head=['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','Judge'];
+    const lines=[head.join(',')];
+    for(const r of rows){
+      const T20out = isFinite(r.T20_manual)? r.T20_manual.toFixed(3) :
+                     (isFinite(r.T20)? r.T20.toFixed(3):'');
+      lines.push([
+        r.fc.toFixed(1),
+        isFinite(r.EDT)?r.EDT.toFixed(3):'',
+        isFinite(r.T10)?r.T10.toFixed(3):'',
+        T20out,
+        isFinite(r.T30)?r.T30.toFixed(3):'',
+        (r.R2??'').toString(),
+        r.SNR.toFixed(1),
+        r.judge
+      ].join(','));
+    }
+    return new Blob([lines.join('\n')], {type:'text/csv'});
+  }
+
+  async function decodeBlobToMonoFloat(blob){
+    const ac = new (window.AudioContext || window.webkitAudioContext)({sampleRate:48000});
+    const arrbuf = await blob.arrayBuffer();
+    const audioBuf = await ac.decodeAudioData(arrbuf);
+    const fs = audioBuf.sampleRate;
+    const ch0 = audioBuf.getChannelData(0);
+    const out = new Float32Array(ch0.length); out.set(ch0);
+    ac.close();
+    return {fs, data:out};
+  }
+
+  function enableDuringRecording(v){
+    recBtn.disabled=v; stopBtn.disabled=!v; analyzeBtn.disabled=true; csvBtn.disabled=true;
+  }
+
+  function setState(s){ stateEl.textContent=s; }
+
+  async function startRecording(){
+    if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
+    const recSecEl = $('#recSec');
+    const recSec = Math.max(1, Math.min(20, parseInt(recSecEl?.value,10) || 5));
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+    });
+
+    const mime = pickRecorderMime();
+    recorder = new MediaRecorder(mediaStream, mime ? {mimeType:mime} : undefined);
+    recordedChunks = [];
+
+    recBtn.classList.remove('recorded');
+    recBtn.classList.add('recording');
+    $('#recLabel').textContent = '録音中';
+
+    recorder.ondataavailable = e=>{ if(e.data && e.data.size>0) recordedChunks.push(e.data); };
+    recorder.onstop = async ()=>{
+      const type = mime || recordedChunks[0]?.type || 'audio/mp4';
+      const blob = new Blob(recordedChunks, {type});
+      const url = URL.createObjectURL(blob);
+      player.src = url; player.style.display='block';
+      try { await player.play(); } catch(_) {}
+
+      lastBuffer = await decodeBlobToMonoFloat(blob);
+      setState(`recorded @ ${lastBuffer.fs} Hz, ${lastBuffer.data.length} samples`);
+      analyzeBtn.disabled = false;
+
+      recBtn.classList.remove('recording');
+      recBtn.classList.add('recorded');
+      $('#recLabel').textContent = '録音完了';
+    };
+    recorder.start();
+    enableDuringRecording(true); setState('recording…');
+    setTimeout(()=>{
+      if(recorder && recorder.state==='recording') recorder.stop();
+      stopStream(); enableDuringRecording(false);
+    }, recSec*1000);
+  }
+
+  function stopStream(){
+    if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  }
+  function stopRecording(){
+    if(recorder && recorder.state==='recording'){ recorder.stop(); }
+    stopStream(); enableDuringRecording(false); setState('stopped');
+  }
+
+  function fitAll(dec, fs){
+    const fits = {
+      EDT:fitRT(dec, fs, 'EDT'),
+      T10:fitRT(dec, fs, 'T10'),
+      T20:fitRT(dec, fs, 'T20'),
+      T30:fitRT(dec, fs, 'T30')
+    };
+    let rep = fits.T30; let tag='T30';
+    if(!isFinite(rep.T)) { rep=fits.T20; tag='T20'; }
+    if(!isFinite(rep.T)) { rep=fits.T10; tag='T10'; }
+    if(!isFinite(rep.T)) { rep=fits.EDT; tag='EDT'; }
+    return {fits, rep, tag};
+  }
+
+  let latestResults = [];
+
+  // ====== 新ロジック版 analyze() ======
+  async function analyze(){
+    if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
+    if(!lastBuffer){ setState('no audio'); return; }
+    const fs = lastBuffer.fs, x = lastBuffer.data;
+
+    const trigDb = -20;
+    const clap = detectClapStart(x, fs, trigDb);
+    if (clap.idx < 0){
+      setState(`clap not detected (peak ${clap.peakDb.toFixed(1)} dBFS < ${trigDb} dBFS)`);
+      return;
+    }
+
+    // --- timing params (UIで可変にしてもよい) ---
+    const backBeforePeak_s      = 0.125;   // 解析開始を peak の 125 ms 手前に
+    const bg_end_beforePeak_s   = 0.125;   // BG 窓の終了 = peak - 0.125 s
+    const bg_start_beforePeak_s = 0.875;   // BG 窓の開始 = peak - 0.875 s
+    const maxAnalysisDur_s      = 20.0;    // 安全上限（録音が長い場合）
+    const postN = Math.max(1, Math.floor(0.2 * fs)); // 直後 200 ms
+
+    // detectClapStart の戻り値には idx しかないので、peakIdx はそれをベースにする
+    const peakIdx = Number.isFinite(clap.peakIdx) ? clap.peakIdx : clap.idx;
+
+    // 解析開始 index（ピークより少し前）
+    const analysisStart = Math.max(0, peakIdx - Math.floor(backBeforePeak_s * fs));
+    // 解析対象信号（開始から上限まで）
+    const xcut = sliceForAnalysis(x, fs, analysisStart, maxAnalysisDur_s);
+
+    // BG 窓：優先的に -0.875 .. -0.125 s を使う（取れなければフォールバック）
+    let bg0 = Math.max(0, peakIdx - Math.floor(bg_start_beforePeak_s * fs));
+    let bg1 = Math.max(0, peakIdx - Math.floor(bg_end_beforePeak_s * fs));
+    if (bg1 - bg0 < 1) {
+      // 先頭寄りすぎる場合は後段 0.6–0.9 s に切り替え
+      bg0 = Math.min(x.length-1, peakIdx + Math.floor(0.6 * fs));
+      bg1 = Math.min(x.length,     peakIdx + Math.floor(0.9 * fs));
+    }
+
+    // 生波形での SNR 基礎（BG 窓 & 直後 200 ms）
+    let pbg = 0, psig = 0;
+    for(let i = bg0; i < bg1; i++){ const v = x[i]||0; pbg += v*v; }
+    for(let i = 0; i < postN; i++){ const v = x[peakIdx + i] || 0; psig += v*v; }
+    pbg /= Math.max(1, bg1 - bg0);
+    psig /= Math.max(1, postN);
+
+    // 帯域処理
+    const bandType  = $('#bandType').value;
+    const bands     = makeBands(bandType);
+    const include63 = $('#snrInclude63').checked;
+    const noiseComp = $('#noiseComp').checked;
+
+    const results = [];
+    for(const fc of bands){
+      // SNR（バンドごと）: bandpass を原始波形 x にかけて BG と signal を評価
+      const y_full = await bandpassFilter(x, fs, fc, bandType);
+
+      let pbg_b = 0, psig_b = 0;
+      for(let i = bg0; i < bg1; i++){ const v = y_full[i] || 0; pbg_b += v*v; }
+      for(let i = 0; i < postN; i++){ const v = y_full[peakIdx + i] || 0; psig_b += v*v; }
+      pbg_b /= Math.max(1, bg1 - bg0);
+      psig_b /= Math.max(1, postN);
+      const SNR = db10(psig_b / (pbg_b || 1e-24));
+
+      // 減衰計算は analysisStart から取り、同じ BPF を適用
+      const ycut = await bandpassFilter(xcut, fs, fc, bandType);
+
+      let dec;
+      if (noiseComp){
+        dec = schroederDBNoiseComp(ycut, pbg_b);
+      } else {
+        dec = schroederDB(ycut);
+        const shift = dec[0] || 0;
+        for(let i=0;i<dec.length;i++) dec[i] -= shift;
+      }
+
+      const {fits, rep, tag} = fitAll(dec, fs);
+
+      results.push({
+        fc,
+        EDT: fits.EDT.T, T10: fits.T10.T, T20: fits.T20.T, T30: fits.T30.T,
+        R2:  isFinite(rep.r2) ? rep.r2.toFixed(3) : '',
+        repTag: tag,
+        SNR,
+        judge: (fc === 63 && !include63) ? '—' : (SNR >= 20.0 ? 'OK' : 'NG'),
+        decay: dec, fit: rep, fits,
+        T20_manual: NaN
+      });
+    }
+
+    latestResults = results;
+
+    // --- 表描画 ---
+    const tbody = $('#results tbody'); tbody.innerHTML = '';
+    const manualMode = manualChk.checked;
+    for(const r of results){
+      let markT10='', markT20='', markT30='';
+      const rt10=r.fits.T10.T, rt20=r.fits.T20.T, rt30=r.fits.T30.T;
+      const rtsFinite = [rt10, rt20, rt30].filter(isFinite);
+      if (rtsFinite.length >= 2 && rtsFinite.every(t => t <= 1.0)) {
+        const maxDiff = Math.max(...rtsFinite) - Math.min(...rtsFinite);
+        if (maxDiff >= 0.3) {
+          if(isFinite(rt10)) markT10 += '※';
+          if(isFinite(rt20)) markT20 += '※';
+          if(isFinite(rt30)) markT30 += '※';
+        }
+      }
+      if (rtsFinite.length >= 2){
+        const tmin = Math.min(...rtsFinite), tmax = Math.max(...rtsFinite);
+        if (tmax - tmin >= 0.1 * tmin){
+          if(isFinite(rt10)) markT10 += '!!';
+          if(isFinite(rt20)) markT20 += '!!';
+          if(isFinite(rt30)) markT30 += '!!';
+        }
+      }
+      if (isFinite(rt10) && rt10 >= 10) markT10 += '!!';
+      if (isFinite(rt20) && rt20 >= 10) markT20 += '!!';
+
+      const edtCell = manualMode ? '' : (isFinite(r.EDT) ? r.EDT.toFixed(3) : '');
+      const t10Cell = manualMode ? '' : (isFinite(r.T10) ? r.T10.toFixed(3)+markT10 : '');
+      let t20Cell = '';
+      if(manualMode){
+        t20Cell = isFinite(r.T20_manual) ? r.T20_manual.toFixed(3)+' (M)' : '';
+      }else{
+        t20Cell = isFinite(r.T20) ? r.T20.toFixed(3)+markT20 : '';
+      }
+      const t30Cell = manualMode ? '' : (isFinite(r.T30) ? r.T30.toFixed(3)+markT30 : '');
+      const r2Cell  = manualMode ? '' : r.R2;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.fc.toFixed(1)}</td>
+        <td>${edtCell}</td>
+        <td>${t10Cell}</td>
+        <td>${t20Cell}</td>
+        <td>${t30Cell}</td>
+        <td>${r2Cell}</td>
+        <td>${r.SNR.toFixed(1)}</td>
+        <td>${r.judge}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    // Overall 判定
+    const th = 20.0;
+    const valid = results.filter(r => (r.fc !== 63 || $('#snrInclude63').checked));
+    const okList = valid.filter(r => r.SNR >= th);
+    const overall = (okList.length >= Math.ceil(valid.length * 0.6)) ? 'OK' : 'NG';
+    $('#overallJudge').className = 'judge ' + (overall === 'OK' ? 'ok' : 'ng');
+    $('#overallJudge').textContent = overall;
+    $('#overallNote').textContent = `OK数 ${okList.length}/${valid.length}`;
+
+    // 詳細Plotly
+    detailBandSel.innerHTML = '';
+    for(const r of results){
+      const opt = document.createElement('option');
+      opt.value = String(r.fc); opt.textContent = `${r.fc} Hz`;
+      detailBandSel.appendChild(opt);
+    }
+    if(results[0]) detailBandSel.value = String(results[0].fc);
+    const renderCurrent = ()=>{
+      const fc = parseFloat(detailBandSel.value);
+      const r = results.find(v => v.fc === fc) || results[0];
+      if(!r) return;
+      zoomStartEl.value = Number(zoomStartEl.value || 0).toFixed(2);
+      zoomEndEl.value   = Number(zoomEndEl.value || (r.decay.length / fs)).toFixed(2);
+      renderDecayPlot('decayPlot', r, fs,
+        parseFloat(zoomStartEl.value),
+        parseFloat(zoomEndEl.value));
+    };
+    detailBandSel.onchange = renderCurrent;
+    applyZoomBtn.onclick   = renderCurrent;
+    renderCurrent();
+
+    // 手動UI 表示切替
+    manualUI.style.display = manualMode ? 'block' : 'none';
+
+    // 波形表示（解析開始～末尾を表示）
+    drawWave($('#wave'), x, fs, [
+      {idx: peakIdx, color:'#ef4444'},
+      {idx: peakIdx, idx2: peakIdx + postN, color:'#16a34a', band:true},
+      {idx: bg0,     idx2: bg1,             color:'#0ea5e9', band:true}
+    ], analysisStart, x.length);
+
+    // CSV
+    csvBtn.disabled = false;
+    csvBtn.onclick = ()=>{
+      const blob = makeCSV(results);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'revtime_results.csv'; a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    setState('analyzed');
+  }
+  // ====== analyze() ここまで ======
+
+  // 手動T20ボタン
+  manualBtn.onclick = ()=>{
     const fc = parseFloat(detailBandSel.value);
-    const r = results.find(v => v.fc === fc) || results[0];
-    if(!r) return;
-    zoomStartEl.value = Number(zoomStartEl.value || 0).toFixed(2);
-    zoomEndEl.value   = Number(zoomEndEl.value || (r.decay.length / fs)).toFixed(2);
-    renderDecayPlot('decayPlot', r, fs, parseFloat(zoomStartEl.value), parseFloat(zoomEndEl.value));
-  };
-  detailBandSel.onchange = renderCurrent;
-  applyZoomBtn.onclick = renderCurrent;
-  renderCurrent();
-
-  // 手動UI 表示切替
-  manualUI.style.display = manualMode ? 'block' : 'none';
-
-  // 波形表示（解析開始～末尾を表示）
-  drawWave($('#wave'), x, fs, [
-    {idx: peakIdx, color:'#ef4444'},
-    {idx: peakIdx, idx2: peakIdx + postN, color:'#16a34a', band:true},
-    {idx: bg0, idx2: bg1, color:'#0ea5e9', band:true}
-  ], analysisStart, x.length);
-
-  // CSV 有効化
-  csvBtn.disabled = false;
-  csvBtn.onclick = ()=>{
-    const blob = makeCSV(results);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'revtime_results.csv'; a.click();
-    URL.revokeObjectURL(a.href);
+    const r = latestResults.find(v=>v.fc===fc);
+    if(!r){ manualOut.textContent='RT: —'; return; }
+    const fs = (lastBuffer?.fs)||48000;
+    const t0 = parseFloat(manualStartEl.value);
+    const t1 = parseFloat(manualEndEl.value);
+    const {T, r2} = manualFitRT(r, fs, t0, t1);
+    if(isFinite(T)){
+      r.T20_manual = T;
+      manualOut.textContent = `RT: ${T.toFixed(3)} s  (R²=${isFinite(r2)?r2.toFixed(3):'—'})`;
+    }else{
+      r.T20_manual = NaN;
+      manualOut.textContent = 'RT: —';
+    }
   };
 
-  setState('analyzed');
-}
+  // init
+  initConsent();
+  $('#btnJP').click();
+
+  recBtn.onclick = startRecording;
+  stopBtn.onclick = stopRecording;
+  analyzeBtn.onclick = analyze;
+
+  manualChk.onchange = ()=>{
+    if(latestResults.length){
+      const fc = parseFloat(detailBandSel.value)||latestResults[0].fc;
+      const r = latestResults.find(v=>v.fc===fc) || latestResults[0];
+      const fs = lastBuffer?.fs || 48000;
+      renderDecayPlot('decayPlot', r, fs,
+        parseFloat(zoomStartEl.value||0),
+        parseFloat(zoomEndEl.value||1.0));
+    }
+    manualUI.style.display = manualChk.checked ? 'block' : 'none';
+  };
+
+  fileInput.onchange = async (e)=>{
+    if(!userConfirmed){ initConsent(); if(!userConfirmed) return; }
+    const f=e.target.files?.[0]; if(!f) return;
+    lastBuffer = await decodeBlobToMonoFloat(f);
+    setState(`loaded file @ ${lastBuffer.fs} Hz`);
+    analyzeBtn.disabled=false;
+  };
+
+  $('#measTarget').textContent = $('#measCount').value;
+})();
+</script>
+</body>
+</html>
