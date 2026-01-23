@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>床衝撃音レベル予測（マトリクス分析版 v1.1）</title>
+<title>床衝撃音レベル予測（v1.4 吸音力自動・離散ロジック版）</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
@@ -14,31 +14,37 @@
   .cell{text-align:center;padding:0.5rem 0.25rem;border:1px solid #e5e7eb;font-size:0.75rem;white-space:nowrap;font-weight:600}
   
   /* ヒートマップ色定義 */
-  .bg-grade-spec { background-color: #dbeafe; color: #1e40af; } /* L-40以下 (Cyan/Blue) */
-  .bg-grade-45   { background-color: #d1fae5; color: #065f46; } /* L-45 (Green) */
-  .bg-grade-50   { background-color: #fef08a; color: #854d0e; } /* L-50 (Yellow) */
-  .bg-grade-55   { background-color: #fed7aa; color: #9a3412; } /* L-55 (Orange) */
-  .bg-grade-60   { background-color: #fecaca; color: #991b1b; } /* L-60 (Red) */
-  .bg-grade-bad  { background-color: #fca5a5; color: #7f1d1d; } /* L-65以上 (Dark Red) */
+  .bg-grade-spec { background-color: #dbeafe; color: #1e40af; } /* L-40特 */
+  .bg-grade-40   { background-color: #eff6ff; color: #1d4ed8; } /* L-40 */
+  .bg-grade-45   { background-color: #d1fae5; color: #065f46; } /* L-45 */
+  .bg-grade-50   { background-color: #fef08a; color: #854d0e; } /* L-50 */
+  .bg-grade-55   { background-color: #fed7aa; color: #9a3412; } /* L-55 */
+  .bg-grade-60   { background-color: #fecaca; color: #991b1b; } /* L-60 */
+  .bg-grade-bad  { background-color: #fca5a5; color: #7f1d1d; } /* L-65以上 */
   
   .tab-btn.active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight:bold; }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
   
-  /* テーブルのヘッダー固定など */
   .sticky-col { position: sticky; left: 0; z-index: 10; border-right: 2px solid #e5e7eb; }
 </style>
 </head>
 <body class="p-2 sm:p-6">
 
 <div class="max-w-[95%] mx-auto">
-  <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">床衝撃音予測 マトリクス分析</h1>
-    <p class="text-sm text-gray-500">スラブ面積（正方形）と厚さを変数としたL等級のヒートマップ</p>
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">床衝撃音予測 マトリクス分析 v1.4</h1>
+      <p class="text-sm text-gray-500">
+        スラブ面積（正方形仮定）× 厚さによるL等級マップ<br>
+        <span class="text-blue-600 text-xs">※吸音力Aは室容積と残響時間から自動計算 (Sabine則)</span><br>
+        <span class="text-gray-400 text-xs">※厚さ補正k値等は元の離散値を採用</span>
+      </p>
+    </div>
   </div>
 
   <div class="card p-4 mb-6">
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
       <div class="input-grp">
         <label>密度 ρ [kg/m³]</label>
         <input id="rho" type="number" value="2300">
@@ -47,17 +53,23 @@
         <label>ヤング率 E [N/m² ×10¹⁰]</label>
         <input id="E10" type="number" step="0.1" value="2.1">
       </div>
+      
       <div class="input-grp">
-        <label>下室吸音力 A [m²]</label>
-        <input id="A_m2" type="number" step="0.1" value="10">
+        <label>天井高さ H [m]</label>
+        <input id="H_m" type="number" step="0.1" value="2.5">
       </div>
+      <div class="input-grp">
+        <label>残響時間 T [s]</label>
+        <input id="T_sec" type="number" step="0.1" value="0.5">
+      </div>
+      
       <div class="input-grp">
         <label>衝撃周波数 fθ [Hz]</label>
         <input id="f_theta" type="number" value="25">
       </div>
       <div class="input-grp flex items-end">
         <button id="runBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
-          表を更新
+          再計算
         </button>
       </div>
     </div>
@@ -80,10 +92,11 @@
       <div id="tableContainerNone"></div>
     </div>
 
-    <div class="mt-4 text-xs text-gray-500">
-      ※ スラブ形状は正方形（Lx = Ly = √面積）と仮定。<br>
-      ※ 対角5点（S1〜S5）の平均スペクトルからL等級を判定。<br>
-      ※ 色凡例: <span class="px-1 bg-grade-spec">L-40特</span> <span class="px-1 bg-grade-45">L-45</span> <span class="px-1 bg-grade-50">L-50</span> <span class="px-1 bg-grade-55">L-55</span> <span class="px-1 bg-grade-60">L-60</span>
+    <div class="mt-4 text-xs text-gray-500 bg-gray-50 p-2 rounded">
+      <strong>計算ロジック:</strong><br>
+      ・<strong>吸音力 A:</strong> $A = 0.161 \times (面積 \times 高さ) / 残響時間$ にてセルごとに算出。<br>
+      ・<strong>形状:</strong> $L_x = L_y = \sqrt{面積}$ の正方形。<br>
+      ・<strong>k値補正:</strong> 線形補間を行わず、最も近い基準値（120, 150...）を採用。
     </div>
   </div>
 </div>
@@ -94,7 +107,7 @@ const BANDS = [63, 125, 250, 500];
 const FRMS = {63:32, 125:20, 250:13, 500:4};
 const DL_PEAK = 8;
 
-// L等級曲線 (JIS)
+// L等級曲線
 const L_CURVE = {
   'L-40': [68, 56, 49, 42],
   'L-45': [73, 61, 54, 47],
@@ -104,28 +117,35 @@ const L_CURVE = {
   'L-65': [93, 81, 74, 67]
 };
 
-// ΔL曲線データ (補間用)
+// ΔL曲線データ (線形補間用)
 const DL_CURVE_DATA = {
   none:   [[0,0], [0.5,0]],
   kobari: [[0.0,10.0],[0.1,7.0],[0.15,5.6],[0.2,4.5],[0.25,3.5],[0.3,2.5],[0.35,1.2],[0.4,0.5],[0.5,0.0]],
   obari:  [[0.0,12.0],[0.1,9.5],[0.15,7.0],[0.2,4.8],[0.23,4.1],[0.25,3.5],[0.3,2.5],[0.35,1.2],[0.4,0.5],[0.5,0.0]]
 };
 
-// マトリクスの軸定義（指定範囲に合わせて動的生成）
+// 10log k の基準データ（離散値取得用）
+const K_DB_MAP = {
+  120: {63:-7, 125:-2, 250:0, 500:0},
+  150: {63:-5, 125:0, 250:0, 500:0},
+  180: {63:-4, 125:0, 250:0, 500:0},
+  200: {63:-3, 125:0, 250:0, 500:0},
+  230: {63:0,  125:0, 250:0, 500:0}
+};
+// どのキーを参照するか判定するための配列
+const K_KEYS = [120, 150, 180, 200, 230];
+
+// マトリクスの軸定義
 const THICKNESS_STEPS = [];
-for (let h = 120; h <= 300; h += 10) {
-  THICKNESS_STEPS.push(h);
-}
+for (let h = 120; h <= 300; h += 10) THICKNESS_STEPS.push(h);
 
 const AREA_STEPS = [];
-for (let s = 10; s <= 100; s += 5) {
-  AREA_STEPS.push(s);
-}
+for (let s = 10; s <= 100; s += 5) AREA_STEPS.push(s);
 
 // --- 物理計算関数群 ---
 
-// 線形補間
-function interp(tbl, x) {
+// データテーブルからの線形補間 (ΔL用は補間のまま)
+function interpTable(tbl, x) {
   const xmax = tbl[tbl.length-1][0];
   x = Math.max(0, Math.min(x, xmax));
   for(let i=1; i<tbl.length; i++){
@@ -136,32 +156,26 @@ function interp(tbl, x) {
   return tbl[tbl.length-1][1];
 }
 
-// 厚さによる補正 k(dB) - 近似的に最近傍値を採用
-function get_k_dB(h_mm, f) {
-  const map = {
-    120: {63:-7, 125:-2, 250:0, 500:0},
-    150: {63:-5, 125:0, 250:0, 500:0},
-    180: {63:-4, 125:0, 250:0, 500:0},
-    200: {63:-3, 125:0, 250:0, 500:0},
-    230: {63:0,  125:0, 250:0, 500:0}
-  };
-  const keys = [120, 150, 180, 200, 230];
-  let bestK = keys[0], minD = 1e9;
-  for (const k of keys) {
-    const d = Math.abs(h_mm - k);
-    if (d < minD) { minD = d; bestK = k; }
+// 厚さ補正 k(dB) の取得（離散値：最も近いキーを探す）
+function get_k_dB_discrete(h_mm, f) {
+  let bestK = K_KEYS[0];
+  let minDiff = 10000;
+  for (const k of K_KEYS) {
+    const diff = Math.abs(h_mm - k);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestK = k;
+    }
   }
-  return map[bestK][f];
+  return K_DB_MAP[bestK][f];
 }
 
-// 一次固有振動数からの周波数帯域決定
 function getDominantBand(fn1) {
   if(fn1 >= 22.4 && fn1 < 44.7) return "31.5"; 
   if(fn1 >= 44.7 && fn1 < 89.1) return "63"; 
   return "125";
 }
 
-// インピーダンスレベルの相対関係
 function getRelLZ(bandTag, f) {
   const rel = {
     "31.5": {63:-15, 125:-12, 250:-9, 500:-6},
@@ -175,13 +189,19 @@ function getRelLZ(bandTag, f) {
  * 1セル分のL等級を計算する関数
  */
 function calculateCellGrade(h_mm, area_m2, boundaryType, params) {
-  const { rho, E, A, fth } = params;
+  const { rho, E, H, T, fth } = params;
   const h_m = h_mm / 1000.0;
   
   // 正方形仮定
   const L_span = Math.sqrt(area_m2);
   const a_room = L_span; 
   const b_room = L_span;
+
+  // ★吸音力Aの自動計算 (Sabineの式)
+  // A = 0.161 * V / T
+  const Volume = area_m2 * H;
+  const A_calc = (0.161 * Volume) / T;
+  const tenLogA = 10 * Math.log10(Math.max(A_calc, 0.1)); // Aが極端に小さい場合のエラー回避
 
   // 1. 基準インピーダンス Zr
   const Zr = (4/Math.sqrt(3)) * Math.sqrt(rho) * Math.sqrt(E) * (h_m * h_m);
@@ -191,27 +211,28 @@ function calculateCellGrade(h_mm, area_m2, boundaryType, params) {
   const cl = Math.sqrt(E/rho);
   const term = (2.25/(a_room**2)) + (1.4/(b_room**2)); 
   const ffix = (Math.PI / (4*Math.sqrt(3))) * term * cl * h_m;
-  const fn1 = 0.8 * ffix; // 実測補正係数
+  const fn1 = 0.8 * ffix; // 実測補正
   const domBand = getDominantBand(fn1);
 
-  // 3. 各周波数ごとの共通項
+  // 3. 共通項
   const commonTerms = {};
-  const tenLogA = 10 * Math.log10(A);
-
+  
   for(const f of BANDS) {
     const lam = Math.sqrt(Math.PI * cl * h_m / (Math.sqrt(3) * f));
     const term1 = Math.max(a_room - lam/4, 0);
     const term2 = Math.max(b_room - lam/2, 0); 
     const Seff = term1 * term2;
     const tenLogSe = 10 * Math.log10(Math.max(Seff, 1e-12));
-    const tenLogK = get_k_dB(h_mm, f);
     
-    // 基本式
+    // ★v1.2の補間をやめ、離散値を使用
+    const tenLogK = get_k_dB_discrete(h_mm, f);
+    
+    // L = ... - 10logA ...
     const baseVal = FRMS[f] - getRelLZ(domBand, f) + tenLogSe + tenLogK - tenLogA + DL_PEAK + 152 - Lzr;
     commonTerms[f] = baseVal;
   }
 
-  // 4. 5点 (対角線) での ΔLz を計算し、平均スペクトル
+  // 4. 5点でのΔLz計算
   const pts = [
     {r1: 1/3, r2: 1/3}, 
     {r1: 2/3, r2: 1/3},
@@ -234,8 +255,8 @@ function calculateCellGrade(h_mm, area_m2, boundaryType, params) {
     let DL1 = 0, DL2 = 0;
     const curve = (boundaryType === 'obari') ? DL_CURVE_DATA.obari : DL_CURVE_DATA.none;
     
-    DL1 = interp(curve, r1_val);
-    DL2 = interp(curve, r2_val);
+    DL1 = interpTable(curve, r1_val);
+    DL2 = interpTable(curve, r2_val);
     const DLz = DL1 + DL2;
 
     for(const f of BANDS) {
@@ -273,7 +294,8 @@ function calculateCellGrade(h_mm, area_m2, boundaryType, params) {
 // --- UI制御 ---
 
 function getGradeColorClass(grade) {
-  if(grade.includes('L-40')) return 'bg-grade-spec';
+  if(grade.includes('L-40特')) return 'bg-grade-spec';
+  if(grade === 'L-40') return 'bg-grade-40';
   if(grade === 'L-45') return 'bg-grade-45';
   if(grade === 'L-50') return 'bg-grade-50';
   if(grade === 'L-55') return 'bg-grade-55';
@@ -282,24 +304,24 @@ function getGradeColorClass(grade) {
 }
 
 function generateTableHtml(boundaryType, params) {
-  let html = '<table class="w-full border-collapse border border-gray-300 bg-white text-center">';
+  let html = '<table class="w-full border-collapse border border-gray-300 bg-white text-center table-fixed">';
   
-  // Header Row: Area
+  // Header
   html += '<thead><tr>';
-  html += '<th class="p-2 border bg-gray-100 text-xs text-gray-500 font-bold sticky-col" style="min-width:60px">厚\\面</th>';
+  html += '<th class="p-2 border bg-gray-100 text-xs text-gray-500 font-bold sticky-col w-12 z-20">厚\\面</th>';
   for(const s of AREA_STEPS) {
-    html += `<th class="p-1 border bg-gray-50 text-xs font-bold" style="min-width:40px">${s}</th>`;
+    html += `<th class="p-1 border bg-gray-50 text-xs font-bold w-10">${s}</th>`;
   }
   html += '</tr></thead><tbody>';
 
-  // Body Rows: Thickness
+  // Body
   for(const h of THICKNESS_STEPS) {
-    html += `<tr><td class="p-1 border bg-gray-50 font-bold text-xs sticky-col">${h}</td>`;
+    html += `<tr><td class="p-1 border bg-gray-50 font-bold text-xs sticky-col bg-gray-50">${h}</td>`;
     for(const s of AREA_STEPS) {
       const grade = calculateCellGrade(h, s, boundaryType, params);
       const colorClass = getGradeColorClass(grade);
-      // スマホで見やすいように等級の "L-" を省略して数字だけ表示するなど微調整も可能ですが、一旦そのまま表示
-      html += `<td class="cell ${colorClass}">${grade.replace('L-','')}</td>`;
+      const displayText = grade.replace('L-','').replace('以上','↑');
+      html += `<td class="cell ${colorClass}" title="厚さ${h}mm / 面積${s}㎡ : ${grade}">${displayText}</td>`;
     }
     html += '</tr>';
   }
@@ -311,7 +333,8 @@ function updateTables() {
   const params = {
     rho: parseFloat(document.getElementById('rho').value),
     E: parseFloat(document.getElementById('E10').value) * 1e10,
-    A: parseFloat(document.getElementById('A_m2').value),
+    H: parseFloat(document.getElementById('H_m').value), // 天井高
+    T: parseFloat(document.getElementById('T_sec').value), // 残響時間
     fth: parseFloat(document.getElementById('f_theta').value)
   };
 
