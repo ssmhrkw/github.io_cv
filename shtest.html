@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LH予測マトリクス (正方形/固定パラ/吸音力自動)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+  body{font-family:'Inter','Noto Sans JP',sans-serif;background:#f3f4f6;color:#1f2937}
+  .card{background:#fff;border-radius:0.5rem;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1)}
+  
+  /* テーブル用スタイル */
+  .cell{
+    text-align:center;
+    padding:6px 2px;
+    border:1px solid #e5e7eb;
+    font-size:0.75rem;
+    font-weight:700;
+    white-space:nowrap;
+    cursor: default;
+  }
+  .cell:hover { opacity: 0.8; }
+  
+  /* 固定ヘッダー */
+  .sticky-col { position: sticky; left: 0; z-index: 10; border-right: 2px solid #d1d5db; }
+  .sticky-header { position: sticky; top: 0; z-index: 20; border-bottom: 2px solid #d1d5db; }
+
+  /* ヒートマップ色定義 (LH等級) */
+  .bg-grade-spec { background-color: #dbeafe; color: #1e40af; } /* L-40特 (Cyan/Blue) */
+  .bg-grade-40   { background-color: #eff6ff; color: #1d4ed8; } /* L-40 (Light Blue) */
+  .bg-grade-45   { background-color: #d1fae5; color: #065f46; } /* L-45 (Green) */
+  .bg-grade-50   { background-color: #fef08a; color: #854d0e; } /* L-50 (Yellow) */
+  .bg-grade-55   { background-color: #fed7aa; color: #9a3412; } /* L-55 (Orange) */
+  .bg-grade-60   { background-color: #fecaca; color: #991b1b; } /* L-60 (Red) */
+  .bg-grade-bad  { background-color: #fca5a5; color: #7f1d1d; } /* L-65以上 (Dark Red) */
+
+  /* タブ */
+  .tab-btn.active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight:bold; background-color: #eff6ff; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+</head>
+<body class="p-4">
+
+<div class="max-w-full mx-auto">
+  <div class="flex flex-col md:flex-row justify-between items-end mb-4 gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-gray-800">LH（重量）予測マトリクス</h1>
+      <p class="text-xs text-gray-500">
+        正方形スラブ (Lx=Ly) / 素面 / 固定パラメータ(ρ=2300, E=2.1e10)
+      </p>
+    </div>
+    
+    <div class="card p-3 flex gap-4 items-end bg-blue-50 border border-blue-100">
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">天井高さ H (m)</label>
+        <input id="H_m" type="number" step="0.1" value="2.5" class="w-20 p-1 border rounded text-sm text-center">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1">残響時間 T (s)</label>
+        <input id="T_sec" type="number" step="0.1" value="0.5" class="w-20 p-1 border rounded text-sm text-center">
+      </div>
+      <button id="runBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded text-sm h-8 transition">
+        再計算
+      </button>
+    </div>
+  </div>
+
+  <div class="card p-2">
+    <div class="flex border-b border-gray-200 mb-2">
+      <button class="tab-btn active w-1/2 py-2 text-sm transition" onclick="switchTab('rigid')">
+        ① 4辺固定 (剛) <span class="text-xs font-normal text-gray-500">- 一般的なRCスラブ</span>
+      </button>
+      <button class="tab-btn w-1/2 py-2 text-sm transition" onclick="switchTab('simple')">
+        ② 4辺単純 (柔) <span class="text-xs font-normal text-gray-500">- 安全側の検討</span>
+      </button>
+    </div>
+
+    <div id="tab-rigid" class="tab-content active overflow-x-auto" style="max-height: 80vh;">
+      <div id="tableContainerRigid"></div>
+    </div>
+
+    <div id="tab-simple" class="tab-content overflow-x-auto" style="max-height: 80vh;">
+      <div id="tableContainerSimple"></div>
+    </div>
+    
+    <div class="mt-2 text-right text-xs text-gray-400">
+      ※吸音力 A = 0.161 × V / T (Sabine則) にて自動算出
+    </div>
+  </div>
+</div>
+
+<script>
+// --- 固定パラメータ ---
+const RHO = 2300;
+const E = 2.1e10;
+const F_THETA = 25; // 衝撃周波数(タイヤ)
+
+// 周波数帯域
+const BANDS = [63, 125, 250, 500];
+const FRMS = {63:32, 125:20, 250:13, 500:4}; // JIS基準
+const DL_PEAK = 8;
+
+// L等級曲線 (JIS)
+const L_CURVE = {
+  'L-40': [68, 56, 49, 42],
+  'L-45': [73, 61, 54, 47],
+  'L-50': [78, 66, 59, 52],
+  'L-55': [83, 71, 64, 57],
+  'L-60': [88, 76, 69, 62],
+  'L-65': [93, 81, 74, 67]
+};
+
+// 拘束条件ごとのΔL曲線 (補間用)
+const DL_CURVE_DATA = {
+  // 単純支持 (Simple) = 梁なし相当
+  simple: [[0,0], [0.5,0]], 
+  // 固定支持 (Rigid) = 大ばり相当
+  rigid:  [[0.0,12.0],[0.1,9.5],[0.15,7.0],[0.2,4.8],[0.23,4.1],[0.25,3.5],[0.3,2.5],[0.35,1.2],[0.4,0.5],[0.5,0.0]]
+};
+
+// 厚さ補正 k(dB) の離散値マップ
+const K_DB_MAP = {
+  100: {63:-8, 125:-3, 250:0, 500:0}, // 100mm用(推定拡張)
+  120: {63:-7, 125:-2, 250:0, 500:0},
+  150: {63:-5, 125:0, 250:0, 500:0},
+  180: {63:-4, 125:0, 250:0, 500:0},
+  200: {63:-3, 125:0, 250:0, 500:0},
+  230: {63:0,  125:0, 250:0, 500:0},
+  250: {63:1,  125:0, 250:0, 500:0}, // 250mm以上(推定)
+  300: {63:2,  125:0, 250:0, 500:0}  // 300mm以上(推定)
+};
+// 近似用のキー配列
+const K_KEYS = [100, 120, 150, 180, 200, 230, 250, 300];
+
+// --- マトリクス範囲生成 ---
+const THICKNESS_STEPS = [];
+for (let h = 100; h <= 300; h += 10) THICKNESS_STEPS.push(h);
+
+const AREA_STEPS = [];
+for (let s = 10; s <= 100; s += 5) AREA_STEPS.push(s);
+
+
+// --- 計算関数群 ---
+
+// 線形補間
+function interpTable(tbl, x) {
+  const xmax = tbl[tbl.length-1][0];
+  x = Math.max(0, Math.min(x, xmax));
+  for(let i=1; i<tbl.length; i++){
+    const [x2, y2] = tbl[i];
+    const [x1, y1] = tbl[i-1];
+    if(x <= x2) return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
+  }
+  return tbl[tbl.length-1][1];
+}
+
+// 離散的なk値の取得
+function get_k_dB_discrete(h_mm, f) {
+  let bestK = K_KEYS[0];
+  let minDiff = 10000;
+  for (const k of K_KEYS) {
+    const diff = Math.abs(h_mm - k);
+    if (diff < minDiff) { minDiff = diff; bestK = k; }
+  }
+  return K_DB_MAP[bestK][f];
+}
+
+function getDominantBand(fn1) {
+  if(fn1 < 44.7) return "31.5"; 
+  if(fn1 < 89.1) return "63"; 
+  return "125";
+}
+
+function getRelLZ(bandTag, f) {
+  const rel = {
+    "31.5": {63:-15, 125:-12, 250:-9, 500:-6},
+    "63":   {63:-12, 125:-9,  250:-6, 500:-3},
+    "125":  {63:-9,  125:-6,  250:-3, 500:0}
+  };
+  return rel[bandTag][f];
+}
+
+// セル計算メイン
+function calculateCellGrade(h_mm, area_m2, mode, H, T) {
+  const h_m = h_mm / 1000.0;
+  
+  // 正方形仮定
+  const L_span = Math.sqrt(area_m2);
+  const a_room = L_span; 
+  const b_room = L_span;
+
+  // 吸音力Aの自動計算 (Sabine)
+  // A = 0.161 * V / T
+  const Volume = area_m2 * H;
+  const A_calc = (0.161 * Volume) / T;
+  const tenLogA = 10 * Math.log10(Math.max(A_calc, 0.1));
+
+  // 1. 基準インピーダンス Zr
+  const Zr = (4/Math.sqrt(3)) * Math.sqrt(RHO) * Math.sqrt(E) * (h_m * h_m);
+  const Lzr = 20 * Math.log10(Zr);
+
+  // 2. 一次固有振動数 fn1
+  const cl = Math.sqrt(E/RHO);
+  const term = (2.25/(a_room**2)) + (1.4/(b_room**2)); 
+  const ffix = (Math.PI / (4*Math.sqrt(3))) * term * cl * h_m;
+  const fn1 = 0.8 * ffix; // 実測補正
+  const domBand = getDominantBand(fn1);
+
+  // 3. 共通項 (Frms - Rel - Lz + 10logS + 10logK - 10logA ...)
+  const commonTerms = {};
+  for(const f of BANDS) {
+    const lam = Math.sqrt(Math.PI * cl * h_m / (Math.sqrt(3) * f));
+    const term1 = Math.max(a_room - lam/4, 0);
+    const term2 = Math.max(b_room - lam/2, 0); 
+    const Seff = term1 * term2;
+    const tenLogSe = 10 * Math.log10(Math.max(Seff, 1e-12));
+    const tenLogK = get_k_dB_discrete(h_mm, f);
+    
+    // 基本式
+    const baseVal = FRMS[f] - getRelLZ(domBand, f) + tenLogSe + tenLogK - tenLogA + DL_PEAK + 152 - Lzr;
+    commonTerms[f] = baseVal;
+  }
+
+  // 4. 対角5点平均
+  const pts = [
+    {r1: 1/3, r2: 1/3}, {r1: 2/3, r2: 1/3},
+    {r1: 1/3, r2: 2/3}, {r1: 2/3, r2: 2/3},
+    {r1: 1/2, r2: 1/2} 
+  ];
+  
+  const lam_theta = Math.sqrt(Math.PI * cl * h_m / (Math.sqrt(3) * F_THETA));
+  let sumL = {63:0, 125:0, 250:0, 500:0};
+
+  for(const p of pts) {
+    const x = p.r1 * a_room;
+    const y = p.r2 * b_room;
+    const d1 = Math.min(x, a_room - x);
+    const d2 = Math.min(y, b_room - y);
+    const r1_val = d1 / lam_theta;
+    const r2_val = d2 / lam_theta;
+
+    let DL1 = 0, DL2 = 0;
+    const curve = (mode === 'rigid') ? DL_CURVE_DATA.rigid : DL_CURVE_DATA.simple;
+    
+    DL1 = interpTable(curve, r1_val);
+    DL2 = interpTable(curve, r2_val);
+    const DLz = DL1 + DL2;
+
+    for(const f of BANDS) {
+      sumL[f] += (commonTerms[f] - DLz);
+    }
+  }
+
+  const avgL = {};
+  for(const f of BANDS) {
+    avgL[f] = sumL[f] / pts.length;
+  }
+
+  // 5. 等級判定
+  let grade = 'L-65以上';
+  const grades = ['L-40', 'L-45', 'L-50', 'L-55', 'L-60', 'L-65'];
+  
+  for(const g of grades) {
+    const curve = L_CURVE[g];
+    let ok = true;
+    for(let i=0; i<4; i++) {
+      if(avgL[BANDS[i]] > curve[i]) {
+        ok = false; break;
+      }
+    }
+    if(ok) {
+      grade = g;
+      if(grade === 'L-40') grade = 'L-40特';
+      break;
+    }
+  }
+  return grade;
+}
+
+// --- UI描画 ---
+
+function getGradeColorClass(grade) {
+  if(grade.includes('L-40特')) return 'bg-grade-spec';
+  if(grade === 'L-40') return 'bg-grade-40';
+  if(grade === 'L-45') return 'bg-grade-45';
+  if(grade === 'L-50') return 'bg-grade-50';
+  if(grade === 'L-55') return 'bg-grade-55';
+  if(grade === 'L-60') return 'bg-grade-60';
+  return 'bg-grade-bad';
+}
+
+function generateTableHtml(mode) {
+  const H = parseFloat(document.getElementById('H_m').value);
+  const T = parseFloat(document.getElementById('T_sec').value);
+
+  let html = '<table class="w-full border-separate border-spacing-0 bg-white">';
+  
+  // Header: Area
+  html += '<thead><tr>';
+  html += '<th class="sticky-col sticky-header bg-gray-100 p-2 text-xs text-gray-600 w-16" style="z-index:30">厚\\面</th>';
+  for(const s of AREA_STEPS) {
+    html += `<th class="sticky-header bg-gray-50 p-1 text-xs text-gray-600 font-bold min-w-[40px]">${s}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  // Body: Thickness
+  for(const h of THICKNESS_STEPS) {
+    html += `<tr><td class="sticky-col bg-gray-50 p-1 font-bold text-xs text-center">${h}</td>`;
+    for(const s of AREA_STEPS) {
+      const grade = calculateCellGrade(h, s, mode, H, T);
+      const colorClass = getGradeColorClass(grade);
+      const display = grade.replace('L-','').replace('以上','↑');
+      html += `<td class="cell ${colorClass}" title="厚:${h}mm 面:${s}㎡ => ${grade}">${display}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function updateTables() {
+  document.getElementById('tableContainerRigid').innerHTML = generateTableHtml('rigid');
+  document.getElementById('tableContainerSimple').innerHTML = generateTableHtml('simple');
+}
+
+// Tab Switching
+window.switchTab = function(type) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  
+  const btns = document.querySelectorAll('.tab-btn');
+  if(type === 'rigid') btns[0].classList.add('active');
+  else btns[1].classList.add('active');
+
+  document.getElementById(`tab-${type}`).classList.add('active');
+};
+
+// Events
+document.getElementById('runBtn').addEventListener('click', updateTables);
+document.getElementById('H_m').addEventListener('change', updateTables);
+document.getElementById('T_sec').addEventListener('change', updateTables);
+
+// Initial Run
+updateTables();
+
+</script>
+</body>
+</html>
