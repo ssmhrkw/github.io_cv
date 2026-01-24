@@ -1,158 +1,243 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HFR5WYG42Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-HFR5WYG42Q');
+</script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>床衝撃音予測 (Method 2: Room-in-Slab 完全対応版)</title>
+<title>床衝撃音予測 (Method 2: Lyon-Maidanik) — Hirakawa v5.2</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap');
-  body{font-family:'Inter','Noto Sans JP',sans-serif;background:#f1f5f9;color:#0f172a}
-  .card{background:#fff;border-radius:0.5rem;box-shadow:0 1px 3px 0 rgba(0,0,0,0.1); border:1px solid #e2e8f0;}
-  .input-grp label{font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.1rem}
-  .input-grp input, .input-grp select{width:100%;padding:0.3rem;border:1px solid #cbd5e1;border-radius:0.25rem;font-size:0.8rem;background:#f8fafc}
-  .cell{text-align:center;padding:0.4rem 0.2rem;border:1px solid #e2e8f0;font-size:0.75rem;white-space:nowrap;font-weight:600}
-  .tab-btn.active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight:bold; }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-  .bg-grade-40 { background-color: #eff6ff; color: #1d4ed8; }
-  .bg-grade-50 { background-color: #fefce8; color: #854d0e; }
-  .bg-grade-60 { background-color: #fef2f2; color: #991b1b; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400..900&family=Noto+Sans+JP:wght@400..900&display=swap');
+  body{font-family:'Inter','Noto Sans JP',sans-serif;background:#f3f4f6;color:#1f2937}
+  .card{background:#fff;border-radius:1rem;box-shadow:0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);}
+  .small{font-size:.75rem;color:#6b7280;font-weight:600;margin-bottom:0.25rem;}
+  .input-field{width:100%;padding:0.5rem;border:1px solid #d1d5db;border-radius:0.375rem;font-size:0.875rem;background-color:#fff;transition:all 0.2s;}
+  .input-field:focus{outline:none;border-color:#3b82f6;ring:2px solid #93c5fd;}
+  
+  /* テーブルスタイル */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .tbl th, .tbl td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: right; }
+  .tbl th { background-color: #f9fafb; color: #374151; font-weight: 700; text-align: center; }
+  .tbl .row-head { text-align: left; background-color: #fff; font-weight: 600; color: #4b5563; min-width: 200px; }
+  .tbl .sub-row { color: #6b7280; font-size: 0.75rem; }
+  .tbl .highlight { background-color: #eff6ff; color: #1d4ed8; font-weight: 800; border-top: 2px solid #93c5fd; }
+  
+  /* 等級バッジ */
+  .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 700; font-size: 1.5rem; }
+  .badge-good { background-color: #dcfce7; color: #166534; }
+  .badge-mid  { background-color: #fef9c3; color: #854d0e; }
+  .badge-bad  { background-color: #fee2e2; color: #991b1b; }
 </style>
 </head>
-<body class="p-2 sm:p-4 text-sm">
+<body class="p-4 md:p-8">
 
-<div class="max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
-  
-  <div class="lg:col-span-1 space-y-4">
-    <div class="card p-3">
-      <h1 class="text-lg font-bold text-slate-800 mb-1">床衝撃音予測 (Method 2)</h1>
-      <p class="text-xs text-slate-500 mb-2">スラブ内室配置 (Room-in-Slab) 対応</p>
-      
-      <div class="flex gap-2 mb-3">
-        <button onclick="loadExample(7)" class="flex-1 bg-slate-200 hover:bg-slate-300 py-1 rounded text-xs font-bold">例題7 (一致)</button>
-        <button onclick="loadExample(8)" class="flex-1 bg-indigo-100 hover:bg-indigo-200 py-1 rounded text-xs font-bold">例題8 (複合)</button>
-        <button onclick="loadExample(9)" class="flex-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 py-1 rounded text-xs font-bold ring-2 ring-emerald-500">例題9 (包含)</button>
-      </div>
-
-      <div class="mb-3 border-b pb-2">
-        <h3 class="text-xs font-bold text-slate-700 mb-1">1. 構造スラブ (振動系)</h3>
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <div class="input-grp"><label>幅 Lx [m]</label><input type="number" id="slab_Lx" value="5.10"></div>
-          <div class="input-grp"><label>奥行 Ly [m]</label><input type="number" id="slab_Ly" value="5.50"></div>
-          <div class="input-grp"><label>厚さ h [mm]</label><input type="number" id="h1" value="150"></div>
-          <div class="input-grp"><label>密度 ρ</label><input type="number" id="rho1" value="2300"></div>
-        </div>
-        <label class="flex items-center gap-1 cursor-pointer text-xs mb-1">
-          <input type="checkbox" id="isComposite" onchange="toggleComposite()"> 複合スラブ
-        </label>
-        <div id="layer2_area" class="grid grid-cols-3 gap-1 hidden">
-           <input type="number" id="h2" value="60" placeholder="h2"><input type="number" id="rho2" value="1700" placeholder="ρ2"><input type="number" id="E2_e10" value="1.5" placeholder="E2">
-        </div>
-        <div class="text-[10px] text-gray-400">※境界は全周「大梁(剛)」と仮定(f0, ΔLz用)</div>
-      </div>
-
-      <div class="mb-3 border-b pb-2">
-        <h3 class="text-xs font-bold text-slate-700 mb-1">2. 受音室 (放射系)</h3>
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <div class="input-grp"><label>室幅 Lx [m]</label><input type="number" id="room_Lx" value="2.80"></div>
-          <div class="input-grp"><label>室奥行 Ly [m]</label><input type="number" id="room_Ly" value="3.78"></div>
-          <div class="input-grp"><label>左端オフセット X</label><input type="number" id="off_X" value="0.0"></div>
-          <div class="input-grp"><label>上端オフセット Y</label><input type="number" id="off_Y" value="0.0"></div>
-        </div>
-        
-        <h4 class="text-[10px] font-bold text-slate-600 mt-2">室端部の境界条件 (λ/4除外判定用)</h4>
-        <div class="grid grid-cols-2 gap-1 text-[10px]">
-           <select id="bound_top"><option value="rigid">上: 構造梁 (Rigid)</option><option value="none">上: 間仕切 (None)</option></select>
-           <select id="bound_left"><option value="rigid">左: 構造梁 (Rigid)</option><option value="none">左: 間仕切 (None)</option></select>
-           <select id="bound_btm"><option value="rigid">下: 構造梁 (Rigid)</option><option value="none" selected>下: 間仕切 (None)</option></select>
-           <select id="bound_right"><option value="rigid">右: 構造梁 (Rigid)</option><option value="none" selected>右: 間仕切 (None)</option></select>
-        </div>
-        <div class="text-[10px] text-red-500 mt-1">※間仕切壁なら「None」を選択</div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-2 mb-2">
-        <div class="input-grp"><label>天井高 H [m]</label><input type="number" id="room_H" value="2.4"></div>
-        <div class="input-grp"><label>残響時間 T [s]</label><input type="number" id="room_T" value="0.5"></div>
-      </div>
-      <label class="flex items-center gap-1 text-xs text-gray-500 mb-2">
-        <input type="checkbox" id="forceA"> 吸音力を例題固定値にする
-      </label>
-
-      <button id="runBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded">計算実行</button>
+<div class="max-w-7xl mx-auto card p-6 md:p-10">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b pb-4">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800">床衝撃音予測 (Method 2)</h1>
+      <p class="text-xs text-gray-500 mt-1">Lyon-Maidanik理論式 (k≦1.0) / 詳細内訳出力</p>
+    </div>
+    <div class="mt-4 md:mt-0 flex gap-2">
+      <button onclick="loadExample(7)" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs font-bold transition">例題7</button>
+      <button onclick="loadExample(8)" class="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-xs font-bold transition">例題8</button>
+      <button onclick="loadExample(9)" class="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-xs font-bold transition">例題9</button>
     </div>
   </div>
 
-  <div class="lg:col-span-2 space-y-4">
-    <div class="card p-3 bg-slate-50 border-l-4 border-emerald-500">
-      <h3 class="text-sm font-bold text-slate-700">ロジック解説 (Example 9)</h3>
-      <div class="text-xs text-slate-600 mt-1 leading-relaxed">
-        <strong>振動系:</strong> スラブ全体 (<span id="disp_slab">5.1x5.5</span>m) で固有振動数とインピーダンス上昇を計算。<br>
-        <strong>拘束条件:</strong> 点の位置から「遠くの構造大梁」までの距離を使用 (例: 下辺までは 5.5m - y)。<br>
-        <strong>放射系:</strong> 受音室 (<span id="disp_room">2.8x3.78</span>m) の範囲のみ有効。間仕切壁側はλ/4低減なし。<br>
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+    <div class="col-span-1"><label class="block small">室短辺 Lx [mm]</label><input id="a_mm" type="number" class="input-field" value="4900"></div>
+    <div class="col-span-1"><label class="block small">室長辺 Ly [mm]</label><input id="b_mm" type="number" class="input-field" value="4730"></div>
+    <div><label class="block small">スラブ厚 h [mm]</label><input id="h_mm" type="number" class="input-field" value="160"></div>
+    <div><label class="block small">密度 ρ [kg/m³]</label><input id="rho" type="number" class="input-field" value="2300"></div>
+    <div><label class="block small">ヤング率 E [e10]</label><input id="E10" type="number" class="input-field" step="0.1" value="2.6"></div>
+    <div><label class="block small">天井高 H [m]</label><input id="room_H" type="number" class="input-field" step="0.1" value="2.5"></div>
+    <div><label class="block small">残響時間 T [s]</label><input id="room_T" type="number" class="input-field" step="0.1" value="0.5"></div>
+  </div>
+
+  <div class="mb-6 flex gap-4 items-center bg-gray-50 p-3 rounded border border-gray-200">
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input id="sameArea" type="checkbox" class="h-4 w-4 text-blue-600 rounded" checked>
+      <span class="text-sm font-bold text-gray-700">スラブ寸法 ＝ 室寸法</span>
+    </label>
+    <div id="slabInputArea" class="hidden flex gap-4">
+      <div><label class="block small">スラブ Lx [mm]</label><input id="slabLx_mm" type="number" class="input-field py-1" value="4900"></div>
+      <div><label class="block small">スラブ Ly [mm]</label><input id="slabLy_mm" type="number" class="input-field py-1" value="4730"></div>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+        <label class="flex items-center gap-1 cursor-pointer">
+            <input id="forceA" type="checkbox" class="h-4 w-4 text-blue-600 rounded">
+            <span class="text-xs text-gray-500">吸音力固定(例題)</span>
+        </label>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <h3 class="font-bold text-sm text-gray-700 mb-3">受音室 周辺支持条件 (Seff計算用)</h3>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block small">上辺 (Top)</label><select id="bound_top" class="input-field"><option value="rigid">大ばり(剛)</option><option value="soft">小ばり(柔)</option><option value="none">間仕切(なし)</option></select></div>
+        <div><label class="block small">下辺 (Bottom)</label><select id="bound_btm" class="input-field"><option value="rigid">大ばり(剛)</option><option value="soft">小ばり(柔)</option><option value="none">間仕切(なし)</option></select></div>
+        <div><label class="block small">左辺 (Left)</label><select id="bound_left" class="input-field"><option value="rigid">大ばり(剛)</option><option value="soft">小ばり(柔)</option><option value="none">間仕切(なし)</option></select></div>
+        <div><label class="block small">右辺 (Right)</label><select id="bound_right" class="input-field"><option value="rigid">大ばり(剛)</option><option value="soft">小ばり(柔)</option><option value="none">間仕切(なし)</option></select></div>
+      </div>
+    </div>
+    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hidden" id="compParams">
+       <input type="checkbox" id="isComposite">
+       <input type="number" id="h2" value="0">
+       <input type="number" id="rho2" value="0">
+       <input type="number" id="E2_e10" value="0">
+    </div>
+  </div>
+
+  <div class="flex items-center gap-3 mb-3">
+    <h2 class="text-lg font-bold text-gray-800">加振点 (S1〜S5)</h2>
+    <button id="fill5" class="px-3 py-1 rounded border bg-white hover:bg-gray-50 text-gray-600 text-xs font-bold shadow-sm transition">
+      対角5点を自動入力
+    </button>
+    <span class="text-xs text-gray-400">※各点の「端部条件」は ΔLz 算出用</span>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-8">
+    <template id="ptTemplate">
+      <div class="p-3 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow-md transition">
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-bold text-gray-700 ptLabel">S1</div>
+          <label class="inline-flex items-center gap-1 text-xs cursor-pointer select-none">
+            <input type="checkbox" class="on h-4 w-4 text-blue-600 rounded" checked> 有効
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <div><label class="block small">x [mm]</label><input type="number" class="x input-field px-1 py-1 text-center"></div>
+          <div><label class="block small">y [mm]</label><input type="number" class="y input-field px-1 py-1 text-center"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block small">x 端部</label>
+            <select class="ex input-field px-1 py-1 text-xs">
+              <option value="obari">大ばり</option>
+              <option value="kobari">小ばり</option>
+              <option value="none">梁なし</option>
+            </select>
+          </div>
+          <div>
+            <label class="block small">y 端部</label>
+            <select class="ey input-field px-1 py-1 text-xs">
+              <option value="obari">大ばり</option>
+              <option value="kobari">小ばり</option>
+              <option value="none">梁なし</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </template>
+    <div id="pt1"></div><div id="pt2"></div><div id="pt3"></div><div id="pt4"></div><div id="pt5"></div>
+  </div>
+
+  <button id="run" class="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-blue-700 transition transform active:scale-[0.99] mb-10">
+    計算実行
+  </button>
+
+  <div id="out" class="hidden">
+    <div class="flex flex-col md:flex-row gap-6 mb-8">
+      <div class="flex-1 p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl border border-blue-100 flex flex-col justify-center shadow-sm">
+        <div class="text-sm text-blue-600 font-bold mb-2">平均スペクトルによる LH 等級</div>
+        <div class="flex items-baseline gap-4">
+            <div id="gradeBadge" class="badge bg-gray-200">-</div>
+            <div id="lnum" class="text-xl font-bold text-gray-500">-</div>
+        </div>
+        <div class="text-xs text-gray-400 mt-2">基準曲線: L-50 [88, 76, 69, 62]</div>
+      </div>
+      
+      <div class="flex-1 p-6 bg-white rounded-xl border border-gray-200 grid grid-cols-2 gap-4 shadow-sm">
+        <div>
+            <div class="text-xs text-gray-500 mb-1">基準インピーダンス Lz0</div>
+            <div id="res_Lz0" class="text-xl font-mono font-bold text-gray-700">-</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-500 mb-1">コインシデンス周波数 fc</div>
+            <div id="res_fc" class="text-xl font-mono font-bold text-gray-700">-</div>
+        </div>
+        <div class="col-span-2 border-t border-gray-100 pt-2 mt-2">
+            <div class="text-xs text-gray-500 mb-1">物理定数メモ</div>
+            <div id="phys_memo" class="text-xs text-gray-600 font-mono">-</div>
+        </div>
       </div>
     </div>
 
-    <div id="resultArea" class="hidden">
-      <div class="flex border-b border-gray-200 mb-2">
-        <button class="tab-btn active px-3 py-2 text-sm text-gray-600" onclick="switchTab('single')">計算結果</button>
-      </div>
-      <div id="tab-single" class="tab-content active card p-3 overflow-x-auto">
-        <div id="detailTableContainer"></div>
-      </div>
+    <div class="overflow-x-auto rounded-lg border border-gray-300 shadow-sm mb-4">
+      <table class="tbl bg-white">
+        <thead>
+          <tr>
+            <th class="row-header">項目</th>
+            <th class="w-16">単位</th>
+            <th>63 Hz</th><th>125 Hz</th><th>250 Hz</th><th>500 Hz</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="text-right text-xs text-gray-400">
+      ※(8) 音響放射係数 k は Lyon-Maidanik の近似式により算出 (k &gt; 1.0 は 1.0 とする)
     </div>
   </div>
 </div>
 
 <script>
-// --- Constants ---
-const BANDS = [63, 125, 250, 500, 1000];
-const LF_RMS = {63:33.0, 125:20.0, 250:15.0, 500:7.0, 1000:0.0};
-const DELTA_C = {63:9.8, 125:8.3, 250:6.5, 500:5.6, 1000:4.9};
+// --- 定数 ---
+const BANDS = [63, 125, 250, 500];
+const LF_RMS = {63:33.0, 125:20.0, 250:15.0, 500:7.0};
+const DELTA_C = {63:9.8, 125:8.3, 250:6.5, 500:5.6};
 const Z_DROP_CHARS = {
-  "31.5": {63:-15, 125:-12, 250:-9, 500:-6, 1000:-3}, 
-  "63":   {63:-12, 125:-9,  250:-6, 500:-3, 1000:0},  
-  "125":  {63:-9,  125:-6,  250:-3, 500:0,  1000:0}   
+  "31.5": {63:-15, 125:-12, 250:-9, 500:-6},
+  "63":   {63:-12, 125:-9,  250:-6, 500:-3},
+  "125":  {63:-9,  125:-6,  250:-3, 500:0}
 };
-const K_TABLE = [
-  {h: 120, vals: {63:-7, 125:-2, 250:0, 500:0, 1000:0}},
-  {h: 150, vals: {63:-5, 125:0,  250:0, 500:0, 1000:0}},
-  {h: 180, vals: {63:-4, 125:0,  250:0, 500:0, 1000:0}},
-  {h: 200, vals: {63:-3, 125:0,  250:0, 500:0, 1000:0}},
-  {h: 230, vals: {63:0,  125:0,  250:0, 500:0, 1000:0}}
-];
+const L_BASE_50 = {63: 88, 125: 76, 250: 69, 500: 62};
 
-// --- Physics Logic ---
-function interpolateK(h, f) {
-  if (h <= 120) return K_TABLE[0].vals[f];
-  if (h >= 230) return K_TABLE[K_TABLE.length-1].vals[f];
-  for (let i=0; i<K_TABLE.length-1; i++) {
-    const lower = K_TABLE[i];
-    const upper = K_TABLE[i+1];
-    if (h >= lower.h && h <= upper.h) {
-      const ratio = (h - lower.h) / (upper.h - lower.h);
-      return lower.vals[f] + ratio * (upper.vals[f] - lower.vals[f]);
-    }
+// --- 計算関数 ---
+
+// Lyon-Maidanik Formula
+function calcSigma(f, fc, S, U) {
+  const c = 340.0;
+  if (f >= fc) {
+    return 1.0; 
+  } else {
+    // サブクリティカル域: Edge radiation
+    const val = (U * c) / (Math.pow(Math.PI, 2) * S * Math.sqrt(f * fc));
+    return Math.min(val, 1.0); // k>1 は 1.0 にクリップ
   }
-  return 0;
 }
 
-function calcPolyDeltaL(r) {
-  // Rigid (Obari) formula
-  if (r < 0) return 0;
-  let dL = 15.37 - 68.86*r + 98.65*(r*r) - 45.36*(r*r*r);
-  if (r > 0.6) dL = 0;
+// Method 2 (Eq 2.10 / 2.11)
+function calcPolyDeltaL(r, type) {
+  if (r < 0 || type === 'none') return 0;
+  let dL = 0;
+  if (type === 'obari') { 
+    dL = 15.37 - 68.86*r + 98.65*(r*r) - 45.36*(r*r*r);
+    if (r > 0.6) dL = 0;
+  } else if (type === 'kobari') { 
+    dL = 10.93 - 55.86*r + 92.57*(r*r) - 49.72*(r*r*r);
+    if (r > 0.5) dL = 0;
+  }
   return Math.max(0, dL);
 }
 
+// 複合スラブ特性取得
 function getCompositeProps() {
   const isComp = document.getElementById('isComposite').checked;
-  const h1 = parseFloat(document.getElementById('h1').value) / 1000;
-  const rho1 = parseFloat(document.getElementById('rho1').value);
-  const E1 = 2.1e10; // Default concrete
+  const h1 = parseFloat(document.getElementById('h_mm').value) / 1000;
+  const rho1 = parseFloat(document.getElementById('rho').value);
+  const E1 = parseFloat(document.getElementById('E10').value) * 1e10;
   
   if (!isComp) return { h: h1, rho: rho1, E: E1 };
   
+  // 複合スラブの隠しパラメータを使用する場合
   const h2 = parseFloat(document.getElementById('h2').value) / 1000;
   const rho2 = parseFloat(document.getElementById('rho2').value);
   const E2 = parseFloat(document.getElementById('E2_e10').value) * 1e10;
@@ -164,192 +249,288 @@ function getCompositeProps() {
   const I1 = Math.pow(h1, 3)/12 + h1 * Math.pow(h2/2, 2);
   const I2 = Math.pow(h2, 3)/12 + h2 * Math.pow(h1/2, 2);
   const E_eq = (E1 * I1 + E2 * I2) / I_geom;
-  
   return { h: h_eq, rho: rho_eq, E: E_eq };
 }
 
-function calculate() {
-  // Inputs
-  const slabLx = parseFloat(document.getElementById('slab_Lx').value);
-  const slabLy = parseFloat(document.getElementById('slab_Ly').value);
-  const roomLx = parseFloat(document.getElementById('room_Lx').value);
-  const roomLy = parseFloat(document.getElementById('room_Ly').value);
-  const offX = parseFloat(document.getElementById('off_X').value);
-  const offY = parseFloat(document.getElementById('off_Y').value);
-  
-  const bounds = {
-    top: document.getElementById('bound_top').value,
-    left: document.getElementById('bound_left').value,
-    btm: document.getElementById('bound_btm').value,
-    right: document.getElementById('bound_right').value
-  };
-  
-  const H = parseFloat(document.getElementById('room_H').value);
-  const T = parseFloat(document.getElementById('room_T').value);
-  const props = getCompositeProps();
-  const { h, rho, E } = props;
-  const h_mm = h * 1000;
-
-  // 1. Base Impedance Z0 (Uses Slab Props)
-  const Z0 = (4 / Math.sqrt(3)) * Math.sqrt(rho * E) * (h * h);
-  const Lz0 = 20 * Math.log10(Z0);
-
-  // 2. f0 (Uses Slab Dimensions)
-  const cl = Math.sqrt(E/rho);
-  const termGeo = (2.25 / (slabLx*slabLx)) + (1.4 / (slabLy*slabLy));
-  const f0_fix = (Math.PI / (4 * Math.sqrt(3))) * termGeo * cl * h;
-  const f0 = 0.8 * f0_fix;
-  
-  let domBand = "125";
-  if (f0 < 44.7) domBand = "31.5";
-  else if (f0 < 89.1) domBand = "63";
-  const zDropMap = Z_DROP_CHARS[domBand] || Z_DROP_CHARS["125"];
-
-  // 3. Points (Relative to Room Top-Left)
-  const points = [
-    {x: roomLx*0.25, y: roomLy*0.25}, // P1
-    {x: roomLx*0.50, y: roomLy*0.50}, // P2
-    {x: roomLx*0.75, y: roomLy*0.75}, // P3
-    {x: roomLx*0.75, y: roomLy*0.25}, // P4
-    {x: roomLx*0.25, y: roomLy*0.75}  // P5
-  ];
-
-  // 4. Absorption A (Uses Room Dimensions)
-  const AreaRoom = roomLx * roomLy;
-  let tenLogA = 0;
-  if (document.getElementById('forceA').checked) {
-    tenLogA = 10 * Math.log10(AreaRoom * 0.25); // Approximate fixed logic
-  } else {
-    const Vol = AreaRoom * H;
-    const A_sabine = (0.161 * Vol) / T;
-    tenLogA = 10 * Math.log10(Math.max(A_sabine, 0.1));
+function determineGrade(spectrum) {
+  for (let grade = 30; grade <= 80; grade += 5) {
+    let satisfied = true;
+    const diff = grade - 50; 
+    for (const f of BANDS) {
+      if (spectrum[f] > L_BASE_50[f] + diff) {
+        satisfied = false; break;
+      }
+    }
+    if (satisfied) return { label: `LH-${grade}`, val: grade };
   }
-
-  // 5. Calculation Loop
-  const f_theta = 25;
-  const lam_theta = Math.sqrt( (Math.PI * cl * h) / (Math.sqrt(3) * f_theta) );
-  
-  let sumEnergy = {};
-  BANDS.forEach(f => sumEnergy[f] = 0);
-  let details = [];
-
-  points.forEach((pt, idx) => {
-    // --- Impedance Boost: Distance to SLAB Edges (Structural) ---
-    // Point on Slab Coords: P_slab = (pt.x + offX, pt.y + offY)
-    const sx = pt.x + offX;
-    const sy = pt.y + offY;
-    
-    // Distances to 4 structural beams
-    const d_struc = [
-      sy,             // Top Beam
-      sx,             // Left Beam
-      slabLy - sy,    // Bottom Beam (Far away!)
-      slabLx - sx     // Right Beam (Far away!)
-    ];
-    
-    let deltaLz_pt = 0;
-    // Assume Slab Edges are always Rigid/Obari
-    d_struc.forEach(d => deltaLz_pt += calcPolyDeltaL(d / lam_theta));
-    
-    let ptSpec = {};
-    BANDS.forEach(f => {
-      // --- Seff: Room Dimensions & Boundaries ---
-      const lam_f = Math.sqrt( (Math.PI * cl * h) / (Math.sqrt(3) * f) );
-      
-      let Lx_eff = roomLx;
-      let Ly_eff = roomLy;
-      
-      // Subtract lambda/4 only if Room Boundary is Rigid
-      if (bounds.left === 'rigid') Lx_eff -= lam_f/4;
-      if (bounds.right === 'rigid') Lx_eff -= lam_f/4;
-      if (bounds.top === 'rigid') Ly_eff -= lam_f/4;
-      if (bounds.btm === 'rigid') Ly_eff -= lam_f/4;
-      
-      const Seff = Math.max(0.1, Lx_eff) * Math.max(0.1, Ly_eff);
-      const tenLogSe = 10 * Math.log10(Seff);
-      
-      const zDrop = zDropMap[f] || 0;
-      const LzT = Lz0 + deltaLz_pt + zDrop;
-      const tenLogK = interpolateK(h_mm, f);
-      
-      const L_pt = LF_RMS[f] - LzT + tenLogSe + tenLogK - tenLogA + DELTA_C[f] + 152;
-      sumEnergy[f] += Math.pow(10, L_pt/10);
-      ptSpec[f] = L_pt;
-    });
-    details.push({pt: idx, spec: ptSpec, dLz: deltaLz_pt});
-  });
-
-  // Average
-  const avgSpectrum = {};
-  BANDS.forEach(f => {
-    avgSpectrum[f] = 10 * Math.log10(sumEnergy[f] / points.length);
-  });
-  
-  renderResults(avgSpectrum, details, f0, Lz0);
+  return { label: `LH-80超`, val: 85 };
 }
+
+// --- メイン計算処理 ---
+function calculate() {
+  try {
+    const roomLx = parseFloat(document.getElementById('a_mm').value) / 1000;
+    const roomLy = parseFloat(document.getElementById('b_mm').value) / 1000;
+    const isSame = document.getElementById('sameArea').checked;
+    const slabLx = isSame ? roomLx : parseFloat(document.getElementById('slabLx_mm').value) / 1000;
+    const slabLy = isSame ? roomLy : parseFloat(document.getElementById('slabLy_mm').value) / 1000;
+    // Ex9などで使用するオフセット（現在は隠し要素的扱いだが計算に使用）
+    const offX_mm = document.getElementById('off_X_mm') ? parseFloat(document.getElementById('off_X_mm').value) : 0;
+    const offY_mm = document.getElementById('off_Y_mm') ? parseFloat(document.getElementById('off_Y_mm').value) : 0;
+    const offX = offX_mm / 1000;
+    const offY = offY_mm / 1000;
+
+    const H = parseFloat(document.getElementById('room_H').value);
+    const T = parseFloat(document.getElementById('room_T').value);
+    const f_theta = 25; 
+
+    const props = getCompositeProps();
+    const { h, rho, E } = props;
+    const h_mm = h * 1000;
+
+    // 1. Z0, f0
+    const Z0 = (4 / Math.sqrt(3)) * Math.sqrt(rho * E) * (h * h);
+    const Lz0 = 20 * Math.log10(Z0);
+    
+    const cl = Math.sqrt(E/rho);
+    const termGeo = (2.25 / (slabLx**2)) + (1.4 / (slabLy**2));
+    const f0_fix = (Math.PI / (4 * Math.sqrt(3))) * termGeo * cl * h;
+    const f0 = 0.8 * f0_fix;
+    
+    // 2. コインシデンス周波数 fc (Lyon-Maidanik用)
+    const c_air = 340.0;
+    const termMat = Math.sqrt((12 * rho * (1 - 0.04)) / E);
+    const fc = (Math.pow(c_air, 2) / (2 * Math.PI * h)) * termMat;
+
+    let domBand = "125";
+    if (f0 < 44.7) domBand = "31.5";
+    else if (f0 < 89.1) domBand = "63";
+    const zDropMap = Z_DROP_CHARS[domBand] || Z_DROP_CHARS["125"];
+
+    // 3. 吸音力 A
+    let tenLogA = 0;
+    if(document.getElementById('forceA').checked) {
+      const A_fixed = (Math.abs(roomLx-4.9)<0.1) ? 18.5 : 14.9; 
+      tenLogA = 10 * Math.log10(A_fixed);
+    } else {
+      const Vol = roomLx * roomLy * H;
+      const A_calc = (0.161 * Vol) / T;
+      tenLogA = 10 * Math.log10(Math.max(A_calc, 0.1));
+    }
+
+    // 4. 各点計算
+    const lam_theta = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f_theta));
+    const pts = [];
+    let sumEnergy = {};
+    BANDS.forEach(f => sumEnergy[f] = 0);
+
+    // 放射パラメータ (部屋全体)
+    const S_room = roomLx * roomLy;
+    const U_room = 2 * (roomLx + roomLy);
+    const bounds = {
+      top: document.getElementById('bound_top').value,
+      btm: document.getElementById('bound_btm').value,
+      left: document.getElementById('bound_left').value,
+      right: document.getElementById('bound_right').value
+    };
+
+    for(let i=1; i<=5; i++){
+      const ptEl = document.getElementById(`pt${i}`);
+      if(!ptEl.querySelector('.on').checked) continue;
+      
+      const x = parseFloat(ptEl.querySelector('.x').value) / 1000;
+      const y = parseFloat(ptEl.querySelector('.y').value) / 1000;
+      const typeX = ptEl.querySelector('.ex').value;
+      const typeY = ptEl.querySelector('.ey').value;
+
+      // 拘束距離 (部屋内座標 x,y を使用)
+      const dx = Math.min(x, roomLx - x);
+      const dy = Math.min(y, roomLy - y);
+      
+      // Method 2 (Eq 2.13)
+      const dLx = calcPolyDeltaL(dx / lam_theta, typeX);
+      const dLy = calcPolyDeltaL(dy / lam_theta, typeY);
+      const dLz = dLx + dLy; 
+
+      const spectrum = {};
+      const LzTheta_vals = {}; 
+      const LzB_vals = {}; 
+
+      BANDS.forEach(f => {
+        const zDrop = zDropMap[f];
+        const LzT = Lz0 + dLz + zDrop;
+        
+        // Seff calculation (Method 2: 部屋の周辺条件による低減)
+        const lam_f = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f));
+        let Lx_eff = roomLx;
+        let Ly_eff = roomLy;
+        if (bounds.left !== 'none') Lx_eff -= lam_f/4;
+        if (bounds.right !== 'none') Lx_eff -= lam_f/4;
+        if (bounds.top !== 'none') Ly_eff -= lam_f/4;
+        if (bounds.btm !== 'none') Ly_eff -= lam_f/4;
+        
+        const Seff = Math.max(0.1, Lx_eff) * Math.max(0.1, Ly_eff);
+        const tenLogSe = 10 * Math.log10(Seff);
+
+        // Lyon-Maidanik Calculation (Dynamic k)
+        const sigma = calcSigma(f, fc, S_room, U_room);
+        const tenLogK = 10 * Math.log10(sigma);
+
+        const dC = DELTA_C[f];
+        const LF = LF_RMS[f];
+        const L_val = LF - LzT + tenLogSe + tenLogK - tenLogA + dC + 152;
+        
+        spectrum[f] = L_val;
+        LzTheta_vals[f] = Lz0 + dLz;
+        LzB_vals[f] = LzT;
+        sumEnergy[f] += Math.pow(10, L_val/10);
+      });
+      pts.push({id: i, dLz, spectrum, LzTheta: LzTheta_vals, LzB: LzB_vals});
+    }
+
+    const avg = {};
+    BANDS.forEach(f => avg[f] = 10 * Math.log10(sumEnergy[f] / pts.length));
+    
+    renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S_room, U_room);
+
+  } catch(e) {
+    alert("計算エラーが発生しました。入力値を確認してください。\n" + e.message);
+    console.error(e);
+  }
+}
+
+function renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S, U) {
+  document.getElementById('out').classList.remove('hidden');
+  document.getElementById('res_Lz0').innerText = Lz0.toFixed(1) + " dB";
+  document.getElementById('res_f0').innerText = f0.toFixed(1) + " Hz";
+  document.getElementById('res_fc').innerText = fc.toFixed(1) + " Hz";
+  document.getElementById('phys_memo').innerText = `h=${h.toFixed(3)}m, cl=${cl.toFixed(0)}m/s, A=${Math.pow(10,tenLogA/10).toFixed(1)}m²`;
+  
+  const grade = determineGrade(avg);
+  const badge = document.getElementById('gradeBadge');
+  badge.innerText = grade.label;
+  badge.className = 'badge ' + (grade.val <= 45 ? 'badge-good' : (grade.val <= 55 ? 'badge-mid' : 'badge-bad'));
+  document.getElementById('lnum').innerText = `L-${grade.val} 相当`;
+
+  const tbody = document.getElementById('tableBody');
+  let html = '';
+  const addRow = (label, dataFn, cls='', unit='') => {
+    html += `<tr class="${cls}"><td class="row-header">${label}</td><td class="text-center text-xs text-gray-500">${unit}</td>`;
+    BANDS.forEach(f => html += `<td>${typeof dataFn === 'function' ? dataFn(f).toFixed(1) : dataFn}</td>`);
+    html += `</tr>`;
+  };
+
+  addRow("(1) 衝撃力レベル 20logF", f => LF_RMS[f], '', 'dB');
+  pts.forEach(p => addRow(`(2) 20log Zθ (S${p.id})`, f => p.LzTheta[f], 'sub-row', 'dB'));
+  const domBand = (f0 >= 44.7 && f0 < 89.1) ? "63" : ((f0 < 44.7) ? "31.5" : "125");
+  addRow("(3) インピーダンス周波数特性", f => Z_DROP_CHARS[domBand][f], '', 'dB');
+  pts.forEach(p => addRow(`(4) 20log Zb (S${p.id})`, f => p.LzB[f], 'sub-row', 'dB'));
+  addRow("(5) 曲げ波の波長 λb", f => Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f)), '', 'm');
+  
+  // Seff (Display reference for 4-side rigid condition for simplicity)
+  addRow("(6) 有効放射面積 Seff (参考)", f => {
+     const lam = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f));
+     const Lx = parseFloat(document.getElementById('a_mm').value)/1000 - lam/2;
+     const Ly = parseFloat(document.getElementById('b_mm').value)/1000 - lam/2;
+     return Math.max(0, Lx*Ly);
+  }, '', 'm²');
+
+  addRow("(7) 10log Seff (参考)", f => {
+     const lam = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f));
+     const Lx = parseFloat(document.getElementById('a_mm').value)/1000 - lam/2;
+     const Ly = parseFloat(document.getElementById('b_mm').value)/1000 - lam/2;
+     return 10*Math.log10(Math.max(1e-5, Lx*Ly));
+  }, '', 'dB');
+
+  // (8) 10log k (Dynamic Calculation)
+  addRow("(8) 音響放射係数 10log k", f => 10 * Math.log10(calcSigma(f, fc, S, U)), 'font-bold text-indigo-700 bg-indigo-50', 'dB');
+  
+  addRow("(10) 室吸音力 10log A", f => tenLogA, '', 'dB');
+  addRow("(11) 時定数補正 ΔC", f => DELTA_C[f], '', 'dB');
+  pts.forEach(p => addRow(`(12) L (S${p.id})`, f => p.spectrum[f], 'sub-row', 'dB'));
+  addRow("平均床衝撃音レベル LH", f => avg[f], 'highlight', 'dB');
+  
+  tbody.innerHTML = html;
+}
+
+// UI Setup
+function setupPoints() {
+  const t = document.getElementById('ptTemplate').content;
+  for(let i=1; i<=5; i++){
+    const clone = t.cloneNode(true);
+    clone.querySelector('.ptLabel').innerText = `S${i}`;
+    document.getElementById(`pt${i}`).appendChild(clone);
+  }
+}
+
+document.getElementById('fill5').addEventListener('click', () => {
+  const Lx = parseFloat(document.getElementById('a_mm').value);
+  const Ly = parseFloat(document.getElementById('b_mm').value);
+  const coords = [
+    {x: Lx*0.25, y: Ly*0.25}, {x: Lx*0.50, y: Ly*0.50}, {x: Lx*0.75, y: Ly*0.75},
+    {x: Lx*0.75, y: Ly*0.25}, {x: Lx*0.25, y: Ly*0.75}
+  ];
+  coords.forEach((c, i) => {
+    const pt = document.getElementById(`pt${i+1}`);
+    pt.querySelector('.x').value = c.x.toFixed(0);
+    pt.querySelector('.y').value = c.y.toFixed(0);
+    pt.querySelector('.ex').value = 'obari';
+    pt.querySelector('.ey').value = 'obari';
+  });
+});
 
 function loadExample(num) {
   const setVal = (id, v) => document.getElementById(id).value = v;
-  const setRoomBound = (t,l,b,r) => {
-    document.getElementById('bound_top').value = t;
-    document.getElementById('bound_left').value = l;
-    document.getElementById('bound_btm').value = b;
-    document.getElementById('bound_right').value = r;
-  };
-
-  if (num === 7) {
-    document.getElementById('isComposite').checked = false;
-    setVal('slab_Lx', 4.90); setVal('slab_Ly', 4.73);
-    setVal('room_Lx', 4.90); setVal('room_Ly', 4.73);
-    setVal('off_X', 0); setVal('off_Y', 0);
-    setRoomBound('rigid','rigid','rigid','rigid');
-    setVal('h1', 160);
-    document.getElementById('forceA').checked = true;
-  } else if (num === 8) {
-    document.getElementById('isComposite').checked = true;
-    setVal('slab_Lx', 6.60); setVal('slab_Ly', 4.60);
-    setVal('room_Lx', 3.30); setVal('room_Ly', 4.60);
-    setVal('off_X', 0); setVal('off_Y', 0);
-    setRoomBound('rigid','rigid','rigid','none'); // Right Partition
-    setVal('h1', 150);
-    document.getElementById('forceA').checked = true;
-  } else if (num === 9) {
-    // Example 9: Room in Slab
-    document.getElementById('isComposite').checked = false;
-    setVal('slab_Lx', 5.10); setVal('slab_Ly', 5.50); // Structural
-    setVal('room_Lx', 2.80); setVal('room_Ly', 3.78); // Room
-    setVal('off_X', 0); setVal('off_Y', 0); // Top-Left aligned
-    // Room Edges: Top/Left=Rigid, Btm/Right=None(Partition)
-    setRoomBound('rigid','rigid','none','none');
-    setVal('h1', 150);
-    document.getElementById('forceA').checked = false;
+  if(num===7){
+    document.getElementById('isComposite').checked=false;
+    document.getElementById('sameArea').checked=true; document.getElementById('slabInputArea').classList.add('hidden');
+    setVal('a_mm', 4900); setVal('b_mm', 4730);
+    setVal('h_mm', 160); setVal('rho', 2300); setVal('E10', 2.6);
+    document.getElementById('forceA').checked=true;
+    document.getElementById('fill5').click();
   }
-  document.getElementById('runBtn').click();
+  if(num===8){
+    document.getElementById('isComposite').checked=true;
+    setVal('h_mm', 150); setVal('h2', 60); setVal('rho2', 1700); setVal('E2_e10', 1.5);
+    document.getElementById('sameArea').checked=false; document.getElementById('slabInputArea').classList.remove('hidden');
+    setVal('slabLx_mm', 6600); setVal('slabLy_mm', 4600);
+    setVal('a_mm', 3300); setVal('b_mm', 4600);
+    document.getElementById('forceA').checked=true;
+    document.getElementById('fill5').click();
+    for(let i=1;i<=5;i++){
+        const x = parseFloat(document.querySelector(`#pt${i} .x`).value);
+        if(x > 1650) document.querySelector(`#pt${i} .ex`).value = 'none';
+        else document.querySelector(`#pt${i} .ex`).value = 'obari';
+    }
+  }
+  if(num===9){
+    document.getElementById('isComposite').checked=false;
+    document.getElementById('sameArea').checked=false; document.getElementById('slabInputArea').classList.remove('hidden');
+    setVal('slabLx_mm', 5100); setVal('slabLy_mm', 5500);
+    setVal('a_mm', 2800); setVal('b_mm', 3780);
+    setVal('h_mm', 150); setVal('rho', 2300); setVal('E10', 2.1);
+    document.getElementById('forceA').checked=false;
+    document.getElementById('fill5').click();
+    // Ex9 (Room in Slab) Bounds setup
+    document.getElementById('bound_top').value = 'rigid';
+    document.getElementById('bound_left').value = 'rigid';
+    document.getElementById('bound_btm').value = 'none';
+    document.getElementById('bound_right').value = 'none';
+    for(let i=1;i<=5;i++){ document.querySelector(`#pt${i} .ex`).value = 'obari'; }
+  }
+  document.getElementById('run').click();
 }
 
-function renderResults(avg, details, f0, Lz0) {
-  document.getElementById('resultArea').classList.remove('hidden');
-  document.getElementById('disp_slab').innerText = `${document.getElementById('slab_Lx').value}x${document.getElementById('slab_Ly').value}`;
-  document.getElementById('disp_room').innerText = `${document.getElementById('room_Lx').value}x${document.getElementById('room_Ly').value}`;
+document.getElementById('sameArea').addEventListener('change', (e) => {
+  const area = document.getElementById('slabInputArea');
+  if(e.target.checked) area.classList.add('hidden');
+  else area.classList.remove('hidden');
+});
 
-  let html = '<table class="w-full text-xs border-collapse">';
-  html += '<tr class="bg-gray-100 border-b"><th class="p-1">Freq</th><th class="p-1 text-blue-700">L(平均)</th>';
-  details.forEach((d, i) => html += `<th class="p-1 font-normal text-gray-500">P${i+1}<br><span class="text-[9px]">ΔLz=${d.dLz.toFixed(1)}</span></th>`);
-  html += '</tr>';
-  
-  BANDS.forEach(f => {
-    html += `<tr class="border-b text-center"><td class="font-bold">${f}</td>`;
-    html += `<td class="font-bold text-blue-700 bg-blue-50">${avg[f].toFixed(1)}</td>`;
-    details.forEach(d => html += `<td>${d.spec[f].toFixed(1)}</td>`);
-    html += '</tr>';
-  });
-  html += '</table>';
-  html += `<div class="mt-2 text-[10px] text-gray-500">f0=${f0.toFixed(1)}Hz, Lz0=${Lz0.toFixed(1)}dB</div>`;
-  document.getElementById('detailTableContainer').innerHTML = html;
-}
+document.getElementById('run').addEventListener('click', calculate);
 
-// Init
-document.getElementById('runBtn').addEventListener('click', calculate);
+setupPoints();
+document.getElementById('fill5').click();
 </script>
 </body>
 </html>
