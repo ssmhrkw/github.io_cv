@@ -427,4 +427,201 @@ fileInput.addEventListener('change',e=>{
 }));
 
 /* ── load ── */
-loadBtn.addEvent
+loadBtn.addEventListener('click', async()=>{
+  if(!g.files.length){return;}
+  const f=g.files[0];
+  const ext=f.name.toLowerCase().split('.').pop();
+  setStatus('Loading '+f.name+' …');
+  document.getElementById('configCard').style.display='none';
+  document.getElementById('processBtn').disabled=true;
+
+  if(ext==='csv'||ext==='txt'){
+    try{
+      const hasHeader=document.getElementById('hasHeader').checked;
+      g.csv=await parseCSV(f,hasHeader); g.audio=null;
+      // auto-detect SR from timestamps
+      if(g.csv.rows.length>4){
+        const t=g.csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
+        if(t.length>4){
+          const dt=[]; for(let i=1;i<t.length;i++){const d=t[i]-t[i-1];if(isFinite(d)&&d>0)dt.push(d);}
+          if(dt.length){const s=Float64Array.from(dt).sort();const m=s[Math.floor(s.length/2)];if(m>0){g.srCSV=1/m;document.getElementById('csvSr').value=Math.round(g.srCSV);}}
+        }
+      }
+      const nch=g.csv.headerLike?Math.max(0,g.csv.headerTokens.length-1):(g.csv.rows[0]?.length-1||0);
+      const cols=g.csv.headerLike?g.csv.headerTokens.slice(1):[];
+      ensureSetup(nch,cols); buildTabs(nch,cols); refreshBandUI();
+      document.getElementById('configCard').style.display='block';
+      document.getElementById('processBtn').disabled=false;
+      setStatus(`CSV: ${g.csv.rows.length} rows · ${nch} ch · SR≈${Math.round(g.srCSV)} Hz`);
+    }catch(e){setStatus('CSV error: '+(e.message||e));}
+  } else {
+    const fr=new FileReader();
+    fr.onload=()=>{
+      try{
+        g.audio=decodePCM(fr.result); g.csv={rows:[],headerTokens:[],headerLike:false};
+        document.getElementById('csvSr').value=g.audio.sampleRate;
+        ensureSetup(g.audio.numberOfChannels,[]); buildTabs(g.audio.numberOfChannels,[]); refreshBandUI();
+        document.getElementById('configCard').style.display='block';
+        document.getElementById('processBtn').disabled=false;
+        setStatus(`WAV: ${g.audio.numberOfChannels} ch · ${g.audio.sampleRate} Hz · ${g.audio.length} frames`);
+      }catch(e){setStatus('WAV error: '+(e.message||e));}
+    };
+    fr.readAsArrayBuffer(f);
+  }
+});
+
+/* ── process ── */
+document.getElementById('processBtn').addEventListener('click', async()=>{
+  const btn=document.getElementById('processBtn');
+  try{
+    btn.classList.add('processing'); btn.textContent='処理中…'; btn.disabled=true;
+    showOverlay();
+    document.getElementById('tableWrap').innerHTML='';
+    document.getElementById('plotsWrap').innerHTML='';
+    setStatus('Processing…');
+    await new Promise(r=>setTimeout(r,20));
+
+    const bandType=document.getElementById('bandType').value;
+    const centersAll=window.fullCenters?window.fullCenters(bandType):(bandType==='oct'?[31.5,63,125,250,500,1000,2000,4000,8000]:[25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]);
+    const lo=Number(document.getElementById('bandLo').value)||16;
+    const hi=Number(document.getElementById('bandHi').value)||8000;
+    const centers=centersAll.filter(f=>f>=lo&&f<=hi);
+    const timeMode=document.getElementById('timeWeight').value;
+    const leqWin=Math.max(1e-3,Number(document.getElementById('leqWin').value)||1);
+    const N=36;
+
+    let sr, nch, getData;
+    if(g.audio){
+      sr=g.audio.sampleRate; nch=g.audio.numberOfChannels; getData=i=>g.audio.getChannelData(i);
+    } else {
+      sr=Number(document.getElementById('csvSr').value)||g.srCSV||25600;
+      nch=g.setup.length;
+      getData=i=>{
+        const ci=i+1;
+        const arr=new Float32Array(g.csv.rows.length);
+        for(let r=0;r<g.csv.rows.length;r++){const v=Number(g.csv.rows[r][ci]);arr[r]=isFinite(v)?v:0;}
+        return arr;
+      };
+    }
+
+    const usedIdx=g.setup.map((s,i)=>s.use?i:-1).filter(i=>i>=0);
+    const results=[];
+
+    for(const ch of usedIdx){
+      const cfg=g.setup[ch];
+      let x=getData(ch);
+      if(!x||!x.length){setStatus(`CH${ch+1}: データなし`);continue;}
+      if(cfg.gain!==1){const xx=new Float32Array(x.length);for(let i=0;i<x.length;i++)xx[i]=x[i]*cfg.gain;x=xx;}
+      const byBand={};
+      for(const fc of centers){
+        const sos=window.designButterworthBandpassSOS_N(fc,sr,N);
+        const y=window.sosFilter(x,sos);
+        const T=y.length/sr;
+        let mean_p2=0; for(let k=0;k<y.length;k++) mean_p2+=y[k]*y[k]; mean_p2/=Math.max(1,y.length);
+        const Leq=10*Math.log10(Math.max(1e-24,mean_p2/(P0*P0)));
+        const LE =Leq+10*Math.log10(Math.max(1e-24,T));
+        const sFast=window.ewmaSquaredToSPL?window.ewmaSquaredToSPL(y,sr,0.125):y.map(v=>20*Math.log10(Math.max(1e-12,Math.abs(v))/P0));
+        const sSlow=window.ewmaSquaredToSPL?window.ewmaSquaredToSPL(y,sr,1.0):sFast;
+        const sLeq =window.movingLeqSPL?window.movingLeqSPL(y,sr,leqWin):sFast;
+        let series;
+        if(timeMode==='fast'||timeMode==='none') series=sFast;
+        else if(timeMode==='slow') series=sSlow;
+        else if(timeMode==='leq') series=sLeq;
+        else { let mx=-1e9; series=new Float32Array(sFast.length); for(let k=0;k<sFast.length;k++){mx=Math.max(mx,sFast[k]);series[k]=mx;} }
+        let Lfmax=-1e9; for(const v of sFast) if(v>Lfmax) Lfmax=v;
+        let Lsmax=-1e9; for(const v of sSlow) if(v>Lsmax) Lsmax=v;
+        const pct=window.percentile?window.percentile.bind(window):((arr,p)=>{const a=Float64Array.from(arr).sort();const pos=(a.length-1)*p;const lo=Math.floor(pos),hi=Math.ceil(pos),w=pos-lo;return(1-w)*a[lo]+w*a[hi];});
+        byBand[fc]={y,sFast,sr,Leq,LE,Lfmax,Lsmax,L05:pct(series,.95),L10:pct(series,.90),L50:pct(series,.50),L90:pct(series,.10),L95:pct(series,.05)};
+      }
+      results.push({channelIndex:ch,role:cfg.role,byBand,centers,sr});
+    }
+    g.results={results,centers,sr};
+    setStatus('Done');
+    const active=document.querySelector('#tabs .tab.active');
+    if(active) renderChannel(+active.dataset.ch);
+  }catch(e){
+    setStatus('Process error: '+(e.message||e));
+  }finally{
+    hideOverlay();
+    btn.classList.remove('processing'); btn.textContent='Process'; btn.disabled=false;
+  }
+});
+
+/* ── render channel ── */
+function renderChannel(ch){
+  if(!g.results){return;}
+  const rec=g.results.results.find(r=>r.channelIndex===ch);
+  if(!rec){document.getElementById('tableWrap').innerHTML='';document.getElementById('plotsWrap').innerHTML='';return;}
+  const isCSV=!g.audio&&g.csv.headerLike;
+  const chName=(isCSV&&g.csv.headerTokens[ch+1])?g.csv.headerTokens[ch+1].trim():('CH'+(ch+1));
+  document.getElementById('summaryTitle').textContent=`CH: ${chName} (${rec.role}) — ${document.getElementById('bandType').value==='oct'?'1/1':'1/3'} octave`;
+
+  const centers=rec.centers;
+  const metrics=[
+    {key:'Lfmax',label:'Lfmax [dB]'},
+    {key:'Lsmax',label:'Lsmax [dB]'},
+    {key:'Leq',  label:'Leq [dB]'},
+    {key:'LE',   label:'LE [dB]'},
+    {key:'L05',  label:'L05'},
+    {key:'L10',  label:'L10'},
+    {key:'L50',  label:'L50'},
+    {key:'L90',  label:'L90'},
+    {key:'L95',  label:'L95'},
+  ];
+
+  let html='<table><thead><tr><th>Metric</th>';
+  for(const f of centers) html+=`<th class="fc-head" data-f="${f}">${Math.round(f)}</th>`;
+  html+='</tr></thead><tbody>';
+  for(const m of metrics){
+    html+=`<tr><td>${m.label}</td>`;
+    for(const f of centers){
+      const s=rec.byBand[f];
+      const v=s?s[m.key]:null;
+      html+=`<td>${(typeof v==='number')?v.toFixed(1):''}</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  const wrap=document.getElementById('tableWrap');
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('th.fc-head').forEach(th=>{
+    th.title='クリックで該当バンドへスクロール';
+    th.addEventListener('click',()=>{
+      const target=document.getElementById(`band-${Math.round(Number(th.dataset.f))}`);
+      if(target) target.scrollIntoView({behavior:'smooth',block:'center'});
+    });
+  });
+
+  const host=document.getElementById('plotsWrap'); host.innerHTML='';
+  for(const f of centers){
+    const m=rec.byBand[f]; if(!m) continue;
+    const div=document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
+    const sr=m.sr;
+    const xArr=Array.from({length:m.y.length},(_,i)=>i/sr);
+    const ds1=window.downsampleForPlot?window.downsampleForPlot(xArr,m.y,2000):{x:xArr,y:Array.from(m.y)};
+    const ds2=window.downsampleForPlot?window.downsampleForPlot(xArr,m.sFast,2000):{x:xArr,y:Array.from(m.sFast)};
+    let kmax=0; for(let k=1;k<m.sFast.length;k++) if(m.sFast[k]>m.sFast[kmax]) kmax=k;
+    const tmax=kmax/sr;
+    Plotly.react(div,[
+      {x:ds1.x,y:ds1.y,name:'BP signal',mode:'lines',line:{width:1,color:'rgba(96,165,250,.6)'}},
+      {x:ds2.x,y:ds2.y,name:'Lfmax (Fast)',mode:'lines',line:{width:1.5,color:'rgba(52,211,153,.8)'},yaxis:'y2'},
+      {x:[tmax],y:[m.Lfmax],name:'Lfmax',mode:'markers',marker:{symbol:'diamond',size:9,color:'#fbbf24',line:{width:1,color:'#fff'}},yaxis:'y2'}
+    ],[{
+      paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(22,28,42,.9)',
+      font:{family:"'Space Mono',monospace",size:10,color:'#4e5f7a'},
+      title:{text:`${Math.round(f)} Hz`,font:{size:11,color:'#7eb8ff'},x:0.02,xanchor:'left'},
+      margin:{l:50,r:50,t:28,b:30},
+      xaxis:{title:'t [s]',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
+      yaxis:{title:'Pa',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
+      yaxis2:{title:'dB',overlaying:'y',side:'right',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.04)'},
+      legend:{orientation:'h',y:-0.15,bgcolor:'rgba(0,0,0,0)',font:{size:9}},
+      annotations:[{x:tmax,y:m.Lfmax,text:`${m.Lfmax.toFixed(1)} dB`,yref:'y2',showarrow:false,yshift:10,font:{size:9,color:'#fbbf24'}}]
+    }]);
+  }
+}
+
+document.getElementById('bandType').addEventListener('change', refreshBandUI);
+refreshBandUI();
+</script>
+</body>
+</html>
