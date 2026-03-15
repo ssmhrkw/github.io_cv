@@ -3,69 +3,313 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>加振・受音点配置ツール：モンテカルロ／節マップ／最適化つき（堅牢化版）</title>
+<title>Floor Impact Sound — Excitation & Microphone Layout Tool</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<!-- MathJax (|Φ|式表示) -->
 <script>
-  window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']]},svg:{fontCache:'global'}};
+  window.MathJax={
+    tex:{inlineMath:[['\\(','\\)'],['$','$']]},
+    svg:{fontCache:'global'},
+    startup:{ready(){MathJax.startup.defaultReady();}}
+  };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#fafbfe; --panel:#fff; --ink:#0b1220; --muted:#5b6b82; --accent:#3557ff; --line:#e4e8f0;
-  --ok:#1a936f; --warn:#c0392b; --hint:#e67e22;
+  --bg:#0d0f14;--surface:#13161e;--surface2:#1a1e29;--surface3:#222739;
+  --border:#2a2f42;--border2:#363d56;
+  --ink:#e8ecf5;--ink2:#a0a9c0;--ink3:#6b748f;
+  --cyan:#4ecdc4;--cyan-dim:#2a7a76;
+  --blue:#5b8af5;--blue-dim:#2a3f7a;
+  --green:#56d98a;--green-dim:#1e5238;
+  --amber:#f0b429;--amber-dim:#5c430a;
+  --red:#ff6b6b;--red-dim:#5c1e1e;
+  --mono:'IBM Plex Mono','Courier New',monospace;
+  --sans:'IBM Plex Sans JP','Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;
+  --r-sm:4px;--r-md:8px;--r-lg:12px;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Kaku Gothic ProN";}
-header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:14px 16px;z-index:10}
-header h1{margin:0 0 4px;font-size:18px}
-header p{margin:0;color:var(--muted);font-size:12px}
-main{display:grid;grid-template-columns:520px 1fr;gap:16px;padding:16px}
-@media (max-width:1100px){main{grid-template-columns:1fr}}
-.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
-details{border:1px solid var(--line);border-radius:10px;background:#fff;margin:8px 0}
-summary{cursor:pointer;padding:10px 12px;font-weight:600}
-summary::marker,summary::-webkit-details-marker{display:none}
-.tri{display:inline-block;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--muted);margin-right:6px;transition:.2s}
-details[open] .tri{transform:rotate(180deg)}
-.sec{padding:8px 12px 12px;border-top:1px dashed var(--line)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-label{font-size:12px;color:var(--muted)}
-input[type="number"],input[type="text"],select{
-  width:100%;background:#fff;color:#0b1220;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px
-}
-.btn{appearance:none;border:1px solid var(--line);background:#fff;color:#0b1220;padding:9px 12px;border-radius:8px;font-size:13px;cursor:pointer}
-.btn:hover{border-color:#cfd7e3}
-.btn-accent{background:#3557ff;color:#fff;border:none}
-.muted{color:var(--muted);font-size:12px}
-.plot-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
-.plots{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:1400px){.plots{grid-template-columns:1fr}}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#eef2ff;color:#26358b;border:1px solid #d9dffe;margin-right:6px}
-.small{width:100%;border-collapse:collapse}
-.small th,.small td{border:1px solid var(--line);padding:6px;font-size:12px;text-align:center}
-.icon-btn{width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center}
-.progress{height:10px;background:#f0f3fa;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-.bar{height:100%;width:0%;background:linear-gradient(90deg,#7aa6ff,#3557ff);transition:width .06s}
-.codebox{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre;overflow:auto}
-.ok{color:var(--ok)} .warn{color:var(--warn)} .hint{color:var(--hint)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:48px 48px;opacity:.12;pointer-events:none;z-index:0}
+/* HEADER */
+header{position:sticky;top:0;z-index:100;background:rgba(13,15,20,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:16px;height:56px}
+.hdr-logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hdr-title{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--cyan);white-space:nowrap}
+.hdr-sub{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.05em}
+.hdr-badges{display:flex;gap:5px;flex-wrap:wrap}
+.badge{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.08em;padding:2px 7px;border-radius:2px;border:1px solid;text-transform:uppercase}
+.badge-c{color:var(--cyan);border-color:var(--cyan-dim);background:rgba(78,205,196,.06)}
+.badge-b{color:var(--blue);border-color:var(--blue-dim);background:rgba(91,138,245,.06)}
+.badge-a{color:var(--amber);border-color:var(--amber-dim);background:rgba(240,180,41,.06)}
+#statusBar{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--ink3);flex-shrink:0;transition:background .3s,box-shadow .3s}
+.sdot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sdot.warn{background:var(--red);box-shadow:0 0 6px var(--red)}
+.sdot.busy{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:pulse .8s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.4}to{opacity:1}}
+/* LAYOUT */
+main{position:relative;z-index:1;display:grid;grid-template-columns:488px 1fr;gap:14px;padding:14px;max-width:1900px;margin:0 auto}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+/* ACCORDION */
+.acc{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:8px;overflow:hidden;transition:border-color .2s}
+.acc:has(details[open]){border-color:var(--border2)}
+.acc summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ink2);text-transform:uppercase;user-select:none;transition:color .15s}
+.acc summary:hover{color:var(--ink)}
+.acc summary::-webkit-details-marker,.acc summary::marker{display:none}
+.acc-icon{width:14px;height:14px;flex-shrink:0;color:var(--cyan)}
+.acc-chev{margin-left:auto;width:12px;height:12px;color:var(--ink3);transition:transform .2s}
+details[open] .acc-chev{transform:rotate(180deg)}
+.acc-body{padding:12px 14px 14px;border-top:1px solid var(--border)}
+/* FORM */
+.fg{display:grid;gap:8px}
+.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}.c4{grid-template-columns:repeat(4,1fr)}
+.field{display:flex;flex-direction:column;gap:4px}
+.fl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+input[type="number"],input[type="text"],select{width:100%;background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 10px;font-family:var(--mono);font-size:12px;outline:none;transition:border-color .15s,box-shadow .15s;appearance:none}
+input:focus,select:focus{border-color:var(--cyan-dim);box-shadow:0 0 0 2px rgba(78,205,196,.12)}
+input::placeholder{color:var(--ink3)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b748f'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+.fh{font-family:var(--mono);font-size:9px;color:var(--ink3);line-height:1.4}
+/* RADIO */
+.radio-grp{display:flex;gap:6px;flex-wrap:wrap}
+.rc{flex:1;min-width:120px;position:relative}
+.rc input{position:absolute;opacity:0;width:0;height:0}
+.rc label{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:12px;color:var(--ink2);transition:all .15s}
+.rc-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;transition:all .15s}
+.rc input:checked+label{border-color:var(--cyan-dim);color:var(--cyan);background:rgba(78,205,196,.06)}
+.rc input:checked+label .rc-dot{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 6px rgba(78,205,196,.5)}
+/* BUTTONS */
+.btn-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn{appearance:none;border:1px solid var(--border2);background:var(--surface2);color:var(--ink2);padding:7px 14px;border-radius:var(--r-sm);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn:hover{border-color:var(--cyan-dim);color:var(--cyan);background:rgba(78,205,196,.07)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.35;pointer-events:none}
+.btn-p{background:var(--cyan);color:var(--bg);border-color:var(--cyan);font-weight:600}
+.btn-p:hover{background:#6dddd5;color:var(--bg);border-color:#6dddd5}
+.btn-d{border-color:var(--red-dim);color:var(--red)}
+.btn-d:hover{background:rgba(255,107,107,.08)}
+.btn-ico{width:28px;height:28px;padding:0;justify-content:center;flex-shrink:0}
+/* PROGRESS */
+.prog-wrap{display:flex;align-items:center;gap:8px}
+.prog-track{flex:1;height:3px;background:var(--surface3);border-radius:999px;overflow:hidden}
+.prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan));border-radius:999px;transition:width .08s linear}
+.prog-pct{font-family:var(--mono);font-size:10px;color:var(--ink3);min-width:36px;text-align:right}
+/* CODEBOX */
+.codebox{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--ink2);white-space:pre;overflow:auto;max-height:200px}
+/* FORMULA */
+.formula{background:var(--bg);border:1px solid var(--border);border-left:2px solid var(--cyan-dim);border-radius:var(--r-sm);padding:10px 14px;margin-top:8px}
+.formula .ft{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:6px}
+/* TABLE */
+.dtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.dtable th{background:var(--surface3);color:var(--ink3);font-weight:500;letter-spacing:.06em;font-size:9px;text-transform:uppercase;padding:6px 8px;border:1px solid var(--border);text-align:center}
+.dtable td{border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--ink2)}
+.dtable td input{background:transparent;border:none;color:var(--ink);font-family:var(--mono);font-size:11px;width:100%;text-align:center;outline:none;padding:2px}
+.dtable td input:focus{background:rgba(78,205,196,.06);border-radius:2px}
+.dtable tbody tr:hover td{background:rgba(255,255,255,.02)}
+/* PLOT CARDS */
+.plots-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:1400px){.plots-grid{grid-template-columns:1fr}}
+.plot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px;position:relative;overflow:hidden}
+.plot-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan-dim),transparent);opacity:.5}
+.pt{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;padding:0 2px}
+/* MISC */
+.divider{height:1px;background:var(--border);margin:10px 0}
+.sl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3);display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.sl::after{content:'';flex:1;height:1px;background:var(--border)}
+.chk{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2)}
+.chk input[type="checkbox"]{width:14px;height:14px;accent-color:var(--cyan);cursor:pointer;flex-shrink:0}
+.jis-hint{display:none;background:rgba(240,180,41,.06);border:1px solid var(--amber-dim);border-radius:var(--r-sm);padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--amber);line-height:1.5}
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--mono);font-size:10px;color:var(--ink3)}
+.li{display:flex;align-items:center;gap:5px}
+.mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:999px}
 </style>
 </head>
 <body>
+
 <header>
-  <h1>加振点・受音点配置ツール + モンテカルロ / 節マップ / 最適化</h1>
-  <p>プリセット：INCE／旧JIS／JIS／ISO 16283-3／ISO 10140-3 × 軽量/重量。Mic=“x”、タッピング=長方形のみ、□廃止。帯域：軽量=125–4000、重量=63–500（fₛ=2000√(RT60/V)で上限）。</p>
+  <div class="hdr-logo">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect x="1" y="1" width="26" height="26" rx="4" stroke="#2a7a76" stroke-width="1.5"/>
+      <path d="M4 22 Q7 8 10 14 Q13 20 16 10 Q19 0 22 14" stroke="#4ecdc4" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="10" cy="14" r="1.5" fill="#4ecdc4"/>
+      <circle cx="16" cy="10" r="1.5" fill="#5b8af5"/>
+      <circle cx="22" cy="14" r="1.5" fill="#4ecdc4"/>
+    </svg>
+    <div>
+      <div class="hdr-title">FLOOR IMPACT ACOUSTICS</div>
+      <div class="hdr-sub">加振点・受音点 配置プランナー</div>
+    </div>
+  </div>
+  <div class="hdr-badges">
+    <span class="badge badge-c">INCE</span>
+    <span class="badge badge-c">JIS A 1418</span>
+    <span class="badge badge-b">ISO 16283-3</span>
+    <span class="badge badge-b">ISO 10140-3</span>
+    <span class="badge badge-a">Monte Carlo</span>
+  </div>
+  <div id="statusBar">
+    <div class="sdot" id="statusDot"></div>
+    <span id="statusText">Initializing…</span>
+  </div>
 </header>
 
 <main>
-  <!-- 左：コントロール -->
-  <section class="panel">
+<!-- ═══ LEFT ═══ -->
+<section>
+
+  <div class="acc">
     <details open>
-      <summary><span class="tri"></span>プリセット・加振タイプ・生成</summary>
-      <div class="sec">
-        <div class="grid">
+      <summary>
+        <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M8 5v6"/></svg>
+        Preset / Source Type / Generation
+        <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+      </summary>
+      <div class="acc-body">
+        <div class="fg c2">
+          <div class="field"><label class="fl">Standard (Preset)</label>
+            <select id="stdSelect">
+              <option value="INCE">INCE</option>
+              <option value="OLDJIS">旧 JIS</option>
+              <option value="JIS" selected>JIS A 1418</option>
+              <option value="ISO16283">ISO 16283-3</option>
+              <option value="ISO10140">ISO 10140-3</option>
+            </select>
+          </div>
+          <div class="field"><label class="fl">Random Seed</label>
+            <input id="seedInput" type="text" value="seed-1234" placeholder="seed-1234"/>
+          </div>
+        </div>
+
+        <div class="mt8"><label class="fl">Excitation Type</label>
+          <div class="radio-grp mt4">
+            <div class="rc"><input type="radio" name="srcType" value="light" id="r-light" checked>
+              <label for="r-light"><span class="rc-dot"></span>軽量床衝撃源（Tapping）</label></div>
+            <div class="rc"><input type="radio" name="srcType" value="heavy" id="r-heavy">
+              <label for="r-heavy"><span class="rc-dot"></span>重量床衝撃源（Heavy）</label></div>
+          </div>
+        </div>
+
+        <div class="fg c2 mt8">
+          <div class="field"><label class="fl">Joist Direction [°] (X=0°)</label>
+            <input id="joistAngleDeg" type="number" step="1" value="0">
+            <div class="fh">Tapping auto-rotates at joist+45°</div>
+          </div>
+          <div class="field"><label class="fl">Node-Avoid Search Limit</label>
+            <input id="searchLimit" type="number" step="1" value="30">
+            <div class="fh">Random search until zero warnings</div>
+          </div>
+        </div>
+
+        <div class="btn-row mt8">
+          <button class="btn btn-p" id="btnGenerate">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 1v10M1 6h10"/></svg>Apply Preset
+          </button>
+          <button class="btn" id="btnSearch">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/></svg>Node-Avoid Search
+          </button>
+          <label class="chk"><input id="showSlabEdges" type="checkbox" checked>Show slab frame</label>
+        </div>
+
+        <div class="prog-wrap mt8">
+          <div class="prog-track"><div id="progressFill" class="prog-fill"></div></div>
+          <span id="progressPct" class="prog-pct">0%</span>
+        </div>
+        <div id="jisHint" class="jis-hint mt8">⚠ JIS (random) — Circles shown (orientation hidden). Place tapping machine at <strong>45° to joist direction</strong> on-site.</div>
+        <div class="codebox mt8" id="bestPanel">// Run search or optimization to see best config</div>
+      </div>
+    </details>
+  </div>
+
+  <div class="acc">
+    <details open>
+      <summary>
+        <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12M6 2v12"/></svg>
+        Room Geometry / Slab / Band / Modes
+        <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+      </summary>
+      <div class="acc-body">
+        <div class="sl">Room Dimensions</div>
+        <div class="fg c3">
+          <div class="field"><label class="fl">Lx [m]</label><input id="roomLx" type="number" step="0.1" value="5.0"></div>
+          <div class="field"><label class="fl">Ly [m]</label><input id="roomLy" type="number" step="0.1" value="4.0"></div>
+          <div class="field"><label class="fl">Lz [m]</label><input id="roomLz" type="number" step="0.1" value="3.0"></div>
+        </div>
+        <div class="sl mt8">Slab (blank = room dimensions)</div>
+        <div class="fg c2">
+          <div class="field"><label class="fl">Sx [m]</label><input id="slabLx" type="number" step="0.1" placeholder="= Lx"></div>
+          <div class="field"><label class="fl">Sy [m]</label><input id="slabLy" type="number" step="0.1" placeholder="= Ly"></div>
+        </div>
+        <div class="fh mt4">Slab plane fixed at ceiling Z = Lz (upper floor representation)</div>
+        <div class="divider"></div>
+        <div class="fg c2">
+          <div class="field"><label class="fl">RT60 [s] (Schröder fₛ)</label>
+            <input id="rt60" type="number" step="0.05" value="0.2">
+            <div class="fh" id="fsInfo">fₛ not yet computed</div>
+          </div>
+          <div class="field"><label class="fl">Warning threshold ε</label>
+            <input id="phiEps" type="number" step="0.01" value="0.10">
+            <div class="fh">|Φ|&lt;ε → node vicinity · |Φ|&lt;0.02 → singular</div>
+          </div>
+        </div>
+        <div class="formula">
+          <div class="ft">Modal Shape Function</div>
+          <div style="color:var(--ink2);font-size:12px">
+            \[\Phi_{n_x n_y n_z}(x,y,z)=\cos\!\left(\tfrac{n_x\pi x}{L_x}\right)\cos\!\left(\tfrac{n_y\pi y}{L_y}\right)\cos\!\left(\tfrac{n_z\pi z}{L_z}\right)\]
+          </div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="acc">
+    <details>
+      <summary>
+        <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="2"/><circle cx="11" cy="5" r="2"/><circle cx="5" cy="11" r="2"/><circle cx="11" cy="11" r="2"/></svg>
+        Point Counts / Constraints / Manual Entry
+        <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+      </summary>
+      <div class="acc-body">
+        <div class="fg c3">
+          <div class="field"><label class="fl">nMic</label><input id="nMic" type="number" step="1" value="5"></div>
+          <div class="field"><label class="fl">nSrc</label><input id="nSrc" type="number" step="1" value="5"></div>
+          <div class="field"><label class="fl">Max tries/pt</label><input id="maxTries" type="number" step="10" value="5000"></div>
+        </div>
+        <div class="sl mt8">Microphone Clearances [m]</div>
+        <div class="fg c4">
+          <div class="field"><label class="fl">Pair ≥</label><input id="micPairMin" type="number" step="0.05" value="0.7"></div>
+          <div class="field"><label class="fl">Wall ≥</label><input id="micWallMin" type="number" step="0.05" value="0.5"></div>
+          <div class="field"><label class="fl">Floor ≥</label><input id="micFloorMin" type="number" step="0.05" value="0.5"></div>
+          <div class="field"><label class="fl">Ceiling ≥</label><input id="micCeilMin" type="number" step="0.05" value="0.5"></div>
+        </div>
+        <div class="sl mt8">Source Clearances [m]</div>
+        <div class="fg c2">
+          <div class="field"><label class="fl">Pair ≥</label><input id="srcPairMin" type="number" step="0.05" value="0.5"></div>
+          <div class="field"><label class="fl">Edge ≥</label><input id="srcEdgeMin" type="number" step="0.05" value="0.5"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="sl">Microphones — manual (x, y, z)</div>
+        <div class="btn-row" style="margin-bottom:6px">
+          <button class="btn btn-ico" id="addMicRow">＋</button>
+          <span class="fh">Receiver positions in room coords</span>
+        </div>
+        <table class="dtable" id="micTable">
+          <thead><tr><th>#</th><th>x</th><th>y</th><th>z</th><th>—</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="sl mt8">Sources — manual (x, y) on slab</div>
+        <div class="btn-row" style="margin-bottom:6px">
+          <button class="btn btn-ico" id="addSrcRow">＋</button>
+          <span class="fh">Excitation centres on slab</span>
+        </div>
+        <table class="dtable" id="srcTable">
+          <thead><tr><th>#</th><th>x</th><th>y</th><th>—</th></tr></thead>
+          <tbody></tbody>
+        </ta        <div class="grid">
           <div>
             <label>標準（プリセット）</label>
             <select id="stdSelect">
