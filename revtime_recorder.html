@@ -99,8 +99,7 @@ input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:
 .pill{
   font-family:var(--mono);font-size:0.6rem;letter-spacing:.1em;
   padding:4px 10px;border-radius:2px;
-  background:var(--bg3);border:1px solid var(--border2);color:var(--dim);
-  display:inline-block;
+  background:var(--bg3);border:1px solid var(--border2);color:var(--dim);display:inline-block;
 }
 .pill.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
 .pill.ng{background:var(--ng-bg);border-color:var(--ng);color:var(--ng)}
@@ -175,7 +174,6 @@ tr:hover td{background:var(--bg3)}
 
 @media(max-width:640px){
   main{padding:14px 12px 48px}
-  .nav-inner{gap:8px}
   th,td{padding:7px 8px;font-size:.72rem}
 }
 </style>
@@ -284,7 +282,7 @@ tr:hover td{background:var(--bg3)}
   </div>
   <div class="note-footer" data-i18n="tableNote">
     判定に使用した回帰＝T30優先→T20→T10→EDT。
-    <b>!!</b>: 信頼性警告（Tの相対差が大きい、または10s以上）。
+    <b>!!</b>: 信頼性警告（Tの相対差が大きい・10s以上）。
     <b>※</b>: ショートRT不一致警告（全て1.0s以下かつ最大差0.3s以上）。
   </div>
 </section>
@@ -336,570 +334,557 @@ tr:hover td{background:var(--bg3)}
     <span><span class="leg-dot" style="background:#60a5fa"></span><span data-i18n="lgBg">事前暗騒音窓</span></span>
     <span><span class="leg-dot" style="background:#34d399"></span><span data-i18n="lgPost">直後200ms窓</span></span>
   </div>
-  <p class="hint" style="margin-top:8px" data-i18n="waveNote">解析に用いた切り出し範囲の元の波形。赤 = 手拍子検出点、青帯 = 事前暗騒音窓、緑帯 = 直後200ms窓。</p>
+  <p class="hint" style="margin-top:8px" data-i18n="waveNote">
+    解析に用いた切り出し範囲の元の波形。赤 = 手拍子検出点、青帯 = 事前暗騒音窓、緑帯 = 直後200ms窓。
+  </p>
 </section>
 
 </div>
 </main>
 
+<!-- acoustics-core.js をグローバルに展開 (FilterDesign.html と同パターン) -->
+<script type="module">
+import {
+  designButterworthBandpassSOS_N, sosFilter
+} from "./acoustics-core.js";
+Object.assign(window, { designButterworthBandpassSOS_N, sosFilter });
+// モジュール読み込み完了後にアプリを初期化
+window._acousticsCoreReady = true;
+window.dispatchEvent(new Event('acoustics-ready'));
+</script>
+
 <script>
 /* ============================================================
-   ACOUSTICS-CORE (inlined, no external dependency)
+   APP  — acoustics-core.js の window.designButterworthBandpassSOS_N
+          と window.sosFilter に依存。モジュール読み込み後に起動。
    ============================================================ */
-const AC = (()=>{
-  "use strict";
-  function d1LP(fc,fs){const K=Math.tan(Math.PI*fc/fs),a0=1+K;return{b0:K/a0,b1:K/a0,b2:0,a1:(1-K)/a0,a2:0}}
-  function d1HP(fc,fs){const K=Math.tan(Math.PI*fc/fs),a0=1+K;return{b0:1/a0,b1:-1/a0,b2:0,a1:(1-K)/a0,a2:0}}
-  function rbjLP(fc,fs,Q){
-    const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)),c=Math.cos(w0),s=Math.sin(w0),al=s/(2*Q),a0=1+al;
-    return{b0:(1-c)/2/a0,b1:(1-c)/a0,b2:(1-c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};
-  }
-  function rbjHP(fc,fs,Q){
-    const w0=2*Math.atan(Math.tan(Math.PI*fc/fs)),c=Math.cos(w0),s=Math.sin(w0),al=s/(2*Q),a0=1+al;
-    return{b0:(1+c)/2/a0,b1:-(1+c)/a0,b2:(1+c)/2/a0,a1:-2*c/a0,a2:(1-al)/a0};
-  }
-  function bQ(n,k){return 1/(2*Math.sin((2*k+1)*Math.PI/(2*n)))}
-  function lpSOS(fc,fs,ord){const s=[],p=Math.floor(ord/2);for(let k=0;k<p;k++)s.push(rbjLP(fc,fs,bQ(ord,k)));if(ord%2)s.push(d1LP(fc,fs));return s}
-  function hpSOS(fc,fs,ord){const s=[],p=Math.floor(ord/2);for(let k=0;k<p;k++)s.push(rbjHP(fc,fs,bQ(ord,k)));if(ord%2)s.push(d1HP(fc,fs));return s}
-  function freqz(secs,fs,fg){
-    const H=new Float64Array(fg.length);
-    for(let i=0;i<fg.length;i++){
-      const w=2*Math.PI*fg[i]/fs,c1=Math.cos(-w),s1=Math.sin(-w),c2=Math.cos(-2*w),s2=Math.sin(-2*w);
-      let Nr=1,Ni=0,Dr=1,Di=0;
-      for(const s of secs){
-        const nre=s.b0+s.b1*c1+s.b2*c2,nim=s.b1*s1+s.b2*s2;
-        const dre=1+s.a1*c1+s.a2*c2,dim=s.a1*s1+s.a2*s2;
-        [Nr,Ni]=[Nr*nre-Ni*nim,Nr*nim+Ni*nre];
-        [Dr,Di]=[Dr*dre-Di*dim,Dr*dim+Di*dre];
-      }
-      const den=Dr*Dr+Di*Di;H[i]=Math.hypot((Nr*Dr+Ni*Di)/den,(Ni*Dr-Nr*Di)/den);
-    }
-    return H;
-  }
-  function normAt(secs,fs,fref){
-    const m=freqz(secs,fs,[0.98*fref,fref,1.02*fref])[1]||1;
-    if(!isFinite(m)||m<=0)return;
-    const g=Math.pow(1/m,1/Math.max(1,secs.length));
-    for(const s of secs){s.b0*=g;s.b1*=g;s.b2*=g;}
-  }
-  function designBP(fc,fs,N){
-    const f1=fc/Math.SQRT2,f2=fc*Math.SQRT2,M=Math.max(2,2*Math.max(1,Math.round(N)));
-    const secs=hpSOS(f1,fs,Math.floor(M/2)).concat(lpSOS(f2,fs,Math.ceil(M/2)));
-    normAt(secs,fs,fc);return secs;
-  }
-  function df2t(x,c){
-    const N=x.length,y=new Float32Array(N);let s1=0,s2=0;
-    const{b0,b1,b2,a1,a2}=c;
-    for(let n=0;n<N;n++){const w=x[n]-a1*s1-a2*s2;y[n]=b0*w+b1*s1+b2*s2;s2=s1;s1=w;}
-    return y;
-  }
-  function sosFilter(x,sos){let y=Float32Array.from(x);for(const s of sos)y=df2t(y,s);return y;}
-  return{designBP,sosFilter};
-})();
 
-/* ============================================================
-   APP
-   ============================================================ */
-(()=>{
-"use strict";
-const $=s=>document.querySelector(s);
-const $$=s=>Array.from(document.querySelectorAll(s));
-const db10=x=>10*Math.log10(Math.max(1e-24,x));
-const db20=x=>20*Math.log10(Math.max(1e-12,Math.abs(x)));
+function startApp() {
 
 /* ── i18n ── */
-const LANG={
+const LANG = {
   jp:{
-    sec1:"1 · 測定と入力",sec2:"2 · 解析・判定設定",sec3:"3 · 結果（帯域別）",
-    sec4:"4 · 減衰曲線（Schroeder積分）",sec5:"5 · 元信号の波形",
-    recStart:"録音開始",stop:"停止",recLenL:"録音長 [秒]",measCountL:"測定点数",
-    saveThis:"この測定を保存",avg:"平均を計算",fileLabel:"ファイルを読込",
+    sec1:"1 · 測定と入力", sec2:"2 · 解析・判定設定", sec3:"3 · 結果（帯域別）",
+    sec4:"4 · 減衰曲線（Schroeder積分）", sec5:"5 · 元信号の波形",
+    recStart:"録音開始", stop:"停止", recLenL:"録音長 [秒]", measCountL:"測定点数",
+    saveThis:"この測定を保存", avg:"平均を計算", fileLabel:"ファイルを読込",
     savedCount:"保存済み:",
     hint1:"静かな部屋で、<b>ボタンを押して約1秒後に1回だけ強く手を叩いてください</b>。端末側のNR/AGCは無効化要求を出しますが、OS依存で完全には止まりません。",
     constraint:"echoCancellation=false · noiseSuppression=false · autoGainControl=false（適用可否は端末次第）",
-    bandL:"帯域種別",analyze:"解析する",saveCsv:"CSV保存",
+    bandL:"帯域種別", analyze:"解析する", saveCsv:"CSV保存",
     include63:"判定に63 Hzを含める",
     bgsub:"BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）",
     manualChk:"手動回帰区間モード",
     snrRule:"SNR = <b>手拍子直後200 ms</b>の平均パワー ÷ <b>手拍子前0.5 s</b>の平均パワー（10log₁₀）。中央値SNR ≥ 20 dB → <b>OK</b>。",
     overall:"全体判定",
-    fc:"中心周波数 [Hz]",r2rep:"R²",judgeH:"判定",
-    tableNote:"判定に使用した回帰＝T30優先→T20→T10→EDT。<b>!!</b>: 信頼性警告（Tの相対差が大きい・10s以上）。<b>※</b>: ショートRT不一致警告（全て1.0s以下かつ最大差0.3s以上）。",
-    showBand:"表示帯域",zoomStartL:"開始 [s]",zoomEndL:"終了 [s]",applyZoom:"ズーム適用",
-    t20Start:"開始 [s] (≈−5 dB)",t20End:"終了 [s] (≈−25 dB)",calcT20:"T20を計算",
+    fc:"中心周波数 [Hz]", r2rep:"R²", judgeH:"判定",
+    tableNote:"判定に使用した回帰＝T30優先→T20→T10→EDT。<b>!!</b>: 信頼性警告。<b>※</b>: ショートRT不一致警告（全て1.0s以下かつ最大差0.3s以上）。",
+    showBand:"表示帯域", zoomStartL:"開始 [s]", zoomEndL:"終了 [s]", applyZoom:"ズーム適用",
+    t20Start:"開始 [s] (≈−5 dB)", t20End:"終了 [s] (≈−25 dB)", calcT20:"T20を計算",
     dragHint:"グラフ上をドラッグ（選択）すると開始・終了時間が自動入力されます。",
     decayNote:"曲線 = Schroeder（相対dB）。着色帯 = 回帰区間。EDT 実線、T10 破線、T20 一点鎖、T30 点線。",
     waveNote:"解析に用いた切り出し範囲の元の波形。赤 = 手拍子検出点、青帯 = 事前暗騒音窓、緑帯 = 直後200ms窓。",
-    lgClap:"手拍子検出点",lgBg:"事前暗騒音窓",lgPost:"直後200ms窓"
+    lgClap:"手拍子検出点", lgBg:"事前暗騒音窓", lgPost:"直後200ms窓"
   },
   en:{
-    sec1:"1 · Recording & Input",sec2:"2 · Analysis Settings",sec3:"3 · Results by Band",
-    sec4:"4 · Decay Curves (Schroeder)",sec5:"5 · Original Waveform",
-    recStart:"Record",stop:"Stop",recLenL:"Duration [s]",measCountL:"Measurements",
-    saveThis:"Save this take",avg:"Average saved",fileLabel:"Load file",
+    sec1:"1 · Recording & Input", sec2:"2 · Analysis Settings", sec3:"3 · Results by Band",
+    sec4:"4 · Decay Curves (Schroeder)", sec5:"5 · Original Waveform",
+    recStart:"Record", stop:"Stop", recLenL:"Duration [s]", measCountL:"Measurements",
+    saveThis:"Save this take", avg:"Average saved", fileLabel:"Load file",
     savedCount:"Saved:",
     hint1:"In a quiet room, <b>press the button and clap once strongly about 1 s later</b>. NR/AGC disable is requested but may persist depending on OS.",
     constraint:"echoCancellation=false · noiseSuppression=false · autoGainControl=false (device-dependent)",
-    bandL:"Band type",analyze:"Analyze",saveCsv:"Save CSV",
+    bandL:"Band type", analyze:"Analyze", saveCsv:"Save CSV",
     include63:"Include 63 Hz in judgment",
     bgsub:"BG-noise compensation (subtract pre-noise in Schroeder)",
     manualChk:"Manual regression window mode",
     snrRule:"SNR = 10·log₁₀(<b>power 200 ms after clap</b> / <b>power 0.5 s before</b>). Median SNR ≥ 20 dB → <b>OK</b>.",
     overall:"Overall",
-    fc:"Center freq [Hz]",r2rep:"R²",judgeH:"Judge",
+    fc:"Center freq [Hz]", r2rep:"R²", judgeH:"Judge",
     tableNote:"Regression priority: T30 > T20 > T10 > EDT. <b>!!</b>: reliability warning. <b>※</b>: short-RT inconsistency.",
-    showBand:"Display band",zoomStartL:"Start [s]",zoomEndL:"End [s]",applyZoom:"Apply zoom",
-    t20Start:"Start [s] (≈−5 dB)",t20End:"End [s] (≈−25 dB)",calcT20:"Compute T20",
+    showBand:"Display band", zoomStartL:"Start [s]", zoomEndL:"End [s]", applyZoom:"Apply zoom",
+    t20Start:"Start [s] (≈−5 dB)", t20End:"End [s] (≈−25 dB)", calcT20:"Compute T20",
     dragHint:"Drag-select on the graph to auto-fill start/end.",
     decayNote:"Curve = Schroeder (relative dB). Shaded = regression windows. EDT solid, T10 dash, T20 dashdot, T30 dot.",
     waveNote:"Original waveform. Red = clap, Blue = pre-noise window, Green = 200 ms post-clap.",
-    lgClap:"Clap detected",lgBg:"Pre-noise window",lgPost:"200 ms post-clap"
+    lgClap:"Clap detected", lgBg:"Pre-noise window", lgPost:"200 ms post-clap"
   }
 };
-let curLang='jp';
+let curLang = 'jp';
 function applyLang(lang){
-  curLang=lang;
-  const d=LANG[lang];
-  $$('[data-i18n]').forEach(el=>{
-    const k=el.getAttribute('data-i18n');
-    if(d[k]==null)return;
-    if(['hint1','snrRule','tableNote'].includes(k)){el.innerHTML=d[k];return;}
-    const tn=[...el.childNodes].find(n=>n.nodeType===Node.TEXT_NODE);
-    if(tn)tn.textContent=d[k];
-    else if(!el.children.length)el.textContent=d[k];
+  curLang = lang;
+  const d = LANG[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k = el.getAttribute('data-i18n');
+    if(d[k] == null) return;
+    if(['hint1','snrRule','tableNote'].includes(k)){ el.innerHTML = d[k]; return; }
+    const tn = [...el.childNodes].find(n => n.nodeType === Node.TEXT_NODE);
+    if(tn) tn.textContent = d[k];
+    else if(!el.children.length) el.textContent = d[k];
   });
-  $$('.btn-lang').forEach(b=>b.classList.remove('active'));
-  $(`#btn${lang.toUpperCase()}`).classList.add('active');
+  document.querySelectorAll('.btn-lang').forEach(b => b.classList.remove('active'));
+  document.querySelector(`#btn${lang.toUpperCase()}`).classList.add('active');
 }
-$('#btnJP').onclick=()=>applyLang('jp');
-$('#btnEN').onclick=()=>applyLang('en');
+document.getElementById('btnJP').onclick = () => applyLang('jp');
+document.getElementById('btnEN').onclick = () => applyLang('en');
 
 /* ── state ── */
-let lastBuffer=null;
-let savedTakes=[];
-let latestResults=[];
-let mediaStream=null, recorder=null, recChunks=[];
+let lastBuffer    = null;   // {fs, data: Float32Array}
+let savedTakes    = [];
+let latestResults = [];
+let mediaStream   = null, recorder = null, recChunks = [];
 
-/* ── UI refs ── */
-const recBtn=$('#btnRecord'), stopBtn=$('#btnStop');
-const commitBtn=$('#btnCommit'), avgBtn=$('#btnAvg');
-const analyzeBtn=$('#btnAnalyze'), csvBtn=$('#btnDownloadCsv');
-const stateEl=$('#stateEl'), playerEl=$('#player');
-const fileInput=$('#fileInput');
-const detailBand=$('#detailBand');
-const zoomStartEl=$('#zoomStart'), zoomEndEl=$('#zoomEnd');
-const manualPanel=$('#manualPanel');
-const manualStartEl=$('#manualT20Start'), manualEndEl=$('#manualT20End');
-const manualBtn=$('#btnManualT20Regress'), manualOut=$('#manualT20Result');
-const manualChkEl=$('#manualRegress');
+/* ── helpers ── */
+const db10 = x => 10 * Math.log10(Math.max(1e-24, x));
+const db20 = x => 20 * Math.log10(Math.max(1e-12, Math.abs(x)));
 
-function setState(s,cls=''){
-  stateEl.className='pill'+(cls?' '+cls:'');
-  stateEl.textContent=s;
+function setState(s, cls=''){
+  const el = document.getElementById('stateEl');
+  el.className = 'pill' + (cls ? ' '+cls : '');
+  el.textContent = s;
 }
 
 /* ── save dots ── */
 function updateDots(){
-  const n=parseInt($('#measCount').value)||1;
-  $('#targetNum').textContent=n;
-  $('#savedNum').textContent=savedTakes.length;
-  const dots=$('#saveDots'); dots.innerHTML='';
-  for(let i=0;i<n;i++){
-    const d=document.createElement('div');
-    d.className='dot'+(i<savedTakes.length?' filled':'');
+  const n = parseInt(document.getElementById('measCount').value) || 1;
+  document.getElementById('targetNum').textContent = n;
+  document.getElementById('savedNum').textContent  = savedTakes.length;
+  const dots = document.getElementById('saveDots');
+  dots.innerHTML = '';
+  for(let i = 0; i < n; i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < savedTakes.length ? ' filled' : '');
     dots.appendChild(d);
   }
-  avgBtn.disabled=savedTakes.length<2;
-  commitBtn.disabled=!lastBuffer||savedTakes.length>=n;
+  document.getElementById('btnAvg').disabled    = savedTakes.length < 2;
+  document.getElementById('btnCommit').disabled = !lastBuffer || savedTakes.length >= n;
 }
-$('#measCount').onchange=updateDots;
+document.getElementById('measCount').onchange = updateDots;
 updateDots();
 
 /* ── mime ── */
 function pickMime(){
-  const c=['audio/mp4;codecs=aac','audio/mp4','audio/webm;codecs=opus','audio/webm'];
-  for(const t of c)if(window.MediaRecorder&&MediaRecorder.isTypeSupported?.(t))return t;
-  return'';
+  const cands = ['audio/mp4;codecs=aac','audio/mp4','audio/webm;codecs=opus','audio/webm'];
+  for(const t of cands) if(window.MediaRecorder && MediaRecorder.isTypeSupported?.(t)) return t;
+  return '';
 }
 
-/* ── decode ── */
+/* ── decode blob → mono Float32 @ 48kHz ── */
 async function decodeToMono(blob){
-  const ac=new(window.AudioContext||window.webkitAudioContext)({sampleRate:48000});
-  const buf=await ac.decodeAudioData(await blob.arrayBuffer());
-  const fs=buf.sampleRate, ch=buf.getChannelData(0);
-  const data=Float32Array.from(ch);
+  const ac = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 48000});
+  const buf = await ac.decodeAudioData(await blob.arrayBuffer());
+  const fs = buf.sampleRate;
+  const data = Float32Array.from(buf.getChannelData(0));
   await ac.close();
-  return{fs,data};
+  return {fs, data};
 }
 
 /* ── recording ── */
 async function startRecording(){
-  const sec=Math.max(2,Math.min(30,parseInt($('#recSec').value)||5));
-  try{
-    mediaStream=await navigator.mediaDevices.getUserMedia({
-      audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}
+  const sec = Math.max(2, Math.min(30, parseInt(document.getElementById('recSec').value) || 5));
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}
     });
-  }catch(e){setState('Mic error: '+e.message,'ng');return;}
-  const mime=pickMime();
-  recorder=new MediaRecorder(mediaStream,mime?{mimeType:mime}:undefined);
-  recChunks=[];
-  recorder.ondataavailable=e=>{if(e.data?.size>0)recChunks.push(e.data);};
-  recorder.onstop=async()=>{
+  } catch(e){ setState('Mic error: '+e.message, 'ng'); return; }
+
+  const mime = pickMime();
+  recorder = new MediaRecorder(mediaStream, mime ? {mimeType:mime} : undefined);
+  recChunks = [];
+  recorder.ondataavailable = e => { if(e.data?.size > 0) recChunks.push(e.data); };
+  recorder.onstop = async () => {
     stopStream();
-    const blob=new Blob(recChunks,{type:mime||recChunks[0]?.type||'audio/mp4'});
-    playerEl.src=URL.createObjectURL(blob);
-    playerEl.style.display='block';
-    lastBuffer=await decodeToMono(blob);
+    const blob = new Blob(recChunks, {type: mime || recChunks[0]?.type || 'audio/mp4'});
+    const playerEl = document.getElementById('player');
+    playerEl.src = URL.createObjectURL(blob);
+    playerEl.style.display = 'block';
+    lastBuffer = await decodeToMono(blob);
     setState(`recorded · ${lastBuffer.fs} Hz · ${(lastBuffer.data.length/lastBuffer.fs).toFixed(1)} s`);
-    analyzeBtn.disabled=false;
-    recBtn.className='primary';
-    recBtn.textContent=LANG[curLang].recStart;
-    stopBtn.disabled=true;
+    document.getElementById('btnAnalyze').disabled = false;
+    const recBtn = document.getElementById('btnRecord');
+    recBtn.className = 'primary';
+    recBtn.textContent = LANG[curLang].recStart;
+    document.getElementById('btnStop').disabled = true;
     updateDots();
   };
   recorder.start();
-  recBtn.className='recording'; recBtn.textContent='● REC';
-  stopBtn.disabled=false;
-  setState('recording…','active');
-  setTimeout(()=>{if(recorder?.state==='recording')stopRecording();},sec*1000);
+  const recBtn = document.getElementById('btnRecord');
+  recBtn.className = 'recording'; recBtn.textContent = '● REC';
+  document.getElementById('btnStop').disabled = false;
+  setState('recording…', 'active');
+  setTimeout(() => { if(recorder?.state === 'recording') stopRecording(); }, sec * 1000);
 }
-function stopStream(){mediaStream?.getTracks().forEach(t=>t.stop());mediaStream=null;}
-function stopRecording(){if(recorder?.state==='recording')recorder.stop();else stopStream();stopBtn.disabled=true;}
-recBtn.onclick=startRecording;
-stopBtn.onclick=stopRecording;
+function stopStream(){ mediaStream?.getTracks().forEach(t => t.stop()); mediaStream = null; }
+function stopRecording(){ if(recorder?.state === 'recording') recorder.stop(); else stopStream(); document.getElementById('btnStop').disabled = true; }
+
+document.getElementById('btnRecord').onclick = startRecording;
+document.getElementById('btnStop').onclick   = stopRecording;
 
 /* ── file load ── */
-fileInput.onchange=async e=>{
-  const f=e.target.files?.[0];if(!f)return;
-  setState('decoding…','active');
-  lastBuffer=await decodeToMono(f);
-  playerEl.src=URL.createObjectURL(f);
-  playerEl.style.display='block';
+document.getElementById('fileInput').onchange = async e => {
+  const f = e.target.files?.[0]; if(!f) return;
+  setState('decoding…', 'active');
+  lastBuffer = await decodeToMono(f);
+  const playerEl = document.getElementById('player');
+  playerEl.src = URL.createObjectURL(f);
+  playerEl.style.display = 'block';
   setState(`loaded · ${lastBuffer.fs} Hz · ${(lastBuffer.data.length/lastBuffer.fs).toFixed(1)} s`);
-  analyzeBtn.disabled=false;
+  document.getElementById('btnAnalyze').disabled = false;
   updateDots();
 };
 
-/* ── DSP ── */
+/* ── DSP (acoustics-core.js 経由) ── */
 function makeBands(kind){
-  if(kind==='ob')return[63,125,250,500,1000,2000,4000];
-  return[50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000];
+  if(kind === 'ob') return [63, 125, 250, 500, 1000, 2000, 4000];
+  return [50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000];
 }
-function bpf(x,fs,fc,kind){
-  const N=kind==='tb'?24:36;
-  return AC.sosFilter(x,AC.designBP(fc,fs,N));
+
+function bpf(x, fs, fc, kind){
+  // acoustics-core.js の関数をwindow経由で使用
+  const N = kind === 'tb' ? 24 : 36;
+  const sos = window.designButterworthBandpassSOS_N(fc, fs, N);
+  return window.sosFilter(x, sos);
 }
+
+/* detect clap peak */
 function detectClap(x){
-  let mv=0,pi=0;
-  for(let i=0;i<x.length;i++){const a=Math.abs(x[i]);if(a>mv){mv=a;pi=i;}}
-  return{peakIdx:pi,peakDb:db20(mv)};
+  let maxVal = 0, peakIdx = 0;
+  for(let i = 0; i < x.length; i++){
+    const a = Math.abs(x[i]);
+    if(a > maxVal){ maxVal = a; peakIdx = i; }
+  }
+  return {peakIdx, peakDb: db20(maxVal)};
 }
+
+/* Schroeder integration → relative dB */
 function schroeder(x){
-  const N=x.length,e=new Float64Array(N);
-  for(let i=0;i<N;i++)e[i]=x[i]*x[i];
-  for(let i=N-2;i>=0;i--)e[i]+=e[i+1];
-  const e0=e[0]+1e-24,out=new Float32Array(N);
-  for(let i=0;i<N;i++)out[i]=10*Math.log10(Math.max(e[i]/e0,1e-12));
+  const N = x.length, e = new Float64Array(N);
+  for(let i = 0; i < N; i++) e[i] = x[i] * x[i];
+  for(let i = N-2; i >= 0; i--) e[i] += e[i+1];
+  const e0 = e[0] + 1e-24, out = new Float32Array(N);
+  for(let i = 0; i < N; i++) out[i] = 10 * Math.log10(Math.max(e[i]/e0, 1e-12));
   return out;
 }
-function schroederNS(x,pbg){
-  const N=x.length,e=new Float64Array(N);
-  let acc=0;
-  for(let i=N-1;i>=0;i--){const p=x[i]*x[i]-pbg;acc+=p>0?p:0;e[i]=acc;}
-  const e0=e[0]+1e-24,out=new Float32Array(N);
-  for(let i=0;i<N;i++)out[i]=10*Math.log10(Math.max(e[i]/e0,1e-12));
+
+/* Schroeder with BG subtraction */
+function schroederNS(x, pbg){
+  const N = x.length, e = new Float64Array(N);
+  let acc = 0;
+  for(let i = N-1; i >= 0; i--){ const p = x[i]*x[i] - pbg; acc += p > 0 ? p : 0; e[i] = acc; }
+  const e0 = e[0] + 1e-24, out = new Float32Array(N);
+  for(let i = 0; i < N; i++) out[i] = 10 * Math.log10(Math.max(e[i]/e0, 1e-12));
   return out;
 }
-function linreg(x,y){
-  const n=x.length;if(n<4)return{a:NaN,b:NaN,r2:NaN};
-  let sx=0,sy=0,sxy=0,sxx=0;
+
+/* linear regression */
+function linreg(x, y){
+  const n = x.length; if(n < 4) return {a:NaN, b:NaN, r2:NaN};
+  let sx=0, sy=0, sxy=0, sxx=0;
   for(let i=0;i<n;i++){sx+=x[i];sy+=y[i];sxy+=x[i]*y[i];sxx+=x[i]*x[i];}
-  const den=n*sxx-sx*sx;if(Math.abs(den)<1e-12)return{a:NaN,b:NaN,r2:NaN};
-  const a=(n*sxy-sx*sy)/den,b=(sy-a*sx)/n;
-  const ym=sy/n;let ssT=0,ssR=0;
-  for(let i=0;i<n;i++){ssT+=(y[i]-ym)**2;ssR+=(y[i]-(a*x[i]+b))**2;}
-  return{a,b,r2:ssT>0?1-ssR/ssT:NaN};
+  const den = n*sxx - sx*sx; if(Math.abs(den) < 1e-12) return {a:NaN, b:NaN, r2:NaN};
+  const a = (n*sxy - sx*sy)/den, b = (sy - a*sx)/n;
+  const ym = sy/n; let ssT=0, ssR=0;
+  for(let i=0;i<n;i++){ssT+=(y[i]-ym)**2; ssR+=(y[i]-(a*x[i]+b))**2;}
+  return {a, b, r2: ssT > 0 ? 1-ssR/ssT : NaN};
 }
-function pickSeg(dec,hi,lo){
-  const N=dec.length;let i0=-1,i1=-1;
-  for(let i=0;i<N;i++)if(dec[i]<=hi){i0=i;break;}
-  if(i0<0)return null;
-  for(let i=i0;i<N;i++)if(dec[i]<=lo){i1=i;break;}
-  return(i1>=0&&i1-i0>=80)?[i0,i1]:null;
+
+function pickSeg(dec, hi, lo){
+  const N = dec.length; let i0=-1, i1=-1;
+  for(let i=0;i<N;i++) if(dec[i] <= hi){ i0=i; break; }
+  if(i0 < 0) return null;
+  for(let i=i0;i<N;i++) if(dec[i] <= lo){ i1=i; break; }
+  return (i1 >= 0 && i1-i0 >= 80) ? [i0, i1] : null;
 }
-function fitRT(dec,fs,mode){
-  const W={EDT:[0,-10],T10:[-5,-15],T20:[-5,-25],T30:[-5,-35]}[mode];
-  const seg=pickSeg(dec,W[0],W[1]);
-  if(!seg)return{T:NaN,a:NaN,b:NaN,r2:NaN,seg:null};
-  const[i0,i1]=seg,n=i1-i0;
-  const xs=new Float64Array(n),ys=new Float64Array(n);
-  for(let k=0;k<n;k++){xs[k]=i0+k;ys[k]=dec[i0+k];}
-  const{a,b,r2}=linreg(xs,ys);
-  if(!isFinite(a)||Math.abs(a)<1e-15)return{T:NaN,a,b,r2,seg};
-  const T60=-60/(a*fs);
-  return(T60>0&&T60<30)?{T:T60,a,b,r2,seg}:{T:NaN,a,b,r2,seg};
+
+function fitRT(dec, fs, mode){
+  const W = {EDT:[0,-10], T10:[-5,-15], T20:[-5,-25], T30:[-5,-35]}[mode];
+  const seg = pickSeg(dec, W[0], W[1]);
+  if(!seg) return {T:NaN, a:NaN, b:NaN, r2:NaN, seg:null};
+  const [i0,i1] = seg, n = i1-i0;
+  const xs = new Float64Array(n), ys = new Float64Array(n);
+  for(let k=0;k<n;k++){xs[k]=i0+k; ys[k]=dec[i0+k];}
+  const {a,b,r2} = linreg(xs, ys);
+  if(!isFinite(a) || Math.abs(a) < 1e-15) return {T:NaN, a, b, r2, seg};
+  const T60 = -60/(a*fs);
+  return (T60 > 0 && T60 < 30) ? {T:T60, a, b, r2, seg} : {T:NaN, a, b, r2, seg};
 }
-function fitAll(dec,fs){
-  const fits={EDT:fitRT(dec,fs,'EDT'),T10:fitRT(dec,fs,'T10'),T20:fitRT(dec,fs,'T20'),T30:fitRT(dec,fs,'T30')};
-  let rep=fits.T30,tag='T30';
-  if(!isFinite(rep.T)){rep=fits.T20;tag='T20';}
-  if(!isFinite(rep.T)){rep=fits.T10;tag='T10';}
-  if(!isFinite(rep.T)){rep=fits.EDT;tag='EDT';}
-  return{fits,rep,tag};
+
+function fitAll(dec, fs){
+  const fits = {
+    EDT: fitRT(dec, fs, 'EDT'), T10: fitRT(dec, fs, 'T10'),
+    T20: fitRT(dec, fs, 'T20'), T30: fitRT(dec, fs, 'T30'),
+  };
+  let rep = fits.T30, tag = 'T30';
+  if(!isFinite(rep.T)){ rep = fits.T20; tag = 'T20'; }
+  if(!isFinite(rep.T)){ rep = fits.T10; tag = 'T10'; }
+  if(!isFinite(rep.T)){ rep = fits.EDT; tag = 'EDT'; }
+  return {fits, rep, tag};
 }
-function manualFit(r,fs,t0,t1){
-  if(!r.decay||!isFinite(t0)||!isFinite(t1)||t1<=t0)return{T:NaN,r2:NaN};
-  const i0=Math.max(0,Math.round(t0*fs)),i1=Math.min(r.decay.length,Math.round(t1*fs)),n=i1-i0;
-  if(n<20)return{T:NaN,r2:NaN};
-  const xs=new Float64Array(n),ys=new Float64Array(n);
-  for(let k=0;k<n;k++){xs[k]=i0+k;ys[k]=r.decay[i0+k];}
-  const{a,b,r2}=linreg(xs,ys);
-  return{T:(isFinite(a)&&a<0?-60/(a*fs):NaN),r2,seg:[i0,i1]};
+
+function manualFit(r, fs, t0, t1){
+  if(!r.decay || !isFinite(t0) || !isFinite(t1) || t1 <= t0) return {T:NaN, r2:NaN};
+  const i0 = Math.max(0, Math.round(t0*fs)), i1 = Math.min(r.decay.length, Math.round(t1*fs));
+  const n = i1-i0; if(n < 20) return {T:NaN, r2:NaN};
+  const xs = new Float64Array(n), ys = new Float64Array(n);
+  for(let k=0;k<n;k++){xs[k]=i0+k; ys[k]=r.decay[i0+k];}
+  const {a, b, r2} = linreg(xs, ys);
+  return {T: (isFinite(a) && a < 0 ? -60/(a*fs) : NaN), r2, seg:[i0,i1]};
 }
 
 /* ── ANALYZE ── */
 async function analyze(){
-  if(!lastBuffer){setState('no audio','ng');return;}
-  const{fs,data:x}=lastBuffer;
-  const clap=detectClap(x);
-  if(clap.peakDb<-40){
-    setState(`手拍子未検出 (peak ${clap.peakDb.toFixed(1)} dBFS)`,'ng');return;
+  if(!lastBuffer){ setState('no audio','ng'); return; }
+  const {fs, data:x} = lastBuffer;
+  const clap = detectClap(x);
+  if(clap.peakDb < -40){
+    setState(`手拍子未検出 (peak ${clap.peakDb.toFixed(1)} dBFS)`, 'ng'); return;
   }
-  setState('解析中…','active');analyzeBtn.disabled=true;
+  setState('解析中…','active');
+  document.getElementById('btnAnalyze').disabled = true;
 
-  const pi=clap.peakIdx;
-  // pre-clap noise window: -0.80s .. -0.05s relative to peak
-  const preStart=Math.max(0,pi-Math.round(0.80*fs));
-  const preEnd  =Math.max(0,pi-Math.round(0.05*fs));
-  const postN   =Math.round(0.20*fs);
-  // analysis window: from 50ms before peak
-  const anaStart=Math.max(0,pi-Math.round(0.05*fs));
-  const xAna=x.slice(anaStart);  // no mean subtraction
+  const pi = clap.peakIdx;
+  // BG window: [peak-0.80s, peak-0.05s]
+  const preStart = Math.max(0, pi - Math.round(0.80*fs));
+  const preEnd   = Math.max(0, pi - Math.round(0.05*fs));
+  const postN    = Math.round(0.20*fs);
+  // analysis window: 50ms before peak
+  const anaStart = Math.max(0, pi - Math.round(0.05*fs));
+  const xAna = x.slice(anaStart);  // raw slice, no mean subtraction
 
-  const kind=$('#bandType').value;
-  const bands=makeBands(kind);
-  const inc63=$('#snrInclude63').checked;
-  const useNS=$('#noiseComp').checked;
+  const kind    = document.getElementById('bandType').value;
+  const bands   = makeBands(kind);
+  const inc63   = document.getElementById('snrInclude63').checked;
+  const useNS   = document.getElementById('noiseComp').checked;
 
-  const results=[];
+  const results = [];
   for(const fc of bands){
-    // full signal → bandpass → SNR
-    const yFull=bpf(x,fs,fc,kind);
-    let pbg=0,n_bg=0;
-    for(let i=preStart;i<preEnd;i++){pbg+=yFull[i]*yFull[i];n_bg++;}
-    pbg/=Math.max(1,n_bg);
+    // SNR: BPF on full signal
+    const yFull = bpf(x, fs, fc, kind);
+    let pbg=0, n_bg=0;
+    for(let i=preStart; i<preEnd; i++){ pbg += yFull[i]*yFull[i]; n_bg++; }
+    pbg /= Math.max(1, n_bg);
     let psig=0;
-    for(let i=0;i<postN;i++){const v=yFull[pi+i]||0;psig+=v*v;}
-    psig/=Math.max(1,postN);
-    const SNR=db10(psig/Math.max(pbg,1e-24));
+    for(let i=0; i<postN; i++){ const v = yFull[pi+i]||0; psig += v*v; }
+    psig /= Math.max(1, postN);
+    const SNR = db10(psig / Math.max(pbg, 1e-24));
 
-    // analysis window → bandpass → Schroeder
-    const yAna=bpf(xAna,fs,fc,kind);
-    const dec=useNS?schroederNS(yAna,pbg):schroeder(yAna);
+    // Decay: BPF on analysis window
+    const yAna = bpf(xAna, fs, fc, kind);
+    const dec  = useNS ? schroederNS(yAna, pbg) : schroeder(yAna);
 
-    const{fits,rep,tag}=fitAll(dec,fs);
+    const {fits, rep, tag} = fitAll(dec, fs);
     results.push({
-      fc,SNR,decay:dec,fits,rep,repTag:tag,
-      EDT:fits.EDT.T,T10:fits.T10.T,T20:fits.T20.T,T30:fits.T30.T,
-      R2:isFinite(rep.r2)?rep.r2.toFixed(3):'',
-      judge:(!inc63&&fc===63)?'—':(SNR>=20?'OK':'NG'),
-      T20_manual:NaN
+      fc, SNR, decay:dec, fits, rep, repTag:tag,
+      EDT:fits.EDT.T, T10:fits.T10.T, T20:fits.T20.T, T30:fits.T30.T,
+      R2: isFinite(rep.r2) ? rep.r2.toFixed(3) : '',
+      judge: (!inc63 && fc===63) ? '—' : (SNR >= 20 ? 'OK' : 'NG'),
+      T20_manual: NaN
     });
   }
-  latestResults=results;
+  latestResults = results;
 
   renderTable();
   renderOverall();
   renderDecayInit();
-  drawWave(x,fs,pi,preStart,preEnd,postN,anaStart);
+  drawWave(x, fs, pi, preStart, preEnd, postN, anaStart);
 
-  manualPanel.classList.toggle('vis',manualChkEl.checked);
-  commitBtn.disabled=savedTakes.length>=(parseInt($('#measCount').value)||1);
-  csvBtn.disabled=false;
-  analyzeBtn.disabled=false;
+  document.getElementById('manualPanel').classList.toggle('vis', document.getElementById('manualRegress').checked);
+  document.getElementById('btnCommit').disabled = savedTakes.length >= (parseInt(document.getElementById('measCount').value)||1);
+  document.getElementById('btnDownloadCsv').disabled = false;
+  document.getElementById('btnAnalyze').disabled = false;
   setState('解析完了');
 }
-analyzeBtn.onclick=analyze;
+document.getElementById('btnAnalyze').onclick = analyze;
 
 /* ── TABLE ── */
 function renderTable(){
-  const tbody=$('#resultBody');tbody.innerHTML='';
-  const manMode=manualChkEl.checked;
+  const tbody   = document.getElementById('resultBody'); tbody.innerHTML = '';
+  const manMode = document.getElementById('manualRegress').checked;
   for(const r of latestResults){
-    const rts=[r.T10,r.T20,r.T30].filter(isFinite);
-    const star=rts.length>=2&&rts.every(t=>t<=1.0)&&(Math.max(...rts)-Math.min(...rts))>=0.3;
-    const bang=rts.length>=2&&(Math.max(...rts)-Math.min(...rts))>=0.1*Math.min(...rts)||rts.some(t=>t>=10);
-    function fmtT(v,warn){
-      if(!isFinite(v))return`<span style="color:var(--dim)">—</span>`;
-      let s=v.toFixed(3);
-      if(warn&&bang)s+=`<span class="wm" title="reliability warning">!!</span>`;
-      if(warn&&star)s+=`<span class="wm" title="short-RT inconsistency">※</span>`;
+    const rts   = [r.T10, r.T20, r.T30].filter(isFinite);
+    const star  = rts.length>=2 && rts.every(t=>t<=1.0) && (Math.max(...rts)-Math.min(...rts))>=0.3;
+    const bang  = (rts.length>=2 && (Math.max(...rts)-Math.min(...rts))>=0.1*Math.min(...rts)) || rts.some(t=>t>=10);
+    function fmtT(v, warn){
+      if(!isFinite(v)) return `<span style="color:var(--dim)">—</span>`;
+      let s = v.toFixed(3);
+      if(warn && bang) s += `<span class="wm" title="reliability warning">!!</span>`;
+      if(warn && star) s += `<span class="wm" title="short-RT inconsistency">※</span>`;
       return s;
     }
-    const t20=manMode
-      ?(isFinite(r.T20_manual)?`${r.T20_manual.toFixed(3)} <span style="color:var(--ok);font-size:.62rem">(M)</span>`:`<span style="color:var(--dim)">—</span>`)
-      :fmtT(r.T20,true);
-    const jc=r.judge==='OK'?'j-ok':r.judge==='NG'?'j-ng':'j-na';
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
+    const t20 = manMode
+      ? (isFinite(r.T20_manual) ? `${r.T20_manual.toFixed(3)} <span style="color:var(--ok);font-size:.62rem">(M)</span>` : `<span style="color:var(--dim)">—</span>`)
+      : fmtT(r.T20, true);
+    const jc = r.judge==='OK'?'j-ok':r.judge==='NG'?'j-ng':'j-na';
+    const dash = `<span style="color:var(--dim)">—</span>`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
       <td>${r.fc}</td>
-      <td>${manMode?`<span style="color:var(--dim)">—</span>`:fmtT(r.EDT,false)}</td>
-      <td>${manMode?`<span style="color:var(--dim)">—</span>`:fmtT(r.T10,true)}</td>
+      <td>${manMode ? dash : fmtT(r.EDT, false)}</td>
+      <td>${manMode ? dash : fmtT(r.T10, true)}</td>
       <td>${t20}</td>
-      <td>${manMode?`<span style="color:var(--dim)">—</span>`:fmtT(r.T30,true)}</td>
-      <td style="color:var(--dim)">${manMode?'':r.R2}</td>
+      <td>${manMode ? dash : fmtT(r.T30, true)}</td>
+      <td style="color:var(--dim)">${manMode ? '' : r.R2}</td>
       <td>${r.SNR.toFixed(1)}</td>
       <td class="${jc}">${r.judge}</td>`;
     tbody.appendChild(tr);
   }
 }
-manualChkEl.onchange=()=>{
-  manualPanel.classList.toggle('vis',manualChkEl.checked);
+
+document.getElementById('manualRegress').onchange = () => {
+  document.getElementById('manualPanel').classList.toggle('vis', document.getElementById('manualRegress').checked);
   renderTable();
-  if(latestResults.length)Plotly.relayout('decayPlot',{dragmode:manualChkEl.checked?'select':'zoom'});
+  if(latestResults.length)
+    Plotly.relayout('decayPlot', {dragmode: document.getElementById('manualRegress').checked ? 'select' : 'zoom'});
 };
 
 /* ── OVERALL ── */
 function renderOverall(){
-  const inc63=$('#snrInclude63').checked;
-  const valid=latestResults.filter(r=>inc63||r.fc!==63);
-  const okN=valid.filter(r=>r.SNR>=20).length;
-  const ok=okN>=Math.ceil(valid.length*0.6);
-  const el=$('#overallJudge');
-  el.className='overall-val '+(ok?'ok':'ng');
-  el.textContent=ok?'OK':'NG';
-  $('#overallNote').textContent=`(${okN}/${valid.length} bands ≥ 20 dB)`;
+  const inc63 = document.getElementById('snrInclude63').checked;
+  const valid  = latestResults.filter(r => inc63 || r.fc !== 63);
+  const okN    = valid.filter(r => r.SNR >= 20).length;
+  const ok     = okN >= Math.ceil(valid.length * 0.6);
+  const el     = document.getElementById('overallJudge');
+  el.className = 'overall-val ' + (ok ? 'ok' : 'ng');
+  el.textContent = ok ? 'OK' : 'NG';
+  document.getElementById('overallNote').textContent = `(${okN}/${valid.length} bands ≥ 20 dB)`;
 }
 
 /* ── DECAY PLOT ── */
 function renderDecayInit(){
-  const fs=lastBuffer?.fs||48000;
-  detailBand.innerHTML='';
+  const fs = lastBuffer?.fs || 48000;
+  const detailBand = document.getElementById('detailBand');
+  detailBand.innerHTML = '';
   for(const r of latestResults){
-    const o=document.createElement('option');
-    o.value=String(r.fc);o.textContent=r.fc+' Hz';
+    const o = document.createElement('option');
+    o.value = String(r.fc); o.textContent = r.fc + ' Hz';
     detailBand.appendChild(o);
   }
   if(latestResults[0]){
-    detailBand.value=String(latestResults[0].fc);
-    zoomEndEl.value=(latestResults[0].decay.length/fs*0.75).toFixed(2);
+    detailBand.value = String(latestResults[0].fc);
+    document.getElementById('zoomEnd').value = (latestResults[0].decay.length/fs * 0.75).toFixed(2);
   }
-  const render=()=>renderDecay(fs);
-  detailBand.onchange=render;
-  $('#applyZoom').onclick=render;
+  const render = () => renderDecay(fs);
+  detailBand.onchange = render;
+  document.getElementById('applyZoom').onclick = render;
   render();
 }
+
 function renderDecay(fs){
-  const fc=parseFloat(detailBand.value);
-  const r=latestResults.find(v=>v.fc===fc)||latestResults[0];
-  if(!r)return;
-  const N=r.decay.length;
-  const t=Array.from({length:N},(_,i)=>i/fs);
-  const y=Array.from(r.decay);
-  const z0=parseFloat(zoomStartEl.value)||0;
-  const z1=parseFloat(zoomEndEl.value)||(N/fs);
-  const SEG={
-    EDT:{fill:'rgba(148,163,184,.15)',line:'#94a3b8',dash:'solid'},
-    T10:{fill:'rgba(96,165,250,.15)', line:'#60a5fa',dash:'dash'},
-    T20:{fill:'rgba(52,211,153,.15)', line:'#34d399',dash:'dashdot'},
-    T30:{fill:'rgba(251,191,36,.15)', line:'#fbbf24',dash:'dot'},
+  const fc = parseFloat(document.getElementById('detailBand').value);
+  const r  = latestResults.find(v => v.fc === fc) || latestResults[0];
+  if(!r) return;
+  const N = r.decay.length;
+  const t = Array.from({length:N}, (_,i) => i/fs);
+  const y = Array.from(r.decay);
+  const z0 = parseFloat(document.getElementById('zoomStart').value) || 0;
+  const z1 = parseFloat(document.getElementById('zoomEnd').value)   || (N/fs);
+  const SEG = {
+    EDT:{fill:'rgba(148,163,184,.15)', line:'#94a3b8', dash:'solid'},
+    T10:{fill:'rgba(96,165,250,.15)',  line:'#60a5fa', dash:'dash'},
+    T20:{fill:'rgba(52,211,153,.15)',  line:'#34d399', dash:'dashdot'},
+    T30:{fill:'rgba(251,191,36,.15)',  line:'#fbbf24', dash:'dot'},
   };
-  const shapes=[],traces=[{
-    name:'Schroeder',x:t,y:y,mode:'lines',
-    line:{width:1.5,color:'rgba(200,212,232,0.75)'}
+  const shapes=[], traces=[{
+    name:'Schroeder', x:t, y:y, mode:'lines',
+    line:{width:1.5, color:'rgba(200,212,232,0.75)'}
   }];
-  for(const key of['EDT','T10','T20','T30']){
-    const f=r.fits[key];if(!f?.seg)continue;
-    const[i0,i1]=f.seg,x0=t[i0],x1=t[Math.max(i1-1,i0)];
+  for(const key of ['EDT','T10','T20','T30']){
+    const f = r.fits[key]; if(!f?.seg) continue;
+    const [i0,i1] = f.seg, x0=t[i0], x1=t[Math.max(i1-1,i0)];
     shapes.push({type:'rect',xref:'x',yref:'paper',x0,x1,y0:0,y1:1,fillcolor:SEG[key].fill,line:{width:0}});
     if(isFinite(f.a)){
       traces.push({
         name:`${key}${isFinite(r[key])?' '+r[key].toFixed(2)+'s':''}`,
-        x:[x0,x1],y:[f.a*i0+f.b,f.a*(i1-1)+f.b],mode:'lines',
-        line:{dash:SEG[key].dash,width:2,color:SEG[key].line}
+        x:[x0,x1], y:[f.a*i0+f.b, f.a*(i1-1)+f.b], mode:'lines',
+        line:{dash:SEG[key].dash, width:2, color:SEG[key].line}
       });
     }
   }
-  const layout={
-    paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(22,28,42,.8)',
-    font:{family:"'Space Mono',monospace",size:11,color:'#4e5f7a'},
+  const layout = {
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(22,28,42,.8)',
+    font:{family:"'Space Mono',monospace", size:11, color:'#4e5f7a'},
     margin:{l:54,r:16,t:10,b:44},
-    xaxis:{title:'Time [s]',range:[z0,z1],color:'#5a6a84',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
-    yaxis:{title:'Level [dB]',range:[-80,3],color:'#5a6a84',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
-    legend:{bgcolor:'rgba(0,0,0,0)',font:{size:10}},
-    dragmode:manualChkEl.checked?'select':'zoom',
-    shapes,showlegend:true
+    xaxis:{title:'Time [s]', range:[z0,z1], color:'#5a6a84', gridcolor:'rgba(180,200,255,.06)', linecolor:'rgba(180,200,255,.15)'},
+    yaxis:{title:'Level [dB]', range:[-80,3], color:'#5a6a84', gridcolor:'rgba(180,200,255,.06)', linecolor:'rgba(180,200,255,.15)'},
+    legend:{bgcolor:'rgba(0,0,0,0)', font:{size:10}},
+    dragmode: document.getElementById('manualRegress').checked ? 'select' : 'zoom',
+    shapes, showlegend:true
   };
-  Plotly.react('decayPlot',traces,layout,{responsive:true,displaylogo:false});
-  const gd=document.getElementById('decayPlot');
+  Plotly.react('decayPlot', traces, layout, {responsive:true, displaylogo:false});
+  const gd = document.getElementById('decayPlot');
   gd.removeAllListeners?.('plotly_selected');
-  gd.on('plotly_selected',ev=>{
-    if(!manualChkEl.checked||!ev?.range?.x)return;
-    manualStartEl.value=Math.max(0,ev.range.x[0]).toFixed(3);
-    manualEndEl.value=Math.max(0,ev.range.x[1]).toFixed(3);
+  gd.on('plotly_selected', ev => {
+    if(!document.getElementById('manualRegress').checked || !ev?.range?.x) return;
+    document.getElementById('manualT20Start').value = Math.max(0, ev.range.x[0]).toFixed(3);
+    document.getElementById('manualT20End').value   = Math.max(0, ev.range.x[1]).toFixed(3);
   });
 }
 
 /* ── MANUAL T20 ── */
-manualBtn.onclick=()=>{
-  const fc=parseFloat(detailBand.value);
-  const r=latestResults.find(v=>v.fc===fc);
-  if(!r){manualOut.textContent='—';return;}
-  const{T,r2}=manualFit(r,lastBuffer.fs,parseFloat(manualStartEl.value),parseFloat(manualEndEl.value));
+document.getElementById('btnManualT20Regress').onclick = () => {
+  const fc = parseFloat(document.getElementById('detailBand').value);
+  const r  = latestResults.find(v => v.fc === fc);
+  if(!r){ document.getElementById('manualT20Result').textContent = '—'; return; }
+  const t0 = parseFloat(document.getElementById('manualT20Start').value);
+  const t1 = parseFloat(document.getElementById('manualT20End').value);
+  const {T, r2} = manualFit(r, lastBuffer.fs, t0, t1);
   if(isFinite(T)){
-    r.T20_manual=T;
-    manualOut.textContent=`T20 = ${T.toFixed(3)} s  (R²=${isFinite(r2)?r2.toFixed(3):'—'})`;
-  }else{r.T20_manual=NaN;manualOut.textContent='—';}
+    r.T20_manual = T;
+    document.getElementById('manualT20Result').textContent = `T20 = ${T.toFixed(3)} s  (R²=${isFinite(r2)?r2.toFixed(3):'—'})`;
+  } else {
+    r.T20_manual = NaN;
+    document.getElementById('manualT20Result').textContent = '—';
+  }
   renderTable();
 };
 
 /* ── WAVEFORM ── */
-function drawWave(x,fs,pi,preStart,preEnd,postN,anaStart){
-  const cv=$('#wave');
-  const W=cv.width=cv.clientWidth||cv.offsetWidth||800,H=cv.height=130;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#161c2a';ctx.fillRect(0,0,W,H);
-  const span=x.length-anaStart;
-  const px=idx=>Math.round((idx-anaStart)/span*W);
+function drawWave(x, fs, pi, preStart, preEnd, postN, anaStart){
+  const cv = document.getElementById('wave');
+  const W = cv.width = cv.clientWidth || cv.offsetWidth || 800, H = cv.height = 130;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#161c2a'; ctx.fillRect(0,0,W,H);
+  const span = x.length - anaStart;
+  const pxOf = idx => Math.round((idx - anaStart) / span * W);
   // BG zone
-  ctx.fillStyle='rgba(96,165,250,.1)';
-  ctx.fillRect(px(preStart),0,px(preEnd)-px(preStart),H);
+  ctx.fillStyle = 'rgba(96,165,250,.1)';
+  ctx.fillRect(pxOf(preStart), 0, pxOf(preEnd)-pxOf(preStart), H);
   // post zone
-  ctx.fillStyle='rgba(52,211,153,.1)';
-  ctx.fillRect(px(pi),0,px(pi+postN)-px(pi),H);
+  ctx.fillStyle = 'rgba(52,211,153,.1)';
+  ctx.fillRect(pxOf(pi), 0, pxOf(pi+postN)-pxOf(pi), H);
   // waveform
-  ctx.strokeStyle='rgba(200,212,232,.6)';ctx.lineWidth=1;ctx.beginPath();
-  for(let p=0;p<W;p++){
-    const si=anaStart+Math.round(p*span/W);
-    const v=x[Math.max(0,Math.min(x.length-1,si))];
-    const py=H*(0.5-0.45*v);
-    p===0?ctx.moveTo(p,py):ctx.lineTo(p,py);
+  ctx.strokeStyle = 'rgba(200,212,232,.6)'; ctx.lineWidth = 1; ctx.beginPath();
+  for(let p=0; p<W; p++){
+    const si = anaStart + Math.round(p*span/W);
+    const v  = x[Math.max(0, Math.min(x.length-1, si))];
+    const py = H*(0.5 - 0.45*v);
+    p === 0 ? ctx.moveTo(p,py) : ctx.lineTo(p,py);
   }
   ctx.stroke();
   // peak line
-  const ppx=px(pi);
-  ctx.strokeStyle='#f87171';ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.moveTo(ppx,0);ctx.lineTo(ppx,H);ctx.stroke();
+  const ppx = pxOf(pi);
+  ctx.strokeStyle = '#f87171'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(ppx,0); ctx.lineTo(ppx,H); ctx.stroke();
 }
 
 /* ── COMMIT / AVERAGE ── */
-commitBtn.onclick=()=>{
-  if(!latestResults.length)return;
-  savedTakes.push(latestResults.map(r=>({...r})));
-  updateDots();setState(`${savedTakes.length}点保存済み`);
+document.getElementById('btnCommit').onclick = () => {
+  if(!latestResults.length) return;
+  savedTakes.push(latestResults.map(r => ({...r})));
+  updateDots(); setState(`${savedTakes.length}点保存済み`);
 };
-avgBtn.onclick=()=>{
-  if(savedTakes.length<2)return;
-  const fcs=savedTakes[0].map(r=>r.fc);
-  const tbody=$('#resultBody');tbody.innerHTML='';
-  fcs.forEach((fc,bi)=>{
-    const g=savedTakes.map(t=>t[bi]);
-    const av=arr=>{const a=arr.filter(isFinite);return a.length?a.reduce((x,y)=>x+y)/a.length:NaN;};
-    const snrA=av(g.map(r=>r.SNR));
-    const fmt=v=>isFinite(v)?v.toFixed(3):`<span style="color:var(--dim)">—</span>`;
-    const jc=snrA>=20?'j-ok':'j-ng';
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
+document.getElementById('btnAvg').onclick = () => {
+  if(savedTakes.length < 2) return;
+  const fcs = savedTakes[0].map(r => r.fc);
+  const tbody = document.getElementById('resultBody'); tbody.innerHTML = '';
+  fcs.forEach((fc, bi) => {
+    const g  = savedTakes.map(t => t[bi]);
+    const av = arr => { const a=arr.filter(isFinite); return a.length ? a.reduce((x,y)=>x+y)/a.length : NaN; };
+    const snrA = av(g.map(r => r.SNR));
+    const fmt  = v => isFinite(v) ? v.toFixed(3) : `<span style="color:var(--dim)">—</span>`;
+    const jc   = snrA >= 20 ? 'j-ok' : 'j-ng';
+    const tr   = document.createElement('tr');
+    tr.innerHTML = `
       <td>${fc}</td>
       <td>${fmt(av(g.map(r=>r.EDT)))}</td>
       <td>${fmt(av(g.map(r=>r.T10)))}</td>
@@ -914,29 +899,37 @@ avgBtn.onclick=()=>{
 };
 
 /* ── CSV ── */
-csvBtn.onclick=()=>{
-  if(!latestResults.length)return;
-  const h=['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','Judge'];
-  const lines=[h.join(',')];
+document.getElementById('btnDownloadCsv').onclick = () => {
+  if(!latestResults.length) return;
+  const h = ['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','Judge'];
+  const lines = [h.join(',')];
   for(const r of latestResults){
-    const t20=isFinite(r.T20_manual)?r.T20_manual:r.T20;
+    const t20 = isFinite(r.T20_manual) ? r.T20_manual : r.T20;
     lines.push([
-      r.fc,isFinite(r.EDT)?r.EDT.toFixed(3):'',
+      r.fc, isFinite(r.EDT)?r.EDT.toFixed(3):'',
       isFinite(r.T10)?r.T10.toFixed(3):'',
       isFinite(t20)?t20.toFixed(3):'',
       isFinite(r.T30)?r.T30.toFixed(3):'',
-      r.R2,r.SNR.toFixed(1),r.judge
+      r.R2, r.SNR.toFixed(1), r.judge
     ].join(','));
   }
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
-  a.download=`RT_${new Date().toISOString().slice(0,10)}.csv`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], {type:'text/csv'}));
+  a.download = `RT_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 };
 
-/* ── INIT ── */
+/* ── init ── */
 applyLang('jp');
-})();
+
+} // end startApp()
+
+/* acoustics-core.js のモジュールロード完了を待ってから起動 */
+if(window._acousticsCoreReady){
+  startApp();
+} else {
+  window.addEventListener('acoustics-ready', startApp, {once:true});
+}
 </script>
 </body>
 </html>
