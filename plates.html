@@ -6,7 +6,7 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
+    gtag('config', 'G-HFR5WYG42Q');
   </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -17,7 +17,7 @@
     body{margin:0;font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:var(--fg); background:var(--bg);}
     header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:0.2px;}
-    .container{display:grid;grid-template-columns: 540px 1fr;gap:16px;padding:16px;}
+    .container{display:grid;grid-template-columns: 560px 1fr;gap:16px;padding:16px;}
     .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow: 0 1px 2px rgba(0,0,0,0.03);}
     #controls{max-height: calc(100vh - 140px); overflow:auto;}
     .card h2{margin:0 0 12px 0;font-size:14px;}
@@ -35,7 +35,7 @@
     .note{font-size:11px;color:var(--muted);} footer{padding:8px 16px 20px;color:var(--muted);font-size:12px;}
     .kpi{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;} .kpi .item{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;}
     .item b{font-weight:700;} details.equations{margin-top:10px} details.equations summary{cursor:pointer}
-    .mutedbox{padding:10px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;}
+    .mutedbox{padding:10px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;margin:4px 0;}
     .summary{margin:0 0 12px 0;}
     .summary table{width:100%;border-collapse:collapse;font-size:12px;}
     .summary th,.summary td{border:1px solid var(--border);padding:6px 8px;vertical-align:middle;}
@@ -47,6 +47,17 @@
     .tables th,.tables td{border:1px solid var(--border);padding:6px 8px;text-align:right;}
     .tables th{background:#f8fafc;text-align:center;}
     .tables .rowhdr{white-space:nowrap;text-align:left;font-weight:600;}
+    .bc-box{padding:12px;border:1px dashed var(--border);border-radius:10px;background:#f8fafc;}
+    .bc-grid{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto 1fr auto;gap:0;width:220px;height:160px;margin:8px auto;}
+    .bc-edge{display:flex;align-items:center;justify-content:center;}
+    .bc-edge button{font-size:12px;font-weight:700;padding:5px 14px;border:2px solid var(--accent);border-radius:6px;cursor:pointer;background:#fff;color:var(--accent);min-width:38px;transition:all .15s;}
+    .bc-edge button.is-c{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .bc-center{display:flex;align-items:center;justify-content:center;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);text-align:center;padding:4px;}
+    .bc-top{grid-column:2;grid-row:1;} .bc-left{grid-column:1;grid-row:2;} .bc-plate{grid-column:2;grid-row:2;} .bc-right{grid-column:3;grid-row:2;} .bc-bottom{grid-column:2;grid-row:3;}
+    .bc-presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center;}
+    .bc-presets button{font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:#fff;}
+    .bc-presets button:hover{background:#f1f5f9;}
+    .bc-label{text-align:center;font-weight:700;font-size:14px;margin-top:6px;color:var(--fg);letter-spacing:1px;}
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
   <script>window.MathJax={tex:{inlineMath:[['$','$'],['\(','\)']]},svg:{fontCache:'global'}};</script>
@@ -55,17 +66,38 @@
 <body>
   <header>
     <h1>矩形板の駆動点インピーダンス（リアルタイム）</h1>
-    <span class="subtle">★: オクターブ平均（16, 31.5, 63, 125, 250, 500, 1000, 2000）／ ●: 無限長（周波数非依存）／ ▲: f<sub>11</sub>〜f<sub>32</sub></span>
+    <span class="subtle">★: オクターブ平均 ／ ●: 無限長（周波数非依存）／ ▲: f<sub>11</sub>〜f<sub>32</sub></span>
   </header>
 
   <div class="container">
     <div class="card" id="controls">
       <h2>設定</h2>
       <div class="grid1">
-        <div class="row">
-          <label for="material">材料プリセット</label>
-          <select id="material"></select>
+        <div class="bc-box">
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:var(--muted);">境界条件（各辺クリックで S⇔C 切替）</div>
+          <div class="bc-grid">
+            <div class="bc-edge bc-top"><button id="bc_top" title="上辺 (y=Ly)">S</button></div>
+            <div class="bc-edge bc-left"><button id="bc_left" title="左辺 (x=0)">S</button></div>
+            <div class="bc-center bc-plate"><span>Lx × Ly<br>板</span></div>
+            <div class="bc-edge bc-right"><button id="bc_right" title="右辺 (x=Lx)">S</button></div>
+            <div class="bc-edge bc-bottom"><button id="bc_bottom" title="下辺 (y=0)">S</button></div>
+          </div>
+          <div class="bc-label" id="bcLabel">SSSS</div>
+          <div class="bc-presets">
+            <button data-bc="SSSS">SSSS</button>
+            <button data-bc="CCCC">CCCC</button>
+            <button data-bc="SCSC">SCSC</button>
+            <button data-bc="CSCS">CSCS</button>
+            <button data-bc="CCSS">CCSS</button>
+            <button data-bc="SSCC">SSCC</button>
+            <button data-bc="CSSS">CSSS</button>
+            <button data-bc="CCCS">CCCS</button>
+            <button data-bc="CSSC">CSSC</button>
+            <button data-bc="SCCS">SCCS</button>
+          </div>
         </div>
+
+        <div class="row"><label for="material">材料プリセット</label><select id="material"></select></div>
         <div class="row"><label for="E">E [Pa]</label><input id="E" type="text" value="2.1e10" placeholder="例) 2.1e10 / 70GPa"/></div>
         <div class="row"><label for="rho">ρ [kg/m³]</label><input id="rho" type="number" step="1" min="10" value="2300"/></div>
         <div class="row"><label for="nu">ポアソン比 ν [-]</label><input id="nu" type="number" step="0.01" min="0.0" max="0.49" value="0.20"/></div>
@@ -81,13 +113,13 @@
               <label><input type="radio" name="ptmode" id="pt_grid"> 格子平均</label>
             </div>
           </div>
-          <div class="row" id="row_x0"><label for="x0mm">測定点 x [mm]（単点）</label><input id="x0mm" type="number" step="1" min="0" value="1800"/></div>
-          <div class="row" id="row_y0"><label for="y0mm">測定点 y [mm]（単点）</label><input id="y0mm" type="number" step="1" min="0" value="1350"/></div>
-          <div class="row hidden" id="row_Nx"><label for="Nx">分割数 Nx（格子）</label><input id="Nx" type="number" step="1" min="1" value="3"/></div>
-          <div class="row hidden" id="row_Ny"><label for="Ny">分割数 Ny（格子）</label><input id="Ny" type="number" step="1" min="1" value="3"/></div>
+          <div class="row" id="row_x0"><label for="x0mm">測定点 x [mm]</label><input id="x0mm" type="number" step="1" min="0" value="1800"/></div>
+          <div class="row" id="row_y0"><label for="y0mm">測定点 y [mm]</label><input id="y0mm" type="number" step="1" min="0" value="1350"/></div>
+          <div class="row hidden" id="row_Nx"><label for="Nx">分割数 Nx</label><input id="Nx" type="number" step="1" min="1" value="3"/></div>
+          <div class="row hidden" id="row_Ny"><label for="Ny">分割数 Ny</label><input id="Ny" type="number" step="1" min="1" value="3"/></div>
           <div class="row"><label>平均方法</label>
             <div class="stack">
-              <label><input type="radio" name="avgmode" id="avg_linear" checked> 線形平均（各点の|Z|または|Y|の算術平均）</label>
+              <label><input type="radio" name="avgmode" id="avg_linear" checked> 線形平均</label>
               <label><input type="radio" name="avgmode" id="avg_db"> dB値平均</label>
             </div>
           </div>
@@ -99,32 +131,29 @@
         <div class="row"><label for="ny">n<sub>max</sub></label><input id="ny" type="number" step="1" min="1" value="30"/></div>
 
         <div class="section">
-          <div class="row">
-            <label>表示</label>
+          <div class="row"><label>表示</label>
             <div class="stack">
               <label><input type="checkbox" id="showZ" checked> |Z|</label>
               <label><input type="checkbox" id="showY"> |Y|</label>
               <label><input type="checkbox" id="logx" checked> log f</label>
-              <label><input type="checkbox" id="db" checked> dB (20·log10)</label>
-              <label><input type="checkbox" id="bandbg" checked> 1/1オクターブ背景</label>
+              <label><input type="checkbox" id="db" checked> dB</label>
+              <label><input type="checkbox" id="bandbg" checked> Oct背景</label>
             </div>
           </div>
-          <div class="row">
-            <label>★/●/▲</label>
+          <div class="row"><label>★/●/▲</label>
             <div class="stack">
-              <button class="btn" id="toggleOct">★ 表示/非表示</button>
-              <button class="btn" id="toggleInf">● 表示/非表示</button>
-              <button class="btn" id="toggleModes">▲ 表示/非表示</button>
+              <button class="btn" id="toggleOct">★</button>
+              <button class="btn" id="toggleInf">●</button>
+              <button class="btn" id="toggleModes">▲</button>
             </div>
           </div>
         </div>
-
         <div class="kpi">
           <div class="item"><span class="subtle">D = </span><b id="kpiD">—</b> <span class="subtle">[N·m]</span></div>
           <div class="item"><span class="subtle">m' = </span><b id="kpimm">—</b> <span class="subtle">[kg/m²]</span></div>
           <div class="item"><span class="subtle">f<sub>11</sub> = </span><b id="kpif11">—</b> <span class="subtle">[Hz]</span></div>
+          <div class="item"><span class="subtle">BC = </span><b id="kpiBC">SSSS</b></div>
         </div>
-
         <div class="section">
           <div class="stack">
             <button class="btn primary" id="exportPng">PNG保存</button>
@@ -136,390 +165,458 @@
 
     <div class="card">
       <div id="summary" class="summary">
-        <table>
-          <caption>現在の条件</caption>
-          <tbody id="summaryBody"><tr><th>—</th><td>—</td></tr></tbody>
-        </table>
+        <table><caption>現在の条件</caption><tbody id="summaryBody"><tr><th>—</th><td>—</td></tr></tbody></table>
       </div>
-
       <div class="tables">
-        <table id="bandTable">
-          <caption>★/● オクターブバンド値（表頭＝周波数 [Hz]、表側＝系列）</caption>
-          <thead id="bandHead"></thead>
-          <tbody id="bandBody"></tbody>
-        </table>
-        <table id="modeTable">
-          <caption>共振周波数リスト</caption>
-          <thead id="modeHead"></thead>
-          <tbody id="modeBody"></tbody>
-        </table>
+        <table id="bandTable"><caption>★/● オクターブバンド値</caption><thead id="bandHead"></thead><tbody id="bandBody"></tbody></table>
+        <table id="modeTable"><caption>共振周波数リスト</caption><thead id="modeHead"></thead><tbody id="modeBody"></tbody></table>
       </div>
-
       <div id="plot"></div>
-
-      <div class="note">★: 1/1オクターブ中心（16, 31.5, 63, 125, 250, 500, 1000, 2000）でのバンド平均。●: 無限長（$Z_\infty=8\sqrt{D\,\rho h}$, 実数・周波数非依存）。▲: f<sub>11</sub>〜f<sub>32</sub>。</div>
+      <div class="note">★: 1/1オクターブ中心（16〜2000 Hz）でのバンド平均。●: 無限長（$Z_\infty=8\sqrt{D\,\rho h}$）。▲: f<sub>11</sub>〜f<sub>32</sub>。</div>
       <details class="equations">
-        <summary>計算式（MathJax）を表示</summary>
+        <summary>計算式を表示</summary>
         <div>
-          <p>モード形状：$ \psi_{pq}(x,y)=\sin\!\left(\frac{p\pi x}{L_x}\right)\sin\!\left(\frac{q\pi y}{L_y}\right)$</p>
-          <p>固有角振動数：$ \omega_{pq}=\sqrt{\frac{D}{\rho h}}\,k_{pq}^2,\ \ k_{pq}^2=\pi^2\!\left(\frac{p^2}{L_x^2}+\frac{q^2}{L_y^2}\right)$</p>
-          <p>モード和点モビリティ（構造減衰）：
-          $$ Y(x_0,y_0,\omega)=\frac{i\,4\omega}{\rho h\,L_xL_y}\sum_{p=1}^{m_{\max}}\sum_{q=1}^{n_{\max}} \frac{\psi_{pq}^2(x_0,y_0)}{[\omega_{pq}^2(1+i\eta)]-\omega^2},\qquad Z=\frac{1}{Y}. $$
-          </p>
-          <p>無限長板：$ Z_\infty=8\sqrt{D\,\rho h}$（周波数非依存）</p>
-          <p>薄板曲げ剛性：$ D=\frac{E h^3}{12(1-\nu^2)},\ \ m'=\rho h$</p>
+          <h3>梁関数法（Warburton 1954）</h3>
+          <p>$\psi_{pq}(x,y)=X_p(x)\,Y_q(y)$</p>
+          <h4>SS: $X_m=\sin(m\pi x/L)$, $\beta_m L=m\pi$, $\int X^2=L/2$</h4>
+          <h4>CC: $\cos\beta L\cosh\beta L=1$, $\int X^2=L$</h4>
+          <h4>CS: $\tan\beta L=\tanh\beta L$, $\int X^2=L$</h4>
+          <p>$ \omega_{pq}=\sqrt{D/\rho h}\,(\beta_p^2+\gamma_q^2) $</p>
+          <p>$$ Y(\omega)=\frac{i\omega}{\rho h L_x L_y}\sum_p\sum_q \frac{X_p^2(x_0)\,Y_q^2(y_0)\,L_xL_y}{N_xN_y\,[\omega_{pq}^2(1+i\eta)-\omega^2]} $$</p>
         </div>
       </details>
     </div>
   </div>
-
-  <footer><span class="subtle">Model: Kirchhoff thin plate (SSSS). Modal sum with p=1..m<sub>max</sub>, q=1..n<sub>max</sub>.</span></footer>
+  <footer><span class="subtle">Kirchhoff thin plate — beam function method (SS/CC/CS per direction). p=1..m<sub>max</sub>, q=1..n<sub>max</sub>.</span></footer>
 
   <script>
   (function(){
     "use strict";
-    const $ = (id) => document.getElementById(id);
-    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const $ = id => document.getElementById(id);
     const EPS = 1e-30;
 
-    function c(re, im){ return {re, im}; }
     function cdiv(a,b){ const d=b.re*b.re+b.im*b.im||EPS; return {re:(a.re*b.re+a.im*b.im)/d, im:(a.im*b.re-a.re*b.im)/d}; }
     function cinv(a){ const d=a.re*a.re+a.im*a.im||EPS; return {re:a.re/d, im:-a.im/d}; }
-    const cabs = (z)=> Math.hypot(z.re, z.im);
+    const cabs = z => Math.hypot(z.re, z.im);
 
-    const MATERIAL_PROPERTIES = {
-      "コンクリート":       { rho: 2.3e3,   E: 2.1e10,  eta: 0.005, nu_typ: 0.20 },
-      "軽量コンクリート":   { rho: 1.5e3,   E: 0.5e10,  eta: 0.005, nu_typ: 0.20 },
-      "発泡コンクリート":   { rho: 0.6e3,   E: 0.16e10, eta: 0.005, nu_typ: 0.20 },
-      "石こうボード":       { rho: 0.8e3,   E: 0.18e10, eta: 0.005, nu_typ: 0.30 },
-      "特殊石こうボード":   { rho: 1.1e3,   E: 0.2e10,  eta: 0.005, nu_typ: 0.30 },
-      "フレキシブル板":     { rho: 1.9e3,   E: 0.2e10,  eta: 0.005, nu_typ: 0.30 },
-      "ハードボード":       { rho: 0.9e3,   E: 0.6e10,  eta: 0.005, nu_typ: 0.30 },
-      "合板":               { rho: 0.6e3,   E: 0.5e10,  eta: 0.005, nu_typ: 0.30 },
-      "コルク":             { rho: 0.25e3,  E: 6.0e7,   eta: 0.005, nu_typ: 0.30 },
-      "ガラス":             { rho: 2500,    E: 70.0e9,  eta: 0.005, nu_typ: 0.23 },
-      "硬質塩ビ":           { rho: 1.4e3,   E: 0.35e10, eta: 0.012, nu_typ: 0.35 },
-      "ゴム(硬度50)":       { rho: 1.11e3,  E: 0.46e7,  eta: 0.10,  nu_typ: 0.49 },
-      "手動入力":           { rho: 0,       E: 0,       eta: 0.01,  nu_typ: 0.30 }
-    };
+    // ═══════════════════════════════════════════════════
+    //  BEAM EIGENVALUE SOLVERS
+    // ═══════════════════════════════════════════════════
 
-    const OCT_CENTERS = [16,31.5,63,125,250,500,1000,2000];
-    const BAND_FACTOR = Math.SQRT2;
+    const _rootCache = {};
 
-    const state = {
-      material:"コンクリート",
-      E:2.1e10, rho:2300, nu:0.20, eta:0.005, h:0.200,
-      Lx:3.6, Ly:2.7,
-      x0mm:1800, y0mm:1350,
-      ptmode:"single", Nx:3, Ny:3, avgMode:"linear",
-      fmin:10, fmax:2000,
-      mx:30, ny:30,
-      showZ:true, showY:false, logx:true, db:true,
-      showOct:true, showInf:true, showModes:true,
-      bandBg:true
-    };
-
-    function parseSci(text){
-      const s = (text||"").toString().trim().toLowerCase();
-      if(!s) return NaN;
-      const unit = s.endsWith("gpa") ? 1e9 : s.endsWith("mpa") ? 1e6 : s.endsWith("pa") ? 1 : 1;
-      const t = s.replace(/gpa|mpa|pa$/,"");
-      const v = Number(t);
-      return v*unit;
-    }
-    function toExpPlain(n, sig){
-      const s = Number(n).toExponential((sig||3)-1);
-      const m = s.split("e");
-      let mant = m[0]; let exp = String(Number(m[1]));
-      mant = mant.replace(/\.?0+$/,"");
-      return mant+"e"+exp;
-    }
-
-    function fillMaterialOptions(){
-      const sel = $("material");
-      sel.innerHTML = Object.keys(MATERIAL_PROPERTIES).map(k=>`<option value="${k}">${k}</option>`).join("");
-      sel.value = state.material;
-    }
-
-    function applyPreset(name){
-      const p = MATERIAL_PROPERTIES[name]; if(!p) return;
-      if(name!=="手動入力"){
-        $("E").value   = toExpPlain(p.E,3);
-        $("rho").value = p.rho;
-        $("nu").value  = p.nu_typ;
-        $("eta").value = (p.eta*100).toFixed(2);
+    function newtonSolve(f, fp, x0){
+      let x = x0;
+      for(let i=0; i<60; i++){
+        const fv = f(x), dfv = fp(x);
+        if(Math.abs(dfv) < 1e-30) break;
+        const dx = fv/dfv; x -= dx;
+        if(Math.abs(dx) < 1e-14 * Math.abs(x)) break;
       }
-      pullFromUI();
+      return x;
     }
 
-    const D  = (E,nu,h)=> E*h*h*h/(12*(1-nu*nu));
-    const mp = (rho,h)=> rho*h;
-    function omega_mn(m,n,Lx,Ly,E,nu,rho,h){
-      const k2 = Math.PI*Math.PI*((m*m)/(Lx*Lx) + (n*n)/(Ly*Ly));
-      return Math.sqrt(D(E,nu,h)/mp(rho,h)) * k2;
-    }
-    function fmn(m,n,Lx,Ly,E,nu,rho,h){
-      return omega_mn(m,n,Lx,Ly,E,nu,rho,h)/(2*Math.PI);
+    function betaL_SS(nmax){
+      const key="SS_"+nmax; if(_rootCache[key]) return _rootCache[key];
+      const r=[]; for(let m=1;m<=nmax;m++) r.push(m*Math.PI);
+      return (_rootCache[key]=r);
     }
 
-    function mobilityAtPoint(freqs, params){
-      const {E,nu,rho,h,Lx,Ly,x0,y0,eta,mx,ny} = params;
-      const C = 4/(rho*h*Lx*Ly);
-      const Y = new Array(freqs.length).fill(0).map(()=>({re:0,im:0}));
-      for(let m=1; m<=mx; m++){
-        const sx = Math.sin(m*Math.PI*x0/Lx); const sx2=sx*sx;
-        for(let n=1; n<=ny; n++){
-          const sy = Math.sin(n*Math.PI*y0/Ly); const sy2=sy*sy;
-          const omg = omega_mn(m,n,Lx,Ly,E,nu,rho,h);
-          const omg2 = omg*omg;
-          const phi2 = sx2*sy2;
+    function betaL_CC(nmax){
+      const key="CC_"+nmax; if(_rootCache[key]) return _rootCache[key];
+      const f  = x => Math.cos(x)*Math.cosh(x)-1;
+      const fp = x => -Math.sin(x)*Math.cosh(x)+Math.cos(x)*Math.sinh(x);
+      const r=[];
+      for(let m=1;m<=nmax;m++){
+        let x0;
+        if(m===1) x0=4.7300407448627; else if(m===2) x0=7.8532046240958;
+        else if(m===3) x0=10.9956078380017; else x0=(2*m+1)*Math.PI/2;
+        r.push(newtonSolve(f,fp,x0));
+      }
+      return (_rootCache[key]=r);
+    }
+
+    function betaL_CS(nmax){
+      const key="CS_"+nmax; if(_rootCache[key]) return _rootCache[key];
+      const f  = x => Math.sin(x)*Math.cosh(x)-Math.cos(x)*Math.sinh(x);
+      const fp = x => 2*Math.sin(x)*Math.sinh(x);
+      const r=[];
+      for(let m=1;m<=nmax;m++){
+        let x0;
+        if(m===1) x0=3.9266023120479; else if(m===2) x0=7.0685834705770;
+        else if(m===3) x0=10.2101761241668; else x0=(4*m+1)*Math.PI/4;
+        r.push(newtonSolve(f,fp,x0));
+      }
+      return (_rootCache[key]=r);
+    }
+
+    function sigma_beam(bL){
+      return (Math.cosh(bL)-Math.cos(bL))/(Math.sinh(bL)-Math.sin(bL));
+    }
+
+    function getBetaLRoots(t, n){
+      if(t==="SS") return betaL_SS(n);
+      if(t==="CC") return betaL_CC(n);
+      return betaL_CS(n);
+    }
+
+    function beamEval(bcType, x0, L, mmax){
+      const vals=[], norms=[];
+      if(bcType==="SS"){
+        const roots=betaL_SS(mmax);
+        for(let m=0;m<mmax;m++){
+          vals.push(Math.sin(roots[m]*x0/L));
+          norms.push(L/2);
+        }
+      } else {
+        const roots = bcType==="CC" ? betaL_CC(mmax) : betaL_CS(mmax);
+        for(let m=0;m<mmax;m++){
+          const bL=roots[m], beta=bL/L, sig=sigma_beam(bL), bx=beta*x0;
+          vals.push(Math.cosh(bx)-Math.cos(bx)-sig*(Math.sinh(bx)-Math.sin(bx)));
+          norms.push(L);
+        }
+      }
+      return {vals, norms};
+    }
+
+    function classifyBeam(endA, endB){
+      if(endA==='S'&&endB==='S') return {type:"SS",flip:false};
+      if(endA==='C'&&endB==='C') return {type:"CC",flip:false};
+      if(endA==='C'&&endB==='S') return {type:"CS",flip:false};
+      return {type:"CS",flip:true};
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  MATERIAL & STATE
+    // ═══════════════════════════════════════════════════
+
+    const MAT={
+      "コンクリート":{rho:2.3e3,E:2.1e10,eta:0.005,nu:0.20},
+      "軽量コンクリート":{rho:1.5e3,E:0.5e10,eta:0.005,nu:0.20},
+      "発泡コンクリート":{rho:0.6e3,E:0.16e10,eta:0.005,nu:0.20},
+      "石こうボード":{rho:0.8e3,E:0.18e10,eta:0.005,nu:0.30},
+      "特殊石こうボード":{rho:1.1e3,E:0.2e10,eta:0.005,nu:0.30},
+      "フレキシブル板":{rho:1.9e3,E:0.2e10,eta:0.005,nu:0.30},
+      "ハードボード":{rho:0.9e3,E:0.6e10,eta:0.005,nu:0.30},
+      "合板":{rho:0.6e3,E:0.5e10,eta:0.005,nu:0.30},
+      "コルク":{rho:0.25e3,E:6.0e7,eta:0.005,nu:0.30},
+      "ガラス":{rho:2500,E:70.0e9,eta:0.005,nu:0.23},
+      "硬質塩ビ":{rho:1.4e3,E:0.35e10,eta:0.012,nu:0.35},
+      "ゴム(硬度50)":{rho:1.11e3,E:0.46e7,eta:0.10,nu:0.49},
+      "手動入力":{rho:0,E:0,eta:0.01,nu:0.30}
+    };
+
+    const OCT=[16,31.5,63,125,250,500,1000,2000], BF=Math.SQRT2;
+
+    const S={
+      E:2.1e10, rho:2300, nu:0.20, eta:0.005, h:0.200,
+      Lx:3.6, Ly:2.7, x0mm:1800, y0mm:1350,
+      Nx:3, Ny:3, avgMode:"linear",
+      fmin:10, fmax:2000, mx:30, ny:30,
+      showZ:true, showY:false, logx:true, db:true,
+      showOct:true, showInf:true, showModes:true, bandBg:true,
+      bcLeft:'S', bcRight:'S', bcBottom:'S', bcTop:'S'
+    };
+
+    const bcStr=()=> S.bcLeft+S.bcRight+S.bcBottom+S.bcTop;
+    const xB=()=> classifyBeam(S.bcLeft,S.bcRight);
+    const yB=()=> classifyBeam(S.bcBottom,S.bcTop);
+    const Df=(E,nu,h)=> E*h*h*h/(12*(1-nu*nu));
+    const mpf=(rho,h)=> rho*h;
+    const Zinf=(E,nu,rho,h)=> 8*Math.sqrt(Df(E,nu,h)*(rho*h));
+
+    function fmn(m,n){
+      const xb=xB(), yb=yB();
+      const bLx=getBetaLRoots(xb.type,Math.max(m,S.mx));
+      const bLy=getBetaLRoots(yb.type,Math.max(n,S.ny));
+      const bp=bLx[m-1]/S.Lx, bq=bLy[n-1]/S.Ly;
+      return Math.sqrt(Df(S.E,S.nu,S.h)/mpf(S.rho,S.h))*(bp*bp+bq*bq)/(2*Math.PI);
+    }
+
+    function mobilityAtPoint(freqs, x0, y0){
+      const {E,nu,rho,h,Lx,Ly,eta,mx,ny}=S;
+      const xb=xB(), yb=yB();
+      const ex0=xb.flip?(Lx-x0):x0, ey0=yb.flip?(Ly-y0):y0;
+      const xE=beamEval(xb.type,ex0,Lx,mx);
+      const yE=beamEval(yb.type,ey0,Ly,ny);
+      const bLx=getBetaLRoots(xb.type,mx);
+      const bLy=getBetaLRoots(yb.type,ny);
+      const Mplate=rho*h*Lx*Ly;
+      const Y=new Array(freqs.length).fill(0).map(()=>({re:0,im:0}));
+      for(let p=0;p<mx;p++){
+        const px=xE.vals[p], nx_=xE.norms[p], bp=bLx[p]/Lx;
+        for(let q=0;q<ny;q++){
+          const py=yE.vals[q], ny_=yE.norms[q], bq=bLy[q]/Ly;
+          const k2=bp*bp+bq*bq;
+          const omg=Math.sqrt(Df(E,nu,h)/mpf(rho,h))*k2;
+          const omg2=omg*omg;
+          const phi2n=(px*px*py*py*Lx*Ly)/(nx_*ny_);
+          const C=phi2n/Mplate;
           for(let i=0;i<freqs.length;i++){
-            const w = 2*Math.PI*freqs[i];
-            const den = {re:(omg2 - w*w), im:(eta*omg2)};
-            const num = {re:0, im:w};
-            const frac = cdiv(num, den);
-            Y[i].re += C*phi2*frac.re;
-            Y[i].im += C*phi2*frac.im;
+            const w=2*Math.PI*freqs[i];
+            const dR=omg2-w*w, dI=eta*omg2;
+            const d=dR*dR+dI*dI||EPS;
+            Y[i].re+=C*w*dI/d;
+            Y[i].im+=C*w*dR/d;
           }
         }
       }
       return Y;
     }
 
-    const Zinf_const = (E,nu,rho,h)=> 8*Math.sqrt( D(E,nu,h) * (rho*h) );
-    function toDB20(arr, ref){ return arr.map(v => 20*Math.log10( Math.max(v, 1e-30) / ref )); }
-    function interpY(xarr, yarr, x){
-      if(x<=xarr[0]) return yarr[0];
-      if(x>=xarr[xarr.length-1]) return yarr[yarr.length-1];
-      let lo=0, hi=xarr.length-1; while(hi-lo>1){ const mid=(lo+hi)>>1; if(xarr[mid] > x) hi=mid; else lo=mid; }
-      const x0=xarr[lo], x1=xarr[hi], y0=yarr[lo], y1=yarr[hi];
-      const t = (Math.log(x) - Math.log(x0))/(Math.log(x1)-Math.log(x0));
-      return y0*(1-t)+y1*t;
-    }
+    // ═══════════════════════════════════════════════════
+    //  HELPERS
+    // ═══════════════════════════════════════════════════
 
-    function updateVis(){
-      const grid = $("pt_grid").checked;
-      document.getElementById("row_x0").classList.toggle("hidden", grid);
-      document.getElementById("row_y0").classList.toggle("hidden", grid);
-      document.getElementById("row_Nx").classList.toggle("hidden", !grid);
-      document.getElementById("row_Ny").classList.toggle("hidden", !grid);
+    function parseSci(t){
+      const s=(t||"").toString().trim().toLowerCase();
+      if(!s) return NaN;
+      const u=s.endsWith("gpa")?1e9:s.endsWith("mpa")?1e6:s.endsWith("pa")?1:1;
+      return Number(s.replace(/gpa|mpa|pa$/,""))*u;
+    }
+    function toExp(n,sig){
+      const s=Number(n).toExponential((sig||3)-1), m=s.split("e");
+      return m[0].replace(/\.?0+$/,"")+"e"+String(Number(m[1]));
     }
 
     function getPositions(){
-      if(!$("pt_grid").checked){ return [[state.x0mm/1000, state.y0mm/1000]]; }
-      const xs = Array.from({length:state.Nx}, (_,i)=> (i+0.5)/state.Nx * state.Lx);
-      const ys = Array.from({length:state.Ny}, (_,j)=> (j+0.5)/state.Ny * state.Ly);
-      const pts = []; for(const x of xs) for(const y of ys) pts.push([x,y]); return pts;
+      if(!$("pt_grid").checked) return [[S.x0mm/1000, S.y0mm/1000]];
+      const xs=Array.from({length:S.Nx},(_,i)=>(i+0.5)/S.Nx*S.Lx);
+      const ys=Array.from({length:S.Ny},(_,j)=>(j+0.5)/S.Ny*S.Ly);
+      const pts=[]; for(const x of xs) for(const y of ys) pts.push([x,y]); return pts;
     }
 
-    function computeAveraged(freqs, params){
-      const pts = getPositions();
-      const n = pts.length;
-      let accZ = new Array(freqs.length).fill(0);
-      let accY = new Array(freqs.length).fill(0);
+    function computeAvg(freqs){
+      const pts=getPositions(), n=pts.length;
+      let aZ=new Float64Array(freqs.length), aY=new Float64Array(freqs.length);
       for(const [x,y] of pts){
-        const Yc = mobilityAtPoint(freqs, {...params, x0:x, y0:y});
-        const Zc = Yc.map(cinv);
-        if(state.avgMode==="db"){
-          const mz = Zc.map(z=>20*Math.log10(Math.max(cabs(z),1e-30)));
-          const my = Yc.map(yv=>20*Math.log10(Math.max(cabs(yv),1e-30)));
-          for(let i=0;i<freqs.length;i++){ accZ[i]+=mz[i]; accY[i]+=my[i]; }
-        }else{
-          for(let i=0;i<freqs.length;i++){ accZ[i]+=cabs(Zc[i]); accY[i]+=cabs(Yc[i]); }
+        const Yc=mobilityAtPoint(freqs,x,y), Zc=Yc.map(cinv);
+        if(S.avgMode==="db"){
+          for(let i=0;i<freqs.length;i++){
+            aZ[i]+=20*Math.log10(Math.max(cabs(Zc[i]),1e-30));
+            aY[i]+=20*Math.log10(Math.max(cabs(Yc[i]),1e-30));
+          }
+        } else {
+          for(let i=0;i<freqs.length;i++){ aZ[i]+=cabs(Zc[i]); aY[i]+=cabs(Yc[i]); }
         }
       }
-      for(let i=0;i<freqs.length;i++){ accZ[i]/=n; accY[i]/=n; }
-      return { yZ: accZ, yY: accY, alreadyDB: state.avgMode==="db" };
+      for(let i=0;i<freqs.length;i++){ aZ[i]/=n; aY[i]/=n; }
+      return {yZ:Array.from(aZ), yY:Array.from(aY), alreadyDB:S.avgMode==="db"};
     }
 
-    function buildBandTables(freqs, primaryY){
-      const head = document.getElementById("bandHead"), body=document.getElementById("bandBody");
-      const cells = ["<th></th>"];
-      const cols = [];
-      OCT_CENTERS.forEach(fc=>{
-        const lo=fc/BAND_FACTOR, hi=fc*BAND_FACTOR;
-        if(hi<state.fmin || lo>state.fmax) return;
-        cells.push(`<th>${fc}</th>`); cols.push(fc);
-      });
-      head.innerHTML = `<tr>${cells.join("")}</tr>`;
-      const meanVals = cols.map(fc=>{
-        const lo=fc/BAND_FACTOR, hi=fc*BAND_FACTOR;
-        let acc=0,cnt=0;
-        for(let i=0;i<freqs.length;i++){ const f=freqs[i]; if(f>=lo&&f<=hi){ acc+=primaryY[i]; cnt++; } }
-        return cnt? acc/cnt : NaN;
-      });
-      const zinf = Zinf_const(state.E,state.nu,state.rho,state.h);
-      const zinfVal = state.db ? 20*Math.log10(zinf) : zinf;
-      const infVals = cols.map(_=> zinfVal);
-      const row1 = `<tr><td class="rowhdr">★ Octave mean</td>${meanVals.map(v=> `<td>${isFinite(v)? v.toFixed(1):""}</td>`).join("")}</tr>`;
-      const row2 = `<tr><td class="rowhdr">● Infinite plate</td>${infVals.map(v=> `<td>${isFinite(v)? v.toFixed(1):""}</td>`).join("")}</tr>`;
-      body.innerHTML = row1+row2;
+    function interpY(xa,ya,x){
+      if(x<=xa[0]) return ya[0]; if(x>=xa[xa.length-1]) return ya[ya.length-1];
+      let lo=0,hi=xa.length-1; while(hi-lo>1){const m=(lo+hi)>>1; if(xa[m]>x)hi=m;else lo=m;}
+      const t=(Math.log(x)-Math.log(xa[lo]))/(Math.log(xa[hi])-Math.log(xa[lo]));
+      return ya[lo]*(1-t)+ya[hi]*t;
     }
 
+    // ═══════════════════════════════════════════════════
+    //  TABLES
+    // ═══════════════════════════════════════════════════
+
+    function buildBandTable(freqs, pY){
+      const hd=$("bandHead"),bd=$("bandBody"), cells=["<th></th>"], cols=[];
+      OCT.forEach(fc=>{ const lo=fc/BF,hi=fc*BF; if(hi<S.fmin||lo>S.fmax)return; cells.push(`<th>${fc}</th>`); cols.push(fc); });
+      hd.innerHTML=`<tr>${cells.join("")}</tr>`;
+      const mv=cols.map(fc=>{ const lo=fc/BF,hi=fc*BF; let a=0,c=0;
+        for(let i=0;i<freqs.length;i++) if(freqs[i]>=lo&&freqs[i]<=hi){a+=pY[i];c++;}
+        return c?a/c:NaN; });
+      const zi=Zinf(S.E,S.nu,S.rho,S.h), zv=S.db?20*Math.log10(zi):zi;
+      bd.innerHTML=
+        `<tr><td class="rowhdr">★ Oct (${bcStr()})</td>${mv.map(v=>`<td>${isFinite(v)?v.toFixed(1):""}</td>`).join("")}</tr>`+
+        `<tr><td class="rowhdr">● Infinite</td>${cols.map(_=>`<td>${zv.toFixed(1)}</td>`).join("")}</tr>`;
+    }
     function buildModeTable(){
-      const head=document.getElementById("modeHead"), body=document.getElementById("modeBody");
       const modes=[[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]];
-      head.innerHTML = `<tr>${modes.map(([m,n])=>`<th>f_${m}${n}</th>`).join("")}</tr>`;
-      const vals = modes.map(([m,n])=> fmn(m,n,state.Lx,state.Ly,state.E,state.nu,state.rho,state.h).toFixed(1));
-      body.innerHTML = `<tr>${vals.map(v=>`<td>${v}</td>`).join("")}</tr>`;
+      $("modeHead").innerHTML=`<tr>${modes.map(([m,n])=>`<th>f_${m}${n}</th>`).join("")}</tr>`;
+      $("modeBody").innerHTML=`<tr>${modes.map(([m,n])=>`<td>${fmn(m,n).toFixed(1)}</td>`).join("")}</tr>`;
+    }
+    function updateSummary(){
+      const d=Df(S.E,S.nu,S.h), mps=mpf(S.rho,S.h), zi=Zinf(S.E,S.nu,S.rho,S.h), f11=fmn(1,1);
+      const xb=xB(),yb=yB();
+      const rows=[
+        [bcStr(),"境界条件"],
+        [`x: ${xb.type}${xb.flip?" (flip)":""},  y: ${yb.type}${yb.flip?" (flip)":""}`,"梁タイプ"],
+        [toExp(S.E,3),"E [Pa]"],[S.rho.toFixed(0),"ρ"],[S.nu.toFixed(2),"ν"],
+        [(S.eta*100).toFixed(2),"η [%]"],[(S.h*1000).toFixed(1),"h [mm]"],
+        [`${S.Lx.toFixed(3)}, ${S.Ly.toFixed(3)}`,"Lx, Ly"],
+        [$("pt_grid").checked?`${S.Nx}×${S.Ny}`:`${S.x0mm}, ${S.y0mm}`,$("pt_grid").checked?"格子":"測定点 [mm]"],
+        [d.toExponential(3),"D [N·m]"],[mps.toFixed(2),"m' [kg/m²]"],
+        [`${zi.toExponential(3)} / ${(20*Math.log10(zi)).toFixed(1)}`,"Z∞ / dB"],
+        [f11.toFixed(1),"f11 [Hz]"]
+      ];
+      $("summaryBody").innerHTML=rows.map(([v,k])=>`<tr><th>${v}</th><td>${k}</td></tr>`).join("");
     }
 
-    function updateSummary(){
-      const d = D(state.E,state.nu,state.h);
-      const mps = mp(state.rho,state.h);
-      const zinf = Zinf_const(state.E,state.nu,state.rho,state.h);
-      const f11 = fmn(1,1,state.Lx,state.Ly,state.E,state.nu,state.rho,state.h);
-      const rows = [
-        [toExpPlain(state.E,3), "E [Pa]"],
-        [state.rho.toFixed(0), "ρ [kg/m³]"],
-        [state.nu.toFixed(2), "ν [-]"],
-        [(state.eta*100).toFixed(2), "η [%]"],
-        [(state.h*1000).toFixed(1), "h [mm]"],
-        [`${state.Lx.toFixed(3)}, ${state.Ly.toFixed(3)}`, "Lx, Ly [m]"],
-        [ ( document.getElementById("pt_grid").checked ? `${state.Nx} × ${state.Ny}` : `${state.x0mm.toFixed(0)}, ${state.y0mm.toFixed(0)}` ),
-          document.getElementById("pt_grid").checked ? "格子平均" : "測定点 [mm]" ],
-        [`${state.mx}, ${state.ny}`, "m_max, n_max"],
-        [d.toExponential(3), "D [N·m]"],
-        [mps.toFixed(2), "m' [kg/m²]"],
-        [`${zinf.toExponential(3)} / ${(20*Math.log10(zinf)).toFixed(1)}`, "Z∞ [Ns/m] / dB"],
-        [f11.toFixed(1), "f11 [Hz]"]
-      ];
-      document.getElementById("summaryBody").innerHTML = rows.map(([v,k])=>`<tr><th>${v}</th><td>${k}</td></tr>`).join("");
-    }
+    // ═══════════════════════════════════════════════════
+    //  DRAW
+    // ═══════════════════════════════════════════════════
 
     function pullFromUI(){
-      state.material = document.getElementById("material").value;
-      state.E   = parseSci(document.getElementById("E").value);
-      state.rho = parseFloat(document.getElementById("rho").value);
-      state.nu  = clamp(parseFloat(document.getElementById("nu").value), 0.0, 0.49);
-      state.eta = Math.max(0.0001, parseFloat(document.getElementById("eta").value)/100);
-      state.h   = parseFloat(document.getElementById("thick").value)/1000;
-      state.Lx  = parseFloat(document.getElementById("Lx").value);
-      state.Ly  = parseFloat(document.getElementById("Ly").value);
-      state.x0mm = Math.max(0, parseFloat(document.getElementById("x0mm").value));
-      state.y0mm = Math.max(0, parseFloat(document.getElementById("y0mm").value));
-      state.Nx = Math.max(1, parseInt(document.getElementById("Nx").value));
-      state.Ny = Math.max(1, parseInt(document.getElementById("Ny").value));
-      state.fmin= Math.max(10, parseFloat(document.getElementById("fmin").value));
-      state.fmax= Math.min(2000, Math.max(state.fmin+10, parseFloat(document.getElementById("fmax").value)));
-      state.mx  = Math.max(1, parseInt(document.getElementById("mx").value));
-      state.ny  = Math.max(1, parseInt(document.getElementById("ny").value));
-      state.showZ = document.getElementById("showZ").checked;
-      state.showY = document.getElementById("showY").checked;
-      state.logx  = document.getElementById("logx").checked;
-      state.db    = document.getElementById("db").checked;
-      state.bandBg= document.getElementById("bandbg").checked;
-      state.ptmode = document.getElementById("pt_grid").checked ? "grid" : "single";
-      state.avgMode = document.getElementById("avg_db").checked ? "db" : "linear";
-
-      updateVis();
-      updateSummary();
-      plot();
+      S.E=parseSci($("E").value); S.rho=parseFloat($("rho").value);
+      S.nu=parseFloat($("nu").value); S.eta=parseFloat($("eta").value)/100;
+      S.h=parseFloat($("thick").value)/1000;
+      S.Lx=parseFloat($("Lx").value); S.Ly=parseFloat($("Ly").value);
+      S.x0mm=parseFloat($("x0mm").value); S.y0mm=parseFloat($("y0mm").value);
+      S.Nx=parseInt($("Nx").value,10); S.Ny=parseInt($("Ny").value,10);
+      S.avgMode=$("avg_db").checked?"db":"linear";
+      S.fmin=parseFloat($("fmin").value); S.fmax=parseFloat($("fmax").value);
+      S.mx=parseInt($("mx").value,10); S.ny=parseInt($("ny").value,10);
+      S.showZ=$("showZ").checked; S.showY=$("showY").checked;
+      S.logx=$("logx").checked; S.db=$("db").checked; S.bandBg=$("bandbg").checked;
+      if([S.E,S.rho,S.nu,S.eta,S.h,S.Lx,S.Ly].some(isNaN)) return;
+      if(S.h<=0||S.Lx<=0||S.Ly<=0||S.rho<=0) return;
+      draw();
     }
 
-    function attachEvents(){
-      document.getElementById("material").addEventListener("change",(e)=>applyPreset(e.target.value));
-      ["E","rho","nu","eta","thick","Lx","Ly","x0mm","y0mm","Nx","Ny","fmin","fmax","mx","ny",
-       "showZ","showY","logx","db","bandbg","pt_single","pt_grid","avg_linear","avg_db"].forEach(id=>{
-        const el = document.getElementById(id); if(el){ el.addEventListener("input", pullFromUI); el.addEventListener("change", pullFromUI); }
+    let _raf=null;
+    function scheduleDraw(){ if(_raf)cancelAnimationFrame(_raf); _raf=requestAnimationFrame(()=>pullFromUI()); }
+
+    function draw(){
+      const {fmin,fmax}=S, N=2000, freqs=[];
+      for(let i=0;i<N;i++) freqs.push(fmin*Math.pow(fmax/fmin,i/(N-1)));
+
+      let yZ,yY,alreadyDB;
+      if($("pt_grid").checked){
+        ({yZ,yY,alreadyDB}=computeAvg(freqs));
+      } else {
+        const Yc=mobilityAtPoint(freqs,S.x0mm/1000,S.y0mm/1000), Zc=Yc.map(cinv);
+        yZ=Zc.map(cabs); yY=Yc.map(cabs); alreadyDB=false;
+      }
+
+      let pZ=yZ.slice(), pY=yY.slice();
+      if(S.db&&!alreadyDB){
+        pZ=pZ.map(v=>20*Math.log10(Math.max(v,1e-30)));
+        pY=pY.map(v=>20*Math.log10(Math.max(v,1e-30)));
+      }
+
+      const zi=Zinf(S.E,S.nu,S.rho,S.h), d=Df(S.E,S.nu,S.h), mps=mpf(S.rho,S.h), f11=fmn(1,1);
+      $("kpiD").textContent=d.toExponential(3);
+      $("kpimm").textContent=mps.toFixed(2);
+      $("kpif11").textContent=f11.toFixed(1);
+      $("kpiBC").textContent=bcStr();
+
+      updateSummary(); buildModeTable();
+      const primary=S.showZ?pZ:pY;
+      buildBandTable(freqs,primary);
+
+      const bc=bcStr(), tr=[];
+      if(S.showZ) tr.push({x:freqs,y:pZ,name:`|Z| (${bc})`,line:{color:"#2563eb",width:1.5},hovertemplate:'f=%{x:.1f}<br>|Z|=%{y:.1f}<extra></extra>'});
+      if(S.showY) tr.push({x:freqs,y:pY,name:`|Y| (${bc})`,line:{color:"#dc2626",width:1.5},hovertemplate:'f=%{x:.1f}<br>|Y|=%{y:.1f}<extra></extra>'});
+
+      if(S.showInf){
+        const zv=S.db?20*Math.log10(zi):zi;
+        tr.push({x:[fmin,fmax],y:[zv,zv],name:"● Z∞",mode:"lines",line:{color:"#16a34a",dash:"dot",width:2}});
+        if(S.showY){const yv=S.db?20*Math.log10(1/zi):1/zi; tr.push({x:[fmin,fmax],y:[yv,yv],name:"● Y∞",mode:"lines",line:{color:"#ea580c",dash:"dot",width:2}});}
+      }
+      if(S.showOct) OCT.forEach(fc=>{
+        const lo=fc/BF,hi=fc*BF; if(hi<fmin||lo>fmax)return;
+        let aZ=0,aY=0,cnt=0;
+        for(let i=0;i<freqs.length;i++) if(freqs[i]>=lo&&freqs[i]<=hi){aZ+=primary[i];aY+=pY[i];cnt++;}
+        if(!cnt)return;
+        if(S.showZ) tr.push({x:[fc],y:[aZ/cnt],mode:"markers",marker:{symbol:"star",size:12,color:"#2563eb"},showlegend:false,hovertemplate:`★${fc}: %{y:.1f}<extra></extra>`});
+        if(S.showY) tr.push({x:[fc],y:[aY/cnt],mode:"markers",marker:{symbol:"star",size:12,color:"#dc2626"},showlegend:false,hovertemplate:`★${fc}: %{y:.1f}<extra></extra>`});
       });
-      document.getElementById("toggleOct").addEventListener("click", ()=>{ state.showOct = !state.showOct; plot(); });
-      document.getElementById("toggleInf").addEventListener("click", ()=>{ state.showInf = !state.showInf; plot(); });
-      document.getElementById("toggleModes").addEventListener("click", ()=>{ state.showModes = !state.showModes; plot(); });
-      document.getElementById("exportPng").addEventListener("click", ()=>{ Plotly.downloadImage("plot",{format:"png", filename:"plate_impedance"}); });
-      document.getElementById("reset").addEventListener("click", ()=>{
-        fillMaterialOptions(); applyPreset("コンクリート");
-        document.getElementById("Lx").value = 3.6; document.getElementById("Ly").value = 2.7;
-        document.getElementById("x0mm").value = 1800; document.getElementById("y0mm").value = 1350;
-        document.getElementById("Nx").value = 3; document.getElementById("Ny").value = 3;
-        document.getElementById("pt_single").checked = true; document.getElementById("pt_grid").checked = false;
-        document.getElementById("avg_linear").checked = true; document.getElementById("avg_db").checked = false;
-        document.getElementById("fmin").value = 10; document.getElementById("fmax").value = 2000;
-        document.getElementById("mx").value = 30; document.getElementById("ny").value = 30;
-        document.getElementById("showZ").checked=true; document.getElementById("showY").checked=false;
-        document.getElementById("logx").checked=true; document.getElementById("db").checked=true; document.getElementById("bandbg").checked=true;
-        state.showOct = true; state.showInf = true; state.showModes = true; state.bandBg = true;
-        pullFromUI();
+      if(S.showModes) [[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]].forEach(([m,n])=>{
+        const fm=fmn(m,n); if(fm<fmin||fm>fmax)return;
+        const yz=interpY(freqs,primary,fm);
+        tr.push({x:[fm],y:[yz],mode:"markers+text",text:[`f${m}${n}`],textposition:"top center",textfont:{size:10,color:"#475569"},marker:{symbol:"triangle-up",size:9,color:"#7c3aed"},showlegend:false,hovertemplate:`f${m}${n}=${fm.toFixed(1)}<br>%{y:.1f}<extra></extra>`});
       });
+
+      const shapes=[];
+      if(S.bandBg){const cols=["rgba(37,99,235,0.04)","rgba(37,99,235,0.08)"];
+        OCT.forEach((fc,idx)=>{const lo=fc/BF,hi=fc*BF;if(hi<fmin||lo>fmax)return;
+          shapes.push({type:"rect",xref:"x",yref:"paper",x0:Math.max(lo,fmin),x1:Math.min(hi,fmax),y0:0,y1:1,fillcolor:cols[idx%2],line:{width:0}});
+        });
+      }
+
+      Plotly.react("plot",tr,{
+        margin:{l:60,r:20,t:40,b:50},
+        xaxis:{title:"Frequency [Hz]",type:S.logx?"log":"linear",range:S.logx?[Math.log10(fmin),Math.log10(fmax)]:[fmin,fmax],gridcolor:"#e2e8f0",zeroline:false},
+        yaxis:{title:(S.showZ?"Z":"")+(S.showZ&&S.showY?" / ":"")+(S.showY?"Y":"")+(S.db?" [dB]":""),gridcolor:"#e2e8f0",zeroline:false},
+        legend:{x:1,xanchor:"right",y:1,bgcolor:"rgba(255,255,255,0.8)"},
+        shapes,hovermode:"closest",plot_bgcolor:"#fff",paper_bgcolor:"#fff",
+        title:{text:`駆動点インピーダンス — ${bc}`,font:{size:14}}
+      },{responsive:true});
     }
 
-    function plot(){
-      const N = 700;
-      const fmin = state.fmin, fmax = state.fmax;
-      const freqs = Array.from({length:N}, (_,i)=> fmin*Math.pow(fmax/fmin, i/(N-1)) );
+    // ═══════════════════════════════════════════════════
+    //  BC EDITOR
+    // ═══════════════════════════════════════════════════
 
-      const params = {E:state.E, nu:state.nu, rho:state.rho, h:state.h, Lx:state.Lx, Ly:state.Ly, eta: state.eta, mx: state.mx, ny: state.ny};
-      const avg = computeAveraged(freqs, params);
-      let yZ = avg.yZ, yY = avg.yY;
-      if(state.db && !avg.alreadyDB){ yZ = toDB20(yZ, 1.0); yY = toDB20(yY, 1.0); }
+    const bcBtns={left:$("bc_left"),right:$("bc_right"),bottom:$("bc_bottom"),top:$("bc_top")};
+    const bcKeys={left:"bcLeft",right:"bcRight",bottom:"bcBottom",top:"bcTop"};
 
-      const traces = [];
-      const primary = (state.showZ || !state.showY) ? yZ : yY;
-      if(state.showZ){ traces.push({x:freqs, y:yZ, type:"scatter", mode:"lines", name: state.db? "|Z| [dB re 1 Ns/m]" : "|Z| [N·s/m]"}); }
-      if(state.showY){ traces.push({x:freqs, y:yY, type:"scatter", mode:"lines", name: state.db? "|Y| [dB re 1 m/N·s]" : "|Y| [m/N·s]"}); }
-
-      if(state.showOct){
-        const xs=[], ys=[];
-        OCT_CENTERS.forEach(fc=>{
-          const lo=fc/BAND_FACTOR, hi=fc*BAND_FACTOR;
-          if(hi<fmin || lo>fmax) return;
-          let acc=0,cnt=0; for(let i=0;i<freqs.length;i++){ const f=freqs[i]; if(f>=lo&&f<=hi){ acc+=primary[i]; cnt++; } }
-          if(cnt){ xs.push(fc); ys.push(acc/cnt); }
-        });
-        if(xs.length) traces.push({x:xs, y:ys, type:"scatter", mode:"markers", name:"Octave mean (★)", marker:{symbol:"star", size:10}});
+    function syncBC(){
+      for(const [e,btn] of Object.entries(bcBtns)){
+        const v=S[bcKeys[e]]; btn.textContent=v;
+        btn.className=v==='C'?'is-c':'';
       }
-
-      if(state.showInf){
-        const zinf = Zinf_const(state.E,state.nu,state.rho,state.h);
-        const val = state.db ? 20*Math.log10(zinf) : zinf;
-        const xs=[], ys=[];
-        OCT_CENTERS.forEach(fc=>{ if(fc>=fmin && fc<=fmax){ xs.push(fc); ys.push(val); } });
-        if(xs.length) traces.push({x:xs, y:ys, type:"scatter", mode:"markers", name:"Infinite plate (●)", marker:{symbol:"circle", size:8}});
-      }
-
-      if(state.showModes){
-        const modes=[[1,1],[1,2],[2,1],[2,2],[3,1],[3,2]];
-        const xm=[], ym=[], txt=[];
-        modes.forEach(([m,n])=>{
-          const f = fmn(m,n,state.Lx,state.Ly,state.E,state.nu,state.rho,state.h);
-          if(f>=fmin && f<=fmax){
-            xm.push(f); ym.push(interpY(freqs, primary, f)); txt.push(`f_${m}${n} = ${f.toFixed(1)} Hz`);
-          }
-        });
-        if(xm.length) traces.push({x:xm, y:ym, type:"scatter", mode:"markers+text", name:"Modes (▲)", marker:{symbol:"triangle-up", size:9}, text:txt, textposition:"top center"});
-      }
-
-      const tickvals = OCT_CENTERS.filter(fc=> fc>=fmin && fc<=fmax);
-      const layout = {
-        title:{text:"駆動点インピーダンス / モビリティ（SSSS板, モード和）", font:{size:16}},
-        xaxis:{ title:"Frequency [Hz]", type: state.logx ? "log" : "linear", tickmode:"array", tickvals: tickvals, ticktext: tickvals.map(x=>String(x)),
-                gridcolor:"#e5e7eb", zerolinecolor:"#e5e7eb" },
-        yaxis:{ title: state.db ? ((state.showZ||!state.showY)?"Level [dB re 1 Ns/m]":"Level [dB re 1 m/N·s]")
-                                 : ((state.showZ||!state.showY)?"Impedance |Z|":"Mobility |Y|"),
-                type: state.db?"linear":"log", gridcolor:"#e5e7eb", zerolinecolor:"#e5e7eb", rangemode:"tozero" },
-        legend:{orientation:"h", x:0, y:1.06},
-        plot_bgcolor:"#ffffff", paper_bgcolor:"#ffffff",
-        margin:{l:80,r:30,t:60,b:60},
-        shapes: state.bandBg ? (function(){ const shapes=[]; let alt=true;
-          OCT_CENTERS.forEach(fc=>{ const lo=fc/BAND_FACTOR, hi=fc*BAND_FACTOR;
-            if(hi<fmin||lo>fmax) return; shapes.push({type:"rect", xref:"x", yref:"paper", x0:Math.max(lo,fmin), x1:Math.min(hi,fmax), y0:0, y1:1,
-              layer:"below", fillcolor: alt?"rgba(99,102,241,0.10)":"rgba(16,185,129,0.10)", line:{width:0}}); alt=!alt; });
-          return shapes; })() : []
-      };
-      Plotly.react("plot", traces, layout, {responsive:true, displaylogo:false});
-
-      buildBandTables(freqs, primary);
-      buildModeTable();
+      $("bcLabel").textContent=bcStr();
     }
+    for(const e of Object.keys(bcBtns))
+      bcBtns[e].addEventListener("click",()=>{ S[bcKeys[e]]=S[bcKeys[e]]==='S'?'C':'S'; syncBC(); scheduleDraw(); });
 
-    function init(){
-      fillMaterialOptions();
-      applyPreset(state.material);
-      updateVis();
+    document.querySelectorAll(".bc-presets button").forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        const c=btn.dataset.bc; if(!c||c.length!==4)return;
+        S.bcLeft=c[0]; S.bcRight=c[1]; S.bcBottom=c[2]; S.bcTop=c[3];
+        syncBC(); scheduleDraw();
+      });
+    });
+
+    // ═══════════════════════════════════════════════════
+    //  WIRING
+    // ═══════════════════════════════════════════════════
+
+    (function initMat(){
+      const sel=$("material");
+      sel.innerHTML=Object.keys(MAT).map(k=>`<option value="${k}">${k}</option>`).join("");
+      sel.value="コンクリート";
+    })();
+
+    $("material").addEventListener("change",function(){
+      const p=MAT[this.value]; if(!p)return;
+      if(this.value!=="手動入力"){
+        $("E").value=toExp(p.E,3); $("rho").value=p.rho; $("nu").value=p.nu; $("eta").value=(p.eta*100).toFixed(2);
+      }
       pullFromUI();
+    });
+
+    function updateVis(){
+      const g=$("pt_grid").checked;
+      $("row_x0").classList.toggle("hidden",g); $("row_y0").classList.toggle("hidden",g);
+      $("row_Nx").classList.toggle("hidden",!g); $("row_Ny").classList.toggle("hidden",!g);
     }
-    if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded", ()=>{ attachEvents(); init(); }); }
-    else{ attachEvents(); init(); }
+
+    for(const id of ["E","rho","nu","eta","thick","Lx","Ly","x0mm","y0mm","Nx","Ny","fmin","fmax","mx","ny"])
+      $(id).addEventListener("input",scheduleDraw);
+    for(const id of ["showZ","showY","logx","db","bandbg"])
+      $(id).addEventListener("change",scheduleDraw);
+    $("pt_single").addEventListener("change",()=>{updateVis();scheduleDraw();});
+    $("pt_grid").addEventListener("change",()=>{updateVis();scheduleDraw();});
+    $("avg_linear").addEventListener("change",scheduleDraw);
+    $("avg_db").addEventListener("change",scheduleDraw);
+    $("toggleOct").addEventListener("click",()=>{S.showOct=!S.showOct;scheduleDraw();});
+    $("toggleInf").addEventListener("click",()=>{S.showInf=!S.showInf;scheduleDraw();});
+    $("toggleModes").addEventListener("click",()=>{S.showModes=!S.showModes;scheduleDraw();});
+    $("exportPng").addEventListener("click",()=>Plotly.downloadImage($("plot"),{format:"png",width:1600,height:900,filename:"impedance_"+bcStr()}));
+    $("reset").addEventListener("click",()=>{
+      S.bcLeft='S';S.bcRight='S';S.bcBottom='S';S.bcTop='S'; syncBC();
+      $("material").value="コンクリート";
+      $("E").value="2.1e10";$("rho").value=2300;$("nu").value=0.20;$("eta").value=0.50;
+      $("thick").value=200;$("Lx").value=3.6;$("Ly").value=2.7;
+      $("x0mm").value=1800;$("y0mm").value=1350;
+      $("fmin").value=10;$("fmax").value=2000;$("mx").value=30;$("ny").value=30;
+      $("showZ").checked=true;$("showY").checked=false;$("logx").checked=true;$("db").checked=true;$("bandbg").checked=true;
+      $("pt_single").checked=true;updateVis();
+      S.showOct=true;S.showInf=true;S.showModes=true;
+      scheduleDraw();
+    });
+
+    syncBC();
+    window.addEventListener("load",()=>pullFromUI());
   })();
   </script>
 </body>
