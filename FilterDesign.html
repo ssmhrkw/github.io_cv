@@ -3,249 +3,356 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer (ΔA, no ∞ tails)</title>
-<script type="module" src="https://cdn.plot.ly/plotly-2.27.0.min.js">import { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot } from "./acoustics-core.js";
-Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot });
-</script>
+<title>IEC 61260 Filter Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Space+Mono:wght@400;700&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  :root{ --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#94a3b8; --border:#1f2a44; --ok:#22c55e; --ng:#ef4444; }
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',sans-serif;background:var(--bg);color:var(--text);margin:0}
-  .wrap{max-width:1220px;margin:14px auto;padding:12px}
-  h1{margin:0 0 10px 0;font-size:22px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
-  .grid{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:8px}
-  label{font-size:12px;color:var(--muted)}
-  select,input,button,textarea{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#0b1220;color:var(--text)}
-  button.primary{background:#1d4ed8}
-  .small{font-size:12px;color:var(--muted)}
-  textarea{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  .pass{color:var(--ok);font-weight:700}
-  .fail{color:var(--ng);font-weight:700}
-  @media (max-width: 1040px){ .grid{grid-template-columns:repeat(2,1fr)} }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0d12; --bg2:#10141e; --bg3:#161c2a;
+  --border:rgba(180,200,255,0.07); --border2:rgba(100,160,255,0.22);
+  --text:#c0cee6; --dim:#4e5f7a; --bright:#e8f0ff;
+  --accent:#4a8fff; --accent2:#7eb8ff;
+  --ok:#34d399; --ng:#f87171; --warn:#fbbf24;
+  --mono:'Space Mono',monospace;
+  --serif:'EB Garamond',Georgia,serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.65;min-height:100vh}
+
+nav{position:sticky;top:0;z-index:100;background:rgba(11,13,18,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1220px;margin:0 auto;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.nav-title{font-family:var(--serif);font-size:1.1rem;font-weight:500;color:var(--bright)}
+.nav-sub{font-family:var(--mono);font-size:0.56rem;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin-top:2px}
+
+.wrap{max-width:1220px;margin:0 auto;padding:20px 24px 60px}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px;position:relative;overflow:hidden;margin-bottom:14px;animation:fadeUp .5s ease both}
+.card:nth-child(1){animation-delay:.05s}.card:nth-child(2){animation-delay:.1s}
+.card:nth-child(3){animation-delay:.15s}.card:nth-child(4){animation-delay:.2s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.45}
+.card-title{font-family:var(--mono);font-size:0.6rem;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border2)}
+
+.param-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;align-items:end}
+.ctrl-g{display:flex;flex-direction:column;gap:4px}
+.ctrl-lbl{font-size:0.56rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+
+select,input{font-family:var(--mono);font-size:0.68rem;background:var(--bg3);color:var(--text);border:1px solid var(--border2);border-radius:3px;padding:7px 10px;width:100%;transition:border-color .18s}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+
+button{font-family:var(--mono);font-size:0.68rem;letter-spacing:.05em;padding:9px 18px;border:1px solid var(--border2);border-radius:3px;background:transparent;color:var(--accent2);cursor:pointer;transition:all .18s;white-space:nowrap;width:100%}
+button:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#3a7fee}
+
+.note{font-size:0.7rem;color:var(--dim);line-height:1.85;border-left:2px solid var(--border2);padding-left:12px;margin-top:12px}
+.note b{color:var(--text)}
+
+.summary-box{font-size:0.75rem;line-height:2;color:var(--text)}
+.pass{color:var(--ok);font-weight:700;letter-spacing:.06em}
+.fail{color:var(--ng);font-weight:700;letter-spacing:.06em}
+
+textarea{font-family:var(--mono);font-size:0.62rem;background:var(--bg3);color:var(--text);border:1px solid var(--border2);border-radius:3px;padding:10px;width:100%;resize:vertical;line-height:1.7}
+
+@media(max-width:760px){.param-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
+
+<nav>
+  <div class="nav-inner">
+    <div>
+      <div class="nav-title">IEC 61260 Filter Designer</div>
+      <div class="nav-sub">Butterworth 1/n-Octave &middot; ΔA Check &middot; Building Acoustics</div>
+    </div>
+  </div>
+</nav>
+
 <div class="wrap">
-  <h1>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer</h1>
 
+  <!-- Params -->
   <div class="card">
-    <div class="grid">
-      <div><label>Bandwidth (1/n)</label>
+    <div class="card-title">Filter Parameters</div>
+    <div class="param-grid">
+      <div class="ctrl-g">
+        <div class="ctrl-lbl">Bandwidth (1/n)</div>
         <select id="b">
-          <option value="1">1 (Octave)</option>
-          <option value="3" selected>3 (1/3 Oct)</option>
+          <option value="1">1 — Octave</option>
+          <option value="3" selected>3 — 1/3 Oct</option>
         </select>
       </div>
-      <div><label>Center (exact) fm [Hz]</label><select id="fm"></select></div>
-      <div><label>Fs [Hz]</label><select id="fs"><option>48000</option><option>44100</option></select></div>
-      <div><label>Total band‑pass order</label>
+      <div class="ctrl-g">
+        <div class="ctrl-lbl">Center freq fm [Hz]</div>
+        <select id="fm"></select>
+      </div>
+      <div class="ctrl-g">
+        <div class="ctrl-lbl">Sample rate Fs [Hz]</div>
+        <select id="fs">
+          <option value="48000" selected>48 000</option>
+          <option value="44100">44 100</option>
+          <option value="96000">96 000</option>
+        </select>
+      </div>
+      <div class="ctrl-g">
+        <div class="ctrl-lbl">Band-pass order (total)</div>
         <select id="order">
-          <option>3</option>6</option><option>12</option><option>24</option><option><option selected>36</option><option>72</option>
-
+          <option value="3">3</option>
+          <option value="6">6</option>
+          <option value="12">12</option>
+          <option value="24">24</option>
+          <option value="36" selected>36</option>
+          <option value="72">72</option>
         </select>
       </div>
-      <div><label>IEC Class</label>
-        <select id="iec"><option value="0">Class 0</option><option value="1" selected>Class 1</option><option value="2">Class 2</option></select>
+      <div class="ctrl-g">
+        <div class="ctrl-lbl">IEC Class</div>
+        <select id="iec">
+          <option value="0">Class 0</option>
+          <option value="1" selected>Class 1</option>
+          <option value="2">Class 2</option>
+        </select>
       </div>
-      <div><label>ΔA axis range [dB]</label>
-        <select id="yr"><option>0,120</option><option selected>0,320</option></select>
+      <div class="ctrl-g">
+        <div class="ctrl-lbl">ΔA axis range [dB]</div>
+        <select id="yr">
+          <option value="0,120">0 – 120</option>
+          <option value="0,320" selected>0 – 320</option>
+        </select>
       </div>
-      <div style="align-self:end"><button class="primary" id="run">Design + Check</button></div>
-      <div class="small" style="grid-column:1/-1">
-        Filter = HP(f₁) × LP(f₂) via pre‑warped bilinear transform; orders split ⌊M/2⌋ (HP) and ⌈M/2⌉ (LP). Cascade gain normalized at fm.<br/>
-        Plot is in <b>ΔA space</b> (IEC 61260‑1 §4.4): ΔA(f) = −|H(f)| (dB) with |H(fm)| ≈ 0 dB. IEC minimum/maximum limits are drawn only where defined; +∞ regions are intentionally not drawn.
+      <div class="ctrl-g" style="align-self:end">
+        <button class="primary" id="run">Design + Check</button>
       </div>
+    </div>
+    <div class="note">
+      Filter = HP(f₁) × LP(f₂) via pre-warped bilinear; orders split ⌊M/2⌋ (HP) and ⌈M/2⌉ (LP). Gain normalized at fm.<br>
+      Plot is in <b>ΔA space</b> (IEC 61260-1 §4.4): ΔA(f) = −|H(f)| dB, |H(fm)| ≈ 0 dB.
+      IEC limits shown only where finite; +∞ regions intentionally omitted.
     </div>
   </div>
 
+  <!-- Plot -->
   <div class="card">
-    <div id="plot" style="height:440px"></div>
+    <div class="card-title">ΔA Attenuation vs. Frequency</div>
+    <div id="plot" style="height:460px"></div>
   </div>
 
+  <!-- Summary -->
   <div class="card">
-    <h3>Summary</h3>
-    <div id="summary" class="small"></div>
+    <div class="card-title">IEC Compliance Summary</div>
+    <div id="summary" class="summary-box"></div>
   </div>
 
+  <!-- SOS coefficients -->
   <div class="card">
-    <h3>SOS (biquad / first‑order) coefficients</h3>
-    <div class="small">Per section: {b:[b0,b1,b2], a:[1,a1,a2]}. First‑order has b2=a2=0.</div>
-    <textarea id="sos" rows="10" spellcheck="false"></textarea>
+    <div class="card-title">SOS Coefficients (JSON)</div>
+    <div class="note" style="margin-top:0;margin-bottom:12px">Per section: {b:[b0,b1,b2], a:[1,a1,a2]}. First-order has b2=a2=0.</div>
+    <textarea id="sos" rows="12" spellcheck="false" readonly></textarea>
   </div>
+
 </div>
 
-<script>
-const G = Math.pow(10, 3/10);
-const dB = x => 20*Math.log10(Math.max(x,1e-16));
-
-function centers_1overn(b){
-  const arr=[]; for(let x=-40;x<=40;x++){
-    const fm = (b%2===1) ? 1000*Math.pow(G, x/b) : 1000*Math.pow(G, (2*x+1)/(2*b));
-    if(fm>=10 && fm<=20000) arr.push(fm);
-  } return arr;
-}
-function edges_from_fm(fm, b){ const g=Math.pow(G, 1/(2*b)); return [fm/g, fm*g]; }
-
-// ΔA tables
-const OCT = [
-  {omega:1, min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.15,1:+0.30,2:+0.50}},
-  {omega:Math.pow(G,+1/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.20,1:+0.40,2:+0.60}},
-  {omega:Math.pow(G,-1/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.20,1:+0.40,2:+0.60}},
-  {omega:Math.pow(G,+1/4), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.40,1:+0.60,2:+0.80}},
-  {omega:Math.pow(G,-1/4), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+0.40,1:+0.60,2:+0.80}},
-  {omega:Math.pow(G,+3/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+1.10,1:+1.30,2:+1.60}},
-  {omega:Math.pow(G,-3/8), min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+1.10,1:+1.30,2:+1.60}},
-  {omega:Math.pow(G,+0.5)*0.999, min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+4.5,1:+5.0,2:+5.5}},
-  {omega:Math.pow(G,-0.5)*1.001, min:{0:-0.15,1:-0.30,2:-0.50}, max:{0:+4.5,1:+5.0,2:+5.5}},
-  {omega:Math.pow(G,-0.5)*0.999, min:{0:+2.3,1:+2.0,2:+1.6}, max:{0:+4.5,1:+5.0,2:+5.5}},
-  {omega:Math.pow(G,+0.5)*1.001, min:{0:+2.3,1:+2.0,2:+1.6}, max:{0:+4.5,1:+5.0,2:+5.5}},
-  {omega:Math.pow(G,+1),   min:{0:+18.0,1:+17.5,2:+16.5}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,-1),   min:{0:+18.0,1:+17.5,2:+16.5}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,+2),   min:{0:+42.5,1:+42.0,2:+41.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,-2),   min:{0:+42.5,1:+42.0,2:+41.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,+3),   min:{0:+62.0,1:+61.0,2:+55.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,-3),   min:{0:+62.0,1:+61.0,2:+55.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,+4),   min:{0:+75.0,1:+70.0,2:+60.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
-  {omega:Math.pow(G,-4),   min:{0:+75.0,1:+70.0,2:+60.0}, max:{0:Infinity,1:Infinity,2:Infinity}},
-];
-const THIRDP = [
-  [1.00000, [-0.15,+0.15], [-0.3,+0.3],  [-0.5,+0.5]],
-  [1.02667, [-0.15,+0.2],  [-0.3,+0.4],  [-0.5,+0.6]],
-  [0.97402, [-0.15,+0.2],  [-0.3,+0.4],  [-0.5,+0.6]],
-  [1.05575, [-0.15,+0.4],  [-0.3,+0.6],  [-0.5,+0.8]],
-  [0.94719, [-0.15,+0.4],  [-0.3,+0.6],  [-0.5,+0.8]],
-  [1.08746, [-0.15,+1.1],  [-0.3,+1.3],  [-0.5,+1.6]],
-  [0.91958, [-0.15,+1.1],  [-0.3,+1.3],  [-0.5,+1.6]],
-  [1.12202, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [0.89125, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [1.12203, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [0.89126, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [1.12201, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [0.89124, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [1.29437, [+18.0,Infinity],  [+17.5,Infinity],  [+16.5,Infinity]],
-  [0.77257, [+18.0,Infinity],  [+17.5,Infinity],  [+16.5,Infinity]],
-  [1.88173, [+42.5,Infinity],  [+42.0,Infinity],  [+41.0,Infinity]],
-  [0.53143, [+42.5,Infinity],  [+42.0,Infinity],  [+41.0,Infinity]],
-  [3.05365, [+62.0,Infinity],  [+61.0,Infinity],  [+55.0,Infinity]],
-  [0.32748, [+62.0,Infinity],  [+61.0,Infinity],  [+55.0,Infinity]],
-  [5.39195, [+75.0,Infinity],  [+70.0,Infinity],  [+60.0,Infinity]],
-  [0.18546, [+75.0,Infinity],  [+70.0,Infinity],  [+60.0,Infinity]],
-].map(r=>({omega:r[0], min:{0:r[1][0],1:r[2][0],2:r[3][0]}, max:{0:r[1][1],1:r[2][1],2:r[3][1]}}));
-function daRows(b, cls){
-  const src = (parseInt(b,10)===1) ? OCT : THIRDP;
-  return src.map(r=>({omega:r.omega, min:r.min[cls], max:r.max[cls]})).sort((a,b)=>a.omega-b.omega);
-}
-
-function run(){
-  const b = parseInt(document.getElementById('b').value,10);
-  const fm = parseFloat(document.getElementById('fm').value);
-  const fs = parseInt(document.getElementById('fs').value,10);
-  const M  = parseInt(document.getElementById('order').value,10);
-  const cls= parseInt(document.getElementById('iec').value,10);
-  const [f1,f2] = edges_from_fm(fm, b);
-  const hpOrd=Math.floor(M/2), lpOrd=Math.ceil(M/2);
-
-  const hp = butterHP_sos(f1, fs, hpOrd), lp = butterLP_sos(f2, fs, lpOrd);
-  const sections = hp.concat(lp);
-  normalizeAt(sections, fs, fm);
-
-  const fmin=10, fmax=fs/2, N=2000, fgrid=[];
-  for(let i=0;i<N;i++) fgrid.push(fmin*Math.pow(fmax/fmin, i/(N-1)));
-  const mag = Array.from(sosFreqz(sections, fs, fgrid), v => dB(v));
-  const dA  = mag.map(v => -v);
-
-  const rows = daRows(b, cls);
-  const rOmega = fgrid.map(f=>f/fm);
-  const yMax = new Array(N).fill(null);
-  const yMin = new Array(N).fill(null);
-
-  const log=(x)=>Math.log(x);
-  for(let i=0;i<rows.length-1;i++){
-    const a=rows[i], c=rows[i+1];
-    const finiteMax = Number.isFinite(a.max) && Number.isFinite(c.max);
-    for(let j=0;j<N;j++){
-      const r=rOmega[j];
-      if(r>=a.omega && r<=c.omega){
-        const t=(log(r)-log(a.omega))/(log(c.omega)-log(a.omega));
-        yMin[j] = (1-t)*a.min + t*c.min;
-        if(finiteMax){ yMax[j] = (1-t)*a.max + t*c.max; }
-      }
-    }
-  }
-
-  let worst={m:1e9, f:fm, DA:0, min:0, max:null};
-  const margins = dA.map((da,i)=>{
-    const lo=yMin[i], hi=yMax[i];
-    if(lo==null && hi==null) return Number.POSITIVE_INFINITY;
-    let mg;
-    if(hi==null || !isFinite(hi)){
-      mg = da - lo;
-    }else{
-      mg = Math.min(hi - da, da - lo);
-    }
-    if(mg < worst.m){ worst={m:mg, f:fgrid[i], DA:da, min:lo, max:hi}; }
-    return mg;
-  });
-  const pass = margins.every(m => m>=0 || m===Infinity);
-
-  const yr = document.getElementById('yr').value.split(',').map(Number);
-
-  Plotly.react('plot', [
-    {x:fgrid, y:dA,  mode:'lines', name:'ΔA(f)'},
-    {x:fgrid, y:yMax,mode:'lines', name:'IEC maximum (ΔA)', line:{dash:'dot'}},
-    {x:fgrid, y:yMin,mode:'lines', name:'IEC minimum (ΔA)', line:{dash:'dot'}},
-    {x:[worst.f], y:[worst.DA], mode:'markers', name:'Worst', marker:{size:8, color: pass?'#22c55e':'#ef4444'}}
-  ], {
-    margin:{l:58,r:10,t:10,b:36},
-    xaxis:{type:'log', title:'Frequency (Hz)'},
-    yaxis:{title:'ΔA (dB)', range:[yr[0], yr[1]], autorange:'reversed'},
-    legend:{orientation:'h'}
-  });
-
-  const sosObj = sections.map(s=>({b:[s.b0,s.b1,s.b2], a:[1,s.a1,s.a2]}));
-  document.getElementById('sos').value = JSON.stringify({
-    fs, b, fm_exact:fm, f1, f2, order_total:M, order_hp:hpOrd, order_lp:lpOrd, sos:sosObj
-  }, null, 2);
-
-  const limTxt = (w)=>{
-    const maxStr = (w.max==null || !isFinite(w.max)) ? '∞' : w.max.toFixed(2);
-    return `${w.min?.toFixed(2) ?? '—'}..${maxStr}`;
-  };
-  document.getElementById('summary').innerHTML =
-    `Bands: 1/${b}, fm=${fm.toFixed(3)} Hz, f1=${f1.toFixed(3)} Hz, f2=${f2.toFixed(3)} Hz<br/>
-     Orders: HP ${hpOrd}, LP ${lpOrd} (total ${M})<br/>
-     IEC class ${cls} ΔA check: <span class="${pass?'pass':'fail'}">${pass?'PASS':'FAIL'}</span> — worst margin ${worst.m.toFixed(2)} dB @ ${worst.f.toFixed(2)} Hz (ΔA=${worst.DA.toFixed(2)} dB; IEC min..max ${limTxt(worst)}).`;
-}
-
-function populateCenters(){
-  const b = parseInt(document.getElementById('b').value,10);
-  const sel = document.getElementById('fm'); sel.innerHTML='';
-  for(const f of centers_1overn(b)){ const o=document.createElement('option'); o.value=f; o.textContent=(Math.round(f*10)/10)+' Hz'; sel.appendChild(o); }
-  sel.value='1000';
-}
-
-document.getElementById('b').addEventListener('change', populateCenters);
-document.getElementById('run').addEventListener('click', run);
-document.getElementById('yr').addEventListener('change', run);
-populateCenters();
-run();
-</script>
-
+<!-- acoustics-core.js: window に展開 -->
 <script type="module">
 import {
   designButterworthBandpassSOS_N, sosFilter,
-  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
+  butterLP_sos, butterHP_sos, butterQ,
+  rbjLP, rbjHP, d1_LP, d1_HP,
   sosFreqz, normalizeAt,
   centersOct, centersThird, fullCenters,
   ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
 } from "./acoustics-core.js";
 Object.assign(window, {
   designButterworthBandpassSOS_N, sosFilter,
-  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
+  butterLP_sos, butterHP_sos, butterQ,
+  rbjLP, rbjHP, d1_LP, d1_HP,
   sosFreqz, normalizeAt,
   centersOct, centersThird, fullCenters,
   ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
 });
+window._acousticsCoreReady = true;
+window.dispatchEvent(new Event('acoustics-ready'));
+</script>
+
+<script>
+/* ── IEC 61260 tables (オリジナルのまま) ── */
+const G = Math.pow(10, 3/10);
+const dB = x => 20 * Math.log10(Math.max(x, 1e-16));
+
+function centers_1overn(b){
+  const arr=[];
+  for(let x=-40;x<=40;x++){
+    const fm=(b%2===1)?1000*Math.pow(G,x/b):1000*Math.pow(G,(2*x+1)/(2*b));
+    if(fm>=10&&fm<=20000) arr.push(fm);
+  }
+  return arr;
+}
+function edges_from_fm(fm,b){ const g=Math.pow(G,1/(2*b)); return[fm/g,fm*g]; }
+
+const OCT=[
+  {omega:1,                   min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+0.15,1:+0.30,2:+0.50}},
+  {omega:Math.pow(G,+1/8),    min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+0.20,1:+0.40,2:+0.60}},
+  {omega:Math.pow(G,-1/8),    min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+0.20,1:+0.40,2:+0.60}},
+  {omega:Math.pow(G,+1/4),    min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+0.40,1:+0.60,2:+0.80}},
+  {omega:Math.pow(G,-1/4),    min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+0.40,1:+0.60,2:+0.80}},
+  {omega:Math.pow(G,+3/8),    min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+1.10,1:+1.30,2:+1.60}},
+  {omega:Math.pow(G,-3/8),    min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+1.10,1:+1.30,2:+1.60}},
+  {omega:Math.pow(G,+0.5)*0.999,min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,-0.5)*1.001,min:{0:-0.15,1:-0.30,2:-0.50},max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,-0.5)*0.999,min:{0:+2.3,1:+2.0,2:+1.6}, max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,+0.5)*1.001,min:{0:+2.3,1:+2.0,2:+1.6}, max:{0:+4.5,1:+5.0,2:+5.5}},
+  {omega:Math.pow(G,+1),      min:{0:+18.0,1:+17.5,2:+16.5},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-1),      min:{0:+18.0,1:+17.5,2:+16.5},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,+2),      min:{0:+42.5,1:+42.0,2:+41.0},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-2),      min:{0:+42.5,1:+42.0,2:+41.0},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,+3),      min:{0:+62.0,1:+61.0,2:+55.0},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-3),      min:{0:+62.0,1:+61.0,2:+55.0},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,+4),      min:{0:+75.0,1:+70.0,2:+60.0},max:{0:Infinity,1:Infinity,2:Infinity}},
+  {omega:Math.pow(G,-4),      min:{0:+75.0,1:+70.0,2:+60.0},max:{0:Infinity,1:Infinity,2:Infinity}},
+];
+const THIRDP=[
+  [1.00000,[-0.15,+0.15],[-0.3,+0.3], [-0.5,+0.5]],
+  [1.02667,[-0.15,+0.2], [-0.3,+0.4], [-0.5,+0.6]],
+  [0.97402,[-0.15,+0.2], [-0.3,+0.4], [-0.5,+0.6]],
+  [1.05575,[-0.15,+0.4], [-0.3,+0.6], [-0.5,+0.8]],
+  [0.94719,[-0.15,+0.4], [-0.3,+0.6], [-0.5,+0.8]],
+  [1.08746,[-0.15,+1.1], [-0.3,+1.3], [-0.5,+1.6]],
+  [0.91958,[-0.15,+1.1], [-0.3,+1.3], [-0.5,+1.6]],
+  [1.12202,[-0.15,+4.5], [-0.3,+5.0], [-0.5,+5.5]],
+  [0.89125,[-0.15,+4.5], [-0.3,+5.0], [-0.5,+5.5]],
+  [1.12203,[-0.15,+4.5], [-0.3,+5.0], [-0.5,+5.5]],
+  [0.89126,[-0.15,+4.5], [-0.3,+5.0], [-0.5,+5.5]],
+  [1.12201,[-0.15,+4.5], [-0.3,+5.0], [-0.5,+5.5]],
+  [0.89124,[-0.15,+4.5], [-0.3,+5.0], [-0.5,+5.5]],
+  [1.29437,[+18.0,Infinity],[+17.5,Infinity],[+16.5,Infinity]],
+  [0.77257,[+18.0,Infinity],[+17.5,Infinity],[+16.5,Infinity]],
+  [1.88173,[+42.5,Infinity],[+42.0,Infinity],[+41.0,Infinity]],
+  [0.53143,[+42.5,Infinity],[+42.0,Infinity],[+41.0,Infinity]],
+  [3.05365,[+62.0,Infinity],[+61.0,Infinity],[+55.0,Infinity]],
+  [0.32748,[+62.0,Infinity],[+61.0,Infinity],[+55.0,Infinity]],
+  [5.39195,[+75.0,Infinity],[+70.0,Infinity],[+60.0,Infinity]],
+  [0.18546,[+75.0,Infinity],[+70.0,Infinity],[+60.0,Infinity]],
+].map(r=>({omega:r[0],min:{0:r[1][0],1:r[2][0],2:r[3][0]},max:{0:r[1][1],1:r[2][1],2:r[3][1]}}));
+
+function daRows(b,cls){
+  const src=(parseInt(b,10)===1)?OCT:THIRDP;
+  return src.map(r=>({omega:r.omega,min:r.min[cls],max:r.max[cls]})).sort((a,b)=>a.omega-b.omega);
+}
+
+/* ── center freq population ── */
+function populateCenters(){
+  const b=parseInt(document.getElementById('b').value,10);
+  const sel=document.getElementById('fm'); sel.innerHTML='';
+  for(const f of centers_1overn(b)){
+    const o=document.createElement('option'); o.value=f;
+    o.textContent=(Math.round(f*10)/10)+' Hz'; sel.appendChild(o);
+  }
+  sel.value='1000';
+}
+
+/* ── main run ── */
+function run(){
+  if(!window.butterHP_sos){
+    // acoustics-core.js がまだロードされていない場合は少し待つ
+    setTimeout(run, 100); return;
+  }
+  const b  =parseInt(document.getElementById('b').value,10);
+  const fm =parseFloat(document.getElementById('fm').value);
+  const fs =parseInt(document.getElementById('fs').value,10);
+  const M  =parseInt(document.getElementById('order').value,10);
+  const cls=parseInt(document.getElementById('iec').value,10);
+  const [f1,f2]=edges_from_fm(fm,b);
+  const hpOrd=Math.floor(M/2), lpOrd=Math.ceil(M/2);
+
+  const hp=window.butterHP_sos(f1,fs,hpOrd);
+  const lp=window.butterLP_sos(f2,fs,lpOrd);
+  const sections=hp.concat(lp);
+  window.normalizeAt(sections,fs,fm);
+
+  const fmin=10,fmax=fs/2,N=2000,fgrid=[];
+  for(let i=0;i<N;i++) fgrid.push(fmin*Math.pow(fmax/fmin,i/(N-1)));
+  const mag=Array.from(window.sosFreqz(sections,fs,fgrid),v=>dB(v));
+  const dA=mag.map(v=>-v);
+
+  // IEC limits (log-interp)
+  const rows=daRows(b,cls);
+  const rOmega=fgrid.map(f=>f/fm);
+  const yMax=new Array(N).fill(null), yMin=new Array(N).fill(null);
+  const logf=x=>Math.log(x);
+  for(let i=0;i<rows.length-1;i++){
+    const a=rows[i],c=rows[i+1];
+    const finiteMax=Number.isFinite(a.max)&&Number.isFinite(c.max);
+    for(let j=0;j<N;j++){
+      const r=rOmega[j];
+      if(r>=a.omega&&r<=c.omega){
+        const t=(logf(r)-logf(a.omega))/(logf(c.omega)-logf(a.omega));
+        yMin[j]=(1-t)*a.min+t*c.min;
+        if(finiteMax) yMax[j]=(1-t)*a.max+t*c.max;
+      }
+    }
+  }
+
+  let worst={m:1e9,f:fm,DA:0,min:0,max:null};
+  const margins=dA.map((da,i)=>{
+    const lo=yMin[i],hi=yMax[i];
+    if(lo==null&&hi==null) return Infinity;
+    const mg=(hi==null||!isFinite(hi))?(da-lo):Math.min(hi-da,da-lo);
+    if(mg<worst.m) worst={m:mg,f:fgrid[i],DA:da,min:lo,max:hi};
+    return mg;
+  });
+  const pass=margins.every(m=>m>=0||m===Infinity);
+
+  const yr=document.getElementById('yr').value.split(',').map(Number);
+
+  Plotly.react('plot',[
+    {x:fgrid,y:dA,mode:'lines',name:'ΔA(f)',line:{width:2,color:'rgba(96,165,250,.9)'}},
+    {x:fgrid,y:yMax,mode:'lines',name:'IEC maximum',line:{dash:'dot',width:1.5,color:'rgba(251,191,36,.7)'}},
+    {x:fgrid,y:yMin,mode:'lines',name:'IEC minimum',line:{dash:'dot',width:1.5,color:'rgba(251,191,36,.7)'}},
+    {x:[worst.f],y:[worst.DA],mode:'markers',name:'Worst margin',
+     marker:{symbol:'diamond',size:10,color:pass?'#34d399':'#f87171',line:{width:1.5,color:'#fff'}}}
+  ],[{
+    paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(22,28,42,.85)',
+    font:{family:"'Space Mono',monospace",size:11,color:'#4e5f7a'},
+    margin:{l:58,r:20,t:10,b:44},
+    xaxis:{type:'log',title:'Frequency [Hz]',color:'#5a6a84',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
+    yaxis:{title:'ΔA [dB]',range:[yr[0],yr[1]],autorange:'reversed',color:'#5a6a84',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
+    legend:{orientation:'h',y:-0.1,bgcolor:'rgba(0,0,0,0)'},
+  }],{responsive:true,displaylogo:false});
+
+  const sosObj=sections.map(s=>({b:[s.b0,s.b1,s.b2],a:[1,s.a1,s.a2]}));
+  document.getElementById('sos').value=JSON.stringify({
+    fs,b,fm_exact:fm,f1,f2,order_total:M,order_hp:hpOrd,order_lp:lpOrd,sos:sosObj
+  },null,2);
+
+  const limTxt=w=>{const maxS=(w.max==null||!isFinite(w.max))?'∞':w.max.toFixed(2);return`${w.min?.toFixed(2)??'—'} .. ${maxS}`;};
+  document.getElementById('summary').innerHTML=`
+    <span style="color:var(--dim)">Bands:</span> 1/${b} &nbsp;
+    <span style="color:var(--dim)">fm</span> ${fm.toFixed(2)} Hz &nbsp;
+    <span style="color:var(--dim)">f1</span> ${f1.toFixed(2)} Hz &nbsp;
+    <span style="color:var(--dim)">f2</span> ${f2.toFixed(2)} Hz<br>
+    <span style="color:var(--dim)">Orders:</span> HP ${hpOrd} · LP ${lpOrd} · total ${M}<br>
+    <span style="color:var(--dim)">IEC Class ${cls} ΔA:</span>
+    <span class="${pass?'pass':'fail'}">${pass?'PASS':'FAIL'}</span>
+    &nbsp;— worst margin <span style="color:${pass?'var(--ok)':'var(--ng)'}">${worst.m.toFixed(2)} dB</span>
+    @ ${worst.f.toFixed(2)} Hz
+    (ΔA = ${worst.DA.toFixed(2)} dB · limit ${limTxt(worst)})
+  `;
+}
+
+/* ── init & event wiring ── */
+document.getElementById('b').addEventListener('change', populateCenters);
+document.getElementById('run').addEventListener('click', run);
+document.getElementById('yr').addEventListener('change', run);
+populateCenters();
+
+// acoustics-core.js ロード後に初回 run
+if(window._acousticsCoreReady){
+  run();
+} else {
+  window.addEventListener('acoustics-ready', run, {once:true});
+}
 </script>
 </body>
 </html>
