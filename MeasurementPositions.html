@@ -3,153 +3,206 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Floor Impact Sound — Excitation & Microphone Layout Tool</title>
+<title>Floor Impact Sound — Layout Planner</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script>
-  window.MathJax={
-    tex:{inlineMath:[['\\(','\\)'],['$','$']]},
-    svg:{fontCache:'global'},
-    startup:{ready(){MathJax.startup.defaultReady();}}
-  };
+  window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']]},svg:{fontCache:'global'}};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
+/* ── TOKEN SYSTEM ── */
 :root{
-  --bg:#0d0f14;--surface:#13161e;--surface2:#1a1e29;--surface3:#222739;
-  --border:#2a2f42;--border2:#363d56;
-  --ink:#e8ecf5;--ink2:#a0a9c0;--ink3:#6b748f;
-  --cyan:#4ecdc4;--cyan-dim:#2a7a76;
-  --blue:#5b8af5;--blue-dim:#2a3f7a;
-  --green:#56d98a;--green-dim:#1e5238;
-  --amber:#f0b429;--amber-dim:#5c430a;
-  --red:#ff6b6b;--red-dim:#5c1e1e;
-  --mono:'IBM Plex Mono','Courier New',monospace;
-  --sans:'IBM Plex Sans JP','Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;
-  --r-sm:4px;--r-md:8px;--r-lg:12px;
+  --bg:       #f7f8fa;
+  --surface:  #ffffff;
+  --surface2: #f2f4f7;
+  --surface3: #e8ebf0;
+  --border:   #dde1e8;
+  --border2:  #c8cdd8;
+
+  --ink:      #1a1f2e;
+  --ink2:     #4a5068;
+  --ink3:     #8892a4;
+
+  --blue:     #3a7bd5;
+  --blue-bg:  #eef3fc;
+  --blue-bdr: #b8d0f5;
+
+  --teal:     #1a9e8f;
+  --teal-bg:  #eaf7f5;
+  --teal-bdr: #9edbd4;
+
+  --amber:    #c47b0a;
+  --amber-bg: #fef7ea;
+  --amber-bdr:#f5d68a;
+
+  --red:      #c0392b;
+  --red-bg:   #fdf0ee;
+  --red-bdr:  #f0b8b2;
+
+  --green:    #1a7f54;
+  --green-bg: #eaf7f0;
+  --green-bdr:#8ed4b4;
+
+  --mono: 'DM Mono', 'Courier New', monospace;
+  --sans: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.05);
 }
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.6;min-height:100vh}
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:48px 48px;opacity:.12;pointer-events:none;z-index:0}
-/* HEADER */
-header{position:sticky;top:0;z-index:100;background:rgba(13,15,20,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:16px;height:56px}
+
+/* ── HEADER ── */
+header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+  padding:0 20px;
+  display:flex;align-items:center;gap:16px;height:54px;
+  box-shadow:var(--shadow-sm);
+}
 .hdr-logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.hdr-title{font-family:var(--mono);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--cyan);white-space:nowrap}
-.hdr-sub{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.05em}
+.hdr-title{font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.02em;color:var(--ink);white-space:nowrap}
+.hdr-sub{font-family:var(--mono);font-size:9px;color:var(--ink3);letter-spacing:.06em;margin-top:1px}
 .hdr-badges{display:flex;gap:5px;flex-wrap:wrap}
-.badge{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.08em;padding:2px 7px;border-radius:2px;border:1px solid;text-transform:uppercase}
-.badge-c{color:var(--cyan);border-color:var(--cyan-dim);background:rgba(78,205,196,.06)}
-.badge-b{color:var(--blue);border-color:var(--blue-dim);background:rgba(91,138,245,.06)}
-.badge-a{color:var(--amber);border-color:var(--amber-dim);background:rgba(240,180,41,.06)}
-#statusBar{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--ink3)}
-.sdot{width:6px;height:6px;border-radius:50%;background:var(--ink3);flex-shrink:0;transition:background .3s,box-shadow .3s}
-.sdot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
-.sdot.warn{background:var(--red);box-shadow:0 0 6px var(--red)}
-.sdot.busy{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:pulse .8s ease-in-out infinite alternate}
+.badge{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.07em;padding:2px 7px;border-radius:3px;border:1px solid;text-transform:uppercase}
+.badge-b{color:var(--blue);border-color:var(--blue-bdr);background:var(--blue-bg)}
+.badge-t{color:var(--teal);border-color:var(--teal-bdr);background:var(--teal-bg)}
+.badge-a{color:var(--amber);border-color:var(--amber-bdr);background:var(--amber-bg)}
+#statusBar{margin-left:auto;display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--ink3)}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--ink3);flex-shrink:0;transition:background .3s,box-shadow .3s}
+.sdot.ok{background:var(--green);box-shadow:0 0 5px rgba(26,127,84,.35)}
+.sdot.warn{background:var(--red);box-shadow:0 0 5px rgba(192,57,43,.35)}
+.sdot.busy{background:var(--amber);box-shadow:0 0 5px rgba(196,123,10,.35);animation:pulse .9s ease-in-out infinite alternate}
 @keyframes pulse{from{opacity:.4}to{opacity:1}}
-/* LAYOUT */
-main{position:relative;z-index:1;display:grid;grid-template-columns:488px 1fr;gap:14px;padding:14px;max-width:1900px;margin:0 auto}
+
+/* ── LAYOUT ── */
+main{position:relative;z-index:1;display:grid;grid-template-columns:492px 1fr;gap:14px;padding:14px;max-width:1900px;margin:0 auto}
 @media(max-width:1100px){main{grid-template-columns:1fr}}
-/* ACCORDION */
-.acc{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:8px;overflow:hidden;transition:border-color .2s}
+
+/* ── ACCORDION ── */
+.acc{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow-sm);transition:border-color .2s}
 .acc:has(details[open]){border-color:var(--border2)}
-.acc summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ink2);text-transform:uppercase;user-select:none;transition:color .15s}
-.acc summary:hover{color:var(--ink)}
+.acc summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.07em;color:var(--ink2);text-transform:uppercase;user-select:none;transition:color .15s,background .15s}
+.acc summary:hover{color:var(--ink);background:var(--surface2)}
 .acc summary::-webkit-details-marker,.acc summary::marker{display:none}
-.acc-icon{width:14px;height:14px;flex-shrink:0;color:var(--cyan)}
-.acc-chev{margin-left:auto;width:12px;height:12px;color:var(--ink3);transition:transform .2s}
+.acc-icon{width:14px;height:14px;flex-shrink:0;color:var(--blue)}
+.acc-chev{margin-left:auto;width:11px;height:11px;color:var(--ink3);transition:transform .2s}
 details[open] .acc-chev{transform:rotate(180deg)}
 .acc-body{padding:12px 14px 14px;border-top:1px solid var(--border)}
-/* FORM */
+
+/* ── FORM ── */
 .fg{display:grid;gap:8px}
 .c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}.c4{grid-template-columns:repeat(4,1fr)}
 .field{display:flex;flex-direction:column;gap:4px}
-.fl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
-input[type="number"],input[type="text"],select{width:100%;background:var(--surface2);color:var(--ink);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 10px;font-family:var(--mono);font-size:12px;outline:none;transition:border-color .15s,box-shadow .15s;appearance:none}
-input:focus,select:focus{border-color:var(--cyan-dim);box-shadow:0 0 0 2px rgba(78,205,196,.12)}
-input::placeholder{color:var(--ink3)}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b748f'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
-.fh{font-family:var(--mono);font-size:9px;color:var(--ink3);line-height:1.4}
-/* RADIO */
+.fl{font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+input[type="number"],input[type="text"],select{
+  width:100%;background:var(--surface);color:var(--ink);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:7px 10px;font-family:var(--mono);font-size:12px;
+  outline:none;transition:border-color .15s,box-shadow .15s;appearance:none
+}
+input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(58,123,213,.12)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238892a4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+.fh{font-family:var(--mono);font-size:9px;color:var(--ink3);line-height:1.45;margin-top:2px}
+
+/* ── RADIO ── */
 .radio-grp{display:flex;gap:6px;flex-wrap:wrap}
 .rc{flex:1;min-width:120px;position:relative}
 .rc input{position:absolute;opacity:0;width:0;height:0}
 .rc label{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:12px;color:var(--ink2);transition:all .15s}
+.rc label:hover{border-color:var(--border2);background:var(--surface3)}
 .rc-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;transition:all .15s}
-.rc input:checked+label{border-color:var(--cyan-dim);color:var(--cyan);background:rgba(78,205,196,.06)}
-.rc input:checked+label .rc-dot{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 6px rgba(78,205,196,.5)}
-/* BUTTONS */
+.rc input:checked+label{border-color:var(--blue-bdr);color:var(--blue);background:var(--blue-bg)}
+.rc input:checked+label .rc-dot{background:var(--blue);border-color:var(--blue);box-shadow:0 0 4px rgba(58,123,213,.4)}
+
+/* ── BUTTONS ── */
 .btn-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.btn{appearance:none;border:1px solid var(--border2);background:var(--surface2);color:var(--ink2);padding:7px 14px;border-radius:var(--r-sm);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.btn:hover{border-color:var(--cyan-dim);color:var(--cyan);background:rgba(78,205,196,.07)}
-.btn:active{transform:translateY(1px)}
-.btn:disabled{opacity:.35;pointer-events:none}
-.btn-p{background:var(--cyan);color:var(--bg);border-color:var(--cyan);font-weight:600}
-.btn-p:hover{background:#6dddd5;color:var(--bg);border-color:#6dddd5}
-.btn-d{border-color:var(--red-dim);color:var(--red)}
-.btn-d:hover{background:rgba(255,107,107,.08)}
+.btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink2);padding:6px 13px;border-radius:var(--r-sm);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:var(--shadow-sm)}
+.btn:hover{border-color:var(--blue-bdr);color:var(--blue);background:var(--blue-bg);box-shadow:none}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn:disabled{opacity:.38;pointer-events:none}
+.btn-p{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:600;box-shadow:0 2px 6px rgba(58,123,213,.3)}
+.btn-p:hover{background:#2d68bb;color:#fff;border-color:#2d68bb}
+.btn-d{border-color:var(--red-bdr);color:var(--red);background:var(--red-bg)}
+.btn-d:hover{background:#fae0dc}
 .btn-ico{width:28px;height:28px;padding:0;justify-content:center;flex-shrink:0}
-/* PROGRESS */
+
+/* ── PROGRESS ── */
 .prog-wrap{display:flex;align-items:center;gap:8px}
-.prog-track{flex:1;height:3px;background:var(--surface3);border-radius:999px;overflow:hidden}
-.prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan));border-radius:999px;transition:width .08s linear}
-.prog-pct{font-family:var(--mono);font-size:10px;color:var(--ink3);min-width:36px;text-align:right}
-/* CODEBOX */
-.codebox{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--ink2);white-space:pre;overflow:auto;max-height:200px}
-/* FORMULA */
-.formula{background:var(--bg);border:1px solid var(--border);border-left:2px solid var(--cyan-dim);border-radius:var(--r-sm);padding:10px 14px;margin-top:8px}
-.formula .ft{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:6px}
-/* TABLE */
+.prog-track{flex:1;height:4px;background:var(--surface3);border-radius:999px;overflow:hidden;border:1px solid var(--border)}
+.prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--blue),#5b99e8);border-radius:999px;transition:width .08s linear}
+.prog-pct{font-family:var(--mono);font-size:10px;color:var(--ink3);min-width:34px;text-align:right}
+
+/* ── CODE/RESULT BOX ── */
+.codebox{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--ink2);white-space:pre;overflow:auto;max-height:220px}
+
+/* ── FORMULA CARD ── */
+.formula{background:var(--teal-bg);border:1px solid var(--teal-bdr);border-left:3px solid var(--teal);border-radius:var(--r-sm);padding:10px 14px;margin-top:8px}
+.formula .ft{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);margin-bottom:5px;font-weight:500}
+
+/* ── NOTE CARD ── */
+.note{border-radius:var(--r-sm);padding:8px 12px;font-family:var(--mono);font-size:10px;line-height:1.55;margin-top:6px}
+.note-amber{background:var(--amber-bg);border:1px solid var(--amber-bdr);color:var(--amber)}
+.note-blue{background:var(--blue-bg);border:1px solid var(--blue-bdr);color:var(--blue)}
+.note-red{background:var(--red-bg);border:1px solid var(--red-bdr);color:var(--red);display:none}
+
+/* ── TABLE ── */
 .dtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
-.dtable th{background:var(--surface3);color:var(--ink3);font-weight:500;letter-spacing:.06em;font-size:9px;text-transform:uppercase;padding:6px 8px;border:1px solid var(--border);text-align:center}
+.dtable th{background:var(--surface2);color:var(--ink3);font-weight:500;letter-spacing:.06em;font-size:9px;text-transform:uppercase;padding:6px 8px;border:1px solid var(--border);text-align:center}
 .dtable td{border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--ink2)}
 .dtable td input{background:transparent;border:none;color:var(--ink);font-family:var(--mono);font-size:11px;width:100%;text-align:center;outline:none;padding:2px}
-.dtable td input:focus{background:rgba(78,205,196,.06);border-radius:2px}
-.dtable tbody tr:hover td{background:rgba(255,255,255,.02)}
-/* PLOT CARDS */
+.dtable td input:focus{background:var(--blue-bg);border-radius:2px}
+.dtable tbody tr:hover td{background:var(--surface2)}
+
+/* ── PLOT AREA ── */
 .plots-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:1400px){.plots-grid{grid-template-columns:1fr}}
-.plot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px;position:relative;overflow:hidden}
-.plot-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan-dim),transparent);opacity:.5}
-.pt{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;padding:0 2px}
-/* MISC */
+.plot-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px;box-shadow:var(--shadow-sm)}
+.pt{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;padding:0 2px;font-weight:500}
+
+/* ── MISC ── */
 .divider{height:1px;background:var(--border);margin:10px 0}
-.sl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink3);display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.sl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:500}
 .sl::after{content:'';flex:1;height:1px;background:var(--border)}
-.chk{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2)}
-.chk input[type="checkbox"]{width:14px;height:14px;accent-color:var(--cyan);cursor:pointer;flex-shrink:0}
-.jis-hint{display:none;background:rgba(240,180,41,.06);border:1px solid var(--amber-dim);border-radius:var(--r-sm);padding:8px 12px;font-family:var(--mono);font-size:10px;color:var(--amber);line-height:1.5}
+.chk{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--ink2);user-select:none}
+.chk input[type="checkbox"]{width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0}
 .legend-row{display:flex;gap:14px;flex-wrap:wrap;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--mono);font-size:10px;color:var(--ink3)}
 .li{display:flex;align-items:center;gap:5px}
-.mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:transparent}
+.mt4{margin-top:4px}.mt6{margin-top:6px}.mt8{margin-top:8px}.mt12{margin-top:12px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface2)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:999px}
 </style>
 </head>
 <body>
 
+<!-- ── HEADER ── -->
 <header>
   <div class="hdr-logo">
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect x="1" y="1" width="26" height="26" rx="4" stroke="#2a7a76" stroke-width="1.5"/>
-      <path d="M4 22 Q7 8 10 14 Q13 20 16 10 Q19 0 22 14" stroke="#4ecdc4" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-      <circle cx="10" cy="14" r="1.5" fill="#4ecdc4"/>
-      <circle cx="16" cy="10" r="1.5" fill="#5b8af5"/>
-      <circle cx="22" cy="14" r="1.5" fill="#4ecdc4"/>
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+      <rect x="1" y="1" width="28" height="28" rx="5" fill="#eef3fc" stroke="#b8d0f5" stroke-width="1.5"/>
+      <path d="M4 22 Q7 9 10 15 Q13 21 16 11 Q19 1 22 15" stroke="#3a7bd5" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <circle cx="10" cy="15" r="2" fill="#3a7bd5"/>
+      <circle cx="16" cy="11" r="2" fill="#1a9e8f"/>
+      <circle cx="22" cy="15" r="2" fill="#3a7bd5"/>
     </svg>
     <div>
-      <div class="hdr-title">FLOOR IMPACT ACOUSTICS</div>
-      <div class="hdr-sub">加振点・受音点 配置プランナー</div>
+      <div class="hdr-title">Floor Impact Acoustics — Layout Planner</div>
+      <div class="hdr-sub">加振点・受音点 配置設計ツール</div>
     </div>
   </div>
   <div class="hdr-badges">
-    <span class="badge badge-c">INCE</span>
-    <span class="badge badge-c">JIS A 1418</span>
-    <span class="badge badge-b">ISO 16283-3</span>
-    <span class="badge badge-b">ISO 10140-3</span>
+    <span class="badge badge-b">INCE</span>
+    <span class="badge badge-b">JIS A 1418</span>
+    <span class="badge badge-t">ISO 16283-3</span>
+    <span class="badge badge-t">ISO 10140-3</span>
     <span class="badge badge-a">Monte Carlo</span>
   </div>
   <div id="statusBar">
@@ -158,155 +211,1080 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 </header>
 
+<!-- ── MAIN ── -->
 <main>
-<!-- ═══ LEFT ═══ -->
+<section><!-- LEFT: CONTROLS -->
+
+  <!-- PRESET -->
+  <div class="acc"><details open>
+    <summary>
+      <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M8 5v6"/></svg>
+      Preset / Source Type / Generation
+      <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+    </summary>
+    <div class="acc-body">
+      <div class="fg c2">
+        <div class="field"><label class="fl">Standard (Preset)</label>
+          <select id="stdSelect">
+            <option value="INCE">INCE</option>
+            <option value="OLDJIS">旧 JIS</option>
+            <option value="JIS" selected>JIS A 1418</option>
+            <option value="ISO16283">ISO 16283-3</option>
+            <option value="ISO10140">ISO 10140-3</option>
+          </select>
+        </div>
+        <div class="field"><label class="fl">Random Seed</label>
+          <input id="seedInput" type="text" value="seed-1234" placeholder="seed-1234"/>
+        </div>
+      </div>
+
+      <div class="mt8"><label class="fl">Excitation Type</label>
+        <div class="radio-grp mt4">
+          <div class="rc"><input type="radio" name="srcType" value="light" id="r-light" checked>
+            <label for="r-light"><span class="rc-dot"></span>軽量床衝撃源（Tapping）</label></div>
+          <div class="rc"><input type="radio" name="srcType" value="heavy" id="r-heavy">
+            <label for="r-heavy"><span class="rc-dot"></span>重量床衝撃源（Heavy）</label></div>
+        </div>
+      </div>
+
+      <!-- タッピング向き説明 -->
+      <div class="note note-blue mt6" id="tapOrientNote">
+        <strong>タッピング向き：</strong>各加振点から最近傍の隅へのベクトルに対して長辺（520 mm）が直交するよう自動算出。5点それぞれ向きが変わります。
+      </div>
+
+      <div class="fg c2 mt8">
+        <div class="field"><label class="fl">Node-Avoid Search Limit</label>
+          <input id="searchLimit" type="number" step="1" value="30">
+          <div class="fh">警告ゼロになるまで乱数探索（上限）</div>
+        </div>
+        <div class="field"><label class="fl">Slab frame</label>
+          <div style="margin-top:6px"><label class="chk"><input id="showSlabEdges" type="checkbox" checked>Show slab outline</label></div>
+        </div>
+      </div>
+
+      <div class="btn-row mt8">
+        <button class="btn btn-p" id="btnGenerate">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 1v10M1 6h10"/></svg>Apply Preset
+        </button>
+        <button class="btn" id="btnSearch">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/></svg>Node-Avoid Search
+        </button>
+      </div>
+
+      <div class="prog-wrap mt8">
+        <div class="prog-track"><div id="progressFill" class="prog-fill"></div></div>
+        <span id="progressPct" class="prog-pct">0%</span>
+      </div>
+
+      <div id="jisHint" class="note note-amber mt6" style="display:none">
+        ⚠ JIS（ランダム）表示は丸。向きは最近傍隅方向⊥長辺で決定（梁方向±45°条件より隅方向を優先）。
+      </div>
+
+      <div class="codebox mt8" id="bestPanel">// Run search or optimisation to see best configuration</div>
+    </div>
+  </details></div>
+
+  <!-- ROOM -->
+  <div class="acc"><details open>
+    <summary>
+      <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12M6 2v12"/></svg>
+      Room Geometry / Slab / Band
+      <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+    </summary>
+    <div class="acc-body">
+      <div class="sl">Room Dimensions</div>
+      <div class="fg c3">
+        <div class="field"><label class="fl">Lx [m]</label><input id="roomLx" type="number" step="0.1" value="5.0"></div>
+        <div class="field"><label class="fl">Ly [m]</label><input id="roomLy" type="number" step="0.1" value="4.0"></div>
+        <div class="field"><label class="fl">Lz [m]</label><input id="roomLz" type="number" step="0.1" value="3.0"></div>
+      </div>
+      <div class="sl mt8">Slab (blank = room Lx, Ly)</div>
+      <div class="fg c2">
+        <div class="field"><label class="fl">Sx [m]</label><input id="slabLx" type="number" step="0.1" placeholder="= Lx"></div>
+        <div class="field"><label class="fl">Sy [m]</label><input id="slabLy" type="number" step="0.1" placeholder="= Ly"></div>
+      </div>
+      <div class="fh mt4">スラブ平面は天井 Z = Lz に固定（上階床）</div>
+      <div class="divider"></div>
+      <div class="fg c2">
+        <div class="field"><label class="fl">RT60 [s]（Schröder fₛ）</label>
+          <input id="rt60" type="number" step="0.05" value="0.2">
+          <div class="fh" id="fsInfo">fₛ: RT60 入力後に表示</div>
+        </div>
+        <div class="field"><label class="fl">Warning threshold ε (|Φ|)</label>
+          <input id="phiEps" type="number" step="0.01" value="0.10">
+          <div class="fh">|Φ|&lt;ε → 節近傍  |Φ|&lt;0.02 → 特異点</div>
+        </div>
+      </div>
+
+      <div class="formula">
+        <div class="ft">Modal Shape Function — |Φ| 評価指標</div>
+        <div style="color:var(--ink2);font-size:12px">
+          \[\Phi_{n_x n_y n_z}(x,y,z)=\cos\!\left(\tfrac{n_x\pi x}{L_x}\right)\cos\!\left(\tfrac{n_y\pi y}{L_y}\right)\cos\!\left(\tfrac{n_z\pi z}{L_z}\right)\]
+        </div>
+        <div class="fh" style="margin-top:6px;color:var(--ink3)">
+          ※ min|Φ|はスクリーニング指標。実際の音場はモード重畳・励起条件により異なります（ツール末尾に詳細）。
+        </div>
+      </div>
+    </div>
+  </details></div>
+
+  <!-- CONSTRAINTS -->
+  <div class="acc"><details>
+    <summary>
+      <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="2"/><circle cx="11" cy="5" r="2"/><circle cx="5" cy="11" r="2"/><circle cx="11" cy="11" r="2"/></svg>
+      Point Counts / Constraints / Manual Entry
+      <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+    </summary>
+    <div class="acc-body">
+      <div class="fg c3">
+        <div class="field"><label class="fl">nMic</label><input id="nMic" type="number" step="1" value="5"></div>
+        <div class="field"><label class="fl">nSrc</label><input id="nSrc" type="number" step="1" value="5"></div>
+        <div class="field"><label class="fl">Max tries / pt</label><input id="maxTries" type="number" step="10" value="5000"></div>
+      </div>
+      <div class="sl mt8">Microphone clearances [m]</div>
+      <div class="fg c4">
+        <div class="field"><label class="fl">Pair ≥</label><input id="micPairMin" type="number" step="0.05" value="0.7"></div>
+        <div class="field"><label class="fl">Wall ≥</label><input id="micWallMin" type="number" step="0.05" value="0.5"></div>
+        <div class="field"><label class="fl">Floor ≥</label><input id="micFloorMin" type="number" step="0.05" value="0.5"></div>
+        <div class="field"><label class="fl">Ceil ≥</label><input id="micCeilMin" type="number" step="0.05" value="0.5"></div>
+      </div>
+      <div class="sl mt8">Source clearances [m]</div>
+      <div class="fg c2">
+        <div class="field"><label class="fl">Pair ≥</label><input id="srcPairMin" type="number" step="0.05" value="0.5"></div>
+        <div class="field"><label class="fl">Edge ≥</label><input id="srcEdgeMin" type="number" step="0.05" value="0.5"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="sl">Microphones — manual (x, y, z)</div>
+      <div class="btn-row" style="margin-bottom:6px">
+        <button class="btn btn-ico" id="addMicRow" title="行追加">＋</button>
+        <span class="fh">室内座標</span>
+      </div>
+      <table class="dtable" id="micTable">
+        <thead><tr><th>#</th><th>x</th><th>y</th><th>z</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="sl mt8">Sources — manual (x, y) on slab</div>
+      <div class="btn-row" style="margin-bottom:6px">
+        <button class="btn btn-ico" id="addSrcRow" title="行追加">＋</button>
+        <span class="fh">スラブ上の加振点中心</span>
+      </div>
+      <table class="dtable" id="srcTable">
+        <thead><tr><th>#</th><th>x</th><th>y</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="btn-row mt8">
+        <button class="btn btn-p" id="plotManual">Plot Manual</button>
+        <button class="btn btn-d" id="clearManual">Clear All</button>
+      </div>
+    </div>
+  </details></div>
+
+  <!-- ANALYSIS -->
+  <div class="acc"><details>
+    <summary>
+      <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12L5 7l3 2 3-5 3 2"/><line x1="2" y1="14" x2="14" y2="14"/></svg>
+      Analysis / Node Maps / Optimisation / Export
+      <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+    </summary>
+    <div class="acc-body">
+      <div class="fg c2">
+        <div class="field"><label class="fl">Grid resolution N</label><input id="gridN" type="number" step="8" value="64"></div>
+        <div class="field"><label class="fl">Mode order Nmax</label><input id="Nmax" type="number" step="1" value="4"></div>
+      </div>
+      <div class="fg c2 mt8">
+        <div class="field"><label class="fl">Target Mic (slice/tol)</label><input id="micIndex" type="number" step="1" value="1"></div>
+        <div class="field"><label class="fl">Optimisation trials (MC)</label><input id="optTrials" type="number" step="10" value="200"></div>
+      </div>
+      <div class="fg c2 mt8">
+        <div class="field"><label class="fl">Weights: w_bad, w_hits, w_dist</label>
+          <input id="weights" type="text" value="10, 1, 0.5">
+          <div class="fh">score = w_bad·BadMic + w_hits·Hits − w_dist·AvgDist</div>
+        </div>
+        <div class="field"><label class="fl">Corner mics (ISO 16283-3)</label>
+          <div class="btn-row mt4">
+            <label class="chk"><input id="autoCorner" type="checkbox" checked>Auto V&lt;25 m³</label>
+            <button class="btn" id="addCorner">Force</button>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="sl">Node Maps</div>
+      <div class="btn-row">
+        <button class="btn" id="btnMapXY">XY Map</button>
+        <button class="btn" id="btnSliceXZ">XZ Slice</button>
+        <button class="btn" id="btnSliceYZ">YZ Slice</button>
+        <button class="btn" id="btnTol">Tol Bubbles</button>
+      </div>
+      <div class="sl mt8">Optimisation &amp; Export</div>
+      <div class="btn-row">
+        <button class="btn btn-p" id="btnOptimize">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6a4 4 0 1 1 8 0"/><path d="M8 4l2 2-2 2"/></svg>Optimise
+        </button>
+        <button class="btn" id="btnExportCSV">CSV</button>
+        <button class="btn" id="btnExportJSON">JSON</button>
+        <button class="btn" id="btnPrint">Print</button>
+      </div>
+    </div>
+  </details></div>
+
+  <!-- |Φ| NOTE -->
+  <div class="acc"><details>
+    <summary>
+      <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 7v5M8 5v1"/></svg>
+      |Φ| 評価指標の合理性について
+      <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+    </summary>
+    <div class="acc-body">
+      <div class="note note-blue">
+        <strong>妥当な点</strong><br>
+        直方体剛壁室の固有関数は余弦積として厳密に導出される。|Φ|→0 はそのモードの受音が困難な点を数学的に正しく示す。計算が軽いためリアルタイム探索に向く。
+      </div>
+      <div class="note note-amber mt6">
+        <strong>限界・問題点</strong><br>
+        ① <em>複数モードの重畳を無視</em> — ある点でモードAが節でも、モードBが強く励起されていれば測定は可能。min|Φ|だけ見ると悲観的すぎる場合がある。<br>
+        ② <em>励振条件を無視</em> — 加振点でのΦが小さければそのモードは励起されない。受音点だけ評価するのは片手落ち。|Φ(src)|×|Φ(mic)| の積が物理的により正確。<br>
+        ③ <em>矩形室仮定</em> — 非矩形・不整形室では全く適用不可。<br>
+        ④ <em>fₛ 近傍のグレーゾーン</em> — 拡散音場成分が優勢になる遷移帯域での扱いが粗い。
+      </div>
+      <div class="note note-blue mt6">
+        <strong>改善案（将来）</strong><br>
+        バンド内の伝達関数振幅積分 <span style="font-family:var(--mono)">∫|Σ Φ(src,n)·Φ(mic,n) / (f²ₙ−f²+…)|·df</span> を評価すれば物理的に正確だが計算コストは10〜100倍。現状の min|Φ| は「明らかにまずい配置を弾くスクリーニング」として実用的。「スコアが高い＝測定精度が高い」という強い主張はできない点に注意。
+      </div>
+    </div>
+  </details></div>
+
+</section>
+
+<!-- RIGHT: VISUALISATION -->
 <section>
-
-  <div class="acc">
-    <details open>
-      <summary>
-        <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M8 5v6"/></svg>
-        Preset / Source Type / Generation
-        <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
-      </summary>
-      <div class="acc-body">
-        <div class="fg c2">
-          <div class="field"><label class="fl">Standard (Preset)</label>
-            <select id="stdSelect">
-              <option value="INCE">INCE</option>
-              <option value="OLDJIS">旧 JIS</option>
-              <option value="JIS" selected>JIS A 1418</option>
-              <option value="ISO16283">ISO 16283-3</option>
-              <option value="ISO10140">ISO 10140-3</option>
-            </select>
-          </div>
-          <div class="field"><label class="fl">Random Seed</label>
-            <input id="seedInput" type="text" value="seed-1234" placeholder="seed-1234"/>
-          </div>
-        </div>
-
-        <div class="mt8"><label class="fl">Excitation Type</label>
-          <div class="radio-grp mt4">
-            <div class="rc"><input type="radio" name="srcType" value="light" id="r-light" checked>
-              <label for="r-light"><span class="rc-dot"></span>軽量床衝撃源（Tapping）</label></div>
-            <div class="rc"><input type="radio" name="srcType" value="heavy" id="r-heavy">
-              <label for="r-heavy"><span class="rc-dot"></span>重量床衝撃源（Heavy）</label></div>
-          </div>
-        </div>
-
-        <div class="fg c2 mt8">
-          <div class="field"><label class="fl">Joist Direction [°] (X=0°)</label>
-            <input id="joistAngleDeg" type="number" step="1" value="0">
-            <div class="fh">Tapping auto-rotates at joist+45°</div>
-          </div>
-          <div class="field"><label class="fl">Node-Avoid Search Limit</label>
-            <input id="searchLimit" type="number" step="1" value="30">
-            <div class="fh">Random search until zero warnings</div>
-          </div>
-        </div>
-
-        <div class="btn-row mt8">
-          <button class="btn btn-p" id="btnGenerate">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 1v10M1 6h10"/></svg>Apply Preset
-          </button>
-          <button class="btn" id="btnSearch">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/></svg>Node-Avoid Search
-          </button>
-          <label class="chk"><input id="showSlabEdges" type="checkbox" checked>Show slab frame</label>
-        </div>
-
-        <div class="prog-wrap mt8">
-          <div class="prog-track"><div id="progressFill" class="prog-fill"></div></div>
-          <span id="progressPct" class="prog-pct">0%</span>
-        </div>
-        <div id="jisHint" class="jis-hint mt8">⚠ JIS (random) — Circles shown (orientation hidden). Place tapping machine at <strong>45° to joist direction</strong> on-site.</div>
-        <div class="codebox mt8" id="bestPanel">// Run search or optimization to see best config</div>
-      </div>
-    </details>
+  <div class="plots-grid">
+    <div class="plot-card">
+      <div class="pt">▸ 3D Room — Receiver Positions</div>
+      <div id="roomPlot" style="width:100%;height:480px"></div>
+    </div>
+    <div class="plot-card">
+      <div class="pt">▸ Slab Plan — Source Positions &amp; Tapping Orientations</div>
+      <div id="slabPlot" style="width:100%;height:480px"></div>
+    </div>
   </div>
 
-  <div class="acc">
-    <details open>
-      <summary>
-        <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12M6 2v12"/></svg>
-        Room Geometry / Slab / Band / Modes
-        <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
-      </summary>
-      <div class="acc-body">
-        <div class="sl">Room Dimensions</div>
-        <div class="fg c3">
-          <div class="field"><label class="fl">Lx [m]</label><input id="roomLx" type="number" step="0.1" value="5.0"></div>
-          <div class="field"><label class="fl">Ly [m]</label><input id="roomLy" type="number" step="0.1" value="4.0"></div>
-          <div class="field"><label class="fl">Lz [m]</label><input id="roomLz" type="number" step="0.1" value="3.0"></div>
-        </div>
-        <div class="sl mt8">Slab (blank = room dimensions)</div>
-        <div class="fg c2">
-          <div class="field"><label class="fl">Sx [m]</label><input id="slabLx" type="number" step="0.1" placeholder="= Lx"></div>
-          <div class="field"><label class="fl">Sy [m]</label><input id="slabLy" type="number" step="0.1" placeholder="= Ly"></div>
-        </div>
-        <div class="fh mt4">Slab plane fixed at ceiling Z = Lz (upper floor representation)</div>
-        <div class="divider"></div>
-        <div class="fg c2">
-          <div class="field"><label class="fl">RT60 [s] (Schröder fₛ)</label>
-            <input id="rt60" type="number" step="0.05" value="0.2">
-            <div class="fh" id="fsInfo">fₛ not yet computed</div>
-          </div>
-          <div class="field"><label class="fl">Warning threshold ε</label>
-            <input id="phiEps" type="number" step="0.01" value="0.10">
-            <div class="fh">|Φ|&lt;ε → node vicinity · |Φ|&lt;0.02 → singular</div>
-          </div>
-        </div>
-        <div class="formula">
-          <div class="ft">Modal Shape Function</div>
-          <div style="color:var(--ink2);font-size:12px">
-            \[\Phi_{n_x n_y n_z}(x,y,z)=\cos\!\left(\tfrac{n_x\pi x}{L_x}\right)\cos\!\left(\tfrac{n_y\pi y}{L_y}\right)\cos\!\left(\tfrac{n_z\pi z}{L_z}\right)\]
-          </div>
-        </div>
-      </div>
-    </details>
+  <div class="legend-row mt12">
+    <div class="li"><span style="color:#3a7bd5;font-size:15px;font-weight:700;line-height:1">×</span>Microphone</div>
+    <div class="li"><span style="display:inline-block;width:14px;height:8px;border:2px solid #1a9e8f;border-radius:1px"></span>Tapping (520×260 mm, 各点ごとに向き異なる)</div>
+    <div class="li"><span style="width:9px;height:9px;border-radius:50%;background:#c47b0a;display:inline-block"></span>Heavy / JIS-circle</div>
+    <div class="li" style="color:var(--red)">🔴 = node-vicinity warning</div>
+    <div class="li" style="color:var(--green)">🟢 = OK</div>
   </div>
 
-  <div class="acc">
-    <details>
-      <summary>
-        <svg class="acc-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="2"/><circle cx="11" cy="5" r="2"/><circle cx="5" cy="11" r="2"/><circle cx="11" cy="11" r="2"/></svg>
-        Point Counts / Constraints / Manual Entry
-        <svg class="acc-chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
-      </summary>
-      <div class="acc-body">
-        <div class="fg c3">
-          <div class="field"><label class="fl">nMic</label><input id="nMic" type="number" step="1" value="5"></div>
-          <div class="field"><label class="fl">nSrc</label><input id="nSrc" type="number" step="1" value="5"></div>
-          <div class="field"><label class="fl">Max tries/pt</label><input id="maxTries" type="number" step="10" value="5000"></div>
-        </div>
-        <div class="sl mt8">Microphone Clearances [m]</div>
-        <div class="fg c4">
-          <div class="field"><label class="fl">Pair ≥</label><input id="micPairMin" type="number" step="0.05" value="0.7"></div>
-          <div class="field"><label class="fl">Wall ≥</label><input id="micWallMin" type="number" step="0.05" value="0.5"></div>
-          <div class="field"><label class="fl">Floor ≥</label><input id="micFloorMin" type="number" step="0.05" value="0.5"></div>
-          <div class="field"><label class="fl">Ceiling ≥</label><input id="micCeilMin" type="number" step="0.05" value="0.5"></div>
-        </div>
-        <div class="sl mt8">Source Clearances [m]</div>
-        <div class="fg c2">
-          <div class="field"><label class="fl">Pair ≥</label><input id="srcPairMin" type="number" step="0.05" value="0.5"></div>
-          <div class="field"><label class="fl">Edge ≥</label><input id="srcEdgeMin" type="number" step="0.05" value="0.5"></div>
-        </div>
-        <div class="divider"></div>
-        <div class="sl">Microphones — manual (x, y, z)</div>
-        <div class="btn-row" style="margin-bottom:6px">
-          <button class="btn btn-ico" id="addMicRow">＋</button>
-          <span class="fh">Receiver positions in room coords</span>
-        </div>
-        <table class="dtable" id="micTable">
-          <thead><tr><th>#</th><th>x</th><th>y</th><th>z</th><th>—</th></tr></thead>
-          <tbody></tbody>
-        </table>
-        <div class="sl mt8">Sources — manual (x, y) on slab</div>
-        <div class="btn-row" style="margin-bottom:6px">
-          <button class="btn btn-ico" id="addSrcRow">＋</button>
-          <span class="fh">Excitation centres on slab</span>
-        </div>
-        <table class="dtable" id="srcTable">
-          <thead><tr><th>#</th><th>x</th><th>y</th><th>—</th></tr></thead>
-          <tbody></tbody>
-        </ta
+  <div class="plot-card mt12">
+    <div class="pt">▸ Acoustic Field Warnings — per Microphone</div>
+    <div class="fh" style="margin-bottom:6px">Light: 125–4000 Hz · Heavy: 63–500 Hz · fₛ = 2000√(RT60/V) で上限クリップ</div>
+    <div class="codebox" id="warnPanel">// Warnings appear here after generation</div>
+  </div>
+
+  <div class="plots-grid mt12">
+    <div class="plot-card">
+      <div class="pt">▸ Node Map (XY) — min |Φ| across modes</div>
+      <div id="heatXY" style="width:100%;height:400px"></div>
+    </div>
+    <div class="plot-card">
+      <div class="pt">▸ Slices — XZ (top) · YZ (bottom)</div>
+      <div id="sliceXZ" style="width:100%;height:360px"></div>
+      <div id="sliceYZ" style="width:100%;height:360px;margin-top:8px"></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════════ */
+const TAP_W=0.520, TAP_D=0.260, C_SOUND=343;
+
+const PLY_LIGHT={
+  paper_bgcolor:'#ffffff', plot_bgcolor:'#f7f8fa',
+  font:{color:'#4a5068', family:"'DM Mono','Courier New',monospace", size:11},
+};
+
+/* Viridis-like but readable on white */
+const HEAT_CS=[
+  [0,'#c0392b'],[0.15,'#e67e22'],[0.35,'#f1c40f'],
+  [0.6,'#27ae60'],[0.85,'#2980b9'],[1,'#1a237e']
+];
+
+/* ══════════════════════════════════════════
+   STATUS
+══════════════════════════════════════════ */
+const $dot=document.getElementById('statusDot');
+const $txt=document.getElementById('statusText');
+function setStatus(msg,state='ok'){$txt.textContent=msg;$dot.className='sdot '+state;}
+
+/* ══════════════════════════════════════════
+   PLOTLY WRAPPERS
+══════════════════════════════════════════ */
+const plotlyOK=()=>typeof Plotly!=='undefined'&&typeof Plotly.newPlot==='function';
+function safePlot(id,data,layout,cfg={}){
+  if(!plotlyOK()){setStatus('Plotly not loaded','warn');return false;}
+  try{Plotly.newPlot(id,data,layout,{responsive:true,displaylogo:false,...cfg});return true;}
+  catch(e){console.error('Plotly',e);setStatus('Plot error: '+e.message,'warn');return false;}
+}
+function safeRestyle(id,props,idx){
+  if(!plotlyOK())return;
+  try{Plotly.restyle(id,props,idx);}catch(e){console.warn('restyle',e);}
+}
+function safeAddTraces(id,traces){
+  if(!plotlyOK())return;
+  try{Plotly.addTraces(id,Array.isArray(traces)?traces:[traces]);}catch(e){console.warn('addTraces',e);}
+}
+
+/* ══════════════════════════════════════════
+   SEEDED RNG
+══════════════════════════════════════════ */
+function xmur3(s){let h=1779033703^s.length;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return()=>{h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return(h^=h>>>16)>>>0;};}
+function mulberry32(a){return()=>{let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+function makeRNG(seed){return mulberry32(xmur3(seed)());}
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+const fmt=n=>+n.toFixed(3);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const dist3=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
+const dist2=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function rr(rng,lo,hi){return lo+(hi-lo)*rng();}
+function numVal(id){const v=document.getElementById(id)?.value;if(v===''||v==null)return NaN;const n=Number(v);return isNaN(n)?NaN:n;}
+
+/* ══════════════════════════════════════════
+   ★ TAPPING ORIENTATION — per point, toward nearest corner
+   長辺（W=520mm）が最近傍コーナーへの方向ベクトルに直交する角度を返す
+   angle は tapRect() の回転角（長辺方向 = cos/sin方向）
+══════════════════════════════════════════ */
+function tapAngleForPoint(px, py, Sx, Sy){
+  // 4 corners
+  const corners=[{x:0,y:0},{x:Sx,y:0},{x:Sx,y:Sy},{x:0,y:Sy}];
+  let minD=Infinity, nearest=corners[0];
+  for(const c of corners){
+    const d=dist2({x:px,y:py},c);
+    if(d<minD){minD=d;nearest=c;}
+  }
+  // vector from excitation point toward nearest corner
+  const dx=nearest.x-px, dy=nearest.y-py;
+  // angle of that direction
+  const thetaToCorner=Math.atan2(dy,dx);
+  // long axis (W=520mm) perpendicular to that vector
+  // => long axis angle = thetaToCorner + π/2
+  return thetaToCorner + Math.PI/2;
+}
+
+/* ══════════════════════════════════════════
+   PROGRESS
+══════════════════════════════════════════ */
+const $fill=document.getElementById('progressFill');
+const $pct=document.getElementById('progressPct');
+function setProgress(r){const p=clamp(r*100,0,100);$fill.style.width=p.toFixed(1)+'%';$pct.textContent=p.toFixed(0)+'%';}
+
+/* ══════════════════════════════════════════
+   READ INPUTS
+══════════════════════════════════════════ */
+function readDim(){
+  const Lx=numVal('roomLx')||5,Ly=numVal('roomLy')||4,Lz=numVal('roomLz')||3;
+  let Sx=numVal('slabLx'),Sy=numVal('slabLy');
+  if(isNaN(Sx))Sx=Lx; if(isNaN(Sy))Sy=Ly;
+  return{room:{Lx,Ly,Lz},slab:{Sx,Sy,Sz:Lz}};
+}
+function readCons(){
+  return{
+    nMic:numVal('nMic')||5, nSrc:numVal('nSrc')||5, maxTries:numVal('maxTries')||5000,
+    micPairMin:numVal('micPairMin')||0.7, micWallMin:numVal('micWallMin')||0.5,
+    micFloorMin:numVal('micFloorMin')||0.5, micCeilMin:numVal('micCeilMin')||0.5,
+    srcPairMin:numVal('srcPairMin')||0.5, srcEdgeMin:numVal('srcEdgeMin')||0.5,
+  };
+}
+
+/* ══════════════════════════════════════════
+   5-DICE
+══════════════════════════════════════════ */
+function dice5(Sx,Sy){
+  return[{x:Sx/3,y:2*Sy/3},{x:2*Sx/3,y:2*Sy/3},{x:Sx/2,y:Sy/2},{x:Sx/3,y:Sy/3},{x:2*Sx/3,y:Sy/3}];
+}
+
+/* ══════════════════════════════════════════
+   SAMPLING
+══════════════════════════════════════════ */
+function sampleSources(cfg,rng){
+  const{Sx,Sy,Sz}=cfg.slab,c=cfg.cons;
+  const xMin=c.srcEdgeMin,xMax=Sx-c.srcEdgeMin;
+  const yMin=c.srcEdgeMin,yMax=Sy-c.srcEdgeMin;
+  if(xMax<=xMin||yMax<=yMin)throw new Error('Source usable area too small — reduce srcEdgeMin');
+  const pts=[];
+  const rC=0.15*Math.min(Sx,Sy),cx=Sx/2,cy=Sy/2;
+  // first point near centre
+  for(let t=0;t<c.maxTries;t++){
+    const ang=2*Math.PI*rng(),r=rC*Math.sqrt(rng());
+    pts.push({x:clamp(cx+r*Math.cos(ang),xMin,xMax),y:clamp(cy+r*Math.sin(ang),yMin,yMax),z:Sz});
+    break;
+  }
+  for(let i=1;i<c.nSrc;i++){
+    let placed=false;
+    for(let t=0;t<c.maxTries;t++){
+      const cand={x:rr(rng,xMin,xMax),y:rr(rng,yMin,yMax),z:Sz};
+      if(pts.every(p=>dist2(p,cand)>=c.srcPairMin)){pts.push(cand);placed=true;break;}
+    }
+    if(!placed)throw new Error(`Source ${i+1} placement failed (relax constraints or increase maxTries)`);
+  }
+  return pts;
+}
+
+function sampleMics(cfg,rng){
+  const R=cfg.room,c=cfg.cons;
+  const xMin=c.micWallMin,xMax=R.Lx-c.micWallMin;
+  const yMin=c.micWallMin,yMax=R.Ly-c.micWallMin;
+  const zMin=c.micFloorMin,zMax=R.Lz-c.micCeilMin;
+  if(xMax<=xMin||yMax<=yMin||zMax<zMin)throw new Error('Mic usable volume empty — reduce clearances');
+  const pts=[];
+  for(let i=0;i<c.nMic;i++){
+    let placed=false;
+    for(let t=0;t<c.maxTries;t++){
+      const cand={x:rr(rng,xMin,xMax),y:rr(rng,yMin,yMax),z:rr(rng,zMin,zMax)};
+      if(pts.every(p=>dist3(p,cand)>=c.micPairMin)){pts.push(cand);placed=true;break;}
+    }
+    if(!placed)throw new Error(`Mic ${i+1} placement failed (relax constraints or increase maxTries)`);
+  }
+  return pts;
+}
+
+/* ══════════════════════════════════════════
+   ★ BUILD srcMeta with per-point tapping angles
+══════════════════════════════════════════ */
+function buildSrcMeta(pointsSrc, isLight, slab){
+  if(!isLight)return pointsSrc.map(()=>({type:'heavy'}));
+  return pointsSrc.map(p=>{
+    const angle=tapAngleForPoint(p.x,p.y,slab.Sx,slab.Sy);
+    return{type:'tap',w:TAP_W,d:TAP_D,angle};
+  });
+}
+
+/* ══════════════════════════════════════════
+   ACOUSTICS
+══════════════════════════════════════════ */
+function schroeder(rt60,V){if(!rt60||rt60<=0||!V||V<=0)return null;return 2000*Math.sqrt(rt60/V);}
+function roomV(r){return r.Lx*r.Ly*r.Lz;}
+
+function computeBand(isLight,room){
+  const OCT=Math.SQRT2,rt60=numVal('rt60'),V=roomV(room);
+  const fs=schroeder(rt60,V);
+  const fcL=isLight?125:63,fcH=isLight?4000:500;
+  const low=fcL/OCT,high=fs?Math.min(fcH*OCT,fs):fcH*OCT;
+  const el=document.getElementById('fsInfo');
+  if(el)el.textContent=fs?`fₛ ≈ ${fmt(fs)} Hz  (V=${fmt(V)} m³, RT60=${rt60} s)`:'fₛ: RT60 入力後に表示';
+  return{low,high,fs};
+}
+
+function modalFreq(nx,ny,nz,Lx,Ly,Lz){
+  return(C_SOUND/2)*Math.sqrt((nx/Lx)**2+(ny/Ly)**2+(nz/Lz)**2);
+}
+function phi(x,y,z,nx,ny,nz,Lx,Ly,Lz){
+  return Math.cos(nx*Math.PI*x/Lx)*Math.cos(ny*Math.PI*y/Ly)*Math.cos(nz*Math.PI*z/Lz);
+}
+function nearestNode1D(coord,L,n){
+  if(n===0)return null;
+  const ang=((n*Math.PI*coord/L+Math.PI/2)%Math.PI+Math.PI)%Math.PI-Math.PI/2;
+  return Math.abs(ang)*L/(n*Math.PI);
+}
+
+function buildModes(room,isLight){
+  const Nmax=Math.max(1,Math.round(numVal('Nmax'))||4);
+  const bd=computeBand(isLight,room);
+  const{Lx,Ly,Lz}=room;
+  const modes=[];
+  for(let nx=0;nx<=Nmax;nx++)for(let ny=0;ny<=Nmax;ny++)for(let nz=0;nz<=Nmax;nz++){
+    if(!nx&&!ny&&!nz)continue;
+    const f=modalFreq(nx,ny,nz,Lx,Ly,Lz);
+    if(f>=bd.low&&f<=bd.high)modes.push({nx,ny,nz,f,sum:nx+ny+nz});
+  }
+  modes.sort((a,b)=>a.f-b.f);
+  return{modes,band:bd};
+}
+
+/* ══════════════════════════════════════════
+   WARNINGS
+══════════════════════════════════════════ */
+function computeWarnings(state){
+  const{room,pointsMic,isLight}=state;
+  const eps=+numVal('phiEps')||0.10;
+  const{modes,band}=buildModes(room,isLight);
+  const{Lx,Ly,Lz}=room;
+  const perMic=pointsMic.map((p,i)=>{
+    const hits=[];
+    for(const m of modes){
+      const absP=Math.abs(phi(p.x,p.y,p.z,m.nx,m.ny,m.nz,Lx,Ly,Lz));
+      if(absP<eps)hits.push({...m,phi:absP,
+        dx:m.nx>0?nearestNode1D(p.x,Lx,m.nx):null,
+        dy:m.ny>0?nearestNode1D(p.y,Ly,m.ny):null,
+        dz:m.nz>0?nearestNode1D(p.z,Lz,m.nz):null,
+      });
+    }
+    hits.sort((a,b)=>a.f-b.f);
+    const minPhi=hits.length?Math.min(...hits.map(h=>h.phi)):null;
+    return{micIndex:i+1,count:hits.length,list:hits.slice(0,10),minPhi,hasLowOrder:hits.some(h=>h.sum<=2)};
+  });
+  return{modesCount:modes.length,perMic,eps,band};
+}
+
+function renderWarnings(w){
+  let out=`Band: ${fmt(w.band.low)}–${fmt(w.band.high)} Hz  ·  Modes: ${w.modesCount}  ·  ε = ${w.eps}\n${'─'.repeat(70)}\n`;
+  for(const m of w.perMic){
+    const sing=m.minPhi!==null&&m.minPhi<0.02;
+    const tag=m.count>0?(sing?'[特異点に非常に近い]':'[節近傍]'):'[OK]';
+    out+=`\nMic ${m.micIndex}  ${tag}`;
+    if(m.hasLowOrder)out+='  ← 低次モード含む：レベル差出やすい';
+    out+='\n';
+    if(m.count>0){
+      out+='  nx  ny  nz |    f[Hz]  |  |Φ|   |  dx      dy      dz\n';
+      for(const it of m.list){
+        const d=v=>v!=null?fmt(v).toFixed(3).padStart(6):'  —   ';
+        out+=`   ${it.nx.toString().padStart(2)}  ${it.ny.toString().padStart(2)}  ${it.nz.toString().padStart(2)} |`;
+        out+=`  ${fmt(it.f).toFixed(1).padStart(8)} |  ${it.phi.toFixed(3).padStart(5)} |`;
+        out+=`  ${d(it.dx)}  ${d(it.dy)}  ${d(it.dz)}\n`;
+      }
+    }
+  }
+  document.getElementById('warnPanel').textContent=out;
+}
+
+/* ══════════════════════════════════════════
+   TAPPING RECT VERTICES
+══════════════════════════════════════════ */
+function tapRect(cx,cy,w,d,angle){
+  // angle = long-axis direction
+  // W=long, D=short
+  const hw=w/2,hd=d/2;
+  const cs=Math.cos(angle),sn=Math.sin(angle);
+  // corners: along long axis ±hw, along short axis ±hd
+  return[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd],[-hw,-hd]]
+    .map(([lx,ly])=>({x:cx+lx*cs-ly*sn, y:cy+lx*sn+ly*cs}));
+}
+
+/* ══════════════════════════════════════════
+   ROOM EDGES 3D
+══════════════════════════════════════════ */
+function roomEdges(Lx,Ly,Lz){
+  const mkL=(pts,color='#c8cdd8',w=1.5)=>({
+    type:'scatter3d',mode:'lines',
+    x:pts.map(p=>p[0]),y:pts.map(p=>p[1]),z:pts.map(p=>p[2]),
+    line:{color,width:w},hoverinfo:'skip',showlegend:false
+  });
+  const N=[NaN,NaN,NaN];
+  return[
+    mkL([[0,0,0],[Lx,0,0],[Lx,Ly,0],[0,Ly,0],[0,0,0]]),
+    mkL([[0,0,Lz],[Lx,0,Lz],[Lx,Ly,Lz],[0,Ly,Lz],[0,0,Lz]]),
+    mkL([[0,0,0],[0,0,Lz],N,[Lx,0,0],[Lx,0,Lz],N,[Lx,Ly,0],[Lx,Ly,Lz],N,[0,Ly,0],[0,Ly,Lz]]),
+  ];
+}
+
+/* ══════════════════════════════════════════
+   GLOBAL STATE
+══════════════════════════════════════════ */
+let _st=null;
+
+/* ══════════════════════════════════════════
+   PLOT ALL
+══════════════════════════════════════════ */
+function plotAll(st){
+  const{room,slab,pointsMic,pointsSrc,srcMeta=[],isLight}=st;
+  const showEdge=document.getElementById('showSlabEdges').checked;
+  // JIS light: show circles in 3D+2D but rectangles are still drawn in 2D with correct orientation
+  const circleMode=(st.std==='JIS'&&isLight);
+  const lift=Math.max(0.02,0.02*room.Lz);
+
+  const edges=roomEdges(room.Lx,room.Ly,room.Lz);
+  const slabEdge=showEdge?[{
+    type:'scatter3d',mode:'lines',
+    x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],
+    z:[slab.Sz,slab.Sz,slab.Sz,slab.Sz,slab.Sz],
+    line:{color:'#1a9e8f',width:2},hoverinfo:'skip',name:'Slab (upper floor)'
+  }]:[];
+
+  // Mic
+  const micDot={
+    type:'scatter3d',mode:'markers',
+    x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
+    marker:{size:4,color:'#3a7bd5'},name:'Microphone',showlegend:true
+  };
+  const micTxt={
+    type:'scatter3d',mode:'text',
+    x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
+    text:pointsMic.map(()=>'×'),
+    textfont:{size:14,color:'#3a7bd5'},hoverinfo:'skip',showlegend:false
+  };
+  st._idxMicDot=edges.length+slabEdge.length;
+
+  // Sources
+  const ex3=[],ex2=[];
+  const sptX=[],sptY=[],sptZ=[],s2X=[],s2Y=[];
+
+  for(let i=0;i<pointsSrc.length;i++){
+    const p=pointsSrc[i];
+    // Ensure meta exists and has correct per-point angle
+    const meta=srcMeta[i]??{type:isLight?'tap':'heavy'};
+    const z3=Math.max(0,slab.Sz-lift);
+
+    if(meta.type==='tap'){
+      if(circleMode){
+        // 2D plan: still draw rectangle with correct orientation
+        const R=tapRect(p.x,p.y,meta.w??TAP_W,meta.d??TAP_D,meta.angle??0);
+        ex2.push({type:'scatter',mode:'lines',x:R.map(r=>r.x),y:R.map(r=>r.y),
+          line:{color:'#1a9e8f',width:1.5,dash:'dot'},name:`Tap ${i+1}`,hoverinfo:'skip'});
+        // 3D: circle marker at slab level
+        sptX.push(p.x);sptY.push(p.y);sptZ.push(z3);
+        s2X.push(p.x);s2Y.push(p.y);
+      }else{
+        const R=tapRect(p.x,p.y,meta.w??TAP_W,meta.d??TAP_D,meta.angle??0);
+        ex3.push({type:'scatter3d',mode:'lines',
+          x:R.map(r=>r.x),y:R.map(r=>r.y),z:R.map(()=>slab.Sz),
+          line:{color:'#1a9e8f',width:3},name:`Tap ${i+1}`,hoverinfo:'skip'});
+        ex2.push({type:'scatter',mode:'lines',
+          x:R.map(r=>r.x),y:R.map(r=>r.y),
+          line:{color:'#1a9e8f',width:2},name:`Tap ${i+1}`,hoverinfo:'skip'});
+      }
+    }else{
+      sptX.push(p.x);sptY.push(p.y);sptZ.push(z3);
+      s2X.push(p.x);s2Y.push(p.y);
+    }
+  }
+
+  const srcPt=sptX.length?{
+    type:'scatter3d',mode:'markers',
+    x:sptX,y:sptY,z:sptZ,
+    marker:{size:6,color:'#c47b0a'},
+    name:circleMode?'Tapping (circle)':'Heavy source'
+  }:null;
+
+  const data3=[...edges,...slabEdge,micDot,micTxt,...ex3,...(srcPt?[srcPt]:[])];
+
+  safePlot('roomPlot',data3,{
+    ...PLY_LIGHT,
+    scene:{
+      xaxis:{title:'X [m]',gridcolor:'#dde1e8',zerolinecolor:'#c8cdd8'},
+      yaxis:{title:'Y [m]',gridcolor:'#dde1e8',zerolinecolor:'#c8cdd8'},
+      zaxis:{title:'Z [m]',gridcolor:'#dde1e8',zerolinecolor:'#c8cdd8'},
+      bgcolor:'#f7f8fa',aspectmode:'data',
+      camera:{eye:{x:2,y:-2,z:1.4}},
+    },
+    margin:{l:0,r:0,t:10,b:0},showlegend:true,
+    legend:{font:{size:10,color:'#8892a4'},bgcolor:'rgba(255,255,255,.8)',x:0,y:1}
+  });
+
+  // 2D slab plan
+  const slabR={type:'scatter',mode:'lines',
+    x:[0,slab.Sx,slab.Sx,0,0],y:[0,0,slab.Sy,slab.Sy,0],
+    line:{color:'#8892a4',width:1.5,dash:'dot'},hoverinfo:'skip',showlegend:false};
+
+  // ★ Corner arrows: indicate nearest corner for each source
+  const cornerArrows=[];
+  if(isLight){
+    for(const p of pointsSrc){
+      const corners=[{x:0,y:0},{x:slab.Sx,y:0},{x:slab.Sx,y:slab.Sy},{x:0,y:slab.Sy}];
+      let minD=Infinity,nc=corners[0];
+      for(const c of corners){const d=dist2({x:p.x,y:p.y},c);if(d<minD){minD=d;nc=c;}}
+      // short dashed line from point toward nearest corner (20% of distance)
+      const frac=0.25;
+      cornerArrows.push({type:'scatter',mode:'lines',
+        x:[p.x,p.x+frac*(nc.x-p.x)],y:[p.y,p.y+frac*(nc.y-p.y)],
+        line:{color:'#c47b0a',width:1,dash:'dot'},hoverinfo:'skip',showlegend:false});
+    }
+  }
+
+  const src2=s2X.length?{
+    type:'scatter',mode:'markers+text',
+    x:s2X,y:s2Y,text:s2X.map((_,i)=>`S${i+1}`),textposition:'top center',
+    marker:{size:7,color:'#c47b0a',symbol:'circle'},
+    textfont:{color:'#c47b0a',size:10},name:'Source'
+  }:null;
+  const mic2={type:'scatter',mode:'markers',
+    x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),
+    marker:{size:8,color:'#3a7bd5',symbol:'x'},name:'Mic (floor proj)'};
+
+  const data2=[slabR,...cornerArrows,...ex2,...(src2?[src2]:[]),mic2];
+
+  safePlot('slabPlot',data2,{
+    ...PLY_LIGHT,
+    xaxis:{title:'X [m]',range:[0,slab.Sx],scaleanchor:'y',scaleratio:1,gridcolor:'#dde1e8'},
+    yaxis:{title:'Y [m]',range:[0,slab.Sy],gridcolor:'#dde1e8'},
+    margin:{l:50,r:20,t:10,b:40},showlegend:true,
+    legend:{font:{size:10,color:'#8892a4'},bgcolor:'rgba(255,255,255,.8)'}
+  });
+
+  document.getElementById('jisHint').style.display=circleMode?'block':'none';
+}
+
+/* ══════════════════════════════════════════
+   COLOUR MICS by warning
+══════════════════════════════════════════ */
+function colourMics(w){
+  if(!_st||_st._idxMicDot==null)return;
+  const colors=w.perMic.map(m=>m.count>0?(m.minPhi<0.02?'#c0392b':'#e67e22'):'#1a7f54');
+  safeRestyle('roomPlot',{'marker.color':[colors]},[_st._idxMicDot]);
+  const div=document.getElementById('slabPlot');
+  if(div?.data)safeRestyle('slabPlot',{'marker.color':[colors]},[div.data.length-1]);
+}
+
+/* ══════════════════════════════════════════
+   TABLE HELPERS
+══════════════════════════════════════════ */
+function addRow(tbody,cols){
+  const tr=document.createElement('tr'),idx=tbody.children.length+1;
+  const inp=cols.map(c=>`<td><input type="number" step="${c.step||'0.01'}" value="${c.val??''}"></td>`).join('');
+  tr.innerHTML=`<td style="color:var(--ink3)">${idx}</td>${inp}<td><button class="btn btn-ico btn-d del" style="font-size:14px;height:24px;width:24px">×</button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector('.del').addEventListener('click',()=>{tr.remove();Array.from(tbody.children).forEach((r,i)=>r.children[0].textContent=i+1);});
+}
+function fillTables(mics,srcs){
+  const mt=document.querySelector('#micTable tbody'),st=document.querySelector('#srcTable tbody');
+  mt.innerHTML='';st.innerHTML='';
+  mics.forEach(p=>addRow(mt,[{val:fmt(p.x)},{val:fmt(p.y)},{val:fmt(p.z)}]));
+  srcs.forEach(p=>addRow(st,[{val:fmt(p.x)},{val:fmt(p.y)}]));
+}
+function readTable3D(tbody){
+  const ps=[];
+  for(const tr of tbody.children){
+    const[x,y,z]=Array.from(tr.querySelectorAll('input')).map(i=>Number(i.value));
+    if([x,y,z].some(Number.isNaN))throw new Error('Non-numeric in mic table');
+    ps.push({x,y,z});
+  }
+  return ps;
+}
+function readTable2D(tbody,z){
+  const ps=[];
+  for(const tr of tbody.children){
+    const[x,y]=Array.from(tr.querySelectorAll('input')).map(i=>Number(i.value));
+    if([x,y].some(Number.isNaN))throw new Error('Non-numeric in source table');
+    ps.push({x,y,z});
+  }
+  return ps;
+}
+
+/* ══════════════════════════════════════════
+   BEST PANEL
+══════════════════════════════════════════ */
+function showBest(st,w,seed){
+  const bad=w.perMic.filter(m=>m.count>0).length;
+  const hits=w.perMic.reduce((s,m)=>s+m.count,0);
+  const minPhi=w.perMic.reduce((mn,m)=>m.minPhi!=null?Math.min(mn,m.minPhi):mn,1);
+  const fPts=(lbl,arr,d3=true)=>
+    `${lbl} (N=${arr.length})\n`+arr.map((p,i)=>
+      `  ${(i+1).toString().padStart(2)}: x=${fmt(p.x).toFixed(3)}, y=${fmt(p.y).toFixed(3)}${d3?`, z=${fmt(p.z).toFixed(3)}`:''}`
+    ).join('\n');
+  document.getElementById('bestPanel').textContent=
+    `Seed: ${seed}\nBadMics=${bad}  Hits=${hits}  min|Φ|=${minPhi.toFixed(4)}\n${'─'.repeat(50)}\n`+
+    fPts('Microphones:',st.pointsMic,true)+'\n\n'+fPts('Sources:',st.pointsSrc,false);
+}
+
+/* ══════════════════════════════════════════
+   APPLY PRESET
+══════════════════════════════════════════ */
+function applyPreset(seedBump=0,{render=true}={}){
+  const dims=readDim(),cons=readCons();
+  const std=document.getElementById('stdSelect').value;
+  const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
+  const seed=(document.getElementById('seedInput').value||'seed')+`#${seedBump}`;
+  const rng=makeRNG(seed);
+
+  let pointsMic,pointsSrc;
+  if(std==='INCE'||std==='OLDJIS'){
+    const pts=dice5(dims.slab.Sx,dims.slab.Sy);
+    if(std==='OLDJIS'){
+      const zFix=clamp(1.2,cons.micFloorMin,dims.room.Lz-cons.micCeilMin);
+      pointsMic=pts.map(p=>({x:p.x,y:p.y,z:zFix}));
+    }else{
+      const zMin=cons.micFloorMin,zR=dims.room.Lz-cons.micCeilMin-zMin;
+      pointsMic=pts.map((p,i)=>({x:p.x,y:p.y,z:zMin+zR*[0,1/6,3/6,5/6,1][i]}));
+    }
+    pointsSrc=pts.map(p=>({x:p.x,y:p.y,z:dims.slab.Sz}));
+  }else{
+    pointsMic=sampleMics({room:dims.room,cons},rng);
+    pointsSrc=sampleSources({slab:dims.slab,cons},rng);
+  }
+
+  // ★ Build srcMeta with per-point tapping orientation
+  const srcMeta=buildSrcMeta(pointsSrc,isLight,dims.slab);
+
+  const state={room:dims.room,slab:dims.slab,pointsMic,pointsSrc,srcMeta,isLight,std};
+  const warns=computeWarnings(state);
+
+  if(render){
+    plotAll(state);
+    renderWarnings(warns);
+    colourMics(warns);
+    fillTables(pointsMic,pointsSrc);
+    triggerMJ();
+  }
+  return{state,warns,seed};
+}
+
+/* ══════════════════════════════════════════
+   MATHJAX
+══════════════════════════════════════════ */
+function triggerMJ(){if(window.MathJax?.typesetPromise)MathJax.typesetPromise().catch(e=>console.warn('MathJax',e));}
+
+/* ══════════════════════════════════════════
+   NODE-AVOIDANCE SEARCH
+══════════════════════════════════════════ */
+async function runSearch(){
+  const limit=Math.max(1,numVal('searchLimit')||30);
+  setStatus('Searching…','busy');setProgress(0);
+  let best=null,bestSc=null;
+  for(let i=0;i<limit;i++){
+    let r;try{r=applyPreset(i,{render:false});}catch(e){continue;}
+    const{warns,state,seed}=r;
+    const bad=warns.perMic.filter(m=>m.count>0).length;
+    const hits=warns.perMic.reduce((s,m)=>s+m.count,0);
+    const minP=warns.perMic.reduce((mn,m)=>m.minPhi!=null?Math.min(mn,m.minPhi):mn,1);
+    const better=!bestSc||bad<bestSc.bad||(bad===bestSc.bad&&hits<bestSc.hits)||(bad===bestSc.bad&&hits===bestSc.hits&&minP>bestSc.minP);
+    if(better){best={r,warns,state};bestSc={bad,hits,minP};showBest(state,warns,seed);}
+    if(bad===0)break;
+    if(i%20===0){setProgress((i+1)/limit);await new Promise(r=>setTimeout(r,0));}
+  }
+  setProgress(1);
+  if(best){
+    _st=best.state;plotAll(_st);renderWarnings(best.warns);colourMics(best.warns);fillTables(_st.pointsMic,_st.pointsSrc);
+    setStatus(bestSc.bad===0?'Search complete — zero warnings':`Search done — best: ${bestSc.bad} bad mics`,bestSc.bad===0?'ok':'warn');
+  }else setStatus('Search failed — relax constraints','warn');
+}
+
+/* ══════════════════════════════════════════
+   NODE MAPS
+══════════════════════════════════════════ */
+function minPhiAt(room,modes,x,y,z){
+  const{Lx,Ly,Lz}=room;let mv=1;
+  for(const m of modes){const v=Math.abs(phi(x,y,z,m.nx,m.ny,m.nz,Lx,Ly,Lz));if(v<mv)mv=v;}
+  return mv;
+}
+function linspace(n,a,b){return Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));}
+function heatLayout(xL,yL){
+  return{...PLY_LIGHT,
+    xaxis:{title:xL,gridcolor:'#dde1e8'},
+    yaxis:{title:yL,gridcolor:'#dde1e8'},
+    margin:{l:55,r:20,t:10,b:40}
+  };
+}
+function mapXY(){
+  if(!_st)return;
+  const{modes}=buildModes(_st.room,_st.isLight);
+  const N=Math.max(16,numVal('gridN')||64);
+  const mi=clamp((numVal('micIndex')||1)-1,0,_st.pointsMic.length-1);
+  const z=_st.pointsMic[mi]?.z??_st.room.Lz/2;
+  const X=linspace(N,0,_st.room.Lx),Y=linspace(N,0,_st.room.Ly);
+  const Z=Y.map(y=>X.map(x=>minPhiAt(_st.room,modes,x,y,z)));
+  safePlot('heatXY',[{type:'heatmap',x:X,y:Y,z:Z,colorscale:HEAT_CS,
+    colorbar:{title:'min|Φ|',tickfont:{color:'#4a5068'},titlefont:{color:'#4a5068'}}}],
+    heatLayout(`X  (z=${fmt(z)} m)`,'Y'));
+}
+function sliceXZ(){
+  if(!_st)return;
+  const{modes}=buildModes(_st.room,_st.isLight);
+  const N=Math.max(16,numVal('gridN')||64);
+  const mi=clamp((numVal('micIndex')||1)-1,0,_st.pointsMic.length-1);
+  const y=_st.pointsMic[mi]?.y??_st.room.Ly/2;
+  const X=linspace(N,0,_st.room.Lx),Zg=linspace(N,0,_st.room.Lz);
+  const V=Zg.map(z=>X.map(x=>minPhiAt(_st.room,modes,x,y,z)));
+  safePlot('sliceXZ',[{type:'heatmap',x:X,y:Zg,z:V,colorscale:HEAT_CS,
+    colorbar:{title:'min|Φ|',tickfont:{color:'#4a5068'},titlefont:{color:'#4a5068'}}}],
+    heatLayout(`X  (y=${fmt(y)} m)`,'Z'));
+}
+function sliceYZ(){
+  if(!_st)return;
+  const{modes}=buildModes(_st.room,_st.isLight);
+  const N=Math.max(16,numVal('gridN')||64);
+  const mi=clamp((numVal('micIndex')||1)-1,0,_st.pointsMic.length-1);
+  const x=_st.pointsMic[mi]?.x??_st.room.Lx/2;
+  const Y=linspace(N,0,_st.room.Ly),Zg=linspace(N,0,_st.room.Lz);
+  const V=Zg.map(z=>Y.map(y=>minPhiAt(_st.room,modes,x,y,z)));
+  safePlot('sliceYZ',[{type:'heatmap',x:Y,y:Zg,z:V,colorscale:HEAT_CS,
+    colorbar:{title:'min|Φ|',tickfont:{color:'#4a5068'},titlefont:{color:'#4a5068'}}}],
+    heatLayout(`Y  (x=${fmt(x)} m)`,'Z'));
+}
+
+/* ══════════════════════════════════════════
+   TOLERANCE BUBBLES
+══════════════════════════════════════════ */
+function tolRadius(st,mic,eps){
+  const{modes}=buildModes(st.room,st.isLight);
+  const cls0=minPhiAt(st.room,modes,mic.x,mic.y,mic.z)<eps;
+  const maxR=0.5*Math.min(st.room.Lx,st.room.Ly);
+  let lo=0,hi=maxR;
+  for(let k=0;k<18;k++){
+    const mid=(lo+hi)/2;let ok=true;
+    for(let t=0;t<16;t++){
+      const th=2*Math.PI*t/16,px=mic.x+mid*Math.cos(th),py=mic.y+mid*Math.sin(th);
+      if(px<0||px>st.room.Lx||py<0||py>st.room.Ly){ok=false;break;}
+      if((minPhiAt(st.room,modes,px,py,mic.z)<eps)!==cls0){ok=false;break;}
+    }
+    if(ok)lo=mid;else hi=mid;
+  }
+  return lo;
+}
+function drawTolBubbles(st){
+  const eps=+numVal('phiEps')||0.10,N=72;
+  safeAddTraces('slabPlot',st.pointsMic.map((mic,i)=>({
+    type:'scatter',mode:'lines',
+    x:Array.from({length:N+1},(_,j)=>mic.x+tolRadius(st,mic,eps)*Math.cos(2*Math.PI*j/N)),
+    y:Array.from({length:N+1},(_,j)=>mic.y+tolRadius(st,mic,eps)*Math.sin(2*Math.PI*j/N)),
+    line:{color:'#3a7bd5',width:1.5,dash:'dot'},name:`Tol Mic${i+1}`,hoverinfo:'skip'
+  })));
+  setStatus(`Tolerance bubbles drawn (${st.pointsMic.length} mics)`,'ok');
+}
+
+/* ══════════════════════════════════════════
+   CORNER MICS
+══════════════════════════════════════════ */
+function cornerMics(room){
+  const m=0.1,xs=[m,room.Lx-m],ys=[m,room.Ly-m],zs=[m,room.Lz-m],pts=[];
+  for(const x of xs)for(const y of ys)for(const z of zs)pts.push({x,y,z});
+  return pts;
+}
+function maybeAutoCorner(){if(!_st||!document.getElementById('autoCorner').checked)return;if(roomV(_st.room)<25)addCorners();}
+function addCorners(){
+  if(!_st)return;
+  _st.pointsMic=_st.pointsMic.concat(cornerMics(_st.room));
+  plotAll(_st);const w=computeWarnings(_st);renderWarnings(w);colourMics(w);fillTables(_st.pointsMic,_st.pointsSrc);
+  setStatus(`Corner mics added (${_st.pointsMic.length} total)`,'ok');
+}
+
+/* ══════════════════════════════════════════
+   OPTIMISATION
+══════════════════════════════════════════ */
+function avgDist(mics){
+  if(mics.length<2)return 0;let s=0,c=0;
+  for(let i=0;i<mics.length;i++)for(let j=i+1;j<mics.length;j++){s+=dist3(mics[i],mics[j]);c++;}
+  return s/c;
+}
+async function runOptimise(){
+  const trials=Math.max(1,numVal('optTrials')||200);
+  const wts=(document.getElementById('weights').value||'10,1,0.5').split(',').map(s=>parseFloat(s.trim())||0);
+  let best=null,bestSc=Infinity;
+  setStatus('Optimising…','busy');setProgress(0);
+  for(let i=0;i<trials;i++){
+    let r;try{r=applyPreset(i,{render:false});}catch(e){continue;}
+    const{warns,state,seed}=r;
+    const bad=warns.perMic.filter(m=>m.count>0).length;
+    const hits=warns.perMic.reduce((s,m)=>s+m.count,0);
+    const amd=avgDist(state.pointsMic);
+    const sc=wts[0]*bad+wts[1]*hits-(wts[2]||0)*amd;
+    if(sc<bestSc){bestSc=sc;best={state,warns,seed};showBest(state,warns,seed);}
+    if(i%50===0){setProgress((i+1)/trials);await new Promise(r=>setTimeout(r,0));}
+  }
+  setProgress(1);
+  if(best){
+    _st=best.state;plotAll(_st);renderWarnings(best.warns);colourMics(best.warns);fillTables(_st.pointsMic,_st.pointsSrc);
+    setStatus(`Optimisation done — score = ${fmt(bestSc)}`,'ok');
+  }else setStatus('Optimisation: no valid config','warn');
+}
+
+/* ══════════════════════════════════════════
+   EXPORT
+══════════════════════════════════════════ */
+function toCSV(st){
+  const rows=['Type,Index,X[m],Y[m],Z[m],TapAngle_deg'];
+  st.pointsMic.forEach((p,i)=>rows.push(`Mic,${i+1},${fmt(p.x)},${fmt(p.y)},${fmt(p.z)},—`));
+  st.pointsSrc.forEach((p,i)=>{
+    const meta=st.srcMeta?.[i];
+    const angDeg=meta?.angle!=null?(meta.angle*180/Math.PI).toFixed(1):'—';
+    rows.push(`Src,${i+1},${fmt(p.x)},${fmt(p.y)},${fmt(p.z??st.slab.Sz)},${angDeg}`);
+  });
+  return rows.join('\n');
+}
+function toJSON(st){
+  return JSON.stringify({
+    meta:{standard:st.std,type:st.isLight?'light':'heavy',rt60:numVal('rt60'),phiEps:numVal('phiEps'),room:st.room,slab:st.slab,seed:document.getElementById('seedInput').value},
+    microphones:st.pointsMic,
+    sources:st.pointsSrc.map((p,i)=>({...p,tapAngle_deg:st.srcMeta?.[i]?.angle!=null?(st.srcMeta[i].angle*180/Math.PI).toFixed(2):null}))
+  },null,2);
+}
+function saveBlob(name,content,mime){
+  const url=URL.createObjectURL(new Blob([content],{type:mime}));
+  Object.assign(document.createElement('a'),{href:url,download:name}).click();
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+}
+function printReport(st){
+  const w=computeWarnings(st);
+  const win=window.open('','_blank');
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Acoustic Layout Report</title>
+  <style>body{font-family:'DM Mono',monospace;padding:24px;color:#1a1f2e;font-size:12px}h1{font-size:16px;border-bottom:2px solid #1a1f2e;padding-bottom:4px;margin-bottom:12px}h2{font-size:13px;margin-top:20px;color:#3a7bd5}table{border-collapse:collapse;width:100%;margin-bottom:12px}th,td{border:1px solid #dde1e8;padding:5px 8px;text-align:center}th{background:#f2f4f7;font-size:10px;text-transform:uppercase;letter-spacing:.06em}pre{background:#f7f8fa;padding:10px;border:1px solid #dde1e8;white-space:pre-wrap;font-size:10px}.meta{color:#8892a4;font-size:10px;margin-bottom:16px}</style>
+  </head><body>
+  <h1>Floor Impact Sound — Measurement Layout Report</h1>
+  <div class="meta">Std: ${st.std} · Type: ${st.isLight?'Light (Tapping)':'Heavy'} · RT60: ${numVal('rt60')} s · ε: ${numVal('phiEps')} · Room: ${fmt(st.room.Lx)}×${fmt(st.room.Ly)}×${fmt(st.room.Lz)} m · Slab: ${fmt(st.slab.Sx)}×${fmt(st.slab.Sy)} m</div>
+  <h2>Microphone Positions</h2>
+  <table><thead><tr><th>#</th><th>X [m]</th><th>Y [m]</th><th>Z [m]</th></tr></thead><tbody>
+  ${st.pointsMic.map((p,i)=>`<tr><td>${i+1}</td><td>${fmt(p.x)}</td><td>${fmt(p.y)}</td><td>${fmt(p.z)}</td></tr>`).join('')}
+  </tbody></table>
+  <h2>Source Positions &amp; Tapping Orientation</h2>
+  <table><thead><tr><th>#</th><th>X [m]</th><th>Y [m]</th><th>Long-axis angle [°]</th><th>Nearest corner direction</th></tr></thead><tbody>
+  ${st.pointsSrc.map((p,i)=>{
+    const meta=st.srcMeta?.[i];
+    const ang=meta?.angle!=null?(meta.angle*180/Math.PI).toFixed(1):'—';
+    const corners=[{x:0,y:0},{x:st.slab.Sx,y:0},{x:st.slab.Sx,y:st.slab.Sy},{x:0,y:st.slab.Sy}];
+    const labels=['(0,0)','(Sx,0)','(Sx,Sy)','(0,Sy)'];
+    let minD=Infinity,ci=0;corners.forEach((c,j)=>{const d=Math.hypot(p.x-c.x,p.y-c.y);if(d<minD){minD=d;ci=j;}});
+    return`<tr><td>${i+1}</td><td>${fmt(p.x)}</td><td>${fmt(p.y)}</td><td>${ang}</td><td>${labels[ci]}</td></tr>`;
+  }).join('')}
+  </tbody></table>
+  <h2>Warnings</h2><pre>${document.getElementById('warnPanel').textContent}</pre>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  win.document.close();
+}
+
+/* ══════════════════════════════════════════
+   EVENT BINDINGS
+══════════════════════════════════════════ */
+document.getElementById('btnGenerate').addEventListener('click',()=>{
+  try{const{state}=applyPreset(0,{render:true});_st=state;setProgress(0);document.getElementById('bestPanel').textContent='// Run search or optimisation to see best configuration';maybeAutoCorner();setStatus(`${_st.std} · ${_st.isLight?'Light':'Heavy'} applied`,'ok');}
+  catch(e){console.error(e);setStatus('Error: '+e.message,'warn');}
+});
+document.getElementById('btnSearch').addEventListener('click',()=>runSearch().catch(e=>{console.error(e);setStatus('Search error: '+e.message,'warn');}));
+document.getElementById('addMicRow').addEventListener('click',()=>addRow(document.querySelector('#micTable tbody'),[{},{},{}]));
+document.getElementById('addSrcRow').addEventListener('click',()=>addRow(document.querySelector('#srcTable tbody'),[{},{}]));
+document.getElementById('plotManual').addEventListener('click',()=>{
+  try{
+    const dims=readDim();
+    const mics=readTable3D(document.querySelector('#micTable tbody'));
+    const srcs=readTable2D(document.querySelector('#srcTable tbody'),dims.slab.Sz);
+    const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
+    const srcMeta=buildSrcMeta(srcs,isLight,dims.slab);
+    _st={room:dims.room,slab:dims.slab,pointsMic:mics,pointsSrc:srcs,srcMeta,isLight,std:'MANUAL'};
+    plotAll(_st);const w=computeWarnings(_st);renderWarnings(w);colourMics(w);
+    setStatus(`Manual: ${mics.length} mics, ${srcs.length} sources`,'ok');setProgress(0);
+  }catch(e){console.error(e);setStatus('Manual entry error: '+e.message,'warn');}
+});
+document.getElementById('clearManual').addEventListener('click',()=>{document.querySelector('#micTable tbody').innerHTML='';document.querySelector('#srcTable tbody').innerHTML='';});
+document.getElementById('rt60').addEventListener('input',()=>{if(_st){const w=computeWarnings(_st);renderWarnings(w);colourMics(w);}});
+document.getElementById('addCorner').addEventListener('click',()=>addCorners());
+document.getElementById('btnMapXY').addEventListener('click',mapXY);
+document.getElementById('btnSliceXZ').addEventListener('click',sliceXZ);
+document.getElementById('btnSliceYZ').addEventListener('click',sliceYZ);
+document.getElementById('btnTol').addEventListener('click',()=>{if(_st)drawTolBubbles(_st);});
+document.getElementById('btnOptimize').addEventListener('click',()=>runOptimise().catch(e=>{console.error(e);setStatus('Optimise error: '+e.message,'warn');}));
+document.getElementById('btnExportCSV').addEventListener('click',()=>{if(_st)saveBlob('acoustic_layout.csv',toCSV(_st),'text/csv');});
+document.getElementById('btnExportJSON').addEventListener('click',()=>{if(_st)saveBlob('acoustic_layout.json',toJSON(_st),'application/json');});
+document.getElementById('btnPrint').addEventListener('click',()=>{if(_st)printReport(_st);});
+
+/* ══════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════ */
+(function boot(){
+  let tries=0;
+  const t=setInterval(()=>{
+    tries++;
+    if(plotlyOK()){
+      clearInterval(t);
+      try{const{state}=applyPreset(0,{render:true});_st=state;setProgress(0);triggerMJ();setStatus('Ready','ok');}
+      catch(e){console.error(e);setStatus('Init error: '+e.message,'warn');}
+    }else if(tries>=40){clearInterval(t);setStatus('Plotly failed to load','warn');}
+    else setStatus('Loading Plotly…','busy');
+  },200);
+})();
+</script>
+</body>
+</html>
