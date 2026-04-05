@@ -404,7 +404,7 @@
           <div class="wave-bar" style="height:22px;animation-delay:1.0s"></div>
           <div class="wave-bar" style="height:14px;animation-delay:1.1s"></div>
         </div>
-        <a href="/cdn-cgi/l/email-protection#dfacf2b7b6adbeb4bea8be9fb4bab1b4bab1f1b8b0f1b5af"><span class="__cf_email__" data-cfemail="f083dd989982919b918791b09b959e9b959ede979fde9a80">[email&#160;protected]</span></a>
+        <a id="email-link" href="#">s-hirakawa@kenken.go.jp</a>
         <span>〒305-0802 茨城県つくば市立原1番地</span>
         <div class="profiles">
           <a href="https://www.linkedin.com/in/susumuhirakawa/" target="_blank">LinkedIn</a>
@@ -656,7 +656,13 @@
 </div>
 
 <!-- Wave Animation -->
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
+(function() {
+  const el = document.getElementById('email-link');
+  if (el) { const e = 's-hirakawa@kenken.go.jp'; el.href = 'mailto:' + e; el.textContent = e; }
+})();
+</script>
+<script>
 (function() {
   const canvas = document.getElementById('wave-canvas');
   const ctx = canvas.getContext('2d');
@@ -667,4 +673,7 @@
     h = canvas.height = window.innerHeight;
   }
   resize();
-  window.addEve
+  window.addEventListener('resize', resize);
+
+  const waves = [
+    { freq: 0.003, amp: 60, 
