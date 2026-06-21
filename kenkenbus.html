@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="通勤バス" />
+<meta name="theme-color" content="#f2f4f9" id="themeColorMeta" />
+<title>つくば通勤バス</title>
+<style>
+  :root{
+    --bg:#f2f4f9; --card:#ffffff; --card-2:#f6f8fc; --text:#10151f; --muted:#5b6472;
+    --subtle:#8a93a3; --line:#e4e8f0; --accent:#1677ff; --accent-weak:#e8f1ff;
+    --green:#13a05f; --orange:#ef8a00; --red:#e5484d;
+    --green-w:rgba(19,160,95,.12); --orange-w:rgba(239,138,0,.13); --red-w:rgba(229,72,77,.12);
+    --track:#e9edf4; --kantetsu:#2563eb; --hokubu:#0891b2; --yoshinuma:#7c3aed;
+    --glass:rgba(242,244,249,.72);
+    --shadow:0 1px 3px rgba(16,21,31,.05),0 10px 28px rgba(16,21,31,.06);
+  }
+  [data-theme="dark"]{
+    --bg:#0b0e14; --card:#161b24; --card-2:#1b212c; --text:#eef2f8; --muted:#9aa6b6;
+    --subtle:#6f7a8b; --line:#262e3a; --accent:#5aa2ff; --accent-weak:#15233a;
+    --green:#3ad28f; --orange:#ffb74d; --red:#ff6b70;
+    --green-w:rgba(58,210,143,.14); --orange-w:rgba(255,183,77,.14); --red-w:rgba(255,107,112,.15);
+    --track:#222a36; --kantetsu:#6aa6ff; --hokubu:#2bc6e0; --yoshinuma:#a98bff;
+    --glass:rgba(11,14,20,.72);
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+    font-variant-numeric:tabular-nums;-webkit-text-size-adjust:100%;}
+  body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+  .app{width:min(100%,540px);margin:0 auto;padding:10px 14px 40px;}
+
+  /* ---- topbar ---- */
+  .topbar{position:sticky;top:0;z-index:30;padding:6px 0 10px;
+    background:linear-gradient(to bottom,var(--bg) 36%,var(--glass) 86%,transparent);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+  .trow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .brand{font-size:13px;font-weight:800;color:var(--muted);letter-spacing:-.01em;padding-top:8px;}
+  .theme{display:flex;gap:4px;}
+  .theme button{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--muted);
+    width:30px;height:28px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;line-height:1;padding:0;}
+  .theme button.active{color:var(--accent);background:var(--accent-weak);border-color:transparent;}
+  .clockwrap{margin:2px 2px 4px;}
+  .clock{font-size:52px;line-height:.96;font-weight:850;letter-spacing:-.04em;}
+  .clock .sec{font-size:22px;font-weight:800;color:var(--muted);margin-left:4px;letter-spacing:-.02em;}
+  .date{margin-top:4px;color:var(--muted);font-size:12.5px;font-weight:700;}
+
+  /* ---- controls ---- */
+  .seg{display:flex;gap:4px;padding:4px;background:var(--card-2);border:1px solid var(--line);border-radius:14px;margin-top:8px;}
+  .seg.dia{display:grid;grid-template-columns:repeat(4,1fr);}
+  .seg.dir{display:grid;grid-template-columns:1fr 1fr;}
+  .seg.route{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .seg.route::-webkit-scrollbar{display:none;}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--muted);font-weight:800;
+    border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer;white-space:nowrap;flex:0 0 auto;line-height:1.1;}
+  .seg.dir button,.seg.dia button{width:100%;text-align:center;}
+  .seg button.active{background:var(--card);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.10);}
+  [data-theme="dark"] .seg button.active{box-shadow:0 2px 8px rgba(0,0,0,.4);}
+
+  .note{margin:10px 4px 2px;color:var(--muted);font-size:11.5px;line-height:1.5;font-weight:600;}
+
+  .caption{margin:14px 4px 6px;color:var(--subtle);font-size:11.5px;font-weight:800;letter-spacing:.02em;}
+
+  /* ---- cards ---- */
+  .card{border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow);
+    padding:16px 16px 14px;margin-top:8px;position:relative;overflow:hidden;}
+  .card.cmp{padding:13px 14px 12px;}
+  .rline{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .badge{font-size:11px;font-weight:850;color:#fff;border-radius:7px;padding:3px 7px;letter-spacing:.02em;flex:0 0 auto;}
+  .b-kantetsu{background:var(--kantetsu);} .b-hokubu{background:var(--hokubu);} .b-yoshinuma{background:var(--yoshinuma);}
+  .rlabel{font-size:14.5px;font-weight:800;letter-spacing:-.01em;}
+  .card.cmp .rlabel{font-size:13.5px;}
+
+  .mid{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
+  .dep{min-width:0;}
+  .dep .t{font-size:25px;font-weight:850;letter-spacing:-.04em;}
+  .card.cmp .dep .t{font-size:21px;}
+  .dep .u{font-size:13px;font-weight:800;color:var(--muted);margin-left:2px;}
+  .arr{text-align:right;color:var(--muted);font-size:13px;font-weight:700;min-width:0;}
+  .arr .approx{display:inline-block;font-size:10px;color:var(--subtle);margin-left:3px;
+    border:1px solid var(--line);border-radius:5px;padding:0 4px;vertical-align:1px;}
+  .center{text-align:center;min-width:96px;}
+  .card.cmp .center{min-width:84px;}
+  .big{font-size:44px;line-height:.92;font-weight:900;letter-spacing:-.05em;}
+  .card.cmp .big{font-size:34px;}
+  .big .min{font-size:17px;font-weight:850;margin-left:2px;letter-spacing:-.02em;}
+  .big.soon{font-size:25px;letter-spacing:-.02em;}
+  .card.cmp .big.soon{font-size:21px;}
+  .clabel{margin-top:3px;font-size:11.5px;font-weight:800;color:var(--muted);}
+
+  .bar{height:7px;border-radius:999px;background:var(--track);margin-top:14px;overflow:hidden;}
+  .card.cmp .bar{margin-top:11px;}
+  .fill{height:100%;border-radius:999px;width:0;}
+  .fill.lv-ok{background:var(--green);} .fill.lv-soon{background:var(--accent);}
+  .fill.lv-run{background:var(--orange);} .fill.lv-risk{background:var(--red);}
+
+  .status{margin-top:11px;font-size:13px;line-height:1.45;font-weight:700;}
+  .card.cmp .status{font-size:12px;margin-top:9px;}
+  .status.lv-ok{color:var(--green);} .status.lv-soon{color:var(--accent);}
+  .status.lv-run{color:var(--orange);} .status.lv-risk{color:var(--red);}
+
+  .ended{font-size:14px;font-weight:800;color:var(--muted);padding:6px 2px;}
+  .ended small{display:block;margin-top:4px;font-size:11.5px;font-weight:600;color:var(--subtle);}
+
+  /* ---- upcoming list ---- */
+  .uplist{border:1px solid var(--line);border-radius:16px;background:var(--card);margin-top:8px;overflow:hidden;}
+  .up{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line);}
+  .up:first-child{border-top:0;}
+  .up .ubadge{font-size:10px;font-weight:850;color:#fff;border-radius:6px;padding:2px 5px;}
+  .up .ut{font-size:16px;font-weight:850;letter-spacing:-.02em;}
+  .up .um{color:var(--muted);font-size:13px;font-weight:700;text-align:left;}
+  .up .ua{color:var(--subtle);font-size:12px;font-weight:600;text-align:right;}
+  .up.merged{grid-template-columns:auto auto 1fr auto;}
+
+  /* ---- timetable (全便) ---- */
+  .tt{border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:var(--shadow);padding:14px;margin-top:8px;}
+  .tt-h{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .tt-sec{margin-top:10px;}
+  .tt-cap{font-size:11.5px;font-weight:850;color:var(--muted);margin-bottom:6px;}
+  .tt-chips{display:flex;flex-wrap:wrap;gap:5px;}
+  .tt-chip{font-size:12.5px;font-weight:750;color:var(--text);background:var(--card-2);border:1px solid var(--line);
+    border-radius:8px;padding:4px 7px;letter-spacing:-.01em;}
+  .tt-chip.past{color:var(--subtle);opacity:.55;}
+  .tt-chip.next{background:var(--accent-weak);border-color:transparent;color:var(--accent);}
+  .tt-empty{font-size:12px;color:var(--subtle);font-weight:600;}
+
+  /* ---- links ---- */
+  .links{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}
+  .links a{display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-size:12.5px;font-weight:800;
+    color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 14px;box-shadow:var(--shadow);}
+  .links a .dot{width:7px;height:7px;border-radius:50%;}
+  .links a.tx{color:var(--accent);}
+  .links a.tx .dot{background:var(--accent);}
+  .links a.kt .dot{background:var(--kantetsu);}
+  .links a.tb .dot{background:var(--hokubu);}
+
+  .foot{margin:18px 4px 0;color:var(--subtle);font-size:11px;line-height:1.6;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="trow">
+      <div class="brand">つくば通勤バス</div>
+      <div class="theme" id="themePills">
+        <button data-theme="auto" title="自動">A</button>
+        <button data-theme="light" title="ライト">☀</button>
+        <button data-theme="dark" title="ダーク">☾</button>
+      </div>
+    </div>
+    <div class="clockwrap">
+      <div class="clock"><span id="clockMain">--:--</span><span class="sec" id="clockSec">--</span></div>
+      <div class="date" id="dateEl">--</div>
+    </div>
+    <div class="seg dir" id="dirSeg">
+      <button data-dir="outbound">往路</button>
+      <button data-dir="return">復路</button>
+    </div>
+    <div class="seg dia" id="diaSeg">
+      <button data-dia="auto">自動</button>
+      <button data-dia="weekday">平日</button>
+      <button data-dia="weekend">土日祝</button>
+      <button data-dia="all">全便</button>
+    </div>
+    <div class="seg route" id="routeSeg"></div>
+    <div class="note" id="noteEl"></div>
+  </header>
+
+  <main id="cards"></main>
+  <nav class="links" id="links"></nav>
+
+  <footer class="foot">
+    データ：令和8年4月「つくバス北部・吉沼シャトル」時刻表（市公式）／関東鉄道バス時刻（標柱5・標柱2）<br>
+    到着時刻は「着目安」。道路事情で前後します。最新の運行は各リンク先でご確認ください。
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Timetable data
+   - Kantetsu (関鉄) entries: dep-only strings; arrival = dep + dur (fallback).
+   - Tsukuba-bus (つくバス) entries: [dep, arr] with exact pass times from PDF.
+   - "weekend" schedule covers 土日祝 (休日 PDF / 関鉄 土日祝).
+   ============================================================ */
+const ROUTES = [
+  // -------- OUTBOUND --------
+  {
+    id:"tc-nits", group:"outbound", label:"つくば→教職員・建研",
+    badge:"kantetsu", walkBuffer:5, trainArrival:null, dur:22, ohoWarn:false,
+    schedules:{
+      weekday:["07:40","08:03","08:31","08:50","09:30","10:15","11:30","12:40","14:55","16:43","16:50","18:25","18:50","19:30"],
+      weekend:["11:05","14:50","15:00","17:00","17:50","18:05","18:25"]
+    }
+  },
+  {
+    id:"kg-nits", group:"outbound", label:"研究学園→教職員",
+    badge:"yoshinuma", walkBuffer:5, trainArrival:null, dur:18, ohoWarn:false,
+    schedules:{
+      weekday:[["07:35","07:52"],["08:25","08:42"],["10:25","10:46"],["11:30","11:51"],["13:00","13:21"],["14:55","15:16"],["15:40","16:01"],["17:40","17:57"],["18:30","18:47"],["20:30","20:47"]],
+      weekend:[["07:40","07:57"],["08:50","09:07"],["10:10","10:27"],["11:25","11:42"],["14:00","14:17"],["15:25","15:42"],["16:45","17:02"],["18:25","18:42"]]
+    }
+  },
+  {
+    id:"tc-oho", group:"outbound", label:"つくば→大穂",
+    badge:"hokubu", walkBuffer:5, trainArrival:null, dur:18, ohoWarn:false,
+    schedules:{
+      weekday:[["06:55","07:13"],["07:20","07:38"],["07:50","08:08"],["08:25","08:43"],["09:15","09:33"],["09:40","09:58"],["10:10","10:28"],["10:45","11:03"],["11:25","11:43"],["11:50","12:08"],["12:25","12:43"],["13:00","13:18"],["14:00","14:18"],["14:35","14:53"],["15:10","15:28"],["16:10","16:28"],["16:55","17:13"],["17:30","17:48"],["18:10","18:28"],["18:50","19:08"],["19:30","19:48"],["20:10","20:28"],["21:10","21:28"],["21:50","22:08"],["22:20","22:38"]],
+      weekend:[["07:10","07:28"],["07:40","07:58"],["08:25","08:43"],["09:25","09:43"],["10:10","10:28"],["10:55","11:13"],["11:40","11:58"],["12:30","12:48"],["13:10","13:28"],["14:05","14:23"],["14:50","15:08"],["15:40","15:58"],["16:50","17:08"],["17:30","17:48"],["18:20","18:38"],["19:15","19:33"],["19:55","20:13"],["20:55","21:13"],["21:40","21:58"],["22:20","22:38"]]
+    }
+  },
+  // -------- RETURN --------
+  {
+    id:"nits-tc", group:"return", label:"教職員・建研→つくば",
+    badge:"kantetsu", walkBuffer:0, trainArrival:"tsukuba", dur:22, ohoWarn:false,
+    schedules:{
+      weekday:["06:37","07:34","09:15","11:32","13:10","15:32","17:20","17:59","18:55","20:10"],
+      weekend:["15:20"]
+    }
+  },
+  {
+    id:"nits-kg", group:"return", label:"教職員・建研→研究学園",
+    badge:"yoshinuma", walkBuffer:0, trainArrival:"kenkyu", dur:25, ohoWarn:false,
+    schedules:{
+      weekday:[["06:46","07:15"],["07:31","08:00"],["09:36","10:05"],["10:36","11:05"],["12:16","12:45"],["13:41","14:10"],["14:51","15:20"],["16:45","17:10"],["17:45","18:15"],["19:40","20:05"]],
+      weekend:[["06:46","07:15"],["08:06","08:30"],["09:26","09:50"],["10:41","11:05"],["13:16","13:45"],["14:46","15:15"],["16:01","16:30"],["17:41","18:05"]]
+    }
+  },
+  {
+    id:"oho-tc", group:"return", label:"大穂→つくば",
+    badge:"hokubu", walkBuffer:0, trainArrival:"tsukuba", dur:23, ohoWarn:true,
+    schedules:{
+      weekday:[["06:22","06:45"],["06:47","07:10"],["07:12","07:35"],["07:47","08:15"],["08:37","09:05"],["09:02","09:30"],["09:32","09:55"],["10:07","10:30"],["10:52","11:15"],["11:17","11:40"],["11:52","12:15"],["12:27","12:50"],["13:27","13:50"],["14:02","14:25"],["14:37","15:00"],["15:37","16:00"],["16:17","16:45"],["16:47","17:15"],["17:32","18:00"],["18:12","18:40"],["18:52","19:20"],["19:27","19:55"],["20:32","20:55"],["21:12","21:35"],["21:47","22:10"]],
+      weekend:[["06:27","06:50"],["07:07","07:30"],["07:47","08:15"],["08:47","09:15"],["09:32","09:55"],["10:17","10:40"],["11:07","11:30"],["11:52","12:15"],["12:32","12:55"],["13:27","13:50"],["14:17","14:40"],["15:02","15:25"],["16:12","16:35"],["16:52","17:20"],["17:37","18:05"],["18:32","19:00"],["19:12","19:40"],["20:17","20:45"],["21:02","21:25"],["21:42","22:05"]]
+    }
+  }
+];
+
+const BY_ID = {};
+ROUTES.forEach(function(r){ BY_ID[r.id] = r; });
+const OUTBOUND = ["tc-nits","kg-nits","tc-oho"];
+const RETURN   = ["nits-tc","nits-kg","oho-tc"];
+const BADGE_TEXT = {kantetsu:"関鉄", hokubu:"北部", yoshinuma:"吉沼"};
+const WD = ["日","月","火","水","木","金","土"];
+
+/* National holidays (treated as 土日祝). 2026 verified; 2027 fixed-date subset. */
+const HOLIDAYS = new Map([
+  ["2026-01-01","元日"],["2026-01-12","成人の日"],["2026-02-11","建国記念の日"],["2026-02-23","天皇誕生日"],
+  ["2026-03-20","春分の日"],["2026-04-29","昭和の日"],["2026-05-03","憲法記念日"],["2026-05-04","みどりの日"],
+  ["2026-05-05","こどもの日"],["2026-05-06","振替休日"],["2026-07-20","海の日"],["2026-08-11","山の日"],
+  ["2026-09-21","敬老の日"],["2026-09-22","国民の休日"],["2026-09-23","秋分の日"],["2026-10-12","スポーツの日"],
+  ["2026-11-03","文化の日"],["2026-11-23","勤労感謝の日"],
+  ["2027-01-01","元日"],["2027-02-11","建国記念の日"],["2027-02-23","天皇誕生日"],["2027-04-29","昭和の日"],
+  ["2027-05-03","憲法記念日"],["2027-05-04","みどりの日"],["2027-05-05","こどもの日"]
+]);
+
+/* ============================================================
+   State + persistence
+   ============================================================ */
+const state = {
+  themeMode:"auto",
+  dir:"outbound",
+  dia:"auto",
+  route:"all",
+  routeByDir:{outbound:"all", return:"all"}
+};
+const STORE_KEY = "tsukuba_commute_v1";
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s.themeMode) state.themeMode = s.themeMode;
+    if(s.dir) state.dir = s.dir;
+    if(s.dia) state.dia = s.dia;
+    if(s.routeByDir) state.routeByDir = Object.assign(state.routeByDir, s.routeByDir);
+    state.route = state.routeByDir[state.dir] || "all";
+  }catch(e){ /* storage blocked (e.g. sandbox) — run with defaults */ }
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      themeMode:state.themeMode, dir:state.dir, dia:state.dia, routeByDir:state.routeByDir
+    }));
+  }catch(e){ /* ignore */ }
+}
+
+/* ============================================================
+   Time helpers
+   ============================================================ */
+function pad(n){ return n<10 ? "0"+n : ""+n; }
+function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function isHolidayDate(d){ const w=d.getDay(); return w===0||w===6||HOLIDAYS.has(ymd(d)); }
+function hmToDate(hm, base){
+  const p = hm.split(":");
+  const d = new Date(base.getTime());
+  d.setHours(parseInt(p[0],10), parseInt(p[1],10), 0, 0);
+  return d;
+}
+function norm(entry){
+  return (typeof entry === "string") ? {dep:entry, arr:null} : {dep:entry[0], arr:entry[1]};
+}
+function effectiveDia(now){
+  if(state.dia==="weekday") return "weekday";
+  if(state.dia==="weekend") return "weekend";
+  return isHolidayDate(now) ? "weekend" : "weekday"; // auto / all
+}
+function currentOrder(){ return state.dir==="outbound" ? OUTBOUND : RETURN; }
+function visibleRoutes(){
+  const order = currentOrder();
+  if(state.route==="all") return order.map(function(id){ return BY_ID[id]; });
+  return [BY_ID[state.route]];
+}
+
+/* ============================================================
+   Status tiers (return {text, level})
+   ============================================================ */
+function statusOutbound(leaveMin){
+  if(leaveMin>15) return {text:"まだ余裕があります。", level:"ok"};
+  if(leaveMin>10) return {text:"そろそろ出る時間です。", level:"soon"};
+  if(leaveMin>=5) return {text:"駅からなら走る時間です。", level:"run"};
+  return {text:"駅からだとかなり厳しいです。次便も確認してください。", level:"risk"};
+}
+function statusOho(departMin){
+  if(departMin>25) return {text:"まだ余裕があります。建築研究所から大穂へ歩く場合も間に合います。", level:"ok"};
+  if(departMin>20) return {text:"建築研究所から大穂へ歩くならそろそろ出発。教職員支援機構からは余裕あり。", level:"ok"};
+  if(departMin>15) return {text:"建築研究所からは今すぐ出てください。教職員支援機構からはまだ間に合います。", level:"soon"};
+  if(departMin>10) return {text:"教職員支援機構からならそろそろ出発。建築研究所からは間に合いにくいです。", level:"run"};
+  if(departMin>5)  return {text:"教職員支援機構からでもかなり急ぎです。建築研究所からは次便前提です。", level:"risk"};
+  return {text:"もう厳しいです。大穂窓口センターに着いていないなら次便を見てください。", level:"risk"};
+}
+function statusReturn(departMin){
+  if(departMin>15) return {text:"まだ余裕があります。", level:"ok"};
+  if(departMin>10) return {text:"そろそろバス停へ。", level:"soon"};
+  if(departMin>=5) return {text:"発車が近づいています。", level:"run"};
+  return {text:"まもなく発車します。次便も確認してください。", level:"risk"};
+}
+function statusFor(route, departMin, leaveMin){
+  if(route.group==="outbound") return statusOutbound(leaveMin);
+  if(route.ohoWarn) return statusOho(departMin);
+  return statusReturn(departMin);
+}
+
+const WINDOW = 30; // minutes for full bar
+function barPct(remainMin){
+  if(remainMin<=0) return 0;
+  const r = remainMin/WINDOW;
+  return (r>1?1:r)*100;
+}
+
+/* ============================================================
+   Departure computation
+   ============================================================ */
+function arrLabel(route, depDate, arr){
+  let a;
+  if(arr){ a = hmToDate(arr, depDate); }
+  else { a = new Date(depDate.getTime() + route.dur*60000); }
+  return pad(a.getHours())+":"+pad(a.getMinutes());
+}
+function getFeatured(route, dia, now){
+  const sched = route.schedules[dia] || [];
+  for(let i=0;i<sched.length;i++){
+    const e = norm(sched[i]);
+    const depDate = hmToDate(e.dep, now);
+    if(depDate.getTime() - now.getTime() > 0){
+      return {entry:e, depDate:depDate, idx:i, total:sched.length};
+    }
+  }
+  return null;
+}
+function getUpcoming(route, dia, now, startIdx, limit){
+  const sched = route.schedules[dia] || [];
+  const out = [];
+  for(let i=startIdx;i<sched.length && out.length<limit;i++){
+    const e = norm(sched[i]);
+    const depDate = hmToDate(e.dep, now);
+    out.push({route:route, entry:e, depDate:depDate});
+  }
+  return out;
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+const cardsEl = document.getElementById("cards");
+const linksEl = document.getElementById("links");
+const noteEl  = document.getElementById("noteEl");
+const routeSeg= document.getElementById("routeSeg");
+
+function esc(s){ return s; } // all strings are app-controlled
+
+function cardHTML(route, dia, now, compact){
+  const feat = getFeatured(route, dia, now);
+  const badge = '<span class="badge b-'+route.badge+'">'+BADGE_TEXT[route.badge]+'</span>';
+  const head = '<div class="rline">'+badge+'<span class="rlabel">'+route.label+'</span></div>';
+  const cls = "card"+(compact?" cmp":"");
+
+  if(!feat){
+    const sched = route.schedules[dia] || [];
+    const msg = sched.length===0 ? "この区分の運行はありません" : "本日の運行は終了しました";
+    return '<div class="'+cls+'">'+head+'<div class="ended">'+msg+
+           '<small>別の区分・経路を確認するか、各リンク先をご覧ください</small></div></div>';
+  }
+
+  const depMs = feat.depDate.getTime() - now.getTime();
+  const departMin = Math.round(depMs/60000);
+  const leaveMin  = Math.round((depMs - route.walkBuffer*60000)/60000);
+  const heroVal   = (route.group==="outbound") ? leaveMin : departMin;
+  const heroLabel = (route.group==="outbound") ? "駅を出るまで" : "発車まで";
+  const st = statusFor(route, departMin, leaveMin);
+  const pct = barPct(heroVal).toFixed(2);
+  const arr = arrLabel(route, feat.depDate, feat.entry.arr);
+
+  let bigInner;
+  if(heroVal>0){
+    bigInner = '<div class="big">'+heroVal+'<span class="min">分</span></div>';
+  }else{
+    bigInner = '<div class="big soon">まもなく</div>';
+  }
+
+  return '<div class="'+cls+'">'+head+
+    '<div class="mid">'+
+      '<div class="dep"><span class="t">'+feat.entry.dep+'</span><span class="u">発</span></div>'+
+      '<div class="center">'+bigInner+'<div class="clabel">'+heroLabel+'</div></div>'+
+      '<div class="arr">着 '+arr+'<span class="approx">目安</span></div>'+
+    '</div>'+
+    '<div class="bar"><div class="fill lv-'+st.level+'" style="width:'+pct+'%"></div></div>'+
+    '<div class="status lv-'+st.level+'">'+st.text+'</div>'+
+  '</div>';
+}
+
+function upcomingRowHTML(item, now, withBadge){
+  const depMin = Math.round((item.depDate.getTime()-now.getTime())/60000);
+  const minTxt = depMin>0 ? (depMin+"分後") : "まもなく";
+  const arr = arrLabel(item.route, item.depDate, item.entry.arr);
+  const b = withBadge ? '<span class="ubadge b-'+item.route.badge+'">'+BADGE_TEXT[item.route.badge]+'</span>' : '';
+  const cls = withBadge ? "up merged" : "up";
+  return '<div class="'+cls+'">'+b+
+    '<span class="ut">'+item.entry.dep+'</span>'+
+    '<span class="um">'+minTxt+'</span>'+
+    '<span class="ua">着 '+arr+'目安</span></div>';
+}
+
+function timetableHTML(route, now){
+  const dia = effectiveDia(now);
+  const next = getFeatured(route, dia, now);
+  const nextDep = next ? next.entry.dep : null;
+  function section(label, key, isEffective){
+    const sched = route.schedules[key] || [];
+    if(sched.length===0){
+      return '<div class="tt-sec"><div class="tt-cap">'+label+'</div><div class="tt-empty">運行なし</div></div>';
+    }
+    const chips = sched.map(function(en){
+      const e = norm(en);
+      let c = "tt-chip";
+      if(isEffective){
+        if(nextDep && e.dep===nextDep) c += " next";
+        else if(hmToDate(e.dep, now).getTime() < now.getTime()) c += " past";
+      }
+      return '<span class="'+c+'">'+e.dep+'</span>';
+    }).join("");
+    return '<div class="tt-sec"><div class="tt-cap">'+label+'</div><div class="tt-chips">'+chips+'</div></div>';
+  }
+  const badge = '<span class="badge b-'+route.badge+'">'+BADGE_TEXT[route.badge]+'</span>';
+  return '<div class="tt"><div class="tt-h">'+badge+'<span class="rlabel">'+route.label+'</span></div>'+
+    section("平日","weekday",dia==="weekday")+
+    section("土日祝","weekend",dia==="weekend")+
+  '</div>';
+}
+
+function renderCards(now){
+  const order = currentOrder();
+  const isAll = state.route==="all";
+
+  // ---- 全便 reference mode ----
+  if(state.dia==="all"){
+    let html = '<div class="caption">全便（平日／土日祝）</div>';
+    const list = isAll ? order.map(function(id){return BY_ID[id];}) : [BY_ID[state.route]];
+    html += list.map(function(r){ return timetableHTML(r, now); }).join("");
+    cardsEl.innerHTML = html;
+    return;
+  }
+
+  const dia = effectiveDia(now);
+
+  // ---- 全部: comparison + merged upcoming ----
+  if(isAll){
+    let html = '<div class="caption">直近の3便</div>';
+    html += order.map(function(id){ return cardHTML(BY_ID[id], dia, now, true); }).join("");
+
+    // merged upcoming (exclude each route's featured)
+    let merged = [];
+    order.forEach(function(id){
+      const r = BY_ID[id];
+      const feat = getFeatured(r, dia, now);
+      const start = feat ? feat.idx+1 : (r.schedules[dia]||[]).length;
+      merged = merged.concat(getUpcoming(r, dia, now, start, 6));
+    });
+    merged.sort(function(a,b){ return a.depDate-b.depDate; });
+    merged = merged.slice(0,7);
+    if(merged.length){
+      html += '<div class="caption">このあとの便（全経路）</div>';
+      html += '<div class="uplist">'+merged.map(function(it){ return upcomingRowHTML(it, now, true); }).join("")+'</div>';
+    }
+    cardsEl.innerHTML = html;
+    return;
+  }
+
+  // ---- single route: hero + upcoming ----
+  const r = BY_ID[state.route];
+  let html = cardHTML(r, dia, now, false);
+  const feat = getFeatured(r, dia, now);
+  if(feat){
+    const up = getUpcoming(r, dia, now, feat.idx+1, 6);
+    if(up.length){
+      html += '<div class="caption">このあと</div>';
+      html += '<div class="uplist">'+up.map(function(it){ return upcomingRowHTML(it, now, false); }).join("")+'</div>';
+    }
+  }
+  cardsEl.innerHTML = html;
+}
+
+/* ---- links (rebuild only on change to keep taps safe) ---- */
+function txDia(now){
+  if(state.dia==="weekday") return "weekday";
+  if(state.dia==="weekend") return "holiday";
+  return isHolidayDate(now) ? "holiday" : "weekday";
+}
+function txUrl(station, dia){
+  const code = station==="tsukuba" ? "9438" : "9441";
+  return "https://transfer-train.navitime.biz/tx/timetable?station="+code+"&line=1&target="+dia+"&direction=0";
+}
+let lastLinksSig = "";
+function renderLinks(now){
+  const vis = visibleRoutes();
+  const pills = [];
+  if(vis.some(function(r){return r.badge==="kantetsu";}))
+    pills.push({cls:"kt", label:"関鉄接近", href:"https://navi.kanto-tetsudo.com/"});
+  if(vis.some(function(r){return r.badge==="hokubu"||r.badge==="yoshinuma";}))
+    pills.push({cls:"tb", label:"つくバス接近", href:"http://tsukuba.city.bus-go.com/"});
+
+  if(state.dir==="return"){
+    const dia = txDia(now);
+    const stations = {};
+    vis.forEach(function(r){ if(r.trainArrival) stations[r.trainArrival]=true; });
+    if(stations.tsukuba) pills.push({cls:"tx", label:"つくば駅 TX", href:txUrl("tsukuba",dia)});
+    if(stations.kenkyu)  pills.push({cls:"tx", label:"研究学園駅 TX", href:txUrl("kenkyu",dia)});
+  }
+
+  const sig = pills.map(function(p){return p.label+"|"+p.href;}).join(",");
+  if(sig===lastLinksSig) return;
+  lastLinksSig = sig;
+  linksEl.innerHTML = pills.map(function(p){
+    return '<a class="'+p.cls+'" href="'+p.href+'" target="_blank" rel="noopener">'+
+           '<span class="dot"></span>'+p.label+'</a>';
+  }).join("");
+}
+
+/* ---- note ---- */
+function renderNote(now){
+  const isH = isHolidayDate(now);
+  const parts = [];
+  if(state.dia==="auto") parts.push("自動判定：" + (isH?"土日祝":"平日") + "ダイヤを表示");
+  else if(state.dia==="weekday") parts.push("平日ダイヤを表示");
+  else if(state.dia==="weekend") parts.push("土日祝ダイヤを表示");
+  else parts.push("全便（平日・土日祝）を表示");
+
+  const showsKantetsu = visibleRoutes().some(function(r){return r.badge==="kantetsu";});
+  const weekendShown = (state.dia==="weekend") || (state.dia!=="weekday" && isH);
+  if(showsKantetsu && weekendShown)
+    parts.push("関鉄は土日祝が大幅減便（日祝はデータ未確認）。最新は関鉄サイトで確認を");
+
+  noteEl.textContent = parts.join(" ・ ");
+}
+
+/* ---- clock ---- */
+function updateClock(now){
+  document.getElementById("clockMain").textContent = pad(now.getHours())+":"+pad(now.getMinutes());
+  document.getElementById("clockSec").textContent = pad(now.getSeconds());
+  let txt = (now.getMonth()+1)+"/"+now.getDate()+"（"+WD[now.getDay()]+"）";
+  const hol = HOLIDAYS.get(ymd(now));
+  if(hol) txt += " " + hol;
+  document.getElementById("dateEl").textContent = txt;
+}
+
+/* ============================================================
+   Controls
+   ============================================================ */
+function buildRouteSeg(){
+  const order = currentOrder();
+  const ids = ["all"].concat(order);
+  routeSeg.innerHTML = ids.map(function(id){
+    const label = (id==="all") ? "全部" : BY_ID[id].label;
+    return '<button data-route="'+id+'">'+label+'</button>';
+  }).join("");
+  syncActive();
+}
+function syncActive(){
+  document.querySelectorAll("#dirSeg button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.dir===state.dir);
+  });
+  document.querySelectorAll("#diaSeg button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.dia===state.dia);
+  });
+  document.querySelectorAll("#routeSeg button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.route===state.route);
+  });
+}
+function syncTheme(){
+  document.querySelectorAll("#themePills button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.theme===state.themeMode);
+  });
+}
+
+const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : {matches:false, addEventListener:function(){}};
+function resolveTheme(mode){ return mode==="auto" ? (mq.matches?"dark":"light") : mode; }
+function applyTheme(){
+  const t = resolveTheme(state.themeMode);
+  document.documentElement.setAttribute("data-theme", t);
+  const meta = document.getElementById("themeColorMeta");
+  if(meta) meta.setAttribute("content", t==="dark" ? "#0b0e14" : "#f2f4f9");
+}
+
+function renderAll(){
+  const now = new Date();
+  renderCards(now);
+  renderLinks(now);
+  renderNote(now);
+}
+
+document.getElementById("dirSeg").addEventListener("click", function(e){
+  const b = e.target.closest("button"); if(!b) return;
+  state.dir = b.dataset.dir;
+  state.route = state.routeByDir[state.dir] || "all";
+  saveState(); buildRouteSeg(); lastLinksSig=""; renderAll();
+});
+document.getElementById("diaSeg").addEventListener("click", function(e){
+  const b = e.target.closest("button"); if(!b) return;
+  state.dia = b.dataset.dia;
+  saveState(); syncActive(); lastLinksSig=""; renderAll();
+});
+routeSeg.addEventListener("click", function(e){
+  const b = e.target.closest("button"); if(!b) return;
+  state.route = b.dataset.route;
+  state.routeByDir[state.dir] = state.route;
+  saveState(); syncActive(); lastLinksSig=""; renderAll();
+});
+document.getElementById("themePills").addEventListener("click", function(e){
+  const b = e.target.closest("button"); if(!b) return;
+  state.themeMode = b.dataset.theme;
+  saveState(); applyTheme(); syncTheme();
+});
+if(mq.addEventListener){
+  mq.addEventListener("change", function(){ if(state.themeMode==="auto") applyTheme(); });
+}
+
+/* ============================================================
+   Boot + tick
+   ============================================================ */
+loadState();
+applyTheme();
+syncTheme();
+buildRouteSeg();
+
+function tick(){
+  const now = new Date();
+  updateClock(now);
+  renderCards(now);
+  renderLinks(now);
+  renderNote(now);
+}
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
