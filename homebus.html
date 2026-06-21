@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="おうちバス" />
+<meta name="theme-color" content="#f2f4f9" id="themeColorMeta" />
+<title>おうちバス（加二号公園前 ⇆ TX）</title>
+<style>
+  :root{
+    --bg:#f2f4f9; --card:rgba(255,255,255,.88); --card-solid:#ffffff; --text:#10151f;
+    --muted:#667085; --subtle:#8a93a3; --line:rgba(16,21,31,.10);
+    --accent:#1677ff; --accent-weak:rgba(22,119,255,.12);
+    --green:#13a05f; --orange:#ef8a00; --red:#e5484d;
+    --track:#e9edf4; --otaka:#0e9f6e; --minami:#2563eb;
+    --material:rgba(255,255,255,.76);
+    --shadow:0 1px 3px rgba(16,21,31,.05),0 10px 28px rgba(16,21,31,.06);
+  }
+  [data-theme="dark"]{
+    --bg:#0b0e14; --card:rgba(22,27,36,.86); --card-solid:#161b24; --text:#eef2f8;
+    --muted:#9aa6b6; --subtle:#6f7a8b; --line:rgba(238,242,248,.12);
+    --accent:#5aa2ff; --accent-weak:rgba(90,162,255,.17);
+    --green:#3ad28f; --orange:#ffb74d; --red:#ff6b70;
+    --track:#222a36; --otaka:#10b981; --minami:#5aa2ff;
+    --material:rgba(22,27,36,.76);
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+    font-variant-numeric:tabular-nums;-webkit-text-size-adjust:100%;}
+  body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);}
+  .app{width:min(100%,540px);margin:0 auto;padding:0 14px 40px;}
+
+  .nav{
+    position:sticky;top:0;z-index:30;
+    padding:8px 0 10px;
+    background:linear-gradient(to bottom,var(--bg) 42%,rgba(242,244,249,.76) 82%,transparent);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  }
+  [data-theme="dark"] .nav{background:linear-gradient(to bottom,var(--bg) 42%,rgba(11,14,20,.76) 82%,transparent);}
+  .title-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;margin-bottom:8px;}
+  .title{font-size:17px;font-weight:850;text-align:center;letter-spacing:-.02em;padding:7px 0 0 40px;}
+  .theme{display:flex;gap:4px;}
+  .theme button{appearance:none;border:1px solid var(--line);background:var(--card-solid);color:var(--muted);
+    width:30px;height:28px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;line-height:1;padding:0;}
+  .theme button.active{color:var(--accent);background:var(--accent-weak);border-color:transparent;}
+
+  .clockwrap{margin:2px 2px 10px;}
+  .clock{font-size:46px;line-height:.96;font-weight:850;letter-spacing:-.045em;}
+  .clock .sec{font-size:20px;font-weight:800;color:var(--muted);margin-left:4px;letter-spacing:-.02em;}
+  .date{margin-top:4px;color:var(--muted);font-size:12.5px;font-weight:700;}
+
+  .seg{display:grid;gap:4px;padding:4px;background:rgba(128,128,128,.10);border:1px solid var(--line);border-radius:14px;margin-top:8px;}
+  .seg.dir{grid-template-columns:1fr 1fr;}
+  .seg.dia{grid-template-columns:repeat(3,1fr);}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--muted);font-weight:800;
+    border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer;white-space:nowrap;line-height:1.1;}
+  .seg button.active{background:var(--card-solid);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.10);}
+  [data-theme="dark"] .seg button.active{box-shadow:0 2px 8px rgba(0,0,0,.42);}
+  .note{margin:10px 4px 2px;color:var(--muted);font-size:11.5px;line-height:1.5;font-weight:600;}
+
+  .stack{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+  .caption{margin:14px 4px 6px;color:var(--subtle);font-size:11.5px;font-weight:850;letter-spacing:.02em;}
+
+  .card{border:1px solid var(--line);border-radius:22px;background:var(--material);box-shadow:var(--shadow);
+    padding:14px;position:relative;overflow:hidden;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+  .rline{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .badge{font-size:11px;font-weight:850;color:#fff;border-radius:7px;padding:3px 7px;letter-spacing:.02em;flex:0 0 auto;}
+  .b-otaka{background:var(--otaka);} .b-minami{background:var(--minami);}
+  .station-link{color:var(--accent);text-decoration:none;font-weight:850;}
+
+  .rlabel{font-size:17px;font-weight:850;letter-spacing:-.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .ended{font-size:15px;font-weight:800;color:var(--muted);padding:8px 2px;}
+
+  .mid{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
+  .dep{min-width:0;}
+  .dep .t{display:block;font-size:28px;font-weight:850;letter-spacing:-.05em;line-height:1;}
+  .dep .u{font-size:12px;font-weight:800;color:var(--muted);margin-top:3px;}
+  .center{text-align:center;min-width:82px;}
+  .big{font-size:38px;line-height:.94;font-weight:900;letter-spacing:-.06em;}
+  .big .min{font-size:15px;font-weight:850;margin-left:1px;letter-spacing:-.02em;}
+  .big.soon{font-size:24px;letter-spacing:-.02em;}
+  .clabel{margin-top:4px;font-size:11px;font-weight:800;color:var(--muted);}
+  .arr{text-align:right;color:var(--text);min-width:0;}
+  .arr .t{display:block;font-size:19px;font-weight:800;letter-spacing:-.03em;}
+  .arr .u{font-size:11px;color:var(--muted);font-weight:800;margin-top:3px;}
+  .bar{height:6px;border-radius:999px;background:var(--track);margin-top:12px;overflow:hidden;}
+  .fill{height:100%;border-radius:999px;width:0;transition:width .35s linear;}
+  .fill.ok{background:var(--green);} .fill.soon{background:var(--accent);}
+  .fill.run{background:var(--orange);} .fill.risk{background:var(--red);}
+  .status{margin-top:10px;font-size:13px;line-height:1.45;font-weight:700;}
+  .status.ok{color:var(--green);} .status.soon{color:var(--accent);}
+  .status.run{color:var(--orange);} .status.risk{color:var(--red);}
+  .status.ended{color:var(--muted);}
+  .uplist{border:1px solid var(--line);border-radius:16px;background:var(--material);overflow:hidden;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+  .up{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);}
+  .up:first-child{border-top:0;}
+  .up .route-small{font-size:11px;color:var(--muted);font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .up .ut{font-size:17px;font-weight:850;letter-spacing:-.02em;}
+  .up .um{font-size:14px;font-weight:800;text-align:right;}
+  .up .ua{color:var(--subtle);font-size:12px;font-weight:700;text-align:right;margin-top:2px;}
+  .empty{font-size:14px;font-weight:700;color:var(--muted);padding:14px;background:var(--material);border-radius:16px;border:1px solid var(--line);}
+
+  .links-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+  .linkbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;text-decoration:none;
+    color:var(--text);background:var(--material);border:1px solid var(--line);border-radius:14px;
+    padding:10px 12px;box-shadow:var(--shadow);font-size:14px;font-weight:750;}
+  .linkbtn .arrow{font-size:12px;color:var(--muted);font-weight:900;}
+  .foot{margin:18px 4px 0;color:var(--subtle);font-size:11px;line-height:1.6;font-weight:600;}
+
+  @media(max-width:360px){
+    .app{padding-left:10px;padding-right:10px;}
+    .clock{font-size:42px;}
+    .rlabel{font-size:15px;}
+    .dep .t{font-size:25px;}
+    .big{font-size:34px;}
+    .arr .t{font-size:17px;}
+    .links-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="nav">
+    <div class="title-row">
+      <div class="title">おうちバス</div>
+      <div class="theme" id="themePills">
+        <button data-theme="auto" title="自動">A</button>
+        <button data-theme="light" title="ライト">☀</button>
+        <button data-theme="dark" title="ダーク">☾</button>
+      </div>
+    </div>
+    <div class="clockwrap">
+      <div class="clock"><span id="clockMain">--:--</span><span class="sec" id="clockSec">--</span></div>
+      <div class="date" id="dateEl">--</div>
+    </div>
+    <div class="seg dir" id="dirSeg">
+      <button data-dir="outbound">家→駅</button>
+      <button data-dir="inbound">駅→家</button>
+    </div>
+    <div class="seg dia" id="diaSeg">
+      <button data-dia="auto">自動</button>
+      <button data-dia="weekday">平日</button>
+      <button data-dia="weekend">土日祝</button>
+    </div>
+    <div class="note" id="noteEl"></div>
+  </header>
+
+  <main>
+    <section class="stack" id="cards"></section>
+
+    <section class="caption">このあとの便</section>
+    <section id="upcoming"></section>
+
+    <section id="linksWrap">
+      <div class="caption">リンク</div>
+      <nav class="links-grid" id="links"></nav>
+    </section>
+
+    <footer class="foot">
+      最寄＝<b>加二号公園前</b>（京成バス・松戸営業所）。<b>家→駅</b>は加二号公園前を出発、<b>駅→家</b>は各駅を出発して加二号公園前で下車する便です。<br>
+      到着時刻と所要時間は「着目安」（バス所要時間は推定値）。土曜・休日ダイヤは全便共通です。最新の時刻・運休は京成バスの掲示でご確認ください。
+    </footer>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   設定（必要ならここだけ書き換え）
+   ------------------------------------------------------------------------- */
+// 家から「加二号公園前」バス停までの徒歩（分）。家→駅カードの「家を出るまで」に反映。
+const WALK_HOME_TO_STOP_MIN = 3;
+
+// バス所要時間（分）の推定値 ＝ 到着目安の算出に使用。実測が分かれば調整可。
+const DURATION_MIN = {
+  otaka: 18,  // 加二号公園前 ⇆ 流山おおたかの森駅西口
+  minami: 7   // 加二号公園前 ⇆ 南流山駅
+};
+
+// TX（つくばエクスプレス）の駅コードと方面。
+// direction: "1" = つくば方面（北行・通勤先の建研/つくば側）, "0" = 秋葉原方面（南行）
+// ※コードは navitime の駅コード。初回はリンク先の駅名が正しいか一度ご確認ください。
+const TX_STATION = { otaka: "9450", minami: "7177" };
+const TX_DIRECTION_TO_WORK = "1";
+const TX_STATION_LABEL = { otaka: "流山おおたかの森", minami: "南流山" };
+
+/* =========================================================================
+   時刻データ（2026年6月21日 現在 / 京成バス 松戸営業所）
+   発時刻は各バス停の「発」。配列は "HH:MM"。
+   weekend = 土曜・休日（両者は全便で同一）。
+   ------------------------------------------------------------------------- */
+const ROUTES = [
+  // ---- 家→駅（往路）-----------------------------------------------------
+  {
+    // 加二号公園前 → 流山おおたかの森駅西口（南流02・無印のみ。ク=クリーンセンター/止=三輪茂呂神社前 は除外）
+    id:"home-otaka", direction:"outbound", label:"加二号公園前 → おおたか",
+    badge:"otaka", station:"otaka",
+    walkBufferMinutes: WALK_HOME_TO_STOP_MIN, fallbackDurationMinutes: DURATION_MIN.otaka,
+    weekday:[
+      "06:22","06:39","06:53",
+      "07:03","07:22","07:31","07:42","07:53",
+      "08:02","08:17","08:31","08:40",
+      "09:10","09:26","09:46",
+      "10:11","10:41","10:56",
+      "11:16","11:36",
+      "12:06","12:31","12:46","12:56",
+      "13:21","13:41",
+      "14:01","14:11","14:31",
+      "15:01","15:21","15:36","15:56",
+      "16:17","16:41",
+      "17:02","17:14","17:51",
+      "18:17","18:40","18:59",
+      "19:11","19:36",
+      "20:06","20:36",
+      "21:01","21:30","21:59",
+      "22:24"
+    ],
+    weekend:[
+      "07:01","07:21","07:41",
+      "08:01","08:21","08:41",
+      "09:01","09:23","09:41",
+      "10:03","10:21","10:36","10:56",
+      "11:16","11:31",
+      "12:06","12:28","12:46",
+      "13:06","13:39","13:56",
+      "14:11","14:31","14:51",
+      "15:21","15:40",
+      "16:00","16:28","16:51",
+      "17:09","17:34","17:54",
+      "18:11","18:39","18:59",
+      "19:41","19:59",
+      "20:11","20:41","20:59",
+      "21:21","21:59"
+    ]
+  },
+  {
+    // 加二号公園前 → 南流山駅（南流01・02。全便が南流山駅まで）
+    id:"home-minami", direction:"outbound", label:"加二号公園前 → 南流山",
+    badge:"minami", station:"minami",
+    walkBufferMinutes: WALK_HOME_TO_STOP_MIN, fallbackDurationMinutes: DURATION_MIN.minami,
+    weekday:[
+      "05:51",
+      "06:10","06:24","06:34","06:50",
+      "07:00","07:10","07:20","07:30","07:45","07:59",
+      "08:08","08:19","08:39","08:49",
+      "09:09","09:35",
+      "10:09","10:20","10:43",
+      "11:00","11:15","11:30","11:55",
+      "12:10","12:27","12:47",
+      "13:05","13:30","13:37","13:55",
+      "14:27","14:45",
+      "15:05","15:20","15:40",
+      "16:08","16:29","16:39","16:50",
+      "17:17","17:44",
+      "18:06","18:23","18:38","18:52",
+      "19:05","19:16","19:35",
+      "20:05","20:31",
+      "21:02","21:31","21:56",
+      "22:26","22:50"
+    ],
+    weekend:[
+      "06:30","06:50",
+      "07:10","07:30","07:50",
+      "08:10","08:30","08:55",
+      "09:10","09:30","09:50",
+      "10:04","10:18","10:40","10:59",
+      "11:10","11:30","11:55",
+      "12:10","12:30",
+      "13:05","13:26","13:35","13:58",
+      "14:18","14:45",
+      "15:08","15:25","15:55",
+      "16:15","16:35",
+      "17:01","17:15","17:39",
+      "18:03","18:25","18:50",
+      "19:04","19:26","19:42",
+      "20:07","20:26","20:45",
+      "21:25","21:55",
+      "22:25"
+    ]
+  },
+
+  // ---- 駅→家（復路）-----------------------------------------------------
+  {
+    // 流山おおたかの森駅西口 → （南流山方面・加二号公園前で下車）南流山駅行=無印のみ。ク=西柏07クリーンセンター行は除外
+    id:"otaka-home", direction:"inbound", label:"おおたか → 加二号公園前",
+    badge:"otaka", station:"otaka",
+    walkBufferMinutes: 0, fallbackDurationMinutes: DURATION_MIN.otaka,
+    weekday:[
+      "06:00","06:14","06:24","06:40","06:50",
+      "07:00","07:10","07:20","07:35","07:49","07:58",
+      "08:09","08:29","08:39","08:59",
+      "09:25","09:59",
+      "10:10","10:33","10:50",
+      "11:05","11:20","11:45",
+      "12:00","12:37","12:55",
+      "13:20","13:45",
+      "14:17","14:35","14:55",
+      "15:10","15:30","15:58",
+      "16:19","16:40",
+      "17:07","17:34","17:56",
+      "18:13","18:28","18:42",
+      "19:06","19:25","19:55",
+      "20:21","20:52",
+      "21:21","21:46",
+      "22:16","22:40"
+    ],
+    weekend:[
+      "06:20","06:40",
+      "07:00","07:20","07:40",
+      "08:00","08:20","08:45",
+      "09:00","09:20","09:40",
+      "10:08","10:30",
+      "11:00","11:20","11:45",
+      "12:00","12:20","12:55",
+      "13:25","13:48",
+      "14:08","14:35","14:58",
+      "15:15","15:45",
+      "16:05","16:25","16:51",
+      "17:05","17:29","17:53",
+      "18:15","18:40",
+      "19:16","19:32","19:57",
+      "20:16","20:35",
+      "21:15","21:45",
+      "22:15"
+    ]
+  },
+  {
+    // 南流山駅 → （おおたか方面・加二号公園前で下車）全便が加二号公園前を通過（南流01/02/止 すべて可）
+    id:"minami-home", direction:"inbound", label:"南流山 → 加二号公園前",
+    badge:"minami", station:"minami",
+    walkBufferMinutes: 0, fallbackDurationMinutes: DURATION_MIN.minami,
+    weekday:[
+      "06:11","06:28","06:42","06:52",
+      "07:11","07:20","07:31","07:42","07:51",
+      "08:06","08:20","08:29","08:45","08:59",
+      "09:15","09:35",
+      "10:00","10:30","10:45",
+      "11:05","11:25","11:38","11:55",
+      "12:20","12:35","12:45",
+      "13:10","13:30","13:50",
+      "14:00","14:20","14:50",
+      "15:10","15:25","15:45",
+      "16:05","16:29","16:50",
+      "17:02","17:18","17:39",
+      "18:05","18:28","18:47","18:59",
+      "19:13","19:24","19:34","19:55",
+      "20:25","20:50",
+      "21:19","21:48",
+      "22:13","22:44",
+      "23:14"
+    ],
+    weekend:[
+      "06:50",
+      "07:10","07:30","07:50",
+      "08:10","08:30","08:50",
+      "09:12","09:30","09:52",
+      "10:10","10:25","10:45",
+      "11:05","11:20","11:35","11:55",
+      "12:17","12:35","12:55",
+      "13:28","13:45",
+      "14:00","14:20","14:40",
+      "15:10","15:29","15:49",
+      "16:17","16:40","16:58",
+      "17:23","17:43",
+      "18:00","18:28","18:48",
+      "19:10","19:30","19:48",
+      "20:00","20:30","20:48",
+      "21:10","21:48",
+      "22:15","22:48"
+    ]
+  }
+];
+
+const HOLIDAYS = {
+  "2026-01-01":"元日","2026-01-12":"成人の日","2026-02-11":"建国記念の日","2026-02-23":"天皇誕生日",
+  "2026-03-20":"春分の日","2026-04-29":"昭和の日","2026-05-03":"憲法記念日","2026-05-04":"みどりの日",
+  "2026-05-05":"こどもの日","2026-05-06":"振替休日","2026-07-20":"海の日","2026-08-11":"山の日",
+  "2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日",
+  "2026-11-03":"文化の日","2026-11-23":"勤労感謝の日",
+  "2027-01-01":"元日","2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日",
+  "2027-04-29":"昭和の日","2027-05-03":"憲法記念日","2027-05-04":"みどりの日","2027-05-05":"こどもの日"
+};
+const BADGE_TEXT = { otaka:"おおたか", minami:"南流山" };
+const WD = ["日","月","火","水","木","金","土"];
+const STORE_KEY = "home_bus_html_v1";
+
+const state = {
+  direction: "outbound",
+  scheduleKind: "auto",
+  themeMode: "auto"
+};
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s.direction) state.direction = s.direction;
+    if(s.scheduleKind) state.scheduleKind = s.scheduleKind;
+    if(s.themeMode) state.themeMode = s.themeMode;
+  }catch(e){}
+}
+function saveState(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+function pad(n){ return n < 10 ? "0" + n : String(n); }
+function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function isWeekendOrHoliday(date){
+  const day = date.getDay();
+  return day === 0 || day === 6 || HOLIDAYS[ymd(date)] != null;
+}
+function effectiveScheduleKind(kind, date){
+  if(kind === "weekday" || kind === "weekend") return kind;
+  return isWeekendOrHoliday(date) ? "weekend" : "weekday";
+}
+function scheduleFor(route, kind, date){
+  return route[effectiveScheduleKind(kind, date)] || [];
+}
+function makeDate(hourMinute, baseDate){
+  const parts = hourMinute.split(":").map(Number);
+  const d = new Date(baseDate.getTime());
+  d.setHours(parts[0], parts[1], 0, 0);
+  return d;
+}
+function formatHourMinute(date){
+  return pad(date.getHours()) + ":" + pad(date.getMinutes());
+}
+function arrivalText(departureDate, fallbackDurationMinutes){
+  const minutes = Number.isFinite(fallbackDurationMinutes) ? fallbackDurationMinutes : 20;
+  return formatHourMinute(new Date(departureDate.getTime() + minutes * 60000));
+}
+function nextBus(route, now){
+  const schedule = scheduleFor(route, state.scheduleKind, now);
+  for(const dep of schedule){
+    const departureDate = makeDate(dep, now);
+    if(departureDate > now){
+      const minutesUntilDeparture = Math.ceil((departureDate.getTime() - now.getTime()) / 60000);
+      const minutesUntilLeaving = minutesUntilDeparture - route.walkBufferMinutes;
+      return {
+        departure: dep,
+        departureDate,
+        minutesUntilDeparture,
+        minutesUntilLeaving,
+        arrivalText: arrivalText(departureDate, route.fallbackDurationMinutes)
+      };
+    }
+  }
+  return null;
+}
+
+function outboundStatus(minutesUntilLeaving){
+  if(minutesUntilLeaving > 15) return ["ok", "まだ余裕があります。"];
+  if(minutesUntilLeaving > 10) return ["soon", "そろそろ家を出る準備を。"];
+  if(minutesUntilLeaving >= 5) return ["run", "そろそろ家を出ましょう。"];
+  if(minutesUntilLeaving >= 0) return ["risk", "今すぐ家を出てください。"];
+  return ["risk", "出発が近いです。間に合わなければ次の便を確認してください。"];
+}
+function inboundStatus(minutesUntilDeparture){
+  if(minutesUntilDeparture > 15) return ["ok", "まだ余裕があります。"];
+  if(minutesUntilDeparture > 10) return ["soon", "そろそろバス停へ。"];
+  if(minutesUntilDeparture >= 5) return ["run", "発車が近づいています。"];
+  return ["risk", "まもなく発車します。次の便も確認してください。"];
+}
+function makeCardViewModel(route, now){
+  const bus = nextBus(route, now);
+  if(!bus){
+    return {
+      id: route.id, route, nextBus: null,
+      urgencyLevel: "ended",
+      statusText: "本日の運行は終了しました。",
+      heroMinutes: null,
+      heroLabel: route.direction === "outbound" ? "家を出るまで" : "発車まで"
+    };
+  }
+  let heroMinutes, heroLabel, status;
+  if(route.direction === "outbound"){
+    heroMinutes = bus.minutesUntilLeaving;
+    heroLabel = "家を出るまで";
+    status = outboundStatus(bus.minutesUntilLeaving);
+  }else{
+    heroMinutes = bus.minutesUntilDeparture;
+    heroLabel = "発車まで";
+    status = inboundStatus(bus.minutesUntilDeparture);
+  }
+  return { id: route.id, route, nextBus: bus, urgencyLevel: status[0], statusText: status[1], heroMinutes, heroLabel };
+}
+function routesFor(direction){
+  return ROUTES.filter(r => r.direction === direction);
+}
+function makeCardViewModels(direction, now){
+  return routesFor(direction).map(route => makeCardViewModel(route, now));
+}
+function upcomingBuses(route, now, limit, skipFirst){
+  const schedule = scheduleFor(route, state.scheduleKind, now);
+  const upcoming = [];
+  for(const dep of schedule){
+    const departureDate = makeDate(dep, now);
+    if(departureDate <= now) continue;
+    upcoming.push({
+      id: route.id + "-" + dep,
+      route, departure: dep, departureDate,
+      minutesUntilDeparture: Math.ceil((departureDate.getTime() - now.getTime()) / 60000),
+      arrivalText: arrivalText(departureDate, route.fallbackDurationMinutes)
+    });
+    if(upcoming.length >= limit + (skipFirst ? 1 : 0)) break;
+  }
+  return skipFirst && upcoming.length ? upcoming.slice(1, 1 + limit) : upcoming.slice(0, limit);
+}
+function mergedUpcomingBuses(direction, now, limit){
+  const merged = routesFor(direction).flatMap(route => upcomingBuses(route, now, limit, true));
+  return merged.sort((a,b) => a.departureDate - b.departureDate).slice(0, limit);
+}
+function noteText(now){
+  const holiday = isWeekendOrHoliday(now);
+  let base;
+  if(state.scheduleKind === "auto") base = "自動判定：" + (holiday ? "土日祝" : "平日") + "ダイヤを表示";
+  else if(state.scheduleKind === "weekday") base = "平日ダイヤを表示";
+  else base = "土日祝ダイヤを表示";
+  if(state.direction === "outbound") return base + " ・ 駅名タップでTX（つくば方面）時刻表へ。";
+  return base + " ・ 加二号公園前で下車する便を表示。";
+}
+
+function progressValue(card){
+  if(card.heroMinutes == null) return 0;
+  return Math.min(Math.max(card.heroMinutes / 30, 0), 1);
+}
+function badgeHTML(route){
+  return '<span class="badge b-' + route.badge + '">' + BADGE_TEXT[route.badge] + '</span>';
+}
+function txTarget(){
+  if(state.scheduleKind === "weekday") return "weekday";
+  if(state.scheduleKind === "weekend") return "holiday";
+  return isWeekendOrHoliday(new Date()) ? "holiday" : "weekday";
+}
+function txURL(stationKey){
+  return "https://transfer-train.navitime.biz/tx/timetable?station=" + TX_STATION[stationKey] +
+    "&line=1&target=" + txTarget() + "&direction=" + TX_DIRECTION_TO_WORK;
+}
+function arrivalSubHTML(route){
+  // 家→駅：到着駅名をTX時刻表（つくば方面）へのリンクに。駅→家：加二号公園前 着目安。
+  if(route.direction === "outbound"){
+    return '<div class="u"><a class="station-link" href="' + txURL(route.station) +
+      '" target="_blank" rel="noopener">' + TX_STATION_LABEL[route.station] + '</a> 着目安</div>';
+  }
+  return '<div class="u">加二号公園前 着目安</div>';
+}
+
+function cardHTML(card){
+  const route = card.route;
+  const head = '<div class="rline">' + badgeHTML(route) + '<span class="rlabel">' + route.label + '</span></div>';
+  if(!card.nextBus){
+    return '<article class="card">' + head + '<div class="ended">' + card.statusText + '</div></article>';
+  }
+  const hero = card.heroMinutes > 0
+    ? '<div class="big">' + card.heroMinutes + '<span class="min">分</span></div>'
+    : '<div class="big soon">まもなく</div>';
+  const pct = (progressValue(card) * 100).toFixed(2);
+  return '<article class="card">' + head +
+    '<div class="mid">' +
+      '<div class="dep"><span class="t">' + card.nextBus.departure + '</span><div class="u">発</div></div>' +
+      '<div class="center">' + hero + '<div class="clabel">' + card.heroLabel + '</div></div>' +
+      '<div class="arr"><span class="t">' + card.nextBus.arrivalText + '</span>' + arrivalSubHTML(route) + '</div>' +
+    '</div>' +
+    '<div class="bar"><div class="fill ' + card.urgencyLevel + '" style="width:' + pct + '%"></div></div>' +
+    '<div class="status ' + card.urgencyLevel + '">' + card.statusText + '</div>' +
+  '</article>';
+}
+function upcomingRowHTML(item){
+  return '<div class="up">' +
+    badgeHTML(item.route) +
+    '<div><div class="route-small">' + item.route.label + '</div><div class="ut">' + item.departure + '</div></div>' +
+    '<div><div class="um">' + item.minutesUntilDeparture + '分後</div><div class="ua">着 ' + item.arrivalText + '目安</div></div>' +
+  '</div>';
+}
+function linkHTML(title, url){
+  return '<a class="linkbtn" href="' + url + '" target="_blank" rel="noopener"><span>' + title + '</span><span class="arrow">↗</span></a>';
+}
+function renderLinks(){
+  const wrap = document.getElementById("linksWrap");
+  const links = [];
+  if(state.direction === "outbound"){
+    links.push(["流山おおたかの森 TX（つくば方面）", txURL("otaka")]);
+    links.push(["南流山 TX（つくば方面）", txURL("minami")]);
+  }
+  if(links.length === 0){
+    wrap.style.display = "none";
+    document.getElementById("links").innerHTML = "";
+    return;
+  }
+  wrap.style.display = "";
+  document.getElementById("links").innerHTML = links.map(x => linkHTML(x[0], x[1])).join("");
+}
+function renderCards(now){
+  document.getElementById("cards").innerHTML = makeCardViewModels(state.direction, now).map(cardHTML).join("");
+  const upcoming = mergedUpcomingBuses(state.direction, now, 7);
+  document.getElementById("upcoming").innerHTML = upcoming.length
+    ? '<div class="uplist">' + upcoming.map(upcomingRowHTML).join("") + '</div>'
+    : '<div class="empty">このあとの便はありません。</div>';
+}
+function renderClock(now){
+  document.getElementById("clockMain").textContent = pad(now.getHours()) + ":" + pad(now.getMinutes());
+  document.getElementById("clockSec").textContent = pad(now.getSeconds());
+  const holiday = HOLIDAYS[ymd(now)];
+  document.getElementById("dateEl").textContent =
+    (now.getMonth()+1) + "/" + now.getDate() + "（" + WD[now.getDay()] + "）" + (holiday ? " " + holiday : "");
+}
+function renderControls(){
+  document.querySelectorAll("#dirSeg button").forEach(btn => btn.classList.toggle("active", btn.dataset.dir === state.direction));
+  document.querySelectorAll("#diaSeg button").forEach(btn => btn.classList.toggle("active", btn.dataset.dia === state.scheduleKind));
+  document.querySelectorAll("#themePills button").forEach(btn => btn.classList.toggle("active", btn.dataset.theme === state.themeMode));
+}
+function renderNote(now){
+  document.getElementById("noteEl").textContent = noteText(now);
+}
+function renderAll(){
+  const now = new Date();
+  renderClock(now);
+  renderControls();
+  renderNote(now);
+  renderCards(now);
+  renderLinks();
+}
+
+const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : {matches:false, addEventListener:null};
+function resolvedTheme(){
+  return state.themeMode === "auto" ? (mq.matches ? "dark" : "light") : state.themeMode;
+}
+function applyTheme(){
+  const theme = resolvedTheme();
+  document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("themeColorMeta").setAttribute("content", theme === "dark" ? "#0b0e14" : "#f2f4f9");
+}
+
+document.getElementById("dirSeg").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if(!btn) return;
+  state.direction = btn.dataset.dir;
+  saveState();
+  renderAll();
+});
+document.getElementById("diaSeg").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if(!btn) return;
+  state.scheduleKind = btn.dataset.dia;
+  saveState();
+  renderAll();
+});
+document.getElementById("themePills").addEventListener("click", e => {
+  const btn = e.target.closest("button"); if(!btn) return;
+  state.themeMode = btn.dataset.theme;
+  saveState();
+  applyTheme();
+  renderControls();
+});
+if(mq.addEventListener){
+  mq.addEventListener("change", () => {
+    if(state.themeMode === "auto"){ applyTheme(); renderControls(); }
+  });
+}
+
+loadState();
+applyTheme();
+renderAll();
+setInterval(renderAll, 1000);
+</script>
+</body>
+</html>
