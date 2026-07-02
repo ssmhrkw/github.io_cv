@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Floor Impact Sound — Layout Planner</title>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
 <script>
   window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']]},svg:{fontCache:'global'}};
 </script>
@@ -506,6 +506,7 @@ const TAP_W=0.520, TAP_D=0.260, C_SOUND=343;
 const PLY_LIGHT={
   paper_bgcolor:'#ffffff', plot_bgcolor:'#f7f8fa',
   font:{color:'#4a5068', family:"'DM Mono','Courier New',monospace", size:11},
+  uirevision:'keep', // preserve camera/zoom across re-renders (Plotly.react)
 };
 
 /* Viridis-like but readable on white */
@@ -527,7 +528,9 @@ function setStatus(msg,state='ok'){$txt.textContent=msg;$dot.className='sdot '+s
 const plotlyOK=()=>typeof Plotly!=='undefined'&&typeof Plotly.newPlot==='function';
 function safePlot(id,data,layout,cfg={}){
   if(!plotlyOK()){setStatus('Plotly not loaded','warn');return false;}
-  try{Plotly.newPlot(id,data,layout,{responsive:true,displaylogo:false,...cfg});return true;}
+  // Plotly.react diffs against the existing plot: avoids full WebGL context
+  // teardown/rebuild on every Generate/Search, and works on first render too.
+  try{Plotly.react(id,data,layout,{responsive:true,displaylogo:false,...cfg});return true;}
   catch(e){console.error('Plotly',e);setStatus('Plot error: '+e.message,'warn');return false;}
 }
 function safeRestyle(id,props,idx){
@@ -672,14 +675,18 @@ function buildSrcMeta(pointsSrc, isLight, slab){
 function schroeder(rt60,V){if(!rt60||rt60<=0||!V||V<=0)return null;return 2000*Math.sqrt(rt60/V);}
 function roomV(r){return r.Lx*r.Ly*r.Lz;}
 
+/* Pure computation — no DOM side effects, safe to call inside hot loops */
 function computeBand(isLight,room){
   const OCT=Math.SQRT2,rt60=numVal('rt60'),V=roomV(room);
   const fs=schroeder(rt60,V);
   const fcL=isLight?125:63,fcH=isLight?4000:500;
   const low=fcL/OCT,high=fs?Math.min(fcH*OCT,fs):fcH*OCT;
+  return{low,high,fs,rt60,V};
+}
+/* DOM update — call only from render paths, never inside search/optimise loops */
+function updateFsInfo(band){
   const el=document.getElementById('fsInfo');
-  if(el)el.textContent=fs?`fₛ ≈ ${fmt(fs)} Hz  (V=${fmt(V)} m³, RT60=${rt60} s)`:'fₛ: RT60 入力後に表示';
-  return{low,high,fs};
+  if(el)el.textContent=band.fs?`fₛ ≈ ${fmt(band.fs)} Hz  (V=${fmt(band.V)} m³, RT60=${band.rt60} s)`:'fₛ: RT60 入力後に表示';
 }
 
 function modalFreq(nx,ny,nz,Lx,Ly,Lz){
@@ -711,10 +718,12 @@ function buildModes(room,isLight){
 /* ══════════════════════════════════════════
    WARNINGS
 ══════════════════════════════════════════ */
-function computeWarnings(state){
+/* pre = {modes, band} (optional): pass a precomputed result of buildModes()
+   when calling repeatedly with identical room/band (search & optimise loops) */
+function computeWarnings(state,pre){
   const{room,pointsMic,isLight}=state;
   const eps=+numVal('phiEps')||0.10;
-  const{modes,band}=buildModes(room,isLight);
+  const{modes,band}=pre??buildModes(room,isLight);
   const{Lx,Ly,Lz}=room;
   const perMic=pointsMic.map((p,i)=>{
     const hits=[];
@@ -734,6 +743,7 @@ function computeWarnings(state){
 }
 
 function renderWarnings(w){
+  updateFsInfo(w.band);
   let out=`Band: ${fmt(w.band.low)}–${fmt(w.band.high)} Hz  ·  Modes: ${w.modesCount}  ·  ε = ${w.eps}\n${'─'.repeat(70)}\n`;
   for(const m of w.perMic){
     const sing=m.minPhi!==null&&m.minPhi<0.02;
@@ -908,6 +918,7 @@ function plotAll(st){
     marker:{size:8,color:'#3a7bd5',symbol:'x'},name:'Mic (floor proj)'};
 
   const data2=[slabR,...cornerArrows,...ex2,...(src2?[src2]:[]),mic2];
+  st._idxMic2=data2.length-1; // remember mic trace index; tol bubbles are appended after it
 
   safePlot('slabPlot',data2,{
     ...PLY_LIGHT,
@@ -928,7 +939,9 @@ function colourMics(w){
   const colors=w.perMic.map(m=>m.count>0?(m.minPhi<0.02?'#c0392b':'#e67e22'):'#1a7f54');
   safeRestyle('roomPlot',{'marker.color':[colors]},[_st._idxMicDot]);
   const div=document.getElementById('slabPlot');
-  if(div?.data)safeRestyle('slabPlot',{'marker.color':[colors]},[div.data.length-1]);
+  // Use the index stored at plot time — data.length-1 becomes wrong once
+  // tolerance-bubble traces have been appended after the mic trace.
+  if(div?.data&&_st._idxMic2!=null)safeRestyle('slabPlot',{'marker.color':[colors]},[_st._idxMic2]);
 }
 
 /* ══════════════════════════════════════════
@@ -985,7 +998,8 @@ function showBest(st,w,seed){
 /* ══════════════════════════════════════════
    APPLY PRESET
 ══════════════════════════════════════════ */
-function applyPreset(seedBump=0,{render=true}={}){
+/* pre: optional precomputed {modes, band} — supply from search/optimise loops */
+function applyPreset(seedBump=0,{render=true,pre=null}={}){
   const dims=readDim(),cons=readCons();
   const std=document.getElementById('stdSelect').value;
   const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
@@ -1012,14 +1026,14 @@ function applyPreset(seedBump=0,{render=true}={}){
   const srcMeta=buildSrcMeta(pointsSrc,isLight,dims.slab);
 
   const state={room:dims.room,slab:dims.slab,pointsMic,pointsSrc,srcMeta,isLight,std};
-  const warns=computeWarnings(state);
+  const warns=computeWarnings(state,pre);
 
   if(render){
     plotAll(state);
     renderWarnings(warns);
     colourMics(warns);
     fillTables(pointsMic,pointsSrc);
-    triggerMJ();
+    // NOTE: triggerMJ() removed — the formula is static; typeset once at boot.
   }
   return{state,warns,seed};
 }
@@ -1035,9 +1049,13 @@ function triggerMJ(){if(window.MathJax?.typesetPromise)MathJax.typesetPromise().
 async function runSearch(){
   const limit=Math.max(1,numVal('searchLimit')||30);
   setStatus('Searching…','busy');setProgress(0);
+  // Room dims / band / Nmax do not change between trials — build modes once.
+  const dims=readDim();
+  const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
+  const pre=buildModes(dims.room,isLight);
   let best=null,bestSc=null;
   for(let i=0;i<limit;i++){
-    let r;try{r=applyPreset(i,{render:false});}catch(e){continue;}
+    let r;try{r=applyPreset(i,{render:false,pre});}catch(e){continue;}
     const{warns,state,seed}=r;
     const bad=warns.perMic.filter(m=>m.count>0).length;
     const hits=warns.perMic.reduce((s,m)=>s+m.count,0);
@@ -1070,57 +1088,66 @@ function heatLayout(xL,yL){
     margin:{l:55,r:20,t:10,b:40}
   };
 }
-function mapXY(){
-  if(!_st)return;
-  const{modes}=buildModes(_st.room,_st.isLight);
-  const N=Math.max(16,numVal('gridN')||64);
-  const mi=clamp((numVal('micIndex')||1)-1,0,_st.pointsMic.length-1);
-  const z=_st.pointsMic[mi]?.z??_st.room.Lz/2;
-  const X=linspace(N,0,_st.room.Lx),Y=linspace(N,0,_st.room.Ly);
-  const Z=Y.map(y=>X.map(x=>minPhiAt(_st.room,modes,x,y,z)));
-  safePlot('heatXY',[{type:'heatmap',x:X,y:Y,z:Z,colorscale:HEAT_CS,
-    colorbar:{title:'min|Φ|',tickfont:{color:'#4a5068'},titlefont:{color:'#4a5068'}}}],
-    heatLayout(`X  (z=${fmt(z)} m)`,'Y'));
+/* Unified node-map renderer with per-axis cosine tables.
+   phi() separates into cos(nu·π·u/Lu)·cos(nv·π·v/Lv)·cos(nw·π·w/Lw), and the
+   grid is regular, so cosines are precomputed per axis per mode order:
+   Math.cos calls drop from O(N²·M·3) to O(N·(nMaxU+nMaxV)+M); the inner loop
+   is three multiplies and an abs. */
+const PLANES={
+  XY:{u:'x',v:'y',w:'z',Lu:'Lx',Lv:'Ly',Lw:'Lz',nu:'nx',nv:'ny',nw:'nz',div:'heatXY', uLbl:'X',vLbl:'Y'},
+  XZ:{u:'x',v:'z',w:'y',Lu:'Lx',Lv:'Lz',Lw:'Ly',nu:'nx',nv:'nz',nw:'ny',div:'sliceXZ',uLbl:'X',vLbl:'Z'},
+  YZ:{u:'y',v:'z',w:'x',Lu:'Ly',Lv:'Lz',Lw:'Lx',nu:'ny',nv:'nz',nw:'nx',div:'sliceYZ',uLbl:'Y',vLbl:'Z'},
+};
+function cosTable(coords,L,nMax){
+  const t=[];
+  for(let n=0;n<=nMax;n++){const k=n*Math.PI/L;t.push(coords.map(c=>Math.cos(k*c)));}
+  return t;
 }
-function sliceXZ(){
+function renderNodeMap(planeKey){
   if(!_st)return;
-  const{modes}=buildModes(_st.room,_st.isLight);
+  const P=PLANES[planeKey],room=_st.room;
+  const{modes}=buildModes(room,_st.isLight);
+  if(!modes.length){setStatus('No modes in band — check RT60 / Nmax','warn');return;}
   const N=Math.max(16,numVal('gridN')||64);
   const mi=clamp((numVal('micIndex')||1)-1,0,_st.pointsMic.length-1);
-  const y=_st.pointsMic[mi]?.y??_st.room.Ly/2;
-  const X=linspace(N,0,_st.room.Lx),Zg=linspace(N,0,_st.room.Lz);
-  const V=Zg.map(z=>X.map(x=>minPhiAt(_st.room,modes,x,y,z)));
-  safePlot('sliceXZ',[{type:'heatmap',x:X,y:Zg,z:V,colorscale:HEAT_CS,
-    colorbar:{title:'min|Φ|',tickfont:{color:'#4a5068'},titlefont:{color:'#4a5068'}}}],
-    heatLayout(`X  (y=${fmt(y)} m)`,'Z'));
-}
-function sliceYZ(){
-  if(!_st)return;
-  const{modes}=buildModes(_st.room,_st.isLight);
-  const N=Math.max(16,numVal('gridN')||64);
-  const mi=clamp((numVal('micIndex')||1)-1,0,_st.pointsMic.length-1);
-  const x=_st.pointsMic[mi]?.x??_st.room.Lx/2;
-  const Y=linspace(N,0,_st.room.Ly),Zg=linspace(N,0,_st.room.Lz);
-  const V=Zg.map(z=>Y.map(y=>minPhiAt(_st.room,modes,x,y,z)));
-  safePlot('sliceYZ',[{type:'heatmap',x:Y,y:Zg,z:V,colorscale:HEAT_CS,
-    colorbar:{title:'min|Φ|',tickfont:{color:'#4a5068'},titlefont:{color:'#4a5068'}}}],
-    heatLayout(`Y  (x=${fmt(x)} m)`,'Z'));
+  const wFixed=_st.pointsMic[mi]?.[P.w]??room[P.Lw]/2;
+
+  const U=linspace(N,0,room[P.Lu]),V=linspace(N,0,room[P.Lv]);
+  const nu=modes.map(m=>m[P.nu]),nv=modes.map(m=>m[P.nv]);
+  const CU=cosTable(U,room[P.Lu],Math.max(...nu));
+  const CV=cosTable(V,room[P.Lv],Math.max(...nv));
+  const cw=modes.map(m=>Math.cos(m[P.nw]*Math.PI*wFixed/room[P.Lw]));
+
+  const M=modes.length;
+  const Z=V.map((_,j)=>U.map((_,i)=>{
+    let mv=1;
+    for(let k=0;k<M;k++){
+      const val=Math.abs(CU[nu[k]][i]*CV[nv[k]][j]*cw[k]);
+      if(val<mv)mv=val;
+    }
+    return mv;
+  }));
+
+  safePlot(P.div,[{type:'heatmap',x:U,y:V,z:Z,colorscale:HEAT_CS,
+    colorbar:{title:{text:'min|Φ|',font:{color:'#4a5068'}},tickfont:{color:'#4a5068'}}}],
+    heatLayout(`${P.uLbl}  (${P.w}=${fmt(wFixed)} m)`,P.vLbl));
 }
 
 /* ══════════════════════════════════════════
    TOLERANCE BUBBLES
 ══════════════════════════════════════════ */
-function tolRadius(st,mic,eps){
-  const{modes}=buildModes(st.room,st.isLight);
-  const cls0=minPhiAt(st.room,modes,mic.x,mic.y,mic.z)<eps;
-  const maxR=0.5*Math.min(st.room.Lx,st.room.Ly);
+/* modes: precomputed once by the caller — this runs an 18-step bisection with
+   16 probe directions per step, so it must not rebuild the mode list itself */
+function tolRadius(room,modes,mic,eps){
+  const cls0=minPhiAt(room,modes,mic.x,mic.y,mic.z)<eps;
+  const maxR=0.5*Math.min(room.Lx,room.Ly);
   let lo=0,hi=maxR;
   for(let k=0;k<18;k++){
     const mid=(lo+hi)/2;let ok=true;
     for(let t=0;t<16;t++){
       const th=2*Math.PI*t/16,px=mic.x+mid*Math.cos(th),py=mic.y+mid*Math.sin(th);
-      if(px<0||px>st.room.Lx||py<0||py>st.room.Ly){ok=false;break;}
-      if((minPhiAt(st.room,modes,px,py,mic.z)<eps)!==cls0){ok=false;break;}
+      if(px<0||px>room.Lx||py<0||py>room.Ly){ok=false;break;}
+      if((minPhiAt(room,modes,px,py,mic.z)<eps)!==cls0){ok=false;break;}
     }
     if(ok)lo=mid;else hi=mid;
   }
@@ -1128,12 +1155,23 @@ function tolRadius(st,mic,eps){
 }
 function drawTolBubbles(st){
   const eps=+numVal('phiEps')||0.10,N=72;
-  safeAddTraces('slabPlot',st.pointsMic.map((mic,i)=>({
-    type:'scatter',mode:'lines',
-    x:Array.from({length:N+1},(_,j)=>mic.x+tolRadius(st,mic,eps)*Math.cos(2*Math.PI*j/N)),
-    y:Array.from({length:N+1},(_,j)=>mic.y+tolRadius(st,mic,eps)*Math.sin(2*Math.PI*j/N)),
-    line:{color:'#3a7bd5',width:1.5,dash:'dot'},name:`Tol Mic${i+1}`,hoverinfo:'skip'
-  })));
+  const{modes}=buildModes(st.room,st.isLight); // build once, not per probe point
+  if(!modes.length){setStatus('No modes in band — check RT60 / Nmax','warn');return;}
+  // Remove bubbles from a previous click so redraws are idempotent
+  const div=document.getElementById('slabPlot');
+  if(div?.data){
+    const old=div.data.map((t,i)=>t.name?.startsWith('Tol Mic')?i:-1).filter(i=>i>=0);
+    if(old.length&&plotlyOK()){try{Plotly.deleteTraces('slabPlot',old);}catch(e){console.warn('deleteTraces',e);}}
+  }
+  safeAddTraces('slabPlot',st.pointsMic.map((mic,i)=>{
+    const r=tolRadius(st.room,modes,mic,eps); // bisection once per mic, not per vertex
+    return{
+      type:'scatter',mode:'lines',
+      x:Array.from({length:N+1},(_,j)=>mic.x+r*Math.cos(2*Math.PI*j/N)),
+      y:Array.from({length:N+1},(_,j)=>mic.y+r*Math.sin(2*Math.PI*j/N)),
+      line:{color:'#3a7bd5',width:1.5,dash:'dot'},name:`Tol Mic${i+1}`,hoverinfo:'skip'
+    };
+  }));
   setStatus(`Tolerance bubbles drawn (${st.pointsMic.length} mics)`,'ok');
 }
 
@@ -1166,8 +1204,11 @@ async function runOptimise(){
   const wts=(document.getElementById('weights').value||'10,1,0.5').split(',').map(s=>parseFloat(s.trim())||0);
   let best=null,bestSc=Infinity;
   setStatus('Optimising…','busy');setProgress(0);
+  const dims=readDim();
+  const isLight=document.querySelector('input[name="srcType"]:checked').value==='light';
+  const pre=buildModes(dims.room,isLight);
   for(let i=0;i<trials;i++){
-    let r;try{r=applyPreset(i,{render:false});}catch(e){continue;}
+    let r;try{r=applyPreset(i,{render:false,pre});}catch(e){continue;}
     const{warns,state,seed}=r;
     const bad=warns.perMic.filter(m=>m.count>0).length;
     const hits=warns.perMic.reduce((s,m)=>s+m.count,0);
@@ -1261,9 +1302,9 @@ document.getElementById('plotManual').addEventListener('click',()=>{
 document.getElementById('clearManual').addEventListener('click',()=>{document.querySelector('#micTable tbody').innerHTML='';document.querySelector('#srcTable tbody').innerHTML='';});
 document.getElementById('rt60').addEventListener('input',()=>{if(_st){const w=computeWarnings(_st);renderWarnings(w);colourMics(w);}});
 document.getElementById('addCorner').addEventListener('click',()=>addCorners());
-document.getElementById('btnMapXY').addEventListener('click',mapXY);
-document.getElementById('btnSliceXZ').addEventListener('click',sliceXZ);
-document.getElementById('btnSliceYZ').addEventListener('click',sliceYZ);
+document.getElementById('btnMapXY').addEventListener('click',()=>renderNodeMap('XY'));
+document.getElementById('btnSliceXZ').addEventListener('click',()=>renderNodeMap('XZ'));
+document.getElementById('btnSliceYZ').addEventListener('click',()=>renderNodeMap('YZ'));
 document.getElementById('btnTol').addEventListener('click',()=>{if(_st)drawTolBubbles(_st);});
 document.getElementById('btnOptimize').addEventListener('click',()=>runOptimise().catch(e=>{console.error(e);setStatus('Optimise error: '+e.message,'warn');}));
 document.getElementById('btnExportCSV').addEventListener('click',()=>{if(_st)saveBlob('acoustic_layout.csv',toCSV(_st),'text/csv');});
@@ -1273,18 +1314,18 @@ document.getElementById('btnPrint').addEventListener('click',()=>{if(_st)printRe
 /* ══════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════ */
-(function boot(){
-  let tries=0;
-  const t=setInterval(()=>{
-    tries++;
-    if(plotlyOK()){
-      clearInterval(t);
-      try{const{state}=applyPreset(0,{render:true});_st=state;setProgress(0);triggerMJ();setStatus('Ready','ok');}
-      catch(e){console.error(e);setStatus('Init error: '+e.message,'warn');}
-    }else if(tries>=40){clearInterval(t);setStatus('Plotly failed to load','warn');}
-    else setStatus('Loading Plotly…','busy');
-  },200);
-})();
+/* Plotly is loaded with `defer`, so it is guaranteed to have executed before
+   DOMContentLoaded fires — no polling needed. plotlyOK() remains as a guard
+   against CDN failure (network error / blocked). */
+document.addEventListener('DOMContentLoaded',()=>{
+  if(!plotlyOK()){setStatus('Plotly failed to load — check network / CDN','warn');return;}
+  try{
+    const{state}=applyPreset(0,{render:true});
+    _st=state;setProgress(0);
+    triggerMJ(); // one-time typeset: the formula card is static
+    setStatus('Ready','ok');
+  }catch(e){console.error(e);setStatus('Init error: '+e.message,'warn');}
+});
 </script>
 </body>
 </html>
