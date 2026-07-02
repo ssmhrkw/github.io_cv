@@ -817,17 +817,13 @@ function plotAll(st){
     line:{color:'#1a9e8f',width:2},hoverinfo:'skip',name:'Slab (upper floor)'
   }]:[];
 
-  // Mic
+  // Mic — single trace: symbol 'x' is supported natively by scatter3d,
+  // so the separate text-'×' overlay trace is unnecessary. colourMics()
+  // restyles marker.color on this trace, which now colours the × itself.
   const micDot={
     type:'scatter3d',mode:'markers',
     x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
-    marker:{size:4,color:'#3a7bd5'},name:'Microphone',showlegend:true
-  };
-  const micTxt={
-    type:'scatter3d',mode:'text',
-    x:pointsMic.map(p=>p.x),y:pointsMic.map(p=>p.y),z:pointsMic.map(p=>p.z),
-    text:pointsMic.map(()=>'×'),
-    textfont:{size:14,color:'#3a7bd5'},hoverinfo:'skip',showlegend:false
+    marker:{size:5,color:'#3a7bd5',symbol:'x'},name:'Microphone',showlegend:true
   };
   st._idxMicDot=edges.length+slabEdge.length;
 
@@ -872,7 +868,7 @@ function plotAll(st){
     name:circleMode?'Tapping (circle)':'Heavy source'
   }:null;
 
-  const data3=[...edges,...slabEdge,micDot,micTxt,...ex3,...(srcPt?[srcPt]:[])];
+  const data3=[...edges,...slabEdge,micDot,...ex3,...(srcPt?[srcPt]:[])];
 
   safePlot('roomPlot',data3,{
     ...PLY_LIGHT,
