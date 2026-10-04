@@ -1,0 +1,3499 @@
+{
+  "schemaVersion": 1,
+  "checkedOn": "2026-10-04",
+  "effectiveFrom": "2026-08-31",
+  "holidayCalendar": {
+    "firstYear": 2026,
+    "lastYear": 2028,
+    "confirmedThrough": 2027,
+    "equinoxes": {
+      "2026": {
+        "spring": 20,
+        "autumn": 23
+      },
+      "2027": {
+        "spring": 21,
+        "autumn": 23
+      },
+      "2028": {
+        "spring": 20,
+        "autumn": 22
+      }
+    },
+    "overrides": {},
+    "officialSource": "https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html",
+    "predictionSource": "https://www.nao.ac.jp/faq/a0301.html"
+  },
+  "yearEnd": {
+    "watchFrom": "12-29",
+    "watchThrough": "01-04",
+    "confirmedDates": {},
+    "officialSource": "https://www.tobu-bus.com/pc/topics/list.html"
+  },
+  "routes": [
+    {
+      "id": "home-otaka",
+      "direction": "outbound",
+      "label": "加二号公園前 → おおたかの森駅西口",
+      "badge": "otaka",
+      "walkMinutes": 3,
+      "officialUrl": "https://transfer-cloud.navitime.biz/tobubus/courses/timetables?busstop=00311989&external-destination=011",
+      "approachUrl": "https://transfer-cloud.navitime.biz/tobubus/approachings?departure-busstop=00311989&arrival-busstop=00312067",
+      "schedules": {
+        "weekday": [
+          {
+            "departure": "06:22",
+            "arrival": "06:36",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "06:39",
+            "arrival": "06:53",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "06:53",
+            "arrival": "07:07",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:03",
+            "arrival": "07:17",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:18",
+            "arrival": "07:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:28",
+            "arrival": "07:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:44",
+            "arrival": "08:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:53",
+            "arrival": "08:10",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:07",
+            "arrival": "08:24",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:20",
+            "arrival": "08:37",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:30",
+            "arrival": "08:47",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:39",
+            "arrival": "08:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:08",
+            "arrival": "09:25",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:29",
+            "arrival": "09:46",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:48",
+            "arrival": "10:05",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:11",
+            "arrival": "10:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:40",
+            "arrival": "10:57",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:54",
+            "arrival": "11:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:14",
+            "arrival": "11:31",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:34",
+            "arrival": "11:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:04",
+            "arrival": "12:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:30",
+            "arrival": "12:47",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:43",
+            "arrival": "13:00",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:59",
+            "arrival": "13:16",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:20",
+            "arrival": "13:37",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:40",
+            "arrival": "13:57",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:00",
+            "arrival": "14:17",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:28",
+            "arrival": "14:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:41",
+            "arrival": "14:58",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:00",
+            "arrival": "15:17",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:20",
+            "arrival": "15:37",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:45",
+            "arrival": "16:02",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:12",
+            "arrival": "16:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:38",
+            "arrival": "16:54",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:56",
+            "arrival": "17:12",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:12",
+            "arrival": "17:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:32",
+            "arrival": "17:48",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:47",
+            "arrival": "18:03",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:07",
+            "arrival": "18:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:27",
+            "arrival": "18:43",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:57",
+            "arrival": "19:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:09",
+            "arrival": "19:25",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:22",
+            "arrival": "19:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:41",
+            "arrival": "19:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:01",
+            "arrival": "20:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:21",
+            "arrival": "20:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:51",
+            "arrival": "21:05",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:21",
+            "arrival": "21:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:51",
+            "arrival": "22:05",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "22:21",
+            "arrival": "22:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          }
+        ],
+        "saturday": [
+          {
+            "departure": "07:01",
+            "arrival": "07:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:21",
+            "arrival": "07:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:41",
+            "arrival": "07:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:01",
+            "arrival": "08:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:21",
+            "arrival": "08:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:41",
+            "arrival": "08:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:01",
+            "arrival": "09:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:23",
+            "arrival": "09:37",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:41",
+            "arrival": "09:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:03",
+            "arrival": "10:20",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:21",
+            "arrival": "10:38",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:36",
+            "arrival": "10:53",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:56",
+            "arrival": "11:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:16",
+            "arrival": "11:33",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:31",
+            "arrival": "11:48",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:06",
+            "arrival": "12:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:28",
+            "arrival": "12:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:46",
+            "arrival": "13:03",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:06",
+            "arrival": "13:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:39",
+            "arrival": "13:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:56",
+            "arrival": "14:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:11",
+            "arrival": "14:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:31",
+            "arrival": "14:48",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:51",
+            "arrival": "15:08",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:21",
+            "arrival": "15:38",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:40",
+            "arrival": "15:57",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:00",
+            "arrival": "16:17",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:28",
+            "arrival": "16:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:51",
+            "arrival": "17:08",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:09",
+            "arrival": "17:26",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:34",
+            "arrival": "17:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:54",
+            "arrival": "18:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:11",
+            "arrival": "18:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:39",
+            "arrival": "18:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:59",
+            "arrival": "19:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:41",
+            "arrival": "19:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:59",
+            "arrival": "20:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:11",
+            "arrival": "20:25",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:41",
+            "arrival": "20:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:59",
+            "arrival": "21:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:21",
+            "arrival": "21:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:59",
+            "arrival": "22:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          }
+        ],
+        "holiday": [
+          {
+            "departure": "07:01",
+            "arrival": "07:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:21",
+            "arrival": "07:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:41",
+            "arrival": "07:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:01",
+            "arrival": "08:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:21",
+            "arrival": "08:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:41",
+            "arrival": "08:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:01",
+            "arrival": "09:15",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:23",
+            "arrival": "09:37",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:41",
+            "arrival": "09:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:03",
+            "arrival": "10:20",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:21",
+            "arrival": "10:38",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:36",
+            "arrival": "10:53",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:56",
+            "arrival": "11:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:16",
+            "arrival": "11:33",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:31",
+            "arrival": "11:48",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:06",
+            "arrival": "12:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:28",
+            "arrival": "12:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:46",
+            "arrival": "13:03",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:06",
+            "arrival": "13:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:39",
+            "arrival": "13:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:56",
+            "arrival": "14:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:11",
+            "arrival": "14:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:31",
+            "arrival": "14:48",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:51",
+            "arrival": "15:08",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:21",
+            "arrival": "15:38",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:40",
+            "arrival": "15:57",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:00",
+            "arrival": "16:17",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:28",
+            "arrival": "16:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:51",
+            "arrival": "17:08",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:09",
+            "arrival": "17:26",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:34",
+            "arrival": "17:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:54",
+            "arrival": "18:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:11",
+            "arrival": "18:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:39",
+            "arrival": "18:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:59",
+            "arrival": "19:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:41",
+            "arrival": "19:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:59",
+            "arrival": "20:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:11",
+            "arrival": "20:25",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:41",
+            "arrival": "20:55",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:59",
+            "arrival": "21:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:21",
+            "arrival": "21:35",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:59",
+            "arrival": "22:13",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          }
+        ]
+      }
+    },
+    {
+      "id": "home-minami",
+      "direction": "outbound",
+      "label": "加二号公園前 → 南流山",
+      "badge": "minami",
+      "walkMinutes": 3,
+      "officialUrl": "https://transfer-cloud.navitime.biz/tobubus/courses/timetables?busstop=00311989&external-destination=021",
+      "approachUrl": "https://transfer-cloud.navitime.biz/tobubus/approachings?departure-busstop=00311989&arrival-busstop=00311982",
+      "schedules": {
+        "weekday": [
+          {
+            "departure": "05:54",
+            "arrival": "06:09",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:10",
+            "arrival": "06:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:24",
+            "arrival": "06:39",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:34",
+            "arrival": "06:49",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:50",
+            "arrival": "07:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:00",
+            "arrival": "07:15",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:10",
+            "arrival": "07:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:20",
+            "arrival": "07:38",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:30",
+            "arrival": "07:48",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:46",
+            "arrival": "08:04",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:58",
+            "arrival": "08:16",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:06",
+            "arrival": "08:24",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:22",
+            "arrival": "08:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:37",
+            "arrival": "08:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:52",
+            "arrival": "09:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:09",
+            "arrival": "09:27",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:35",
+            "arrival": "09:53",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:09",
+            "arrival": "10:27",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:20",
+            "arrival": "10:38",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:40",
+            "arrival": "10:58",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:03",
+            "arrival": "11:21",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:15",
+            "arrival": "11:33",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:33",
+            "arrival": "11:51",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:56",
+            "arrival": "12:14",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:10",
+            "arrival": "12:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:27",
+            "arrival": "12:43",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:47",
+            "arrival": "13:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:05",
+            "arrival": "13:23",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:28",
+            "arrival": "13:46",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:56",
+            "arrival": "14:14",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:12",
+            "arrival": "14:28",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:27",
+            "arrival": "14:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:45",
+            "arrival": "15:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:13",
+            "arrival": "15:31",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:36",
+            "arrival": "15:54",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:03",
+            "arrival": "16:21",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:23",
+            "arrival": "16:41",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:39",
+            "arrival": "16:55",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:45",
+            "arrival": "17:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:59",
+            "arrival": "17:17",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:14",
+            "arrival": "17:32",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:32",
+            "arrival": "17:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:50",
+            "arrival": "18:08",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:08",
+            "arrival": "18:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:25",
+            "arrival": "18:43",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:37",
+            "arrival": "18:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:50",
+            "arrival": "19:08",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:10",
+            "arrival": "19:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:30",
+            "arrival": "19:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:50",
+            "arrival": "20:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:20",
+            "arrival": "20:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:50",
+            "arrival": "21:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:20",
+            "arrival": "21:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:50",
+            "arrival": "22:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:20",
+            "arrival": "22:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:50",
+            "arrival": "23:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          }
+        ],
+        "saturday": [
+          {
+            "departure": "06:30",
+            "arrival": "06:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:50",
+            "arrival": "07:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:10",
+            "arrival": "07:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:30",
+            "arrival": "07:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:50",
+            "arrival": "08:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:10",
+            "arrival": "08:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:30",
+            "arrival": "08:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:55",
+            "arrival": "09:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:10",
+            "arrival": "09:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:30",
+            "arrival": "09:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:50",
+            "arrival": "10:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:04",
+            "arrival": "10:20",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:18",
+            "arrival": "10:36",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:40",
+            "arrival": "10:58",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:59",
+            "arrival": "11:15",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:10",
+            "arrival": "11:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:30",
+            "arrival": "11:48",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:55",
+            "arrival": "12:13",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:10",
+            "arrival": "12:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:30",
+            "arrival": "12:48",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:05",
+            "arrival": "13:23",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:26",
+            "arrival": "13:42",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:35",
+            "arrival": "13:53",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:58",
+            "arrival": "14:16",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:18",
+            "arrival": "14:36",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:45",
+            "arrival": "15:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:08",
+            "arrival": "15:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:25",
+            "arrival": "15:43",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:55",
+            "arrival": "16:13",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:15",
+            "arrival": "16:33",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:35",
+            "arrival": "16:53",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:01",
+            "arrival": "17:19",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:15",
+            "arrival": "17:33",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:39",
+            "arrival": "17:57",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:03",
+            "arrival": "18:21",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:25",
+            "arrival": "18:43",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:50",
+            "arrival": "19:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:04",
+            "arrival": "19:20",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:26",
+            "arrival": "19:41",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:42",
+            "arrival": "19:57",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:07",
+            "arrival": "20:22",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:26",
+            "arrival": "20:41",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:45",
+            "arrival": "21:00",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:25",
+            "arrival": "21:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:55",
+            "arrival": "22:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:25",
+            "arrival": "22:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          }
+        ],
+        "holiday": [
+          {
+            "departure": "06:30",
+            "arrival": "06:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:50",
+            "arrival": "07:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:10",
+            "arrival": "07:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:30",
+            "arrival": "07:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:50",
+            "arrival": "08:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:10",
+            "arrival": "08:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:30",
+            "arrival": "08:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:55",
+            "arrival": "09:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:10",
+            "arrival": "09:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:30",
+            "arrival": "09:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:50",
+            "arrival": "10:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:04",
+            "arrival": "10:20",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:18",
+            "arrival": "10:36",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:40",
+            "arrival": "10:58",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:59",
+            "arrival": "11:15",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:10",
+            "arrival": "11:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:30",
+            "arrival": "11:48",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:55",
+            "arrival": "12:13",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:10",
+            "arrival": "12:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:30",
+            "arrival": "12:48",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:05",
+            "arrival": "13:23",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:26",
+            "arrival": "13:42",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:35",
+            "arrival": "13:53",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:58",
+            "arrival": "14:16",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:18",
+            "arrival": "14:36",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:45",
+            "arrival": "15:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:08",
+            "arrival": "15:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:25",
+            "arrival": "15:43",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:55",
+            "arrival": "16:13",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:15",
+            "arrival": "16:33",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:35",
+            "arrival": "16:53",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:01",
+            "arrival": "17:19",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:15",
+            "arrival": "17:33",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:39",
+            "arrival": "17:57",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:03",
+            "arrival": "18:21",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:25",
+            "arrival": "18:43",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:50",
+            "arrival": "19:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:04",
+            "arrival": "19:20",
+            "service": "南流01",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:26",
+            "arrival": "19:41",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:42",
+            "arrival": "19:57",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:07",
+            "arrival": "20:22",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:26",
+            "arrival": "20:41",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:45",
+            "arrival": "21:00",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:25",
+            "arrival": "21:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:55",
+            "arrival": "22:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:25",
+            "arrival": "22:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          }
+        ]
+      }
+    },
+    {
+      "id": "otaka-home",
+      "direction": "inbound",
+      "label": "おおたかの森駅西口 → 加二号公園前",
+      "badge": "otaka",
+      "walkMinutes": 0,
+      "officialUrl": "https://transfer-cloud.navitime.biz/tobubus/courses/timetables?busstop=00312067&external-destination=021",
+      "approachUrl": "https://transfer-cloud.navitime.biz/tobubus/approachings?departure-busstop=00312067&arrival-busstop=00311989",
+      "schedules": {
+        "weekday": [
+          {
+            "departure": "06:00",
+            "arrival": "06:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:14",
+            "arrival": "06:24",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:24",
+            "arrival": "06:34",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:40",
+            "arrival": "06:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:50",
+            "arrival": "07:00",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:00",
+            "arrival": "07:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:10",
+            "arrival": "07:20",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:20",
+            "arrival": "07:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:36",
+            "arrival": "07:46",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:48",
+            "arrival": "07:58",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:56",
+            "arrival": "08:06",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:12",
+            "arrival": "08:22",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:27",
+            "arrival": "08:37",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:42",
+            "arrival": "08:52",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:59",
+            "arrival": "09:09",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:25",
+            "arrival": "09:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:59",
+            "arrival": "10:09",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:10",
+            "arrival": "10:20",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:30",
+            "arrival": "10:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:53",
+            "arrival": "11:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:05",
+            "arrival": "11:15",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:23",
+            "arrival": "11:33",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:46",
+            "arrival": "11:56",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:00",
+            "arrival": "12:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:37",
+            "arrival": "12:47",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:55",
+            "arrival": "13:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:18",
+            "arrival": "13:28",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:46",
+            "arrival": "13:56",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:17",
+            "arrival": "14:27",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:35",
+            "arrival": "14:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:03",
+            "arrival": "15:13",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:26",
+            "arrival": "15:36",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:53",
+            "arrival": "16:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:13",
+            "arrival": "16:23",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:35",
+            "arrival": "16:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:49",
+            "arrival": "16:59",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:04",
+            "arrival": "17:14",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:22",
+            "arrival": "17:32",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:40",
+            "arrival": "17:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:58",
+            "arrival": "18:08",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:15",
+            "arrival": "18:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:27",
+            "arrival": "18:37",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:40",
+            "arrival": "18:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:00",
+            "arrival": "19:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:20",
+            "arrival": "19:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:40",
+            "arrival": "19:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:10",
+            "arrival": "20:20",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:40",
+            "arrival": "20:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:10",
+            "arrival": "21:20",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:40",
+            "arrival": "21:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:10",
+            "arrival": "22:20",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:40",
+            "arrival": "22:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          }
+        ],
+        "saturday": [
+          {
+            "departure": "06:20",
+            "arrival": "06:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:40",
+            "arrival": "06:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:00",
+            "arrival": "07:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:20",
+            "arrival": "07:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:40",
+            "arrival": "07:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:00",
+            "arrival": "08:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:20",
+            "arrival": "08:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:45",
+            "arrival": "08:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:00",
+            "arrival": "09:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:20",
+            "arrival": "09:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:40",
+            "arrival": "09:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:08",
+            "arrival": "10:18",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:30",
+            "arrival": "10:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:00",
+            "arrival": "11:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:20",
+            "arrival": "11:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:45",
+            "arrival": "11:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:00",
+            "arrival": "12:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:20",
+            "arrival": "12:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:55",
+            "arrival": "13:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:25",
+            "arrival": "13:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:48",
+            "arrival": "13:58",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:08",
+            "arrival": "14:18",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:35",
+            "arrival": "14:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:58",
+            "arrival": "15:08",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:15",
+            "arrival": "15:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:45",
+            "arrival": "15:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:05",
+            "arrival": "16:15",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:25",
+            "arrival": "16:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:51",
+            "arrival": "17:01",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:05",
+            "arrival": "17:15",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:29",
+            "arrival": "17:39",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:53",
+            "arrival": "18:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:15",
+            "arrival": "18:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:40",
+            "arrival": "18:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:16",
+            "arrival": "19:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:32",
+            "arrival": "19:42",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:57",
+            "arrival": "20:07",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:16",
+            "arrival": "20:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:35",
+            "arrival": "20:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:15",
+            "arrival": "21:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:45",
+            "arrival": "21:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:15",
+            "arrival": "22:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          }
+        ],
+        "holiday": [
+          {
+            "departure": "06:20",
+            "arrival": "06:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "06:40",
+            "arrival": "06:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:00",
+            "arrival": "07:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:20",
+            "arrival": "07:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "07:40",
+            "arrival": "07:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:00",
+            "arrival": "08:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:20",
+            "arrival": "08:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "08:45",
+            "arrival": "08:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:00",
+            "arrival": "09:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:20",
+            "arrival": "09:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "09:40",
+            "arrival": "09:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:08",
+            "arrival": "10:18",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "10:30",
+            "arrival": "10:40",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:00",
+            "arrival": "11:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:20",
+            "arrival": "11:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "11:45",
+            "arrival": "11:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:00",
+            "arrival": "12:10",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:20",
+            "arrival": "12:30",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "12:55",
+            "arrival": "13:05",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:25",
+            "arrival": "13:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "13:48",
+            "arrival": "13:58",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:08",
+            "arrival": "14:18",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:35",
+            "arrival": "14:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "14:58",
+            "arrival": "15:08",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:15",
+            "arrival": "15:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "15:45",
+            "arrival": "15:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:05",
+            "arrival": "16:15",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:25",
+            "arrival": "16:35",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "16:51",
+            "arrival": "17:01",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:05",
+            "arrival": "17:15",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:29",
+            "arrival": "17:39",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "17:53",
+            "arrival": "18:03",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:15",
+            "arrival": "18:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "18:40",
+            "arrival": "18:50",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:16",
+            "arrival": "19:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:32",
+            "arrival": "19:42",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "19:57",
+            "arrival": "20:07",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:16",
+            "arrival": "20:26",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "20:35",
+            "arrival": "20:45",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:15",
+            "arrival": "21:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "21:45",
+            "arrival": "21:55",
+            "service": "南流02",
+            "destination": "南流山駅"
+          },
+          {
+            "departure": "22:15",
+            "arrival": "22:25",
+            "service": "南流02",
+            "destination": "南流山駅"
+          }
+        ]
+      }
+    },
+    {
+      "id": "minami-home",
+      "direction": "inbound",
+      "label": "南流山 → 加二号公園前",
+      "badge": "minami",
+      "walkMinutes": 0,
+      "officialUrl": "https://transfer-cloud.navitime.biz/tobubus/courses/timetables?busstop=00311982&external-destination=021",
+      "approachUrl": "https://transfer-cloud.navitime.biz/tobubus/approachings?departure-busstop=00311982&arrival-busstop=00311989",
+      "schedules": {
+        "weekday": [
+          {
+            "departure": "06:11",
+            "arrival": "06:22",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "06:28",
+            "arrival": "06:39",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "06:42",
+            "arrival": "06:53",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "06:52",
+            "arrival": "07:03",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:07",
+            "arrival": "07:18",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:17",
+            "arrival": "07:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:33",
+            "arrival": "07:44",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:42",
+            "arrival": "07:53",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:56",
+            "arrival": "08:07",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:09",
+            "arrival": "08:20",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:19",
+            "arrival": "08:30",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:28",
+            "arrival": "08:39",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:42",
+            "arrival": "08:53",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "08:57",
+            "arrival": "09:08",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:18",
+            "arrival": "09:29",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:37",
+            "arrival": "09:48",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:00",
+            "arrival": "10:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:29",
+            "arrival": "10:40",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:43",
+            "arrival": "10:54",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:03",
+            "arrival": "11:14",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:23",
+            "arrival": "11:34",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:38",
+            "arrival": "11:49",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "11:53",
+            "arrival": "12:04",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:19",
+            "arrival": "12:30",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:32",
+            "arrival": "12:43",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:48",
+            "arrival": "12:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:09",
+            "arrival": "13:20",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:29",
+            "arrival": "13:40",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:49",
+            "arrival": "14:00",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:17",
+            "arrival": "14:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:30",
+            "arrival": "14:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:49",
+            "arrival": "15:00",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:09",
+            "arrival": "15:20",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:34",
+            "arrival": "15:45",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:00",
+            "arrival": "16:12",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:26",
+            "arrival": "16:38",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:44",
+            "arrival": "16:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:00",
+            "arrival": "17:12",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:10",
+            "arrival": "17:22",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "17:20",
+            "arrival": "17:32",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:35",
+            "arrival": "17:47",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:55",
+            "arrival": "18:07",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:15",
+            "arrival": "18:27",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:30",
+            "arrival": "18:42",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "18:45",
+            "arrival": "18:57",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:57",
+            "arrival": "19:09",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:10",
+            "arrival": "19:22",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:30",
+            "arrival": "19:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:50",
+            "arrival": "20:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:10",
+            "arrival": "20:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:40",
+            "arrival": "20:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:10",
+            "arrival": "21:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:40",
+            "arrival": "21:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "22:10",
+            "arrival": "22:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "22:40",
+            "arrival": "22:51",
+            "service": "南流02",
+            "destination": "三輪茂侶神社前"
+          },
+          {
+            "departure": "23:14",
+            "arrival": "23:25",
+            "service": "南流02",
+            "destination": "三輪茂侶神社前"
+          }
+        ],
+        "saturday": [
+          {
+            "departure": "06:50",
+            "arrival": "07:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:10",
+            "arrival": "07:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:30",
+            "arrival": "07:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:50",
+            "arrival": "08:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:10",
+            "arrival": "08:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:30",
+            "arrival": "08:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:50",
+            "arrival": "09:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:12",
+            "arrival": "09:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:30",
+            "arrival": "09:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:52",
+            "arrival": "10:03",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:10",
+            "arrival": "10:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:25",
+            "arrival": "10:36",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:45",
+            "arrival": "10:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:05",
+            "arrival": "11:16",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:20",
+            "arrival": "11:31",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:35",
+            "arrival": "11:46",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "11:55",
+            "arrival": "12:06",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:17",
+            "arrival": "12:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:35",
+            "arrival": "12:46",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:55",
+            "arrival": "13:06",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:28",
+            "arrival": "13:39",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:45",
+            "arrival": "13:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:00",
+            "arrival": "14:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:20",
+            "arrival": "14:31",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:40",
+            "arrival": "14:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:10",
+            "arrival": "15:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:29",
+            "arrival": "15:40",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:49",
+            "arrival": "16:00",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:17",
+            "arrival": "16:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:40",
+            "arrival": "16:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:58",
+            "arrival": "17:09",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:23",
+            "arrival": "17:34",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:43",
+            "arrival": "17:54",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:00",
+            "arrival": "18:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:28",
+            "arrival": "18:39",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:48",
+            "arrival": "18:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:10",
+            "arrival": "19:21",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "19:30",
+            "arrival": "19:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:48",
+            "arrival": "19:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:00",
+            "arrival": "20:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:30",
+            "arrival": "20:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:48",
+            "arrival": "20:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:10",
+            "arrival": "21:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:48",
+            "arrival": "21:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "22:15",
+            "arrival": "22:26",
+            "service": "南流02",
+            "destination": "三輪茂侶神社前"
+          },
+          {
+            "departure": "22:48",
+            "arrival": "22:59",
+            "service": "南流02",
+            "destination": "三輪茂侶神社前"
+          }
+        ],
+        "holiday": [
+          {
+            "departure": "06:50",
+            "arrival": "07:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:10",
+            "arrival": "07:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:30",
+            "arrival": "07:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "07:50",
+            "arrival": "08:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:10",
+            "arrival": "08:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:30",
+            "arrival": "08:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "08:50",
+            "arrival": "09:01",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:12",
+            "arrival": "09:23",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:30",
+            "arrival": "09:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "09:52",
+            "arrival": "10:03",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:10",
+            "arrival": "10:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:25",
+            "arrival": "10:36",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "10:45",
+            "arrival": "10:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:05",
+            "arrival": "11:16",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:20",
+            "arrival": "11:31",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "11:35",
+            "arrival": "11:46",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "11:55",
+            "arrival": "12:06",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:17",
+            "arrival": "12:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:35",
+            "arrival": "12:46",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "12:55",
+            "arrival": "13:06",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:28",
+            "arrival": "13:39",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "13:45",
+            "arrival": "13:56",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:00",
+            "arrival": "14:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:20",
+            "arrival": "14:31",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "14:40",
+            "arrival": "14:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:10",
+            "arrival": "15:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:29",
+            "arrival": "15:40",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "15:49",
+            "arrival": "16:00",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:17",
+            "arrival": "16:28",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:40",
+            "arrival": "16:51",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "16:58",
+            "arrival": "17:09",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:23",
+            "arrival": "17:34",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "17:43",
+            "arrival": "17:54",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:00",
+            "arrival": "18:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:28",
+            "arrival": "18:39",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "18:48",
+            "arrival": "18:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:10",
+            "arrival": "19:21",
+            "service": "南流01",
+            "destination": "クリーンセンター"
+          },
+          {
+            "departure": "19:30",
+            "arrival": "19:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "19:48",
+            "arrival": "19:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:00",
+            "arrival": "20:11",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:30",
+            "arrival": "20:41",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "20:48",
+            "arrival": "20:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:10",
+            "arrival": "21:21",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "21:48",
+            "arrival": "21:59",
+            "service": "南流02",
+            "destination": "流山おおたかの森駅西口"
+          },
+          {
+            "departure": "22:15",
+            "arrival": "22:26",
+            "service": "南流02",
+            "destination": "三輪茂侶神社前"
+          },
+          {
+            "departure": "22:48",
+            "arrival": "22:59",
+            "service": "南流02",
+            "destination": "三輪茂侶神社前"
+          }
+        ]
+      }
+    }
+  ]
+}
