@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="通勤バス" />
@@ -55,9 +55,9 @@
 
   .seg{display:grid;gap:4px;padding:4px;background:rgba(128,128,128,.10);border:1px solid var(--line);border-radius:14px;margin-top:8px;}
   .seg.dir{grid-template-columns:1fr 1fr;}
-  .seg.dia{grid-template-columns:repeat(3,1fr);}
+  .seg.dia{grid-template-columns:repeat(4,1fr);}
   .seg button{appearance:none;border:0;background:transparent;color:var(--muted);font-weight:800;
-    border-radius:10px;padding:9px 10px;font-size:13px;cursor:pointer;white-space:nowrap;line-height:1.1;}
+    border-radius:10px;padding:10px 4px;font-size:12px;cursor:pointer;white-space:nowrap;line-height:1.1;}
   .seg button.active{background:var(--card-solid);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.10);}
   [data-theme="dark"] .seg button.active{box-shadow:0 2px 8px rgba(0,0,0,.42);}
   .note{margin:10px 4px 2px;color:var(--muted);font-size:11.5px;line-height:1.5;font-weight:600;}
@@ -73,7 +73,7 @@
   .badge-link{text-decoration:none;}
   .station-link{color:var(--accent);text-decoration:none;font-weight:850;}
 
-  .rlabel{font-size:17px;font-weight:850;letter-spacing:-.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rlabel{font-size:17px;font-weight:850;letter-spacing:-.02em;line-height:1.2;white-space:normal;overflow-wrap:anywhere;}
 
   .ended{font-size:15px;font-weight:800;color:var(--muted);padding:8px 2px;}
 
@@ -100,7 +100,7 @@
   .uplist{border:1px solid var(--line);border-radius:16px;background:var(--material);overflow:hidden;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
   .up{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);}
   .up:first-child{border-top:0;}
-  .up .route-small{font-size:11px;color:var(--muted);font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .up .route-small{font-size:11px;color:var(--muted);font-weight:700;line-height:1.2;white-space:normal;overflow-wrap:anywhere;}
   .up .ut{font-size:17px;font-weight:850;letter-spacing:-.02em;}
   .up .um{font-size:14px;font-weight:800;text-align:right;}
   .up .ua{color:var(--subtle);font-size:12px;font-weight:700;text-align:right;margin-top:2px;}
@@ -122,6 +122,24 @@
     .arr .t{font-size:17px;}
     .links-grid{grid-template-columns:1fr;}
   }
+
+  .rline{align-items:flex-start}.rlabel{font-size:16px;min-width:0;line-height:1.4}
+  .route-detail{font-size:11px;color:var(--muted);margin:-4px 0 12px;line-height:1.5}
+  .source-link{display:inline-block;margin-top:10px;color:var(--accent);font-size:11px;text-decoration:none;padding:3px 0}
+  .stop-labels{display:flex;justify-content:space-between;gap:24px;margin-top:6px;font-size:11px;color:var(--muted);line-height:1.4}
+  .stop-labels span{max-width:46%;min-width:0;overflow-wrap:anywhere}.stop-labels span:last-child{text-align:right}
+  .next-day{font-size:23px;line-height:1.2;letter-spacing:0}.day-tag{font-size:12px;color:var(--accent);margin:0 0 10px;font-weight:800}
+  .up>div{min-width:0}.ut small{font-size:10px;letter-spacing:0}.up .route-small{line-height:1.5}
+  .alert{border:1px solid var(--line);border-radius:14px;background:var(--card-solid);margin-top:12px;padding:12px;font-size:12px;line-height:1.6}
+  .alert p{margin:0 0 8px}.alert a{color:var(--accent)}[hidden]{display:none!important}
+  button.retry{font:inherit;background:var(--accent-weak);color:var(--accent);border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+  details.walk-settings{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:14px;background:var(--material);font-size:12px;color:var(--muted)}
+  summary{cursor:pointer;padding:3px 0}details.walk-settings p{line-height:1.6;margin:10px 0}
+  .walk-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:9px;line-height:1.5}
+  .walk-row input{width:58px;font:inherit;color:var(--text);background:var(--card-solid);border:1px solid var(--line);border-radius:6px;padding:6px}
+  .walk-row label{min-width:0}.walk-row span{flex:0 0 auto}.foot a{color:var(--accent)}.foot details{margin-top:8px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  @media(prefers-reduced-motion:reduce){.fill{transition:none}}
 </style>
 </head>
 <body>
@@ -140,18 +158,21 @@
       <div class="date" id="dateEl">--</div>
     </div>
     <div class="seg dir" id="dirSeg">
-      <button data-dir="outbound">往路</button>
-      <button data-dir="inbound">復路</button>
+      <button data-dir="outbound">行き</button>
+      <button data-dir="inbound">帰り</button>
     </div>
     <div class="seg dia" id="diaSeg">
       <button data-dia="auto">自動</button>
       <button data-dia="weekday">平日</button>
-      <button data-dia="weekend">土日祝</button>
+      <button data-dia="saturday">土曜日</button>
+      <button data-dia="holiday">日祝</button>
     </div>
     <div class="note" id="noteEl"></div>
   </header>
 
   <main>
+    <div class="alert" id="dataStatus" role="status"><p>公式時刻表を読み込み中です。</p><button class="retry" id="retryData">再読み込み</button></div>
+    <div class="alert" id="serviceNotice" hidden></div>
     <section class="stack" id="cards"></section>
 
     <section class="caption">このあとの便</section>
@@ -160,399 +181,222 @@
     <section class="caption">リンク</section>
     <nav class="links-grid" id="links"></nav>
 
-    <footer class="foot">
-      Swift版の BusRoute / BusSchedule / BusTimeCalculator / ContentView と同じ構成に寄せたHTML版です。<br>
-      到着時刻は「着目安」。関鉄便の着時刻は所要時間目安で算出しています。
-    </footer>
+    <details class="walk-settings" id="walkSettings">
+      <summary>徒歩時間を調整</summary>
+      <p>帰りは建築研究所からの出発を想定しています。徒歩は目安です。普段の出発場所に合わせて変更してください。</p>
+      <div class="walk-row"><label for="walk-station">行き：駅からバス停</label><span><input id="walk-station" data-walk="station" type="number" min="0" max="60" step="1" value="5"> 分</span></div>
+      <div class="walk-row"><label for="walk-nits">帰り：教職員支援機構バス停まで</label><span><input id="walk-nits" data-walk="nits" type="number" min="0" max="60" step="1" value="5"> 分</span></div>
+      <div class="walk-row"><label for="walk-oho">帰り：大穂窓口センターまで</label><span><input id="walk-oho" data-walk="oho" type="number" min="0" max="60" step="1" value="15"> 分</span></div>
+      <div class="walk-row"><label for="walk-bri">帰り：建築研究所バス停まで</label><span><input id="walk-bri" data-walk="bri" type="number" min="0" max="60" step="1" value="0"> 分</span></div>
+    </details>
+    <footer class="foot" id="sourceInfo">公式時刻表を確認中です。</footer>
   </main>
 </div>
 
 <script>
 "use strict";
-
-const ROUTES = [
-  {
-    id:"tc-nits", direction:"outbound", label:"つくば→教職員・建研",
-    badge:"kantetsu", walkBufferMinutes:5, fallbackDurationMinutes:22, useOhoReturnWarning:false,
-    realtimeUrl:"https://navi.kanto-tetsudo.com/",
-    weekday:["07:40","08:03","08:31","08:50","09:30","10:15","11:30","12:40","14:55","16:43","16:50","18:25","18:50","19:30"],
-    weekend:["11:05","14:50","15:00","17:00","17:50","18:05","18:25"]
-  },
-  {
-    id:"kg-nits", direction:"outbound", label:"研究学園→教職員",
-    badge:"yoshinuma", walkBufferMinutes:5, fallbackDurationMinutes:18, useOhoReturnWarning:false,
-    realtimeUrl:"http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000007&bscd=001",
-    weekday:[["07:35","07:52"],["08:25","08:42"],["10:25","10:46"],["11:30","11:51"],["13:00","13:21"],["14:55","15:16"],["15:40","16:01"],["17:40","17:57"],["18:30","18:47"],["20:30","20:47"]],
-    weekend:[["07:40","07:57"],["08:50","09:07"],["10:10","10:27"],["11:25","11:42"],["14:00","14:17"],["15:25","15:42"],["16:45","17:02"],["18:25","18:42"]]
-  },
-  {
-    id:"tc-oho", direction:"outbound", label:"つくば→大穂",
-    badge:"hokubu", walkBufferMinutes:5, fallbackDurationMinutes:18, useOhoReturnWarning:false,
-    realtimeUrl:"http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000001&bscd=001",
-    weekday:[["06:55","07:13"],["07:20","07:38"],["07:50","08:08"],["08:25","08:43"],["09:15","09:33"],["09:40","09:58"],["10:10","10:28"],["10:45","11:03"],["11:25","11:43"],["11:50","12:08"],["12:25","12:43"],["13:00","13:18"],["14:00","14:18"],["14:35","14:53"],["15:10","15:28"],["16:10","16:28"],["16:55","17:13"],["17:30","17:48"],["18:10","18:28"],["18:50","19:08"],["19:30","19:48"],["20:10","20:28"],["21:10","21:28"],["21:50","22:08"],["22:20","22:38"]],
-    weekend:[["07:10","07:28"],["07:40","07:58"],["08:25","08:43"],["09:25","09:43"],["10:10","10:28"],["10:55","11:13"],["11:40","11:58"],["12:30","12:48"],["13:10","13:28"],["14:05","14:23"],["14:50","15:08"],["15:40","15:58"],["16:50","17:08"],["17:30","17:48"],["18:20","18:38"],["19:15","19:33"],["19:55","20:13"],["20:55","21:13"],["21:40","21:58"],["22:20","22:38"]]
-  },
-  {
-    id:"nits-tc", direction:"inbound", label:"教職員・建研→つくば",
-    badge:"kantetsu", walkBufferMinutes:0, fallbackDurationMinutes:22, useOhoReturnWarning:false,
-    realtimeUrl:"https://navi.kanto-tetsudo.com/",
-    trainArrival:"tsukuba",
-    weekday:["06:37","07:34","09:15","11:32","13:10","15:32","17:20","17:59","18:55","20:10"],
-    weekend:["15:20"]
-  },
-  {
-    id:"nits-kg", direction:"inbound", label:"教職員・建研→研究学園",
-    badge:"yoshinuma", walkBufferMinutes:0, fallbackDurationMinutes:25, useOhoReturnWarning:false,
-    realtimeUrl:"http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000008&bscd=016",
-    trainArrival:"kenkyu",
-    weekday:[["06:46","07:15"],["07:31","08:00"],["09:36","10:05"],["10:36","11:05"],["12:16","12:45"],["13:41","14:10"],["14:51","15:20"],["16:45","17:10"],["17:45","18:15"],["19:40","20:05"]],
-    weekend:[["06:46","07:15"],["08:06","08:30"],["09:26","09:50"],["10:41","11:05"],["13:16","13:45"],["14:46","15:15"],["16:01","16:30"],["17:41","18:05"]]
-  },
-  {
-    id:"oho-tc", direction:"inbound", label:"大穂→つくば",
-    badge:"hokubu", walkBufferMinutes:0, fallbackDurationMinutes:23, useOhoReturnWarning:true,
-    realtimeUrl:"http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000002&bscd=010",
-    trainArrival:"tsukuba",
-    weekday:[["06:22","06:45"],["06:47","07:10"],["07:12","07:35"],["07:47","08:15"],["08:37","09:05"],["09:02","09:30"],["09:32","09:55"],["10:07","10:30"],["10:52","11:15"],["11:17","11:40"],["11:52","12:15"],["12:27","12:50"],["13:27","13:50"],["14:02","14:25"],["14:37","15:00"],["15:37","16:00"],["16:17","16:45"],["16:47","17:15"],["17:32","18:00"],["18:12","18:40"],["18:52","19:20"],["19:27","19:55"],["20:32","20:55"],["21:12","21:35"],["21:47","22:10"]],
-    weekend:[["06:27","06:50"],["07:07","07:30"],["07:47","08:15"],["08:47","09:15"],["09:32","09:55"],["10:17","10:40"],["11:07","11:30"],["11:52","12:15"],["12:32","12:55"],["13:27","13:50"],["14:17","14:40"],["15:02","15:25"],["16:12","16:35"],["16:52","17:20"],["17:37","18:05"],["18:32","19:00"],["19:12","19:40"],["20:17","20:45"],["21:02","21:25"],["21:42","22:05"]]
+let DATA = null, ROUTES = [];
+let dataMode = 'loading', dataError = '', lastMinute = '';
+const WD = ['日','月','火','水','木','金','土'];
+const BADGE_TEXT = {kantetsu:'関鉄',hokubu:'H 北部',yoshinuma:'Y 吉沼'};
+const STORE_KEY = 'kenken_bus_html_swift_like_v1';
+const CACHE_KEY = 'tsukuba_bus_official_data_v1';
+const state = {direction:'outbound',scheduleKind:'auto',themeMode:'auto',walks:{station:5,nits:5,oho:15,bri:0}};
+function pad(n){ return String(n).padStart(2,'0'); }
+function ymd(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function esc(v){ return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function safeURL(v){ if(typeof v!=='string' || !/^https?:\/\//i.test(v))throw new Error('リンクの形式が不正です'); return v; }
+function validateData(d){
+  if(!d || d.schemaVersion!==1 || !Array.isArray(d.routes) || !d.routes.length || !d.calendar || !d.calendar.holidays || !/^\d{4}-\d{2}-\d{2}$/.test(d.checkedAt))throw new Error('時刻表データの形式が不正です');
+  if(!Number.isInteger(d.calendar.startYear) || !Number.isInteger(d.calendar.endYear) || d.calendar.endYear<d.calendar.startYear || !Array.isArray(d.calendar.provisionalYears))throw new Error('カレンダーの形式が不正です');
+  for(const [date,name] of Object.entries(d.calendar.holidays))if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || typeof name!=='string')throw new Error('祝日データの形式が不正です');
+  function entries(list){
+    if(!Array.isArray(list))throw new Error('便の一覧がありません');
+    let previous='';
+    for(const t of list){
+      if(!t || !/^([01]\d|2[0-3]):[0-5]\d$/.test(t.departure) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(t.arrival) || t.arrival<t.departure || (previous && previous>=t.departure))throw new Error('発着時刻または並び順が不正です');
+      previous=t.departure;
+    }
   }
-];
-
-const HOLIDAYS = {
-  "2026-01-01":"元日","2026-01-12":"成人の日","2026-02-11":"建国記念の日","2026-02-23":"天皇誕生日",
-  "2026-03-20":"春分の日","2026-04-29":"昭和の日","2026-05-03":"憲法記念日","2026-05-04":"みどりの日",
-  "2026-05-05":"こどもの日","2026-05-06":"振替休日","2026-07-20":"海の日","2026-08-11":"山の日",
-  "2026-09-21":"敬老の日","2026-09-22":"国民の休日","2026-09-23":"秋分の日","2026-10-12":"スポーツの日",
-  "2026-11-03":"文化の日","2026-11-23":"勤労感謝の日",
-  "2027-01-01":"元日","2027-02-11":"建国記念の日","2027-02-23":"天皇誕生日",
-  "2027-04-29":"昭和の日","2027-05-03":"憲法記念日","2027-05-04":"みどりの日","2027-05-05":"こどもの日"
-};
-const BADGE_TEXT = {kantetsu:"関鉄", hokubu:"北部", yoshinuma:"吉沼"};
-const WD = ["日","月","火","水","木","金","土"];
-const STORE_KEY = "kenken_bus_html_swift_like_v1";
-
-const state = {
-  direction: "outbound",
-  scheduleKind: "auto",
-  themeMode: "auto"
-};
-
-function loadState(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    if(!raw) return;
-    const s = JSON.parse(raw);
-    if(s.direction) state.direction = s.direction;
-    if(s.scheduleKind) state.scheduleKind = s.scheduleKind;
-    if(s.themeMode) state.themeMode = s.themeMode;
-  }catch(e){}
-}
-function saveState(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
-}
-
-function pad(n){ return n < 10 ? "0" + n : String(n); }
-function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
-function isWeekendOrHoliday(date){
-  const day = date.getDay();
-  return day === 0 || day === 6 || HOLIDAYS[ymd(date)] != null;
-}
-function effectiveScheduleKind(kind, date){
-  if(kind === "weekday" || kind === "weekend") return kind;
-  return isWeekendOrHoliday(date) ? "weekend" : "weekday";
-}
-function scheduleFor(route, kind, date){
-  return route[effectiveScheduleKind(kind, date)] || [];
-}
-function normalizeTime(entry){
-  return typeof entry === "string" ? { departure: entry, arrival: null, id: entry + "-" } : { departure: entry[0], arrival: entry[1], id: entry[0] + "-" + entry[1] };
-}
-function makeDate(hourMinute, baseDate){
-  const parts = hourMinute.split(":").map(Number);
-  const d = new Date(baseDate.getTime());
-  d.setHours(parts[0], parts[1], 0, 0);
+  const ids=new Set();
+  for(const r of d.routes){
+    if(!r || typeof r.id!=='string' || !/^[a-z0-9-]+$/.test(r.id) || ids.has(r.id) || !['outbound','inbound'].includes(r.direction) || !['kantetsu','hokubu','yoshinuma'].includes(r.badge) || !['bri','shimotsuma','tsukubus'].includes(r.calendar) || !r.fromStop || !r.toStop || typeof r.label!=='string' || !['tsukuba','kenkyu',null].includes(r.trainArrival))throw new Error('路線データの形式が不正です');
+    ids.add(r.id);safeURL(r.sourceUrl);safeURL(r.realtimeUrl);
+    for(const kind of ['weekday','saturday','holiday'])entries(r[kind]);
+    if(!r.dateOverrides || typeof r.dateOverrides!=='object' || Array.isArray(r.dateOverrides))throw new Error('特別ダイヤの形式が不正です');
+    for(const [date,o] of Object.entries(r.dateOverrides)){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || !o || (!Array.isArray(o.entries) && !['weekday','saturday','holiday'].includes(o.kind)))throw new Error('特別ダイヤの形式が不正です');
+      if(o.entries)entries(o.entries);
+    }
+  }
+  if(!Array.isArray(d.sources) || !Array.isArray(d.notices))throw new Error('確認資料の形式が不正です');
+  for(const s of d.sources){if(!s.label)throw new Error('資料名がありません');safeURL(s.url);}
+  for(const n of d.notices){if(!/^\d{4}-\d{2}-\d{2}$/.test(n.start) || !/^\d{4}-\d{2}-\d{2}$/.test(n.end) || n.end<n.start || !Array.isArray(n.badges) || typeof n.text!=='string')throw new Error('運行情報の形式が不正です');safeURL(n.url);}
   return d;
 }
-function formatHourMinute(date){
-  return pad(date.getHours()) + ":" + pad(date.getMinutes());
+function installData(d){ DATA=validateData(d);ROUTES=DATA.routes; }
+function loadState(){
+  try{
+    const s=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');
+    if(['outbound','inbound'].includes(s.direction))state.direction=s.direction;
+    if(s.scheduleKind==='weekend')s.scheduleKind='holiday';
+    if(['auto','weekday','saturday','holiday'].includes(s.scheduleKind))state.scheduleKind=s.scheduleKind;
+    if(['auto','light','dark'].includes(s.themeMode))state.themeMode=s.themeMode;
+    for(const k of Object.keys(state.walks))if(s.walks && Number.isInteger(s.walks[k]) && s.walks[k]>=0 && s.walks[k]<=60)state.walks[k]=s.walks[k];
+  }catch(e){}
 }
-function resolvedArrivalText(time, departureDate, fallbackDurationMinutes){
-  if(time && time.arrival) return time.arrival;
-  const minutes = Number.isFinite(fallbackDurationMinutes) ? fallbackDurationMinutes : 20;
-  return formatHourMinute(new Date(departureDate.getTime() + minutes * 60000));
+function saveState(){try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}}
+function isWeekendOrHoliday(date){return date.getDay()===0 || date.getDay()===6 || !!(DATA && DATA.calendar.holidays[ymd(date)]);}
+function isHoliday(date){return date.getDay()===0 || !!(DATA && DATA.calendar.holidays[ymd(date)]);}
+function yearEnd(date){const m=date.getMonth()+1,d=date.getDate();return (m===12 && d>=29)||(m===1 && d<=3);}
+function scheduleInfo(route,kind,date){
+  if(!DATA)return {entries:[],uncertain:true,reason:'時刻表を読み込み中です。'};
+  const day=ymd(date),year=date.getFullYear();
+  const override=route.dateOverrides[day];
+  if(override)return {entries:override.entries || route[override.kind],kind:override.kind || 'special',reason:override.note || '特別ダイヤ'};
+  if(year<DATA.calendar.startYear || year>DATA.calendar.endYear)return {entries:[],uncertain:true,reason:'この年の祝日・運行日を確認できません。公式時刻表をご確認ください。'};
+  if(route.calendar==='shimotsuma' && date.getMonth()===0 && date.getDate()<=3)return {entries:[],uncertain:true,reason:'正月特別ダイヤは未確認です。公式時刻表をご確認ください。'};
+  if(route.calendar==='bri' && yearEnd(date))return {entries:[],uncertain:true,reason:'建築研究所線の年末年始ダイヤは未確認です。公式情報をご確認ください。'};
+  let resolved;
+  if(kind==='weekend')kind='holiday';
+  if(['weekday','saturday','holiday'].includes(kind))resolved=kind;
+  else if(route.calendar==='tsukubus' && yearEnd(date))resolved='holiday';
+  else if(isHoliday(date))resolved='holiday';
+  else if(date.getDay()===6)resolved='saturday';
+  else if(route.calendar==='shimotsuma' && ((date.getMonth()===7 && date.getDate()>=13 && date.getDate()<=16)||(date.getMonth()===11 && date.getDate()>=29)))resolved='saturday';
+  else resolved='weekday';
+  return {entries:route[resolved],kind:resolved,uncertain:false};
 }
-function nextBus(route, now){
-  const schedule = scheduleFor(route, state.scheduleKind, now);
-  for(const raw of schedule){
-    const time = normalizeTime(raw);
-    const departureDate = makeDate(time.departure, now);
-    if(departureDate > now){
-      const minutesUntilDeparture = Math.ceil((departureDate.getTime() - now.getTime()) / 60000);
-      const minutesUntilLeaving = minutesUntilDeparture - route.walkBufferMinutes;
-      return {
-        time,
-        departureDate,
-        minutesUntilDeparture,
-        minutesUntilLeaving,
-        arrivalText: resolvedArrivalText(time, departureDate, route.fallbackDurationMinutes)
-      };
+function scheduleFor(route,kind,date){return scheduleInfo(route,kind,date).entries;}
+function normalizeTime(t){return typeof t==='string'?{departure:t,arrival:null}:Array.isArray(t)?{departure:t[0],arrival:t[1]}:t;}
+function makeDate(hm,date){const d=new Date(date);const [h,m]=hm.split(':').map(Number);d.setHours(h,m,0,0);return d;}
+function walkFor(route){if(route.direction==='outbound')return state.walks.station;if(route.fromStop==='大穂窓口センター')return state.walks.oho;if(route.fromStop==='教職員支援機構')return state.walks.nits;return state.walks.bri;}
+function routeBuses(route,now,limit=8){
+  const buses=[];
+  for(let offset=0;offset<15;offset++){
+    const date=new Date(now);date.setHours(0,0,0,0);date.setDate(date.getDate()+offset);
+    const info=scheduleInfo(route,offset===0?state.scheduleKind:'auto',date);
+    if(info.uncertain)return {buses,blocked:info};
+    for(const raw of info.entries){
+      const time=normalizeTime(raw),departureDate=makeDate(time.departure,date);
+      if(departureDate<=now)continue;
+      const arrivalDate=makeDate(time.arrival,date),walk=walkFor(route);
+      const minutesUntilDeparture=Math.ceil((departureDate-now)/60000);
+      buses.push({route,time,departureDate,arrivalDate,arrivalText:time.arrival,minutesUntilDeparture,minutesUntilLeaving:minutesUntilDeparture-walk,walk,offset,kind:info.kind});
+      if(buses.length>=limit)return {buses,blocked:null};
     }
   }
-  return null;
+  return {buses,blocked:null};
 }
-
-function outboundStatus(minutesUntilLeaving){
-  if(minutesUntilLeaving > 15) return ["ok", "まだ余裕があります。"];
-  if(minutesUntilLeaving > 10) return ["soon", "そろそろ出る時間です。"];
-  if(minutesUntilLeaving >= 5) return ["run", "駅からなら走る時間です。"];
-  return ["risk", "駅からだとかなり厳しいです。次便も確認してください。"];
+function nextBus(route,now){return routeBuses(route,now,1).buses[0] || null;}
+function routesFor(direction){return ROUTES.filter(r=>r.direction===direction);}
+function dayLabel(date,now){const d=new Date(now);d.setHours(0,0,0,0);d.setDate(d.getDate()+1);const prefix=ymd(date)===ymd(d)?'明日 ':'';return prefix+(date.getMonth()+1)+'/'+date.getDate()+'（'+WD[date.getDay()]+'）';}
+function statusFor(bus){
+  if(bus.offset>0)return ['ended','次の運行日：'+dayLabel(bus.departureDate,new Date())];
+  const n=bus.minutesUntilLeaving;
+  if(n>15)return ['ok','出発まで余裕があります。'];
+  if(n>5)return ['soon','そろそろ出発の準備を。'];
+  if(n>=0)return ['run',bus.walk?'徒歩目安では、まもなく出発する時間です。':'まもなく発車します。'];
+  return ['risk','徒歩目安では出発時刻を過ぎています。次便も確認してください。'];
 }
-function inboundStatus(minutesUntilDeparture){
-  if(minutesUntilDeparture > 15) return ["ok", "まだ余裕があります。"];
-  if(minutesUntilDeparture > 10) return ["soon", "そろそろバス停へ。"];
-  if(minutesUntilDeparture >= 5) return ["run", "発車が近づいています。"];
-  return ["risk", "まもなく発車します。次便も確認してください。"];
+function makeCardViewModel(route,now){
+  const result=routeBuses(route,now,1),bus=result.buses[0];
+  if(!bus)return {route,nextBus:null,blocked:result.blocked,statusText:result.blocked?result.blocked.reason:'この先の運行を確認できません。公式時刻表をご確認ください。'};
+  const today=scheduleInfo(route,state.scheduleKind,now);
+  let [urgencyLevel,statusText]=statusFor(bus);
+  if(bus.offset>0)statusText=(today.entries.length?'本日の運行は終了しました。':'本日は運休です。')+' 次は'+dayLabel(bus.departureDate,now)+' '+bus.time.departure+'発。';
+  else if(bus.walk)statusText+=' 徒歩目安'+bus.walk+'分。';
+  return {route,nextBus:bus,urgencyLevel,statusText,heroMinutes:bus.minutesUntilLeaving,heroLabel:bus.walk?'出発まで':'発車まで'};
 }
-function ohoReturnStatus(minutesUntilDeparture){
-  if(minutesUntilDeparture > 25) return ["ok", "まだ余裕があります。建築研究所から大穂へ歩く場合も間に合います。"];
-  if(minutesUntilDeparture > 20) return ["ok", "建築研究所から大穂へ歩くならそろそろ出発。教職員支援機構からは余裕あり。"];
-  if(minutesUntilDeparture > 15) return ["soon", "建築研究所からは今すぐ出てください。教職員支援機構からはまだ間に合います。"];
-  if(minutesUntilDeparture > 10) return ["run", "教職員支援機構からならそろそろ出発。建築研究所からは間に合いにくいです。"];
-  if(minutesUntilDeparture > 5) return ["risk", "教職員支援機構からでもかなり急ぎです。建築研究所からは次便前提です。"];
-  return ["risk", "もう厳しいです。大穂窓口センターに着いていないなら次便を見てください。"];
+function makeCardViewModels(direction,now){return routesFor(direction).map(r=>makeCardViewModel(r,now)).sort((a,b)=>(a.nextBus?a.nextBus.offset:100)-(b.nextBus?b.nextBus.offset:100));}
+function txTarget(date){return isWeekendOrHoliday(date)?'holiday':'weekday';}
+function txURL(station,date){return 'https://transfer-train.navitime.biz/tx/timetable?station='+station+'&line=1&target='+txTarget(date)+'&direction=0';}
+function badgeHTML(route){return '<a class="badge b-'+route.badge+' badge-link" href="'+esc(route.realtimeUrl)+'" target="_blank" rel="noopener">'+BADGE_TEXT[route.badge]+'</a>';}
+function stationLink(route,date){if(!route.trainArrival)return esc(route.toStop);const code=route.trainArrival==='tsukuba'?'9438':'9441';return '<a class="station-link" href="'+esc(txURL(code,date))+'" target="_blank" rel="noopener">'+esc(route.toStop)+'</a>';}
+function cardHTML(card,now){
+  const r=card.route,b=card.nextBus;
+  const head='<div class="rline">'+badgeHTML(r)+'<span class="rlabel">'+esc(r.label)+'</span></div>';
+  const detail=r.platform?'<div class="route-detail">'+esc(r.platform)+'</div>':'';
+  const source='<a class="source-link" href="'+esc(r.sourceUrl)+'" target="_blank" rel="noopener">公式時刻表 ↗</a>';
+  if(!b)return '<article class="card uncertain">'+head+detail+'<div class="ended">'+esc(card.statusText)+'</div>'+source+'</article>';
+  const hero=b.offset>0?'<div class="big next-day">'+(dayLabel(b.departureDate,now).startsWith('明日')?'明日':'次の運行日')+'</div>':card.heroMinutes>0?'<div class="big">'+card.heroMinutes+'<span class="min">分</span></div>':'<div class="big soon">まもなく</div>';
+  return '<article class="card" data-route="'+r.id+'">'+head+detail+(b.offset>0?'<div class="day-tag">'+esc(dayLabel(b.departureDate,now))+'</div>':'')+
+    '<div class="mid"><div class="dep"><span class="t">'+b.time.departure+'</span><div class="u">発</div></div><div class="center">'+hero+'<div class="clabel">'+(b.offset>0?'始発':card.heroLabel)+'</div></div><div class="arr"><span class="t">'+b.arrivalText+'</span><div class="u">着予定</div></div></div>'+
+    '<div class="stop-labels"><span>'+esc(r.fromStop)+'</span><span>'+stationLink(r,b.arrivalDate)+'</span></div>'+
+    (b.offset===0?'<div class="bar"><div class="fill '+card.urgencyLevel+'" style="width:'+Math.min(Math.max(card.heroMinutes/30,0),1)*100+'%"></div></div>':'')+
+    '<div class="status '+card.urgencyLevel+'">'+esc(card.statusText)+'</div>'+source+'</article>';
 }
-function makeCardViewModel(route, now){
-  const bus = nextBus(route, now);
-  if(!bus){
-    return {
-      id: route.id,
-      route,
-      nextBus: null,
-      urgencyLevel: "ended",
-      statusText: "本日の運行は終了しました。",
-      heroMinutes: null,
-      heroLabel: route.direction === "outbound" ? "駅を出るまで" : "発車まで"
-    };
-  }
-  let heroMinutes, heroLabel, status;
-  if(route.direction === "outbound"){
-    heroMinutes = bus.minutesUntilLeaving;
-    heroLabel = "駅を出るまで";
-    status = outboundStatus(bus.minutesUntilLeaving);
-  }else{
-    heroMinutes = bus.minutesUntilDeparture;
-    heroLabel = "発車まで";
-    status = route.useOhoReturnWarning ? ohoReturnStatus(bus.minutesUntilDeparture) : inboundStatus(bus.minutesUntilDeparture);
-  }
-  return {
-    id: route.id,
-    route,
-    nextBus: bus,
-    urgencyLevel: status[0],
-    statusText: status[1],
-    heroMinutes,
-    heroLabel
-  };
-}
-function routesFor(direction){
-  return ROUTES.filter(r => r.direction === direction);
-}
-function makeCardViewModels(direction, now){
-  return routesFor(direction).map(route => makeCardViewModel(route, now));
-}
-function upcomingBuses(route, now, limit = 6, skipFirst = true){
-  const schedule = scheduleFor(route, state.scheduleKind, now);
-  const upcoming = [];
-  for(const raw of schedule){
-    const time = normalizeTime(raw);
-    const departureDate = makeDate(time.departure, now);
-    if(departureDate <= now) continue;
-    upcoming.push({
-      id: route.id + "-" + time.id,
-      route,
-      time,
-      departureDate,
-      minutesUntilDeparture: Math.ceil((departureDate.getTime() - now.getTime()) / 60000),
-      arrivalText: resolvedArrivalText(time, departureDate, route.fallbackDurationMinutes)
-    });
-    if(upcoming.length >= limit + (skipFirst ? 1 : 0)) break;
-  }
-  return skipFirst && upcoming.length ? upcoming.slice(1, 1 + limit) : upcoming.slice(0, limit);
-}
-function mergedUpcomingBuses(direction, now, limit = 7){
-  const merged = routesFor(direction).flatMap(route => upcomingBuses(route, now, limit, true));
-  return merged.sort((a,b) => a.departureDate - b.departureDate).slice(0, limit);
-}
-function noteText(now){
-  const holiday = isWeekendOrHoliday(now);
-  let base;
-  if(state.scheduleKind === "auto") base = "自動判定：" + (holiday ? "土日祝" : "平日") + "ダイヤを表示";
-  else if(state.scheduleKind === "weekday") base = "平日ダイヤを表示";
-  else base = "土日祝ダイヤを表示";
-  const includesKantetsu = routesFor(state.direction).some(r => r.badge === "kantetsu");
-  const usesWeekend = state.scheduleKind === "weekend" || (state.scheduleKind === "auto" && holiday);
-  if(includesKantetsu && usesWeekend) return base + " ・ 関鉄は土日祝が大幅減便。最新は関鉄サイトで確認。";
-  return base;
-}
-
-function progressValue(card){
-  if(card.heroMinutes == null) return 0;
-  return Math.min(Math.max(card.heroMinutes / 30, 0), 1);
-}
-function badgeHTML(routeOrBadge){
-  const badge = typeof routeOrBadge === "string" ? routeOrBadge : routeOrBadge.badge;
-  const label = BADGE_TEXT[badge];
-  const url = typeof routeOrBadge === "string" ? null : routeOrBadge.realtimeUrl;
-  if((badge === "hokubu" || badge === "yoshinuma") && url){
-    return '<a class="badge b-' + badge + ' badge-link" href="' + url + '" target="_blank" rel="noopener">' + label + '</a>';
-  }
-  return '<span class="badge b-' + badge + '">' + label + '</span>';
-}
-
-function stationName(route){
-  if(route.trainArrival === "tsukuba") return "つくば駅";
-  if(route.trainArrival === "kenkyu") return "研究学園駅";
-  return null;
-}
-function stationURL(route){
-  if(route.trainArrival === "tsukuba") return txURL("9438", new Date());
-  if(route.trainArrival === "kenkyu") return txURL("9441", new Date());
-  return null;
-}
-function arrivalSubHTML(route){
-  const name = stationName(route);
-  const url = stationURL(route);
-  if(name && url){
-    return '<div class="u"><a class="station-link" href="' + url + '" target="_blank" rel="noopener">' + name + '</a> 着目安</div>';
-  }
-  return '<div class="u">着目安</div>';
-}
-
-
-function cardHTML(card){
-  const route = card.route;
-  const head = '<div class="rline">' + badgeHTML(route) + '<span class="rlabel">' + route.label + '</span></div>';
-  if(!card.nextBus){
-    return '<article class="card">' + head + '<div class="ended">' + card.statusText + '</div>' + '</article>';
-  }
-  const hero = card.heroMinutes > 0
-    ? '<div class="big">' + card.heroMinutes + '<span class="min">分</span></div>'
-    : '<div class="big soon">まもなく</div>';
-  const pct = (progressValue(card) * 100).toFixed(2);
-  return '<article class="card">' + head +
-    '<div class="mid">' +
-      '<div class="dep"><span class="t">' + card.nextBus.time.departure + '</span><div class="u">発</div></div>' +
-      '<div class="center">' + hero + '<div class="clabel">' + card.heroLabel + '</div></div>' +
-      '<div class="arr"><span class="t">' + card.nextBus.arrivalText + '</span>' + arrivalSubHTML(route) + '</div>' +
-    '</div>' +
-    '<div class="bar"><div class="fill ' + card.urgencyLevel + '" style="width:' + pct + '%"></div></div>' +
-    '<div class="status ' + card.urgencyLevel + '">' + card.statusText + '</div>' +
-  '</article>';
-}
-function upcomingRowHTML(item){
-  return '<div class="up">' +
-    badgeHTML(item.route) +
-    '<div><div class="route-small">' + item.route.label + '</div><div class="ut">' + item.time.departure + '</div></div>' +
-    '<div><div class="um">' + item.minutesUntilDeparture + '分後</div><div class="ua">着 ' + item.arrivalText + '目安</div></div>' +
-  '</div>';
-}
-function txTarget(now){
-  if(state.scheduleKind === "weekday") return "weekday";
-  if(state.scheduleKind === "weekend") return "holiday";
-  return isWeekendOrHoliday(now) ? "holiday" : "weekday";
-}
-function txURL(stationCode, now){
-  return "https://transfer-train.navitime.biz/tx/timetable?station=" + stationCode + "&line=1&target=" + txTarget(now) + "&direction=0";
-}
-function linkHTML(title, url){
-  if(!url) return "";
-  return '<a class="linkbtn" href="' + url + '" target="_blank" rel="noopener"><span>' + title + '</span><span class="arrow">↗</span></a>';
-}
-function renderLinks(now){
-  const routes = routesFor(state.direction);
-  const links = [];
-  if(routes.some(r => r.badge === "kantetsu")){
-    links.push(["関鉄接近", "https://navi.kanto-tetsudo.com/"]);
-  }
-  if(state.direction === "inbound"){
-    links.push(["つくば駅 TX", txURL("9438", now)]);
-    links.push(["研究学園駅 TX", txURL("9441", now)]);
-  }
-  document.getElementById("links").innerHTML = links.map(x => linkHTML(x[0], x[1])).join("");
-}
+function upcomingRowHTML(b,now){return '<div class="up">'+badgeHTML(b.route)+'<div><div class="route-small">'+esc(b.route.label)+'</div><div class="ut">'+b.time.departure+(b.offset>0?' <small>'+esc(dayLabel(b.departureDate,now))+'</small>':'')+'</div></div><div><div class="um">'+(b.offset>0?'次の運行日':b.minutesUntilDeparture+'分後')+'</div><div class="ua">'+b.arrivalText+'着予定</div></div></div>';}
+function linkHTML(title,url){return '<a class="linkbtn" href="'+esc(url)+'" target="_blank" rel="noopener"><span>'+esc(title)+'</span><span class="arrow">↗</span></a>';}
 function renderCards(now){
-  document.getElementById("cards").innerHTML = makeCardViewModels(state.direction, now).map(cardHTML).join("");
-  const upcoming = mergedUpcomingBuses(state.direction, now, 7);
-  document.getElementById("upcoming").innerHTML = upcoming.length
-    ? '<div class="uplist">' + upcoming.map(upcomingRowHTML).join("") + '</div>'
-    : '<div class="empty">このあとの便はありません。</div>';
+  const selected=routesFor(state.direction);
+  document.getElementById('cards').innerHTML=makeCardViewModels(state.direction,now).map(c=>cardHTML(c,now)).join('');
+  const upcoming=selected.flatMap(r=>routeBuses(r,now,8).buses.slice(1)).sort((a,b)=>a.departureDate-b.departureDate).slice(0,7);
+  document.getElementById('upcoming').innerHTML=upcoming.length?'<div class="uplist">'+upcoming.map(b=>upcomingRowHTML(b,now)).join('')+'</div>':'<div class="empty">このあとの便は確認できません。公式時刻表をご確認ください。</div>';
 }
 function renderClock(now){
-  document.getElementById("clockMain").textContent = pad(now.getHours()) + ":" + pad(now.getMinutes());
-  document.getElementById("clockSec").textContent = pad(now.getSeconds());
-  const holiday = HOLIDAYS[ymd(now)];
-  document.getElementById("dateEl").textContent =
-    (now.getMonth()+1) + "/" + now.getDate() + "（" + WD[now.getDay()] + "）" + (holiday ? " " + holiday : "");
+  document.getElementById('clockMain').textContent=pad(now.getHours())+':'+pad(now.getMinutes());document.getElementById('clockSec').textContent=pad(now.getSeconds());
+  const holiday=DATA && DATA.calendar.holidays[ymd(now)];
+  document.getElementById('dateEl').textContent=(now.getMonth()+1)+'/'+now.getDate()+'（'+WD[now.getDay()]+'）'+(holiday?' '+holiday:'');
 }
 function renderControls(){
-  document.querySelectorAll("#dirSeg button").forEach(btn => btn.classList.toggle("active", btn.dataset.dir === state.direction));
-  document.querySelectorAll("#diaSeg button").forEach(btn => btn.classList.toggle("active", btn.dataset.dia === state.scheduleKind));
-  document.querySelectorAll("#themePills button").forEach(btn => btn.classList.toggle("active", btn.dataset.theme === state.themeMode));
+  for(const [id,attribute,key] of [['dirSeg','dir','direction'],['diaSeg','dia','scheduleKind'],['themePills','theme','themeMode']]){
+    document.querySelectorAll('#'+id+' button').forEach(b=>{const active=b.dataset[attribute]===state[key];b.classList.toggle('active',active);b.setAttribute('aria-pressed',active);});
+  }
 }
 function renderNote(now){
-  document.getElementById("noteEl").textContent = noteText(now);
+  const names={auto:'自動判定',weekday:'平日',saturday:'土曜日',holiday:'日曜・祝日'};
+  document.getElementById('noteEl').textContent=state.scheduleKind==='auto'?'路線ごとに曜日・祝日・特別運行日を判定しています。':'手動：今日を「'+names[state.scheduleKind]+'」として表示。翌日以降は自動判定します。';
+  const messages=[];
+  if(dataMode==='cache')messages.push('更新データを取得できなかったため、前回保存した時刻表を表示しています。'+(DATA?' 確認日：'+DATA.checkedAt:'')+'。公式時刻表もご確認ください。');
+  if(!DATA)messages.push(dataMode==='error'?'時刻表を読み込めません。HTMLとJSONを同じフォルダに置いてGitHub Pagesで公開してください。':'公式時刻表を読み込み中です。');
+  if(DATA){
+    if(DATA.calendar.provisionalYears.includes(now.getFullYear()))messages.push('この年の祝日は見込みです。正式発表後に更新が必要です。');
+    if(yearEnd(now))messages.push('つくバスは12/29〜1/3が休日ダイヤ。関鉄は路線ごとに年末年始の扱いが異なります。');
+  }
+  const box=document.getElementById('dataStatus');box.hidden=!messages.length;box.querySelector('p').textContent=messages.join(' ');
+  const notices=DATA?DATA.notices.filter(n=>ymd(now)>=n.start && ymd(now)<=n.end && routesFor(state.direction).some(r=>n.badges.includes(r.badge))):[];
+  const el=document.getElementById('serviceNotice');el.hidden=!notices.length;el.innerHTML=notices.map(n=>'<a href="'+esc(n.url)+'" target="_blank" rel="noopener">'+esc(n.text)+' ↗</a>').join('<br>');
 }
-function renderAll(){
-  const now = new Date();
-  renderClock(now);
-  renderControls();
-  renderNote(now);
-  renderCards(now);
-  renderLinks(now);
+function renderLinks(now){
+  const links=[['関鉄接近','https://navi.kanto-tetsudo.com/'],['つくバス運行情報','https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/14301.html']];
+  if(state.direction==='inbound')links.push(['つくば駅 TX',txURL('9438',now)],['研究学園駅 TX',txURL('9441',now)]);
+  document.getElementById('links').innerHTML=links.map(x=>linkHTML(...x)).join('');
+  const el=document.getElementById('sourceInfo');
+  el.innerHTML=DATA?esc(DATA.timetableLabel)+'<br>到着は時刻表上の予定です。遅延は接近情報をご確認ください。<details><summary>確認資料</summary>'+DATA.sources.map(s=>'<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(s.label)+' ↗</a>').join('<br>')+'</details>':'<a href="https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/1001471.html" target="_blank" rel="noopener">つくバス公式時刻表 ↗</a><br><a href="https://www.kantetsu.co.jp/bus/timetable/tsukuba" target="_blank" rel="noopener">関鉄公式時刻表 ↗</a>';
 }
+function renderAll(now=new Date()){
+  renderClock(now);renderControls();renderNote(now);renderLinks(now);
+  if(DATA)renderCards(now);else {document.getElementById('cards').innerHTML='<div class="empty">'+(dataMode==='error'?'時刻表データがありません。公式リンクをご利用ください。':'時刻表を読み込み中…')+'</div>';document.getElementById('upcoming').innerHTML='';}
+  lastMinute=ymd(now)+' '+now.getHours()+':'+now.getMinutes();
+}
+function tick(){const now=new Date(),minute=ymd(now)+' '+now.getHours()+':'+now.getMinutes();if(minute!==lastMinute)renderAll(now);else renderClock(now);}
+async function loadData(){
+  document.getElementById('retryData').disabled=true;
+  try{
+    const response=await fetch(new URL('tsukuba-bus-data.json',document.baseURI),{cache:'no-store'});
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const d=await response.json();installData(d);dataMode='fresh';dataError='';
+    try{localStorage.setItem(CACHE_KEY,JSON.stringify(d));}catch(e){}
+  }catch(e){
+    dataError=String(e.message);
+    try{installData(JSON.parse(localStorage.getItem(CACHE_KEY)||'null'));dataMode='cache';}catch(cacheError){DATA=null;ROUTES=[];dataMode='error';}
+  }
+  document.getElementById('retryData').disabled=false;renderAll();
+}
+const mq = window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):{matches:false};
+function applyTheme(){const t=state.themeMode==='auto'?(mq.matches?'dark':'light'):state.themeMode;document.documentElement.dataset.theme=t;document.getElementById('themeColorMeta').setAttribute('content',t==='dark'?'#0b0e14':'#f2f4f9');}
+document.getElementById('dirSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.direction=b.dataset.dir;saveState();renderAll();});
+document.getElementById('diaSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.scheduleKind=b.dataset.dia;saveState();renderAll();});
+document.getElementById('themePills').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.themeMode=b.dataset.theme;saveState();applyTheme();renderControls();});
+document.getElementById('walkSettings').addEventListener('change',e=>{const input=e.target.closest('input[data-walk]');if(!input)return;let v=Number(input.value);v=Number.isFinite(v)?Math.max(0,Math.min(60,Math.round(v))):state.walks[input.dataset.walk];state.walks[input.dataset.walk]=v;input.value=v;saveState();renderAll();});
+document.getElementById('retryData').addEventListener('click',loadData);
+if(mq.addEventListener)mq.addEventListener('change',()=>{if(state.themeMode==='auto')applyTheme();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderAll();});
+loadState();applyTheme();renderAll();
+document.querySelectorAll('input[data-walk]').forEach(i=>i.value=state.walks[i.dataset.walk]);
+loadData();setInterval(tick,1000);
 
-const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : {matches:false, addEventListener:null};
-function resolvedTheme(){
-  return state.themeMode === "auto" ? (mq.matches ? "dark" : "light") : state.themeMode;
-}
-function applyTheme(){
-  const theme = resolvedTheme();
-  document.documentElement.setAttribute("data-theme", theme);
-  document.getElementById("themeColorMeta").setAttribute("content", theme === "dark" ? "#0b0e14" : "#f2f4f9");
-}
-
-document.getElementById("dirSeg").addEventListener("click", e => {
-  const btn = e.target.closest("button"); if(!btn) return;
-  state.direction = btn.dataset.dir;
-  saveState();
-  renderAll();
-});
-document.getElementById("diaSeg").addEventListener("click", e => {
-  const btn = e.target.closest("button"); if(!btn) return;
-  state.scheduleKind = btn.dataset.dia;
-  saveState();
-  renderAll();
-});
-document.getElementById("themePills").addEventListener("click", e => {
-  const btn = e.target.closest("button"); if(!btn) return;
-  state.themeMode = btn.dataset.theme;
-  saveState();
-  applyTheme();
-  renderControls();
-});
-if(mq.addEventListener){
-  mq.addEventListener("change", () => {
-    if(state.themeMode === "auto"){
-      applyTheme();
-      renderControls();
-    }
-  });
-}
-
-loadState();
-applyTheme();
-renderAll();
-setInterval(renderAll, 1000);
 </script>
 </body>
 </html>

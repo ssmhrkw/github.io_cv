@@ -1,0 +1,1102 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-04",
+  "timetableLabel": "公式時刻表・2026年10月4日確認",
+  "calendar": {
+    "startYear": 2026,
+    "endYear": 2028,
+    "provisionalYears": [
+      2028
+    ],
+    "holidays": {
+      "2026-01-01": "元日",
+      "2026-01-12": "成人の日",
+      "2026-02-11": "建国記念の日",
+      "2026-02-23": "天皇誕生日",
+      "2026-03-20": "春分の日",
+      "2026-04-29": "昭和の日",
+      "2026-05-03": "憲法記念日",
+      "2026-05-04": "みどりの日",
+      "2026-05-05": "こどもの日",
+      "2026-05-06": "振替休日",
+      "2026-07-20": "海の日",
+      "2026-08-11": "山の日",
+      "2026-09-21": "敬老の日",
+      "2026-09-22": "国民の休日",
+      "2026-09-23": "秋分の日",
+      "2026-10-12": "スポーツの日",
+      "2026-11-03": "文化の日",
+      "2026-11-23": "勤労感謝の日",
+      "2027-01-01": "元日",
+      "2027-01-11": "成人の日",
+      "2027-02-11": "建国記念の日",
+      "2027-02-23": "天皇誕生日",
+      "2027-03-21": "春分の日",
+      "2027-03-22": "振替休日",
+      "2027-04-29": "昭和の日",
+      "2027-05-03": "憲法記念日",
+      "2027-05-04": "みどりの日",
+      "2027-05-05": "こどもの日",
+      "2027-07-19": "海の日",
+      "2027-08-11": "山の日",
+      "2027-09-20": "敬老の日",
+      "2027-09-23": "秋分の日",
+      "2027-10-11": "スポーツの日",
+      "2027-11-03": "文化の日",
+      "2027-11-23": "勤労感謝の日",
+      "2028-01-01": "元日",
+      "2028-01-10": "成人の日",
+      "2028-02-11": "建国記念の日",
+      "2028-02-23": "天皇誕生日",
+      "2028-03-20": "春分の日",
+      "2028-04-29": "昭和の日",
+      "2028-05-03": "憲法記念日",
+      "2028-05-04": "みどりの日",
+      "2028-05-05": "こどもの日",
+      "2028-07-17": "海の日",
+      "2028-08-11": "山の日",
+      "2028-09-18": "敬老の日",
+      "2028-09-22": "秋分の日",
+      "2028-10-09": "スポーツの日",
+      "2028-11-03": "文化の日",
+      "2028-11-23": "勤労感謝の日"
+    }
+  },
+  "sources": [
+    {
+      "label": "つくバス公式・時刻表／運行日",
+      "url": "https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/1001471.html"
+    },
+    {
+      "label": "関鉄・下妻方面の時刻表",
+      "url": "https://www.kantetsu.co.jp/cms/wp-content/themes/kr/pdf/bus/timetable_files/SM/SM01.pdf"
+    },
+    {
+      "label": "関鉄・建築研究所線の時刻表",
+      "url": "https://www.kantetsu.co.jp/cms/wp-content/themes/kr/pdf/bus/timetable_files/tc/tc04.pdf"
+    },
+    {
+      "label": "国民の祝日（内閣府）",
+      "url": "https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html"
+    },
+    {
+      "label": "2028年春分・秋分の予測（国立天文台）",
+      "url": "https://www.nao.ac.jp/faq/a0301.html"
+    }
+  ],
+  "notices": [
+    {
+      "start": "2026-09-14",
+      "end": "2026-10-16",
+      "badges": [
+        "yoshinuma"
+      ],
+      "text": "吉沼シャトルは10月16日まで迂回運行中。通常より遅れる可能性があります。",
+      "url": "https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/14301.html"
+    }
+  ],
+  "routes": [
+    {
+      "id": "tc-bri",
+      "direction": "outbound",
+      "badge": "kantetsu",
+      "fromStop": "つくばセンター",
+      "toStop": "建築研究所",
+      "label": "つくばセンター → 建築研究所",
+      "calendar": "bri",
+      "weekday": [
+        {
+          "departure": "07:40",
+          "arrival": "08:02"
+        },
+        {
+          "departure": "08:03",
+          "arrival": "08:33"
+        },
+        {
+          "departure": "08:31",
+          "arrival": "09:02"
+        },
+        {
+          "departure": "12:40",
+          "arrival": "13:00"
+        },
+        {
+          "departure": "16:50",
+          "arrival": "17:10"
+        },
+        {
+          "departure": "18:25",
+          "arrival": "18:45"
+        },
+        {
+          "departure": "19:30",
+          "arrival": "19:50"
+        }
+      ],
+      "saturday": [],
+      "holiday": [],
+      "platform": "つくばセンター 5番のりば",
+      "walkBufferMinutes": 5,
+      "realtimeUrl": "https://navi.kanto-tetsudo.com/",
+      "trainArrival": null,
+      "sourceUrl": "https://www.kantetsu.co.jp/cms/wp-content/themes/kr/pdf/bus/timetable_files/tc/tc04.pdf",
+      "dateOverrides": {}
+    },
+    {
+      "id": "tc-nits",
+      "direction": "outbound",
+      "badge": "kantetsu",
+      "fromStop": "つくばセンター",
+      "toStop": "教職員支援機構",
+      "label": "つくばセンター → 教職員支援機構",
+      "calendar": "shimotsuma",
+      "weekday": [
+        {
+          "departure": "08:50",
+          "arrival": "09:06"
+        },
+        {
+          "departure": "09:30",
+          "arrival": "09:50"
+        },
+        {
+          "departure": "10:15",
+          "arrival": "10:35"
+        },
+        {
+          "departure": "11:30",
+          "arrival": "11:46"
+        },
+        {
+          "departure": "14:55",
+          "arrival": "15:11"
+        },
+        {
+          "departure": "16:43",
+          "arrival": "16:59"
+        },
+        {
+          "departure": "18:50",
+          "arrival": "19:06"
+        }
+      ],
+      "saturday": [
+        {
+          "departure": "14:50",
+          "arrival": "15:10"
+        },
+        {
+          "departure": "17:50",
+          "arrival": "18:06"
+        }
+      ],
+      "holiday": [],
+      "platform": "つくばセンター 5番のりば・下妻方面",
+      "walkBufferMinutes": 5,
+      "realtimeUrl": "https://navi.kanto-tetsudo.com/",
+      "trainArrival": null,
+      "sourceUrl": "https://www.kantetsu.co.jp/cms/wp-content/themes/kr/pdf/bus/timetable_files/SM/SM01.pdf",
+      "dateOverrides": {}
+    },
+    {
+      "id": "kg-nits",
+      "direction": "outbound",
+      "badge": "yoshinuma",
+      "fromStop": "研究学園駅",
+      "toStop": "教職員支援機構",
+      "label": "研究学園駅 → 教職員支援機構",
+      "calendar": "tsukubus",
+      "weekday": [
+        {
+          "departure": "07:35",
+          "arrival": "07:52"
+        },
+        {
+          "departure": "08:25",
+          "arrival": "08:42"
+        },
+        {
+          "departure": "10:25",
+          "arrival": "10:46"
+        },
+        {
+          "departure": "11:30",
+          "arrival": "11:51"
+        },
+        {
+          "departure": "13:00",
+          "arrival": "13:21"
+        },
+        {
+          "departure": "14:55",
+          "arrival": "15:16"
+        },
+        {
+          "departure": "15:40",
+          "arrival": "16:01"
+        },
+        {
+          "departure": "17:40",
+          "arrival": "17:57"
+        },
+        {
+          "departure": "18:30",
+          "arrival": "18:47"
+        },
+        {
+          "departure": "20:30",
+          "arrival": "20:47"
+        }
+      ],
+      "saturday": [
+        {
+          "departure": "07:40",
+          "arrival": "07:57"
+        },
+        {
+          "departure": "08:50",
+          "arrival": "09:07"
+        },
+        {
+          "departure": "10:10",
+          "arrival": "10:27"
+        },
+        {
+          "departure": "11:25",
+          "arrival": "11:42"
+        },
+        {
+          "departure": "14:00",
+          "arrival": "14:17"
+        },
+        {
+          "departure": "15:25",
+          "arrival": "15:42"
+        },
+        {
+          "departure": "16:45",
+          "arrival": "17:02"
+        },
+        {
+          "departure": "18:25",
+          "arrival": "18:42"
+        }
+      ],
+      "holiday": [
+        {
+          "departure": "07:40",
+          "arrival": "07:57"
+        },
+        {
+          "departure": "08:50",
+          "arrival": "09:07"
+        },
+        {
+          "departure": "10:10",
+          "arrival": "10:27"
+        },
+        {
+          "departure": "11:25",
+          "arrival": "11:42"
+        },
+        {
+          "departure": "14:00",
+          "arrival": "14:17"
+        },
+        {
+          "departure": "15:25",
+          "arrival": "15:42"
+        },
+        {
+          "departure": "16:45",
+          "arrival": "17:02"
+        },
+        {
+          "departure": "18:25",
+          "arrival": "18:42"
+        }
+      ],
+      "platform": "研究学園駅 北口1番のりば",
+      "walkBufferMinutes": 5,
+      "realtimeUrl": "http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000007&bscd=001",
+      "trainArrival": null,
+      "sourceUrl": "https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/1001471.html",
+      "dateOverrides": {}
+    },
+    {
+      "id": "tc-oho",
+      "direction": "outbound",
+      "badge": "hokubu",
+      "fromStop": "つくばセンター",
+      "toStop": "大穂窓口センター",
+      "label": "つくばセンター → 大穂窓口センター",
+      "calendar": "tsukubus",
+      "weekday": [
+        {
+          "departure": "06:55",
+          "arrival": "07:13"
+        },
+        {
+          "departure": "07:20",
+          "arrival": "07:38"
+        },
+        {
+          "departure": "07:50",
+          "arrival": "08:08"
+        },
+        {
+          "departure": "08:25",
+          "arrival": "08:43"
+        },
+        {
+          "departure": "09:15",
+          "arrival": "09:33"
+        },
+        {
+          "departure": "09:40",
+          "arrival": "09:58"
+        },
+        {
+          "departure": "10:10",
+          "arrival": "10:28"
+        },
+        {
+          "departure": "10:45",
+          "arrival": "11:03"
+        },
+        {
+          "departure": "11:25",
+          "arrival": "11:43"
+        },
+        {
+          "departure": "11:50",
+          "arrival": "12:08"
+        },
+        {
+          "departure": "12:25",
+          "arrival": "12:43"
+        },
+        {
+          "departure": "13:00",
+          "arrival": "13:18"
+        },
+        {
+          "departure": "14:00",
+          "arrival": "14:18"
+        },
+        {
+          "departure": "14:35",
+          "arrival": "14:53"
+        },
+        {
+          "departure": "15:10",
+          "arrival": "15:28"
+        },
+        {
+          "departure": "16:10",
+          "arrival": "16:28"
+        },
+        {
+          "departure": "16:55",
+          "arrival": "17:13"
+        },
+        {
+          "departure": "17:30",
+          "arrival": "17:48"
+        },
+        {
+          "departure": "18:10",
+          "arrival": "18:28"
+        },
+        {
+          "departure": "18:50",
+          "arrival": "19:08"
+        },
+        {
+          "departure": "19:30",
+          "arrival": "19:48"
+        },
+        {
+          "departure": "20:10",
+          "arrival": "20:28"
+        },
+        {
+          "departure": "21:10",
+          "arrival": "21:28"
+        },
+        {
+          "departure": "21:50",
+          "arrival": "22:08"
+        },
+        {
+          "departure": "22:20",
+          "arrival": "22:38"
+        }
+      ],
+      "saturday": [
+        {
+          "departure": "07:10",
+          "arrival": "07:28"
+        },
+        {
+          "departure": "07:40",
+          "arrival": "07:58"
+        },
+        {
+          "departure": "08:25",
+          "arrival": "08:43"
+        },
+        {
+          "departure": "09:25",
+          "arrival": "09:43"
+        },
+        {
+          "departure": "10:10",
+          "arrival": "10:28"
+        },
+        {
+          "departure": "10:55",
+          "arrival": "11:13"
+        },
+        {
+          "departure": "11:40",
+          "arrival": "11:58"
+        },
+        {
+          "departure": "12:30",
+          "arrival": "12:48"
+        },
+        {
+          "departure": "13:10",
+          "arrival": "13:28"
+        },
+        {
+          "departure": "14:05",
+          "arrival": "14:23"
+        },
+        {
+          "departure": "14:50",
+          "arrival": "15:08"
+        },
+        {
+          "departure": "15:40",
+          "arrival": "15:58"
+        },
+        {
+          "departure": "16:50",
+          "arrival": "17:08"
+        },
+        {
+          "departure": "17:30",
+          "arrival": "17:48"
+        },
+        {
+          "departure": "18:20",
+          "arrival": "18:38"
+        },
+        {
+          "departure": "19:15",
+          "arrival": "19:33"
+        },
+        {
+          "departure": "19:55",
+          "arrival": "20:13"
+        },
+        {
+          "departure": "20:55",
+          "arrival": "21:13"
+        },
+        {
+          "departure": "21:40",
+          "arrival": "21:58"
+        },
+        {
+          "departure": "22:20",
+          "arrival": "22:38"
+        }
+      ],
+      "holiday": [
+        {
+          "departure": "07:10",
+          "arrival": "07:28"
+        },
+        {
+          "departure": "07:40",
+          "arrival": "07:58"
+        },
+        {
+          "departure": "08:25",
+          "arrival": "08:43"
+        },
+        {
+          "departure": "09:25",
+          "arrival": "09:43"
+        },
+        {
+          "departure": "10:10",
+          "arrival": "10:28"
+        },
+        {
+          "departure": "10:55",
+          "arrival": "11:13"
+        },
+        {
+          "departure": "11:40",
+          "arrival": "11:58"
+        },
+        {
+          "departure": "12:30",
+          "arrival": "12:48"
+        },
+        {
+          "departure": "13:10",
+          "arrival": "13:28"
+        },
+        {
+          "departure": "14:05",
+          "arrival": "14:23"
+        },
+        {
+          "departure": "14:50",
+          "arrival": "15:08"
+        },
+        {
+          "departure": "15:40",
+          "arrival": "15:58"
+        },
+        {
+          "departure": "16:50",
+          "arrival": "17:08"
+        },
+        {
+          "departure": "17:30",
+          "arrival": "17:48"
+        },
+        {
+          "departure": "18:20",
+          "arrival": "18:38"
+        },
+        {
+          "departure": "19:15",
+          "arrival": "19:33"
+        },
+        {
+          "departure": "19:55",
+          "arrival": "20:13"
+        },
+        {
+          "departure": "20:55",
+          "arrival": "21:13"
+        },
+        {
+          "departure": "21:40",
+          "arrival": "21:58"
+        },
+        {
+          "departure": "22:20",
+          "arrival": "22:38"
+        }
+      ],
+      "platform": "つくばセンター 3番のりば",
+      "walkBufferMinutes": 5,
+      "realtimeUrl": "http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000001&bscd=001",
+      "trainArrival": null,
+      "sourceUrl": "https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/1001471.html",
+      "dateOverrides": {}
+    },
+    {
+      "id": "bri-tc",
+      "direction": "inbound",
+      "badge": "kantetsu",
+      "fromStop": "建築研究所",
+      "toStop": "つくばセンター",
+      "label": "建築研究所 → つくばセンター",
+      "calendar": "bri",
+      "weekday": [
+        {
+          "departure": "09:15",
+          "arrival": "09:35"
+        },
+        {
+          "departure": "13:10",
+          "arrival": "13:30"
+        },
+        {
+          "departure": "17:20",
+          "arrival": "17:40"
+        },
+        {
+          "departure": "17:40",
+          "arrival": "18:01"
+        },
+        {
+          "departure": "18:55",
+          "arrival": "19:15"
+        },
+        {
+          "departure": "20:10",
+          "arrival": "20:30"
+        }
+      ],
+      "saturday": [],
+      "holiday": [],
+      "platform": "",
+      "walkBufferMinutes": 0,
+      "realtimeUrl": "https://navi.kanto-tetsudo.com/",
+      "trainArrival": "tsukuba",
+      "sourceUrl": "https://www.kantetsu.co.jp/cms/wp-content/themes/kr/pdf/bus/timetable_files/tc/tc04.pdf",
+      "dateOverrides": {}
+    },
+    {
+      "id": "nits-tc",
+      "direction": "inbound",
+      "badge": "kantetsu",
+      "fromStop": "教職員支援機構",
+      "toStop": "つくばセンター",
+      "label": "教職員支援機構 → つくばセンター",
+      "calendar": "shimotsuma",
+      "weekday": [
+        {
+          "departure": "06:37",
+          "arrival": "07:00"
+        },
+        {
+          "departure": "07:34",
+          "arrival": "08:05"
+        },
+        {
+          "departure": "11:32",
+          "arrival": "11:58"
+        },
+        {
+          "departure": "15:32",
+          "arrival": "15:58"
+        },
+        {
+          "departure": "17:59",
+          "arrival": "18:27"
+        }
+      ],
+      "saturday": [
+        {
+          "departure": "15:20",
+          "arrival": "15:40"
+        }
+      ],
+      "holiday": [],
+      "platform": "",
+      "walkBufferMinutes": 0,
+      "realtimeUrl": "https://navi.kanto-tetsudo.com/",
+      "trainArrival": "tsukuba",
+      "sourceUrl": "https://www.kantetsu.co.jp/cms/wp-content/themes/kr/pdf/bus/timetable_files/SM/SM01.pdf",
+      "dateOverrides": {}
+    },
+    {
+      "id": "nits-kg",
+      "direction": "inbound",
+      "badge": "yoshinuma",
+      "fromStop": "教職員支援機構",
+      "toStop": "研究学園駅",
+      "label": "教職員支援機構 → 研究学園駅",
+      "calendar": "tsukubus",
+      "weekday": [
+        {
+          "departure": "06:46",
+          "arrival": "07:15"
+        },
+        {
+          "departure": "07:31",
+          "arrival": "08:00"
+        },
+        {
+          "departure": "09:36",
+          "arrival": "10:05"
+        },
+        {
+          "departure": "10:36",
+          "arrival": "11:05"
+        },
+        {
+          "departure": "12:16",
+          "arrival": "12:45"
+        },
+        {
+          "departure": "13:41",
+          "arrival": "14:10"
+        },
+        {
+          "departure": "14:51",
+          "arrival": "15:20"
+        },
+        {
+          "departure": "16:45",
+          "arrival": "17:10"
+        },
+        {
+          "departure": "17:45",
+          "arrival": "18:15"
+        },
+        {
+          "departure": "19:40",
+          "arrival": "20:05"
+        }
+      ],
+      "saturday": [
+        {
+          "departure": "06:46",
+          "arrival": "07:15"
+        },
+        {
+          "departure": "08:06",
+          "arrival": "08:30"
+        },
+        {
+          "departure": "09:26",
+          "arrival": "09:50"
+        },
+        {
+          "departure": "10:41",
+          "arrival": "11:05"
+        },
+        {
+          "departure": "13:16",
+          "arrival": "13:45"
+        },
+        {
+          "departure": "14:46",
+          "arrival": "15:15"
+        },
+        {
+          "departure": "16:01",
+          "arrival": "16:30"
+        },
+        {
+          "departure": "17:41",
+          "arrival": "18:05"
+        }
+      ],
+      "holiday": [
+        {
+          "departure": "06:46",
+          "arrival": "07:15"
+        },
+        {
+          "departure": "08:06",
+          "arrival": "08:30"
+        },
+        {
+          "departure": "09:26",
+          "arrival": "09:50"
+        },
+        {
+          "departure": "10:41",
+          "arrival": "11:05"
+        },
+        {
+          "departure": "13:16",
+          "arrival": "13:45"
+        },
+        {
+          "departure": "14:46",
+          "arrival": "15:15"
+        },
+        {
+          "departure": "16:01",
+          "arrival": "16:30"
+        },
+        {
+          "departure": "17:41",
+          "arrival": "18:05"
+        }
+      ],
+      "platform": "",
+      "walkBufferMinutes": 0,
+      "realtimeUrl": "http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000008&bscd=016",
+      "trainArrival": "kenkyu",
+      "sourceUrl": "https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/1001471.html",
+      "dateOverrides": {}
+    },
+    {
+      "id": "oho-tc",
+      "direction": "inbound",
+      "badge": "hokubu",
+      "fromStop": "大穂窓口センター",
+      "toStop": "つくばセンター",
+      "label": "大穂窓口センター → つくばセンター",
+      "calendar": "tsukubus",
+      "weekday": [
+        {
+          "departure": "06:22",
+          "arrival": "06:45"
+        },
+        {
+          "departure": "06:47",
+          "arrival": "07:10"
+        },
+        {
+          "departure": "07:12",
+          "arrival": "07:35"
+        },
+        {
+          "departure": "07:47",
+          "arrival": "08:15"
+        },
+        {
+          "departure": "08:37",
+          "arrival": "09:05"
+        },
+        {
+          "departure": "09:02",
+          "arrival": "09:30"
+        },
+        {
+          "departure": "09:32",
+          "arrival": "09:55"
+        },
+        {
+          "departure": "10:07",
+          "arrival": "10:30"
+        },
+        {
+          "departure": "10:52",
+          "arrival": "11:15"
+        },
+        {
+          "departure": "11:17",
+          "arrival": "11:40"
+        },
+        {
+          "departure": "11:52",
+          "arrival": "12:15"
+        },
+        {
+          "departure": "12:27",
+          "arrival": "12:50"
+        },
+        {
+          "departure": "13:27",
+          "arrival": "13:50"
+        },
+        {
+          "departure": "14:02",
+          "arrival": "14:25"
+        },
+        {
+          "departure": "14:37",
+          "arrival": "15:00"
+        },
+        {
+          "departure": "15:37",
+          "arrival": "16:00"
+        },
+        {
+          "departure": "16:17",
+          "arrival": "16:45"
+        },
+        {
+          "departure": "16:47",
+          "arrival": "17:15"
+        },
+        {
+          "departure": "17:32",
+          "arrival": "18:00"
+        },
+        {
+          "departure": "18:12",
+          "arrival": "18:40"
+        },
+        {
+          "departure": "18:52",
+          "arrival": "19:20"
+        },
+        {
+          "departure": "19:27",
+          "arrival": "19:55"
+        },
+        {
+          "departure": "20:32",
+          "arrival": "20:55"
+        },
+        {
+          "departure": "21:12",
+          "arrival": "21:35"
+        },
+        {
+          "departure": "21:47",
+          "arrival": "22:10"
+        }
+      ],
+      "saturday": [
+        {
+          "departure": "06:27",
+          "arrival": "06:50"
+        },
+        {
+          "departure": "07:07",
+          "arrival": "07:30"
+        },
+        {
+          "departure": "07:47",
+          "arrival": "08:15"
+        },
+        {
+          "departure": "08:47",
+          "arrival": "09:15"
+        },
+        {
+          "departure": "09:32",
+          "arrival": "09:55"
+        },
+        {
+          "departure": "10:17",
+          "arrival": "10:40"
+        },
+        {
+          "departure": "11:07",
+          "arrival": "11:30"
+        },
+        {
+          "departure": "11:52",
+          "arrival": "12:15"
+        },
+        {
+          "departure": "12:32",
+          "arrival": "12:55"
+        },
+        {
+          "departure": "13:27",
+          "arrival": "13:50"
+        },
+        {
+          "departure": "14:17",
+          "arrival": "14:40"
+        },
+        {
+          "departure": "15:02",
+          "arrival": "15:25"
+        },
+        {
+          "departure": "16:12",
+          "arrival": "16:35"
+        },
+        {
+          "departure": "16:52",
+          "arrival": "17:20"
+        },
+        {
+          "departure": "17:37",
+          "arrival": "18:05"
+        },
+        {
+          "departure": "18:32",
+          "arrival": "19:00"
+        },
+        {
+          "departure": "19:12",
+          "arrival": "19:40"
+        },
+        {
+          "departure": "20:17",
+          "arrival": "20:45"
+        },
+        {
+          "departure": "21:02",
+          "arrival": "21:25"
+        },
+        {
+          "departure": "21:42",
+          "arrival": "22:05"
+        }
+      ],
+      "holiday": [
+        {
+          "departure": "06:27",
+          "arrival": "06:50"
+        },
+        {
+          "departure": "07:07",
+          "arrival": "07:30"
+        },
+        {
+          "departure": "07:47",
+          "arrival": "08:15"
+        },
+        {
+          "departure": "08:47",
+          "arrival": "09:15"
+        },
+        {
+          "departure": "09:32",
+          "arrival": "09:55"
+        },
+        {
+          "departure": "10:17",
+          "arrival": "10:40"
+        },
+        {
+          "departure": "11:07",
+          "arrival": "11:30"
+        },
+        {
+          "departure": "11:52",
+          "arrival": "12:15"
+        },
+        {
+          "departure": "12:32",
+          "arrival": "12:55"
+        },
+        {
+          "departure": "13:27",
+          "arrival": "13:50"
+        },
+        {
+          "departure": "14:17",
+          "arrival": "14:40"
+        },
+        {
+          "departure": "15:02",
+          "arrival": "15:25"
+        },
+        {
+          "departure": "16:12",
+          "arrival": "16:35"
+        },
+        {
+          "departure": "16:52",
+          "arrival": "17:20"
+        },
+        {
+          "departure": "17:37",
+          "arrival": "18:05"
+        },
+        {
+          "departure": "18:32",
+          "arrival": "19:00"
+        },
+        {
+          "departure": "19:12",
+          "arrival": "19:40"
+        },
+        {
+          "departure": "20:17",
+          "arrival": "20:45"
+        },
+        {
+          "departure": "21:02",
+          "arrival": "21:25"
+        },
+        {
+          "departure": "21:42",
+          "arrival": "22:05"
+        }
+      ],
+      "platform": "",
+      "walkBufferMinutes": 0,
+      "realtimeUrl": "http://tsukuba.city.bus-go.com/sp/sp-busgo-map.php?bccd=03080008&rtcd=000002&bscd=010",
+      "trainArrival": "tsukuba",
+      "sourceUrl": "https://www.city.tsukuba.lg.jp/kurashi/kotsu/bus/1001471.html",
+      "dateOverrides": {}
+    }
+  ]
+}
