@@ -71,11 +71,11 @@ canvas.heat,canvas.modeCanvas{border-radius:6px;border:1px solid #eef3fb;touch-a
           <div style="flex:1"><label>Ly [m]</label><input id="Ly" type="number" step="0.01" value="4.00"></div>
         </div>
         <div class="row controls-row">
-          <div style="flex:1"><label>Ngrid</label><input id="Ngrid" type="number" step="1" min="16" value="80"></div>
+          <div style="flex:1"><label>Ngrid（長辺方向の格子点数）</label><input id="Ngrid" type="number" step="1" min="16" value="40"></div>
           <div style="flex:1"><label>dx (m) — overrides Ngrid if &gt;0</label><input id="dx" type="number" step="0.01" value="0.00"></div>
         </div>
         <div class="row controls-row">
-          <div style="flex:1"><label>frames</label><input id="framesCount" type="number" min="16" max="4096" value="256"></div>
+          <div style="flex:1"><label>計算時間 [s]（周波数分解能 ≈ 1/計算時間）</label><input id="simDur" type="number" min="0.05" max="10" step="0.05" value="1.0"></div>
           <div style="flex:1"><label>f<sub>max,target</sub> [Hz]</label><input id="fmaxTarget" type="number" min="10" value="250"></div>
         </div>
         <div class="row controls-row">
@@ -260,7 +260,7 @@ async function startWorker(cfg){
         const r=msg.result;
         frames=r.framesBuf.map(buf=>new Float32Array(buf));
         lastResult={frames, Nx:r.Nx, Ny:r.Ny, dt:r.dt, Fs:r.Fs, xs:r.xs, ys:r.ys, dx:r.dx, Lx:r.Lx, Ly:r.Ly};
-        $('progressText').textContent=`完了 frames=${frames.length} Nx=${r.Nx} dt=${r.dt.toExponential(2)}s`;
+        $('progressText').textContent=`完了：${r.Nx}×${r.Ny} 格子、保存 ${frames.length} フレーム（Fs=${r.Fs.toFixed(0)} Hz、Δf≈${(r.Fs/frames.length).toFixed(2)} Hz）`;
         renderFrame(0); computeAndPlotFRF();
       }
     };
@@ -278,7 +278,7 @@ $('computeBtn').addEventListener('click', ()=>{
     const Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
     let Ngrid=parseInt($('Ngrid').value); const dx_in=parseFloat($('dx').value)||0;
     if(dx_in>0){ Ngrid=Math.ceil(Math.max(Lx,Ly)/dx_in)+1; Ngrid=Math.max(16,Ngrid); }
-    const framesCount=parseInt($('framesCount').value);
+    const simDur=Math.max(0.05, parseFloat($('simDur').value)||1.0);
     const fmaxTarget=Math.max(10, parseFloat($('fmaxTarget').value)||250);
     const mmax=parseInt($('mmax').value), nmax=parseInt($('nmax').value);
 
@@ -291,17 +291,23 @@ $('computeBtn').addEventListener('click', ()=>{
     modesAnalytic=buildModes(Lx,Ly,E,nu,rho,h,mmax,nmax); populateModeList(modesAnalytic);
 
     const D=D_of(E,h,nu), marea=rho*h;
-    const Nx=Ngrid, Ny=Ngrid;
-    const dx=Math.min(Lx/(Nx-1), Ly/(Ny-1));
-    const Cstab=0.25;
-    const dt_stab=Cstab*dx*dx*Math.sqrt(marea/(D||1e-30));
+    // Grid: Ngrid points along the longer side; Nx, Ny chosen so that the plate is exactly Lx × Ly.
+    const step0=Math.max(Lx,Ly)/(Ngrid-1);
+    const Nx=Math.max(4,Math.round(Lx/step0)+1), Ny=Math.max(4,Math.round(Ly/step0)+1);
+    const dx=Lx/(Nx-1), dy=Ly/(Ny-1), dmin=Math.min(dx,dy);
+    // Leapfrog stability for the biharmonic operator: dt ≤ dmin²/4·√(m/D); 0.2 leaves a margin.
+    const Cstab=0.2;
+    const dt_stab=Cstab*dmin*dmin*Math.sqrt(marea/(D||1e-30));
     const dt_res=1.0/(20*Math.max(1,fmaxTarget));
     const dt=Math.min(dt_stab, dt_res);
-    const Fs=1/Math.max(dt,1e-12);
+    const steps=Math.ceil(simDur/dt);
+    const saveEvery=Math.max(1, Math.floor(1/(8*fmaxTarget*dt)));   // stored frames at ≈ 8·fmax
+    const nFrames=Math.floor(steps/saveEvery);
+    if(nFrames*Nx*Ny*4 > 400e6) throw new Error(`保存データが大きすぎます（${(nFrames*Nx*Ny*4/1e6).toFixed(0)} MB）。計算時間か Ngrid を小さくしてください。`);
 
-    $('progressFill').style.width='0%'; $('progressText').textContent='計算中...';
+    $('progressFill').style.width='0%'; $('progressText').textContent=`計算中…（${Nx}×${Ny} 格子、${steps.toLocaleString()} ステップ、保存 ${nFrames} フレーム）`;
 
-    startWorker({E,nu,rho,h,Lx,Ly,Ngrid,dx,dt,Fs,framesToSave:framesCount,x0,y0,modesLight:modesAnalytic.slice(0,64)});
+    startWorker({E,nu,rho,h,Lx,Ly,Nx,Ny,dx,dy,dt,steps,saveEvery,x0,y0,modesLight:modesAnalytic.slice(0,64)});
   }catch(err){ showError('compute start failed: '+(err?.message||String(err))); }
 });
 $('abortBtn').onclick=()=>{ try{ if(worker) worker.terminate(); }catch(_){} worker=null; $('progressFill').style.width='0%'; $('progressText').textContent='キャンセル済み'; };
@@ -326,7 +332,8 @@ function startModeAnimation(mode){
   currentMode=mode;
   const canvas=$('modeCanvas'); const {W,H}=currentDisplaySize(); const ctx=resizeCanvasForDisplay(canvas,W,H);
   const Ngrid=parseInt($('Ngrid').value), Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
-  const Nx=Ngrid, Ny=Ngrid; const xs=new Array(Nx), ys=new Array(Ny);
+  const Nx=lastResult?lastResult.Nx:Ngrid, Ny=lastResult?lastResult.Ny:Math.max(4,Math.round(Ngrid*Ly/Math.max(Lx,Ly)));
+  const xs=new Array(Nx), ys=new Array(Ny);
   for(let i=0;i<Nx;i++) xs[i]=Lx*i/(Nx-1); for(let j=0;j<Ny;j++) ys[j]=Ly*j/(Ny-1);
   const phiArr=new Float64Array(Nx*Ny); let maxabs=0;
   for(let j=0;j<Ny;j++) for(let i=0;i<Nx;i++){ const v=Math.sin(mode.m*Math.PI*xs[i]/Lx)*Math.sin(mode.n*Math.PI*ys[j]/Ly); phiArr[j*Nx+i]=v; if(Math.abs(v)>maxabs) maxabs=Math.abs(v); }

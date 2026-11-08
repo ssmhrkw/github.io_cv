@@ -114,6 +114,7 @@
 
     // 定数と状態
     const ANALYSIS_SEC = 0.5;      // 固定（UI非表示）
+    const SETTLE_SEC = 0.25;       // 帯域フィルタの立ち上がりを除く区間（先頭から）
     const ORDER_N = 36;            // 指定通り固定
     const P0 = 2e-5;               // 参照音圧（差分計算ではキャンセルするが明示）
 
@@ -218,7 +219,7 @@
       return L;
     }
 
-    // 解析: 先頭0.5s切り出し → BPフィルタ → SPL → Gain
+    // 解析: 先頭0.75s → BPフィルタ → 立ち上がり0.25sを除いた0.5sでSPL → Gain
     function analyzeAll(){
       const fs = g.fs;
       const nwin = Math.max(1, Math.round(ANALYSIS_SEC * fs));
@@ -227,14 +228,17 @@
 
       for(let ch=0; ch<g.nch; ch++){
         const xfull = g.chData[ch];
-        const xcal = xfull.subarray(0, Math.min(nwin, xfull.length));
+        // 先頭 SETTLE_SEC はフィルタの立ち上がりなので捨て、その後の ANALYSIS_SEC で評価する
+        const nskip = Math.min(Math.round(SETTLE_SEC * fs), Math.max(0, xfull.length - nwin));
+        const xseg = xfull.subarray(0, Math.min(nskip + nwin, xfull.length));
+        const xcal = xseg.subarray(nskip);
 
         // 前処理: Vrms (未フィルタ)
         const vrms = rms(xcal);
 
         // 1/1 Oct バンドパス N=36
-        const sos = designButterworthBandpassSOS_N(fcal, fs, ORDER_N);
-        const y = sosFilter(xcal, sos);
+        const sos = designButterworthBandpassSOS_N(fcal, fs, ORDER_N, 1);   // 1/1 octave
+        const y = sosFilter(xseg, sos).subarray(nskip);
 
         // Filtered SPL
         const Lfiltered = splFromSignal(y, fs);
@@ -268,8 +272,6 @@
         els.loadBtn.disabled = false;
       }
     });
-
-    els.calculate-btn?.addEventListener?.('click', ()=>{}); // 型安全用ダミー
 
     els.calcBtn.addEventListener('click', ()=>{
       if(!g.chData.length){ alert('先にファイルを読み込んでください。'); return; }

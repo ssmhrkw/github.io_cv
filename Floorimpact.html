@@ -151,7 +151,7 @@
             <div id="gradeBadge" class="badge bg-gray-200">-</div>
             <div id="lnum" class="text-xl font-bold text-gray-500">-</div>
         </div>
-        <div class="text-xs text-gray-400 mt-2">基準曲線: L-50 [88, 76, 69, 62]</div>
+        <div class="text-xs text-gray-400 mt-2">基準曲線: L-50 [73, 63, 56, 50] dB（63/125/250/500 Hz、各帯域の許容なし）</div>
       </div>
       
       <div class="flex-1 p-6 bg-white rounded-xl border border-gray-200 grid grid-cols-2 gap-4 shadow-sm">
@@ -162,6 +162,10 @@
         <div>
             <div class="text-xs text-gray-500 mb-1">コインシデンス周波数 fc</div>
             <div id="res_fc" class="text-xl font-mono font-bold text-gray-700">-</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-500 mb-1">一次固有振動数 f0（×0.8）</div>
+            <div id="res_f0" class="text-xl font-mono font-bold text-gray-700">-</div>
         </div>
         <div class="col-span-2 border-t border-gray-100 pt-2 mt-2">
             <div class="text-xs text-gray-500 mb-1">物理定数メモ</div>
@@ -198,7 +202,9 @@ const Z_DROP_CHARS = {
   "63":   {63:-12, 125:-9,  250:-6, 500:-3},
   "125":  {63:-9,  125:-6,  250:-3, 500:0}
 };
-const L_BASE_50 = {63: 88, 125: 76, 250: 69, 500: 62};
+// L-50 reference curve (63/125/250/500 Hz). Same values as NA28_FIC.html, shtest.html and slab-thickness*.html.
+// The earlier 88/76/69/62 equalled the L-60 curve of shtest.html (+10 to +15 dB) and graded slabs too favourably.
+const L_BASE_50 = {63: 73, 125: 63, 250: 56, 500: 50};
 
 // --- 計算関数 ---
 
@@ -321,6 +327,7 @@ function calculate() {
     // 4. 各点計算
     const lam_theta = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f_theta));
     const pts = [];
+    const seffByBand = {};
     let sumEnergy = {};
     BANDS.forEach(f => sumEnergy[f] = 0);
 
@@ -371,6 +378,7 @@ function calculate() {
         
         const Seff = Math.max(0.1, Lx_eff) * Math.max(0.1, Ly_eff);
         const tenLogSe = 10 * Math.log10(Seff);
+        seffByBand[f] = Seff;
 
         // Lyon-Maidanik Calculation (Dynamic k)
         const sigma = calcSigma(f, fc, S_room, U_room);
@@ -383,15 +391,15 @@ function calculate() {
         spectrum[f] = L_val;
         LzTheta_vals[f] = Lz0 + dLz;
         LzB_vals[f] = LzT;
-        sumEnergy[f] += Math.pow(10, L_val/10);
+        sumEnergy[f] += L_val;   // excitation points are combined by arithmetic mean (as in field measurement)
       });
       pts.push({id: i, dLz, spectrum, LzTheta: LzTheta_vals, LzB: LzB_vals});
     }
 
     const avg = {};
-    BANDS.forEach(f => avg[f] = 10 * Math.log10(sumEnergy[f] / pts.length));
+    BANDS.forEach(f => avg[f] = sumEnergy[f] / pts.length);
     
-    renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S_room, U_room);
+    renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S_room, U_room, seffByBand);
 
   } catch(e) {
     alert("計算エラーが発生しました。入力値を確認してください。\n" + e.message);
@@ -399,7 +407,7 @@ function calculate() {
   }
 }
 
-function renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S, U) {
+function renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S, U, seffByBand) {
   document.getElementById('out').classList.remove('hidden');
   document.getElementById('res_Lz0').innerText = Lz0.toFixed(1) + " dB";
   document.getElementById('res_f0').innerText = f0.toFixed(1) + " Hz";
@@ -427,28 +435,18 @@ function renderTable(pts, avg, Lz0, f0, fc, tenLogA, h, cl, S, U) {
   pts.forEach(p => addRow(`(4) 20log Zb (S${p.id})`, f => p.LzB[f], 'sub-row', 'dB'));
   addRow("(5) 曲げ波の波長 λb", f => Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f)), '', 'm');
   
-  // Seff (Display reference for 4-side rigid condition for simplicity)
-  addRow("(6) 有効放射面積 Seff (参考)", f => {
-     const lam = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f));
-     const Lx = parseFloat(document.getElementById('a_mm').value)/1000 - lam/2;
-     const Ly = parseFloat(document.getElementById('b_mm').value)/1000 - lam/2;
-     return Math.max(0, Lx*Ly);
-  }, '', 'm²');
-
-  addRow("(7) 10log Seff (参考)", f => {
-     const lam = Math.sqrt((Math.PI * cl * h) / (Math.sqrt(3) * f));
-     const Lx = parseFloat(document.getElementById('a_mm').value)/1000 - lam/2;
-     const Ly = parseFloat(document.getElementById('b_mm').value)/1000 - lam/2;
-     return 10*Math.log10(Math.max(1e-5, Lx*Ly));
-  }, '', 'dB');
+  // Seff as used in (12): λb/4 removed for each supported room edge (受音室 周辺支持条件), each side ≥ 0.1 m
+  addRow("(6) 有効放射面積 Seff", f => seffByBand[f], '', 'm²');
+  addRow("(7) 10log Seff", f => 10 * Math.log10(seffByBand[f]), '', 'dB');
 
   // (8) 10log k (Dynamic Calculation)
   addRow("(8) 音響放射係数 10log k", f => 10 * Math.log10(calcSigma(f, fc, S, U)), 'font-bold text-indigo-700 bg-indigo-50', 'dB');
   
-  addRow("(10) 室吸音力 10log A", f => tenLogA, '', 'dB');
-  addRow("(11) 時定数補正 ΔC", f => DELTA_C[f], '', 'dB');
-  pts.forEach(p => addRow(`(12) L (S${p.id})`, f => p.spectrum[f], 'sub-row', 'dB'));
-  addRow("平均床衝撃音レベル LH", f => avg[f], 'highlight', 'dB');
+  addRow("(9) 室吸音力 10log A", f => tenLogA, '', 'dB');
+  addRow("(10) 時定数補正 ΔC", f => DELTA_C[f], '', 'dB');
+  addRow("(11) 定数", f => 152, '', 'dB');
+  pts.forEach(p => addRow(`(12) L (S${p.id}) = (1)−(4)+(7)+(8)−(9)+(10)+(11)`, f => p.spectrum[f], 'sub-row', 'dB'));
+  addRow("(13) 加振点の算術平均 LH", f => avg[f], 'highlight', 'dB');
   
   tbody.innerHTML = html;
 }

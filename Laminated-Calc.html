@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>統合版 音響シミュレーター (Web版) - 最終修正版</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         /* 基本スタイル */
@@ -91,6 +90,11 @@
             <pre id="prop-a-label" class="prop-label">N/A</pre>
         </fieldset>
         <fieldset>
+            <legend>コインシデンス</legend>
+            <label>全損失係数 η: <input type="number" id="eta-input" value="0.01" step="0.001" min="0.0001" style="width: 100%;"></label>
+            <div class="prop-label">臨界周波数 f<sub>c</sub> 以上の透過損失に使います（Sharp の方法）。取付けや端部の損失を含む値を入れてください。材料の内部損失（例 0.005）だけだと落ち込みが深く出ます。</div>
+        </fieldset>
+        <fieldset>
             <legend>中間層</legend>
             <label>空気層の厚さ (mm): <input type="number" id="air-gap-input" value="0" style="width: 100%;"></label>
             <label>吸音材: <select id="absorbent-select" style="width: 100%;"></select></label>
@@ -132,7 +136,8 @@
 
 <script>
     // 定数とUI要素の定義
-    const MATERIAL_PROPERTIES = { "手動入力": { "rho": 0, "E": 0, "nu": 0 }, "コンクリート": { "rho": 2.3e3, "E": 2.1e10, "nu": 0.005 }, "軽量コンクリート": { "rho": 1.5e3, "E": 0.5e10, "nu": 0.005 }, "発泡コンクリート": { "rho": 0.6e3, "E": 0.16e10, "nu": 0.005 }, "石こうボード": { "rho": 0.8e3, "E": 0.18e10, "nu": 0.005 }, "特殊石こうボード": { "rho": 1.1e3, "E": 0.2e10, "nu": 0.005 }, "フレキシブル板": { "rho": 1.9e3, "E": 0.2e10, "nu": 0.005 }, "ハードボード": { "rho": 0.9e3, "E": 0.6e10, "nu": 0.005 }, "合板": { "rho": 0.6e3, "E": 0.5e10, "nu": 0.30 }, "コルク": { "rho": 0.25e3, "E": 6e7, "nu": 0.30 }, "ガラス": { "rho": 2500, "E": 70.0e9, "nu": 0.23 }, "硬質塩ビ": { "rho": 1.4e3, "E": 0.35e10, "nu": 0.012 }, "ゴム(硬度50)": { "rho": 1.11e3, "E": 0.46e7, "nu": 0.1 } };
+    // rho [kg/m3], E [Pa], nu: Poisson ratio, eta: internal loss factor (same values as plates.html)
+    const MATERIAL_PROPERTIES = { "手動入力": { "rho": 0, "E": 0, "nu": 0.3, "eta": 0.01 }, "コンクリート": { "rho": 2.3e3, "E": 2.1e10, "nu": 0.20, "eta": 0.005 }, "軽量コンクリート": { "rho": 1.5e3, "E": 0.5e10, "nu": 0.20, "eta": 0.005 }, "発泡コンクリート": { "rho": 0.6e3, "E": 0.16e10, "nu": 0.20, "eta": 0.005 }, "石こうボード": { "rho": 0.8e3, "E": 0.18e10, "nu": 0.30, "eta": 0.005 }, "特殊石こうボード": { "rho": 1.1e3, "E": 0.2e10, "nu": 0.30, "eta": 0.005 }, "フレキシブル板": { "rho": 1.9e3, "E": 0.2e10, "nu": 0.30, "eta": 0.005 }, "ハードボード": { "rho": 0.9e3, "E": 0.6e10, "nu": 0.30, "eta": 0.005 }, "合板": { "rho": 0.6e3, "E": 0.5e10, "nu": 0.30, "eta": 0.005 }, "コルク": { "rho": 0.25e3, "E": 6e7, "nu": 0.30, "eta": 0.005 }, "ガラス": { "rho": 2500, "E": 70.0e9, "nu": 0.23, "eta": 0.005 }, "硬質塩ビ": { "rho": 1.4e3, "E": 0.35e10, "nu": 0.35, "eta": 0.012 }, "ゴム(硬度50)": { "rho": 1.11e3, "E": 0.46e7, "nu": 0.49, "eta": 0.10 } };
     const ABSORBENT_PROPERTIES = { "なし": { "resistivity": 0 }, "グラスウール (24k)": { "resistivity": 8000 }, "グラスウール (32k)": { "resistivity": 12000 }, "手動入力": { "resistivity": -1 } };
     const FREQS = [50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000];
     let layer_data_a = [], layer_data_b = [];
@@ -141,6 +146,17 @@
     
     // 計算ロジック
     const calculatePanelProperties = (layers) => { if (!layers || layers.length === 0) return { thick: 0, m_prime: 0, stiff: 0, fc: Infinity }; const total_thickness = layers.reduce((sum, l) => sum + l.h, 0); const total_surface_density = layers.reduce((sum, l) => sum + l.rho * l.h, 0); const total_bending_stiffness = layers.reduce((sum, l) => { if (l.mat === '空気層') return sum; return sum + (l.E * Math.pow(l.h, 3)) / (12 * (1 - Math.pow(l.nu, 2))); }, 0); const c0 = 343.0; const fc_total = (total_bending_stiffness > 0) ? (Math.pow(c0, 2) / (2 * Math.PI)) * Math.sqrt(total_surface_density / total_bending_stiffness) : Infinity; return { thick: total_thickness, m_prime: total_surface_density, stiff: total_bending_stiffness, fc: fc_total }; };
+    /* Single panel with coincidence (Sharp 1978): mass law below fc/2, Cremer's law above fc
+       R = 20log(m'f) − 47 + 10log(2ηf/(π fc)), straight line on log f in between. */
+    const panelTL = (props, freqs, eta) => {
+        const { random: mass } = calculateRandomIncidenceTL(props.m_prime, freqs);
+        const fc = props.fc;
+        if (!Number.isFinite(fc) || !(eta > 0) || !(props.m_prime > 0)) return mass;
+        const Rc = f => 20 * Math.log10(props.m_prime * f) - 47 + 10 * Math.log10(2 * eta * f / (Math.PI * fc));
+        const Rhalf = calculateRandomIncidenceTL(props.m_prime, [fc / 2]).random[0], Rfc = Rc(fc);
+        return freqs.map((f, i) => f < fc / 2 ? mass[i] : f >= fc ? Rc(f) : Rhalf + (Rfc - Rhalf) * Math.log(f / (fc / 2)) / Math.LN2);
+    };
+    const readEta = () => { const v = parseFloat(document.getElementById('eta-input').value); return v > 0 ? v : 0.01; };
     const calculateRandomIncidenceTL = (m_prime, freqs) => { const tl_normal = freqs.map(f => 20 * Math.log10(m_prime * f) - 42.5); const tl_random = tl_normal.map(tl0 => { if (tl0 <= 0) return tl0; const log_arg = 0.23 * tl0; return tl0 - 10 * Math.log10(log_arg); }); return { normal: tl_normal, random: tl_random }; };
     
     // 計算式表示ロジック
@@ -148,13 +164,13 @@
         let html = '';
         switch (type) {
             case 'single':
-                html = `<h5>単層パネル（質量則）</h5><p>以下の質量則の近似式（ランダム入射）を用いて計算しています。</p><p><b>垂直入射:</b> $$ TL_0 \\approx 20 \\log_{10}(m'f) - 42.5 \\; (dB) $$</p><p><b>ランダム入射:</b> $$ TL_R \\approx TL_0 - 10 \\log_{10}(0.23 \\cdot TL_0) \\; (dB) $$</p><p>ここで、<br>\\(m'\\): パネルの面密度 (${props.m_prime.toFixed(1)} kg/m²)<br>\\(f\\): 周波数 (Hz)</p>`;
+                html = `<h5>単層パネル（質量則）</h5><p>以下の質量則の近似式（ランダム入射）を用いて計算しています。</p><p><b>垂直入射:</b> $$ TL_0 \\approx 20 \\log_{10}(m'f) - 42.5 \\; (dB) $$</p><p><b>ランダム入射:</b> $$ TL_R \\approx TL_0 - 10 \\log_{10}(0.23 \\cdot TL_0) \\; (dB) $$</p><p>ここで、<br>\\(m'\\): パネルの面密度 (${props.m_prime.toFixed(1)} kg/m²)<br>\\(f\\): 周波数 (Hz)</p><p><b>コインシデンス（Sharp の方法）:</b> \\(f < f_c/2\\) は上の質量則、\\(f \\ge f_c\\) は $$ TL \\approx 20\\log_{10}(m'f) - 47 + 10\\log_{10}\\frac{2\\eta f}{\\pi f_c} $$ その間は対数周波数で直線補間。\\(f_c\\) = ${Number.isFinite(props.fc) ? props.fc.toFixed(0) + ' Hz' : '—'}、\\(\\eta\\) = ${readEta()}。</p>`;
                 break;
             case 'laminated':
-                html = `<h5>積層パネル（等価単層モデル）</h5><p>積層パネルを、物性値が等価な一枚のパネルと見なして計算しています。<b>この計算は簡略化されたモデルであり、あくまで参考値です。</b></p><p><b>等価面密度 (\\(m'_{eq}\\)):</b> $$ m'_{eq} = \\sum_{i=1}^{n} \\rho_i h_i = ${props.m_prime.toFixed(1)} \\; (kg/m^2) $$</p><p><b>等価曲げ剛性 (\\(B_{eq}\\)):</b> $$ B_{eq} \\approx \\sum_{i=1}^{n} \\frac{E_i h_i^3}{12(1-\\nu_i^2)} $$</p><p>これらの等価物性値を用いて、単層パネルの質量則および臨界周波数を計算しています。</p>`;
+                html = `<h5>積層パネル（等価単層モデル）</h5><p>積層パネルを、物性値が等価な一枚のパネルと見なして計算しています。<b>この計算は簡略化されたモデルであり、あくまで参考値です。</b></p><p><b>等価面密度 (\\(m'_{eq}\\)):</b> $$ m'_{eq} = \\sum_{i=1}^{n} \\rho_i h_i = ${props.m_prime.toFixed(1)} \\; (kg/m^2) $$</p><p><b>等価曲げ剛性 (\\(B_{eq}\\)):</b> $$ B_{eq} \\approx \\sum_{i=1}^{n} \\frac{E_i h_i^3}{12(1-\\nu_i^2)} $$</p><p>これらの等価物性値を用いて、単層パネルの質量則および臨界周波数を計算しています。</p><p><b>コインシデンス（Sharp の方法）:</b> \\(f < f_c/2\\) は上の質量則、\\(f \\ge f_c\\) は $$ TL \\approx 20\\log_{10}(m'f) - 47 + 10\\log_{10}\\frac{2\\eta f}{\\pi f_c} $$ その間は対数周波数で直線補間。\\(f_c\\) = ${Number.isFinite(props.fc) ? props.fc.toFixed(0) + ' Hz' : '—'}、\\(\\eta\\) = ${readEta()}。</p>`;
                 break;
             case 'double':
-                html = `<h5>二重壁</h5><p>周波数帯域に応じて、以下の式を用いて計算しています。</p><p><b>共鳴周波数 (\\(f_0\\)):</b> $$ f_0 = \\frac{1}{2\\pi} \\sqrt{\\frac{\\rho_0 c_0^2 (m'_1 + m'_2)}{d \\cdot m'_1 m'_2}} = ${props.f0.toFixed(1)} \\; (Hz) $$</p><p><b>低周波域 (\\(f < f_0\\)):</b><br>パネル全体を一つの質量と見なす質量則で計算します。$$ TL_R \\approx 20 \\log_{10}((m'_1 + m'_2)f) - 47.5 $$</p><p><b>中高周波域 (\\(f > f_0\\)):</b><br>各パネルの透過損失と空気層の効果を考慮して計算します。$$ TL_R \\approx TL_{R1} + TL_{R2} + 20 \\log_{10}(fd) - 29 $$</p><p>ここで、<br>\\(m'_1\\): パネルAの面密度 (${props.m1.toFixed(1)} kg/m²)<br>\\(m'_2\\): パネルBの面密度 (${props.m2.toFixed(1)} kg/m²)<br>\\(d\\): 空気層の厚さ (${(props.d * 1000).toFixed(1)} mm)<br>\\(TL_{R1}, TL_{R2}\\): 各単層パネルの透過損失</p>`;
+                html = `<h5>二重壁</h5><p>周波数帯域に応じて、以下の式を用いて計算しています。</p><p><b>共鳴周波数 (\\(f_0\\)):</b> $$ f_0 = \\frac{1}{2\\pi} \\sqrt{\\frac{\\rho_0 c_0^2 (m'_1 + m'_2)}{d \\cdot m'_1 m'_2}} = ${props.f0.toFixed(1)} \\; (Hz) $$</p><p><b>低周波域 (\\(f < f_0\\)):</b><br>パネル全体を一つの質量と見なす質量則で計算します。$$ TL_R \\approx 20 \\log_{10}((m'_1 + m'_2)f) - 47.5 $$</p><p><b>中高周波域 (\\(f > f_0\\)):</b><br>各パネルの透過損失と空気層の効果を考慮して計算します。$$ TL_R \\approx TL_{R1} + TL_{R2} + 20 \\log_{10}(fd) - 29 $$</p><p><b>高周波域 (\\(f \\ge f_l = c_0/(2\\pi d)\\)):</b> $$ TL_R \\approx TL_{R1} + TL_{R2} + 6 $$ \\(f_l\\) = ${Number.isFinite(props.fl) ? props.fl.toFixed(0) + ' Hz' : '—'}（Sharp 1978）。各パネルの \\(TL_{R1}, TL_{R2}\\) はコインシデンスを含みます。</p><p>ここで、<br>\\(m'_1\\): パネルAの面密度 (${props.m1.toFixed(1)} kg/m²)<br>\\(m'_2\\): パネルBの面密度 (${props.m2.toFixed(1)} kg/m²)<br>\\(d\\): 空気層の厚さ (${(props.d * 1000).toFixed(1)} mm)<br>\\(TL_{R1}, TL_{R2}\\): 各単層パネルの透過損失</p>`;
                 break;
             default:
                 html = '<p>計算を実行すると、ここに適用された計算式が表示されます。</p>';
@@ -173,17 +189,18 @@
             updatePanelPropertiesDisplay('A'); updatePanelPropertiesDisplay('B');
             const propsA = calculatePanelProperties(layer_data_a); const propsB = calculatePanelProperties(layer_data_b); const is_double_wall = layer_data_a.length > 0 && layer_data_b.length > 0;
             if (is_double_wall) {
-                const d = parseFloat(ui.airGapInput.value) / 1000; const absorbent_name = ui.absorbentSelect.value; const flow_resistivity = (absorbent_name === "手動入力") ? parseFloat(ui.flowResistInput.value) : ABSORBENT_PROPERTIES[absorbent_name].resistivity; const c0 = 343.0, rho0 = 1.2; const f0 = (d > 0) ? (1/(2*Math.PI)) * Math.sqrt((rho0*Math.pow(c0,2) * (propsA.m_prime + propsB.m_prime)) / (d * propsA.m_prime * propsB.m_prime)) : Infinity; const { random: stl_a } = calculateRandomIncidenceTL(propsA.m_prime, FREQS); const { random: stl_b } = calculateRandomIncidenceTL(propsB.m_prime, FREQS); const { random: stl_total_mass } = calculateRandomIncidenceTL(propsA.m_prime + propsB.m_prime, FREQS);
-                let stl_double = FREQS.map((f, i) => { if (f < f0) return stl_total_mass[i]; return (d > 0) ? stl_a[i] + stl_b[i] + 20*Math.log10(f*d) - 29 : stl_a[i] + stl_b[i]; });
+                const d = parseFloat(ui.airGapInput.value) / 1000; const absorbent_name = ui.absorbentSelect.value; const flow_resistivity = (absorbent_name === "手動入力") ? parseFloat(ui.flowResistInput.value) : ABSORBENT_PROPERTIES[absorbent_name].resistivity; const c0 = 343.0, rho0 = 1.2; const f0 = (d > 0) ? (1/(2*Math.PI)) * Math.sqrt((rho0*Math.pow(c0,2) * (propsA.m_prime + propsB.m_prime)) / (d * propsA.m_prime * propsB.m_prime)) : Infinity; const eta = readEta(); const stl_a = panelTL(propsA, FREQS, eta); const stl_b = panelTL(propsB, FREQS, eta); const { random: stl_total_mass } = calculateRandomIncidenceTL(propsA.m_prime + propsB.m_prime, FREQS);
+                const fl = (d > 0) ? c0 / (2 * Math.PI * d) : Infinity; // above fl the cavity gives a constant +6 dB (Sharp 1978)
+                let stl_double = FREQS.map((f, i) => { if (f < f0) return stl_total_mass[i]; if (d <= 0) return stl_a[i] + stl_b[i]; return f < fl ? stl_a[i] + stl_b[i] + 20*Math.log10(f*d) - 29 : stl_a[i] + stl_b[i] + 6; });
                 if (flow_resistivity > 0) { const dip_depth_reduction = Math.min(10, flow_resistivity / 2000); const performance_gain = 5 * (1 - Math.exp(-flow_resistivity / 10000)); stl_double = stl_double.map(val => val + performance_gain); const f0_index = FREQS.reduce((i, f, idx, arr) => Math.abs(f - f0) < Math.abs(arr[i] - f0) ? idx : i, 0); if (d > 0) stl_double[f0_index] -= (12 - dip_depth_reduction); }
                 ui.f0Value.textContent = (d > 0) ? `${f0.toFixed(1)} Hz` : "N/A (密着)"; updatePlot(ui.stlChart, 'stl-chart', FREQS, [{label: 'パネルA 全体', data: stl_a}, {label: 'パネルB 全体', data: stl_b}, {label: '二重壁 合成', data: stl_double}], '二重壁の透過損失'); updateSummaryTable(FREQS, stl_double); results_df = { 'Frequency (Hz)': FREQS, 'STL_Panel_A_Random (dB)': stl_a, 'STL_Panel_B_Random (dB)': stl_b, 'STL_Double_Wall (dB)': stl_double };
-                updateFormulaDisplay('double', { m1: propsA.m_prime, m2: propsB.m_prime, d: d, f0: f0 });
+                updateFormulaDisplay('double', { m1: propsA.m_prime, m2: propsB.m_prime, d: d, f0: f0, fl: fl });
             } else {
-                const props_single = layer_data_a.length > 0 ? propsA : propsB; const panel_name = layer_data_a.length > 0 ? "パネルA" : "パネルB"; const { normal: stl_normal, random: stl_random } = calculateRandomIncidenceTL(props_single.m_prime, FREQS);
+                const props_single = layer_data_a.length > 0 ? propsA : propsB; const panel_name = layer_data_a.length > 0 ? "パネルA" : "パネルB"; const { normal: stl_normal } = calculateRandomIncidenceTL(props_single.m_prime, FREQS); const stl_random = panelTL(props_single, FREQS, readEta());
                 ui.f0Value.textContent = "N/A (単層)"; updatePlot(ui.stlChart, 'stl-chart', FREQS, [{label: `${panel_name} (垂直入射)`, data: stl_normal}, {label: `${panel_name} (ランダム入射)`, data: stl_random}], '単層パネルの透過損失'); updateSummaryTable(FREQS, stl_random);
                 results_df = { 'Frequency (Hz)': FREQS, [`STL_${panel_name}_Normal (dB)`]: stl_normal, [`STL_${panel_name}_Random (dB)`]: stl_random };
                 const is_laminated = (layer_data_a.length > 1) || (layer_data_b.length > 1);
-                if (is_laminated) { updateFormulaDisplay('laminated', { m_prime: props_single.m_prime }); } else { updateFormulaDisplay('single', { m_prime: props_single.m_prime }); }
+                if (is_laminated) { updateFormulaDisplay('laminated', { m_prime: props_single.m_prime, fc: props_single.fc }); } else { updateFormulaDisplay('single', { m_prime: props_single.m_prime, fc: props_single.fc }); }
             }
         } catch (e) { alert(`計算エラー: ${e.message}`); }
     };
@@ -223,7 +240,7 @@
     // 初期化処理
     document.addEventListener('DOMContentLoaded', () => {
         Object.keys(MATERIAL_PROPERTIES).forEach(name => ui.modalMatSelect.add(new Option(name, name))); Object.keys(ABSORBENT_PROPERTIES).forEach(name => ui.absorbentSelect.add(new Option(name, name))); ui.absorbentSelect.value = "なし"; ui.calcButton.addEventListener('click', calculateAll); ui.exportCsvButton.addEventListener('click', exportToCsv); ui.absorbentSelect.addEventListener('change', onAbsorbentSelect); ui.modalMatSelect.addEventListener('change', onModalMatChange); ui.modalOkBtn.addEventListener('click', saveLayer); ui.modalCancelBtn.addEventListener('click', closeModal);
-        layer_data_a.push({mat: 'コンクリート', h: 0.150, rho: 2300, E: 2.1e10, nu: 0.005}); layer_data_b.push({mat: '石こうボード', h: 0.0125, rho: 800, E: 0.18e10, nu: 0.005});
+        layer_data_a.push({mat: 'コンクリート', h: 0.150, rho: 2300, E: 2.1e10, nu: 0.20}); layer_data_b.push({mat: '石こうボード', h: 0.0125, rho: 800, E: 0.18e10, nu: 0.30});
         updateLayerTree('A'); updateLayerTree('B'); updatePanelPropertiesDisplay('A'); updatePanelPropertiesDisplay('B'); onAbsorbentSelect(); calculateAll();
     });
 </script>

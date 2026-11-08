@@ -9,42 +9,58 @@
 - 仕事上のコミュニケーションをとる上であったらいいな、とおもったものを対象にしている。
 - 測定のあと同じルーティーン。やることもおなじ。だったらGUI化してしまえー速報値はさっさとみたい！
 
-[index](https://ssmhrkw.github.io/github.io_cv/index.html).
+[index](https://ssmhrkw.github.io/github.io_cv/index.html)
+
 ## 🛠️ 公開ツール (HTML Files)
 
 | ツール名 | ファイル名 (リンク) | 主な機能/概要 |
 | :--- | :--- | :--- |
-| **CSV Segmenter** | [CSV_Segmenter.html](https://ssmhrkw.github.io/github.io_cv/CSV_Segmenter.html) | CSVファイルのセグメンテーション（区切り、分割）を行うツールです。 |
-| **Filter Design** | [FilterDesign.html](https://ssmhrkw.github.io/github.io_cv/FilterDesign.html) | フィルタ設計を行うツールです。 |
-| **Floor Impact** | [Floorimpact.html](https://ssmhrkw.github.io/github.io_cv/Floorimpact.html) | 床衝撃音の解析、表示に関するツールです。 |
-| **Laminated Calc** | [Laminated-Calc.html](https://ssmhrkw.github.io/github.io_cv/Laminated-Calc.html) | 積層構造に関する計算を行うツールです。 |
-| **NA28 FIC** | [NA28_FIC.html](https://ssmhrkw.github.io/github.io_cv/NA28_FIC.html) | NA-28で測定したRNDファイルを読み込んで、床衝撃音遮断性能を評価し、等価曲線でLH,Lr評価を行うツールです。 |
-| **Plates** | [plates.html](https://ssmhrkw.github.io/github.io_cv/plates.html) | SS-SS-SS-SSのインピーダンスを有限長・無限長の２種類で計算するツールです。 |
-| **Revtime Recorder** | [revtime_recorder.html](https://ssmhrkw.github.io/github.io_cv/revtime_recorder.html) | 残響時間測定・記録を行うツールです。端末によっては勝手に信号処理されます。 |
-| **RND Viewer** | [rnd_viewer.html](https://ssmhrkw.github.io/github.io_cv/rnd_viewer.html) | RNDファイルの内容を表示・確認するビューアツールです。 |
-| **wav2Fmax** | [wav2Fmax.html](https://ssmhrkw.github.io/github.io_cv/wav2Fmax.html) | WAVファイルを解析し、Fmax（最大周波数）などの値を取得するツールです。 |
-| **WAV Inspector** | [wav_inspector.html](https://ssmhrkw.github.io/github.io_cv/wav_inspector.html) | WAVファイルの情報を詳細に検査するツールです。 |
+| **必要スラブ厚の逆算（かんたん入力）** | [slab-thickness-quick.html](https://ssmhrkw.github.io/github.io_cv/slab-thickness-quick.html) | 目標 LH・スラブ・下室寸法から必要な等価スラブ厚を求めます。梁条件 81 通りの分布つき。 |
+| **必要スラブ厚の逆算（詳細入力）** | [slab-thickness.html](https://ssmhrkw.github.io/github.io_cv/slab-thickness.html) | 同上の詳細版。計算書（式・代入値）を表示します。 |
+| **Floor Impact** | [Floorimpact.html](https://ssmhrkw.github.io/github.io_cv/Floorimpact.html) | 重量床衝撃音レベルと LH 等級の予測（インピーダンス法）。 |
+| **NA28 FIC** | [NA28_FIC.html](https://ssmhrkw.github.io/github.io_cv/NA28_FIC.html) | NA-28 の RND を読み込み、床衝撃音遮断性能を等級曲線で評価します。 |
+| **RND Viewer** | [rnd_viewer.html](https://ssmhrkw.github.io/github.io_cv/rnd_viewer.html) | NA-28 の RND をグラフと表で確認します。 |
+| **Measurement Positions** | [MeasurementPositions.html](https://ssmhrkw.github.io/github.io_cv/MeasurementPositions.html) | 受音点・加振点の配置計画（JIS A 1418、ISO 16283-2、ISO 10140-3）。 |
+| **CSV Segmenter** | [CSV_Segmenter.html](https://ssmhrkw.github.io/github.io_cv/CSV_Segmenter.html) | 計測 CSV から打撃区間を検出・切り出して集計します。 |
+| **wav2Fmax** | [wav2Fmax.html](https://ssmhrkw.github.io/github.io_cv/wav2Fmax.html) | WAV/CSV の 1/1・1/3 オクターブ分析（Fast/Slow 最大値、Leq、LN）。DA-20 の校正値を自動適用。 |
+| **WAV Inspector** | [wav_Inspector.html](https://ssmhrkw.github.io/github.io_cv/wav_Inspector.html) | WAV のヘッダ・DA-20 メタ情報（CSET など）を表示します。 |
+| **Revtime Recorder** | [revtime_recorder.html](https://ssmhrkw.github.io/github.io_cv/revtime_recorder.html) | 手拍子から残響時間を推定します（Lundeby 法のノイズ補償）。端末によっては勝手に信号処理されます。 |
+| **Mic Calibration** | [calcorr.html](https://ssmhrkw.github.io/github.io_cv/calcorr.html) | 校正器の録音からチャンネルごとの換算係数を求めます。 |
+| **Filter Design** | [FilterDesign.html](https://ssmhrkw.github.io/github.io_cv/FilterDesign.html) | Butterworth 1/n オクターブフィルタの設計と IEC 61260:1995 許容範囲の確認。 |
+| **Plates** | [plates.html](https://ssmhrkw.github.io/github.io_cv/plates.html) | 矩形板の駆動点インピーダンス（有限板・無限板）。 |
+| **Standing Wave** | [standing-wave.html](https://ssmhrkw.github.io/github.io_cv/standing-wave.html) | 単純支持板の速度/加振力分布をモード別に可視化。 |
+| **Slab FDTD** | [SlabFDTD.html](https://ssmhrkw.github.io/github.io_cv/SlabFDTD.html) | 単純支持板の FDTD 時間応答とモード同定（Fdtdworker.js を使用）。 |
+| **Laminated Calc** | [Laminated-Calc.html](https://ssmhrkw.github.io/github.io_cv/Laminated-Calc.html) | 単板・積層・二重壁の透過損失の参考計算。 |
+| **TSEA** | [TSEA.html](https://ssmhrkw.github.io/github.io_cv/TSEA.html) | 過渡 SEA（TSEA）の計算。 |
+| **集合住宅の音 30秒CM** | [cm/](https://ssmhrkw.github.io/github.io_cv/cm/) | 普及啓発用の短い動画。 |
+
+GitHub Pages はファイル名の大文字・小文字を区別します（例：`wav_Inspector.html`）。
 
 ## 📄 ドキュメント (Markdown Files)
 
-ツールやライブラリに関する説明文書です。
-
 | ドキュメント名 | ファイル名 (リンク) | 概要 |
 | :--- | :--- | :--- |
-| **HTML Filter Check** | [HTMLFilterCheck.md](HTMLFilterCheck.md) | HTMLフィルタのチェックに関するドキュメントです。 |
-| **NA28 FIC** | [NA28_FIC.md](NA28_FIC.md) | NA-28で測定したRNDファイルを読み込んで、床衝撃音遮断性能を評価し、等価曲線でLH,Lr評価を行うツールに関する補足ドキュメントです。 |
-| **acoustics-core** | [acoustics-core.md](acoustics-core.md) | 音響解析の核となる`acoustics-core.js`ライブラリに関するドキュメントです。 |
-| **Plates** | [plates.md](plates.md) | SS-SS-SS-SSのインピーダンスを有限長・無限長の２種類で計算するツールの補足ドキュメントです。 |
-| **Revtime Recorder** | [revtime_recorder.md](revtime_recorder.md) | 残響時間レコーダーに関する補足ドキュメントです。 |
-| **RND Viewer** | [rnd_viewer.md](rnd_viewer.md) | RNDビューアに関する補足ドキュメントです。 |
-| **WAV Inspector** | [wav_inspector.md](wav_inspector.md) | WAVインスペクターに関する補足ドキュメントです。 |
+| **HTML Filter Check** | [HTMLfilterCheck.md](HTMLfilterCheck.md) | ブラウザ版フィルタのデバッグ記録。 |
+| **acoustics-core** | [acoustics-core.md](acoustics-core.md) | 共通 DSP ライブラリ acoustics-core.js の説明。 |
+| **Floor Impact** | [Floorimpact.md](Floorimpact.md) | Floorimpact.html の入力・計算式・判定。 |
+| **Filter Design** | [FilterDesign.md](FilterDesign.md) | FilterDesign.html の補足。 |
+| **NA28 FIC** | [NA28_FIC.md](NA28_FIC.md) | NA28_FIC.html の補足。 |
+| **Plates** | [plates.md](plates.md) | plates.html の補足。 |
+| **Revtime Recorder** | [revtime_recorder.md](revtime_recorder.md) | revtime_recorder.html の補足。 |
+| **RND Viewer** | [rnd_viewer.md](rnd_viewer.md) | rnd_viewer.html の補足。 |
+| **wav2Fmax** | [wav2Fmax.md](wav2Fmax.md) | wav2Fmax.html の補足。 |
+| **WAV Inspector** | [wav_Inspector.md](wav_Inspector.md) | wav_Inspector.html の補足。 |
+| **CSV Segmenter** | [CSV_Segmenter.md](CSV_Segmenter.md) | CSV_Segmenter.html の補足。 |
 
 ---
 
 ## ⚙️ コアファイル
 
--   **`index.html`**: トップページ。Google Analyticsトラッキングスクリプトが統合されています。
--   **`acoustics-core.js`**: 各ツールで利用される音響計算のコアとなるJavaScriptライブラリです。
--   **`README.md`**: このファイル。フォーマット改善の履歴があります。
+-   **`index.html`**: トップページ。
+-   **`acoustics-core.js`**: wav2Fmax・revtime_recorder・calcorr・FilterDesign が使う共通 DSP（Butterworth 帯域フィルタ、帯域中心周波数、時間重み付け）。帯域は IEC 61260-1:2014 の基数10で計算します。
+-   **`Fdtdworker.js`**: SlabFDTD.html の計算部分（Web Worker）。
+-   **`slab-thickness*.html`**: 計算部分をページ内に含めているので、1 ファイルだけでも動きます。
+-   **Google Analytics**: CSV_Segmenter・Floorimpact・plates・rnd_viewer・wav_Inspector の各ページに入っています（index には入っていません）。
+-   **`README.md`**: このファイル。
 
 ---

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>床衝撃音遮断性能評価ツール</title>
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
   :root{--bg:#f8fafc;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--accent:#2563eb}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif}
@@ -296,6 +296,19 @@
     return y0 + (frac - c/10)/0.1 * (y1 - y0);
   }
 
+  // Bands where some file is within 6 dB of the background noise (Lmax only; no correction is applied there).
+  function lowNoiseBands(kind, onlyFreqs){
+    if(noiseMode!=='apply') return [];
+    const noise=(kind==='oct')?noiseData.oct:noiseData.thirdoct;
+    if(!noise || !noise.Lb?.length) return [];
+    const out=new Set();
+    for(const gp of groups) for(const d of gp.data){
+      const arr=d[kind].series['Lmax']||[];
+      arr.forEach((v,i)=>{ const Lb=noise.Lb[i]; if(Number.isFinite(v)&&Number.isFinite(Lb)&&v-Lb<6){ const hz=parseHz(d[kind].freqs[i]); if(!onlyFreqs||onlyFreqs.includes(hz)) out.add(d[kind].freqs[i]); } });
+    }
+    return [...out];
+  }
+
   // 測定配列に暗騒音補正（Lmaxのみ）
   function correctedSeriesArray(kind, seriesName, dataObj){
     const arr=(dataObj[kind].series[seriesName]||[]).slice();
@@ -345,8 +358,10 @@
     if(anyData()){ renderBand('oct'); renderBand('thirdoct'); }
   }
 
+  // Shift of the Lr-30 curve needed so that no band exceeds the curve by more than tol [dB].
   function computeShift(meas,ref,tol){ let need=-Infinity; for(let i=0;i<meas.length;i++) need=Math.max(need,meas[i]-ref[i]-tol); return Math.max(0,need); }
-  function roundLr(L,tol){ const th=(tol===2)?2.0:2.5; const base=Math.floor(L/5)*5; return (L-base)<=th?base:base+5; }
+  // Smallest 5 dB step curve that satisfies the same condition. The tolerance is applied once (in computeShift).
+  function gradeLr(Lcont){ return 30 + Math.ceil((Lcont-30)/5 - 1e-9)*5; }
 
   function currentEvalConfig(){
     const kind = document.querySelector('input[name="srcKind"]:checked').value;
@@ -409,8 +424,8 @@
     const tol=tolEl.checked?2:0;
     const shift=computeShift(yEval,REF_SLICE,tol);
     const Lcont = 30 + shift;
-    const Lint = roundInt(Lcont);
-    const Lr = roundLr(Lint, tol);
+    const Lint = Lcont;          // continuous value, drawn as the grey dotted curve
+    const Lr = gradeLr(Lcont);
 
     const width=Math.min(fig.parentElement.clientWidth,MAX_WIDTH_RATING);
     const traces=[];
@@ -435,7 +450,9 @@
     const rows = EVAL_FREQS.map((f,i)=>`<tr><td>${f}</td><td>${yEval[i].toFixed(1)}</td></tr>`).join('');
     tableDiv.innerHTML = `<table><thead><tr><th>Band (Hz)</th><th>Global Lmax</th></tr></thead><tbody>${rows}</tbody></table>`;
 
-    resDiv.innerHTML=`評価結果：<span class="badge">Lr-${Lr}</span>（L=${Lint}, shift=${shift.toFixed(2)} dB, 許容=${tol} dB）`;
+    const low=lowNoiseBands('oct', EVAL_FREQS);
+    resDiv.innerHTML=`評価結果：<span class="badge">Lr-${Lr}</span>（連続値 L=${Lcont.toFixed(1)}, shift=${shift.toFixed(2)} dB, 各帯域の許容=${tol} dB）`+
+      (low.length?`<div class="note" style="color:#b45309;margin-top:6px">暗騒音との差が 6 dB 未満の帯域があります（${low.join('、')}）。この帯域は補正していないため参考値です。</div>`:'');
   }
 
   // ===== シリーズタブ =====

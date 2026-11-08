@@ -223,13 +223,13 @@ th.fc-head:hover{color:var(--accent)}
 <!-- acoustics-core.js をwindowに展開 -->
 <script type="module">
 import {
-  designButterworthBandpassSOS_N, sosFilter,
-  centersOct, centersThird, fullCenters,
+  designButterworthBandpassSOS_N, bandEdges, sosFilter,
+  centersOct, centersThird, fullCenters, preferredLabel,
   ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
 } from "./acoustics-core.js";
 Object.assign(window, {
-  designButterworthBandpassSOS_N, sosFilter,
-  centersOct, centersThird, fullCenters,
+  designButterworthBandpassSOS_N, bandEdges, sosFilter,
+  centersOct, centersThird, fullCenters, preferredLabel,
   ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
 });
 window._acousticsCoreReady = true;
@@ -310,14 +310,31 @@ function readWavHeader(buf){
   const v=new DataView(buf);
   const str=(o,n)=>String.fromCharCode(...new Uint8Array(buf,o,n));
   if(str(0,4)!=='RIFF'||str(8,4)!=='WAVE') throw new Error('Not WAVE');
-  let off=12,ch=0,sr=0,ba=0,bps=0,af=0,data=-1,dl=0;
+  let off=12,ch=0,sr=0,ba=0,bps=0,af=0,data=-1,dl=0,cset=null;
   while(off+8<=v.byteLength){
     const id=str(off,4),len=v.getUint32(off+4,true); off+=8;
-    if(id==='fmt '){af=v.getUint16(off,true);ch=v.getUint16(off+2,true);sr=v.getUint32(off+4,true);ba=v.getUint16(off+12,true);bps=v.getUint16(off+14,true);}
-    else if(id==='data'){data=off;dl=len;}
-    off+=len;
+    if(id==='fmt '){af=v.getUint16(off,true);ch=v.getUint16(off+2,true);sr=v.getUint32(off+4,true);ba=v.getUint16(off+12,true);bps=v.getUint16(off+14,true);
+      if(af===0xFFFE&&len>=26) af=v.getUint16(off+24,true);}   // WAVE_FORMAT_EXTENSIBLE: use the sub-format code
+    else if(id==='data'){data=off;dl=Math.min(len,v.byteLength-off);}
+    else if(id==='CSET'){try{cset=parseCSET(v,off,len);}catch(_){cset=null;}}
+    off+=len+(len&1);   // RIFF chunks are word-aligned
   }
-  return{audioFormat:af,numChannels:ch,sampleRate:sr,bitsPerSample:bps,blockAlign:ba,dataOffset:data,dataLength:dl};
+  return{audioFormat:af,numChannels:ch,sampleRate:sr,bitsPerSample:bps,blockAlign:ba,dataOffset:data,dataLength:dl,cset};
+}
+/* DA-20 CSET chunk: per-channel name, sensor type, unit and value per bit (same layout as wav_Inspector.html). */
+function parseCSET(dv, off, size){
+  const rd=(o,n)=>{let s='';for(let i=0;i<n;i++){const c=dv.getUint8(o+i);if(c===0)break;s+=String.fromCharCode(c);}return s.trim();};
+  let p=off+12+2+2+8+8+2+2+2+2+40+8+16+16;          // common header up to the firmware versions
+  p+=2+2+2+4+2+4+2+8+8+16+4+2+2+2+24;               // trigger settings, range, reserved
+  const chBlock=114, n=Math.max(0,Math.floor((size-(p-off))/chBlock)), channels=[];
+  for(let i=0;i<n;i++){
+    let q=p+i*chBlock; const c={};
+    c.name=rd(q,40); q+=40; q+=2; c.enabled=!!dv.getInt16(q+2,true); q+=4; q+=2;
+    c.sensorType=dv.getInt16(q+2,true); q+=4; q+=2; q+=4; q+=2; q+=4; q+=2; q+=2;
+    c.unit=rd(q,8); q+=8; c.valuePerBit=dv.getFloat64(q,true);
+    channels.push(c);
+  }
+  return {channels};
 }
 function decodePCM(buf){
   const h=readWavHeader(buf);
@@ -340,34 +357,50 @@ function decodePCM(buf){
       out[c][i]=y;
     }
   }
-  return{sampleRate:h.sampleRate,numberOfChannels:h.numChannels,length:frames,
-         duration:frames/h.sampleRate,getChannelData:i=>out[i]};
+  return{sampleRate:h.sampleRate,numberOfChannels:h.numChannels,length:frames,bitsPerSample:h.bitsPerSample,audioFormat:h.audioFormat,
+         cset:h.cset,duration:frames/h.sampleRate,getChannelData:i=>out[i]};
 }
 
 /* ── band UI ── */
 function refreshBandUI(){
   const type=document.getElementById('bandType').value;
   const lo=document.getElementById('bandLo'), hi=document.getElementById('bandHi');
-  const list=(window.fullCenters)?window.fullCenters(type):[31.5,63,125,250,500,1000,2000,4000,8000];
-  lo.innerHTML=hi.innerHTML=list.map(f=>`<option value="${f}">${Math.round(f)}</option>`).join('');
-  lo.value=list[0]; hi.value=list[list.length-1];
+  if(!window.fullCenters) return;            // filled in once acoustics-core.js has loaded
+  const list=window.fullCenters(type);
+  lo.innerHTML=hi.innerHTML=list.map(f=>`<option value="${f}">${bandLabel(f)}</option>`).join('');
+  const pick=(nom)=>list.find(f=>window.preferredLabel(f)===nom) ?? list[0];
+  lo.value=pick(31.5); hi.value=pick(8000);
 }
+function bandLabel(f){ return window.preferredLabel ? String(window.preferredLabel(f)) : String(Math.round(f)); }
 
 /* ── channel setup UI ── */
-function ensureSetup(nch, colNames=[]){
+function csetChannels(nch){
+  const cs=g.audio?.cset?.channels; if(!cs||!cs.length||g.audio.audioFormat!==1) return null;
+  const list=cs.length===nch?cs:cs.filter(c=>c.enabled);
+  return list.length===nch?list:null;
+}
+function ensureSetup(nch, colNames=[], fresh=false){
   const root=document.getElementById('setupBody');
   document.getElementById('setupCard').style.display='block';
-  if(g.setup.length!==nch){
+  const cal=csetChannels(nch);
+  if(fresh||g.setup.length!==nch){
     g.setup=[];
     for(let i=0;i<nch;i++){
       const cn=(colNames[i]||'').toLowerCase();
-      let role='Microphone';
+      let role='Microphone', gain=1.0, unit='';
       if(cn.includes('fh')||cn.includes('force')) role='Force hammer';
       else if(cn.includes('acc')) role='Accelerometer';
-      g.setup.push({use:i===0,role,gain:1.0});
+      const c=cal?.[i];
+      if(c && Number.isFinite(c.valuePerBit) && c.valuePerBit>0){
+        // decodePCM scales integers by 1/2^(bits-1); multiply back and apply the unit per bit.
+        gain=c.valuePerBit*Math.pow(2,g.audio.bitsPerSample-1); unit=c.unit;
+        if(c.sensorType===3) role='Accelerometer';
+      }
+      g.setup.push({use:i===0,role,gain,unit});
     }
   }
-  let html='<table class="setup-table"><thead><tr><th>Use</th><th>CH</th><th>Role</th><th>Gain ×</th></tr></thead><tbody>';
+  let html=(cal?`<div class="hint" style="margin-bottom:6px">DA-20 の校正値（CSET の value/bit）からゲインを入れました。単位：${cal.map(c=>c.unit||'—').join(' / ')}</div>`:'')+
+    '<table class="setup-table"><thead><tr><th>Use</th><th>CH</th><th>Role</th><th>Gain ×</th></tr></thead><tbody>';
   for(let i=0;i<nch;i++){
     const st=g.setup[i];
     html+=`<tr>
@@ -460,7 +493,7 @@ loadBtn.addEventListener('click', async()=>{
       try{
         g.audio=decodePCM(fr.result); g.csv={rows:[],headerTokens:[],headerLike:false};
         document.getElementById('csvSr').value=g.audio.sampleRate;
-        ensureSetup(g.audio.numberOfChannels,[]); buildTabs(g.audio.numberOfChannels,[]); refreshBandUI();
+        ensureSetup(g.audio.numberOfChannels,[],true); buildTabs(g.audio.numberOfChannels,[]); refreshBandUI();
         document.getElementById('configCard').style.display='block';
         document.getElementById('processBtn').disabled=false;
         setStatus(`WAV: ${g.audio.numberOfChannels} ch · ${g.audio.sampleRate} Hz · ${g.audio.length} frames`);
@@ -482,10 +515,11 @@ document.getElementById('processBtn').addEventListener('click', async()=>{
     await new Promise(r=>setTimeout(r,20));
 
     const bandType=document.getElementById('bandType').value;
-    const centersAll=window.fullCenters?window.fullCenters(bandType):(bandType==='oct'?[31.5,63,125,250,500,1000,2000,4000,8000]:[25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000]);
-    const lo=Number(document.getElementById('bandLo').value)||16;
-    const hi=Number(document.getElementById('bandHi').value)||8000;
-    const centers=centersAll.filter(f=>f>=lo&&f<=hi);
+    if(!window.fullCenters) throw new Error('acoustics-core.js の読み込みを待っています。少し待ってから再実行してください。');
+    const bw=bandType==='oct'?1:3;
+    const centersAll=window.fullCenters(bandType);
+    const lo=Number(document.getElementById('bandLo').value)||centersAll[0];
+    const hi=Number(document.getElementById('bandHi').value)||centersAll[centersAll.length-1];
     const timeMode=document.getElementById('timeWeight').value;
     const leqWin=Math.max(1e-3,Number(document.getElementById('leqWin').value)||1);
     const N=36;
@@ -504,6 +538,9 @@ document.getElementById('processBtn').addEventListener('click', async()=>{
       };
     }
 
+    const inRange=centersAll.filter(f=>f>=lo-1e-6&&f<=hi+1e-6);
+    const centers=inRange.filter(f=>window.bandEdges(f,bw)[1]<0.45*sr);
+    if(centers.length<inRange.length) logln(`Fs=${sr} Hz のため ${inRange.length-centers.length} 帯域（上端がナイキスト付近）を除外`);
     const usedIdx=g.setup.map((s,i)=>s.use?i:-1).filter(i=>i>=0);
     const results=[];
 
@@ -514,7 +551,7 @@ document.getElementById('processBtn').addEventListener('click', async()=>{
       if(cfg.gain!==1){const xx=new Float32Array(x.length);for(let i=0;i<x.length;i++)xx[i]=x[i]*cfg.gain;x=xx;}
       const byBand={};
       for(const fc of centers){
-        const sos=window.designButterworthBandpassSOS_N(fc,sr,N);
+        const sos=window.designButterworthBandpassSOS_N(fc,sr,N,bw);
         const y=window.sosFilter(x,sos);
         const T=y.length/sr;
         let mean_p2=0; for(let k=0;k<y.length;k++) mean_p2+=y[k]*y[k]; mean_p2/=Math.max(1,y.length);
@@ -570,7 +607,7 @@ function renderChannel(ch){
   ];
 
   let html='<table><thead><tr><th>Metric</th>';
-  for(const f of centers) html+=`<th class="fc-head" data-f="${f}">${Math.round(f)}</th>`;
+  for(const f of centers) html+=`<th class="fc-head" data-f="${f}">${bandLabel(f)}</th>`;
   html+='</tr></thead><tbody>';
   for(const m of metrics){
     html+=`<tr><td>${m.label}</td>`;
@@ -606,22 +643,22 @@ function renderChannel(ch){
       {x:ds1.x,y:ds1.y,name:'BP signal',mode:'lines',line:{width:1,color:'rgba(96,165,250,.6)'}},
       {x:ds2.x,y:ds2.y,name:'Lfmax (Fast)',mode:'lines',line:{width:1.5,color:'rgba(52,211,153,.8)'},yaxis:'y2'},
       {x:[tmax],y:[m.Lfmax],name:'Lfmax',mode:'markers',marker:{symbol:'diamond',size:9,color:'#fbbf24',line:{width:1,color:'#fff'}},yaxis:'y2'}
-    ],[{
+    ],{
       paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(22,28,42,.9)',
       font:{family:"'Space Mono',monospace",size:10,color:'#4e5f7a'},
-      title:{text:`${Math.round(f)} Hz`,font:{size:11,color:'#7eb8ff'},x:0.02,xanchor:'left'},
+      title:{text:`${bandLabel(f)} Hz`,font:{size:11,color:'#7eb8ff'},x:0.02,xanchor:'left'},
       margin:{l:50,r:50,t:28,b:30},
       xaxis:{title:'t [s]',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
       yaxis:{title:'Pa',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
       yaxis2:{title:'dB',overlaying:'y',side:'right',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.04)'},
       legend:{orientation:'h',y:-0.15,bgcolor:'rgba(0,0,0,0)',font:{size:9}},
       annotations:[{x:tmax,y:m.Lfmax,text:`${m.Lfmax.toFixed(1)} dB`,yref:'y2',showarrow:false,yshift:10,font:{size:9,color:'#fbbf24'}}]
-    }]);
+    });
   }
 }
 
 document.getElementById('bandType').addEventListener('change', refreshBandUI);
-refreshBandUI();
+if(window._acousticsCoreReady) refreshBandUI(); else window.addEventListener('acoustics-ready', refreshBandUI, {once:true});
 </script>
 </body>
 </html>

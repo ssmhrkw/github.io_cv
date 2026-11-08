@@ -3,10 +3,8 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer (ΔA, no ∞ tails)</title>
-<script type="module" src="https://cdn.plot.ly/plotly-2.27.0.min.js">import { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot } from "./acoustics-core.js";
-Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP, sosFreqz, normalizeAt, centersOct, centersThird, fullCenters, ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot });
-</script>
+<title>Butterworth 1/n-Octave Filter Designer — IEC 61260:1995 limits</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
   :root{ --bg:#0b1220; --card:#0f172a; --text:#e2e8f0; --muted:#94a3b8; --border:#1f2a44; --ok:#22c55e; --ng:#ef4444; }
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',sans-serif;background:var(--bg);color:var(--text);margin:0}
@@ -26,7 +24,7 @@ Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos,
 </head>
 <body>
 <div class="wrap">
-  <h1>Phase 1 — IEC 61260 Butterworth 1/n‑Octave Filter Designer</h1>
+  <h1>Butterworth 1/n‑Octave Filter Designer (IEC 61260:1995 limits)</h1>
 
   <div class="card">
     <div class="grid">
@@ -40,7 +38,7 @@ Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos,
       <div><label>Fs [Hz]</label><select id="fs"><option>48000</option><option>44100</option></select></div>
       <div><label>Total band‑pass order</label>
         <select id="order">
-          <option>3</option>6</option><option>12</option><option>24</option><option><option selected>36</option><option>72</option>
+          <option>3</option><option>6</option><option>12</option><option>24</option><option selected>36</option><option>72</option>
 
         </select>
       </div>
@@ -53,7 +51,7 @@ Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos,
       <div style="align-self:end"><button class="primary" id="run">Design + Check</button></div>
       <div class="small" style="grid-column:1/-1">
         Filter = HP(f₁) × LP(f₂) via pre‑warped bilinear transform; orders split ⌊M/2⌋ (HP) and ⌈M/2⌉ (LP). Cascade gain normalized at fm.<br/>
-        Plot is in <b>ΔA space</b> (IEC 61260‑1 §4.4): ΔA(f) = −|H(f)| (dB) with |H(fm)| ≈ 0 dB. IEC minimum/maximum limits are drawn only where defined; +∞ regions are intentionally not drawn.
+        Plot is in <b>ΔA space</b>: ΔA(f) = −|H(f)| (dB) with |H(fm)| ≈ 0 dB. Limits are the Class 0/1/2 attenuation limits of <b>IEC 61260:1995</b> (JIS C 1514:2002), drawn only where defined; +∞ regions are not drawn. Mid-band frequencies and band edges use the base-ten ratio G = 10<sup>0.3</sup>. IEC 61260-1:2014 (Class 1/2 acceptance limits) is not implemented here.
       </div>
     </div>
   </div>
@@ -74,7 +72,8 @@ Object.assign(window, { designButterworthBandpassSOS_N, sosFilter, butterLP_sos,
   </div>
 </div>
 
-<script>
+<script type="module">
+import { butterLP_sos, butterHP_sos, sosFreqz, normalizeAt } from "./acoustics-core.js";
 const G = Math.pow(10, 3/10);
 const dB = x => 20*Math.log10(Math.max(x,1e-16));
 
@@ -116,12 +115,11 @@ const THIRDP = [
   [0.94719, [-0.15,+0.4],  [-0.3,+0.6],  [-0.5,+0.8]],
   [1.08746, [-0.15,+1.1],  [-0.3,+1.3],  [-0.5,+1.6]],
   [0.91958, [-0.15,+1.1],  [-0.3,+1.3],  [-0.5,+1.6]],
-  [1.12202, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [0.89125, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [1.12203, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [0.89126, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [1.12201, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
-  [0.89124, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  // band edges G^(±1/6): just inside the band vs just outside (same treatment as the octave table)
+  [Math.pow(G,+1/6)*0.999, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [Math.pow(G,-1/6)*1.001, [-0.15,+4.5],  [-0.3,+5.0],  [-0.5,+5.5]],
+  [Math.pow(G,+1/6)*1.001, [+2.3,+4.5],   [+2.0,+5.0],  [+1.6,+5.5]],
+  [Math.pow(G,-1/6)*0.999, [+2.3,+4.5],   [+2.0,+5.0],  [+1.6,+5.5]],
   [1.29437, [+18.0,Infinity],  [+17.5,Infinity],  [+16.5,Infinity]],
   [0.77257, [+18.0,Infinity],  [+17.5,Infinity],  [+16.5,Infinity]],
   [1.88173, [+42.5,Infinity],  [+42.0,Infinity],  [+41.0,Infinity]],
@@ -231,21 +229,5 @@ populateCenters();
 run();
 </script>
 
-<script type="module">
-import {
-  designButterworthBandpassSOS_N, sosFilter,
-  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
-  sosFreqz, normalizeAt,
-  centersOct, centersThird, fullCenters,
-  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-} from "./acoustics-core.js";
-Object.assign(window, {
-  designButterworthBandpassSOS_N, sosFilter,
-  butterLP_sos, butterHP_sos, butterQ, rbjLP, rbjHP, d1_LP, d1_HP,
-  sosFreqz, normalizeAt,
-  centersOct, centersThird, fullCenters,
-  ewmaSquaredToSPL, movingLeqSPL, percentile, downsampleForPlot
-});
-</script>
 </body>
 </html>

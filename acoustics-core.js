@@ -1,22 +1,23 @@
 /**
  * acoustics-core.js
- * Shared DSP and utilities for wav2Fmax, revtime_recorder, FilterDesign
+ * Shared DSP and utilities for wav2Fmax, revtime_recorder, calcorr, FilterDesign
  * ES2020 modules. Numbers for scalars, Float32Array for signals.
  * Coefficient shape per section: {b0,b1,b2,a1,a2}. First-order: b2=a2=0.
  * DF2T implementation. Normalize at fc => 0 dB.
  */
 "use strict";
 
-/** First-order via pre-warped bilinear */
+/** First-order via pre-warped bilinear.
+ *  H(z) = (b0 + b1 z^-1) / (1 + a1 z^-1), pole at z = (1-K)/(1+K), so a1 = (K-1)/(1+K). */
 export function d1_LP(fc, fs){
   const K = Math.tan(Math.PI*fc/fs);
   const a0 = 1 + K;
-  return {b0:K/a0, b1:K/a0, b2:0, a1:(1-K)/a0, a2:0};
+  return {b0:K/a0, b1:K/a0, b2:0, a1:(K-1)/a0, a2:0};
 }
 export function d1_HP(fc, fs){
   const K = Math.tan(Math.PI*fc/fs);
   const a0 = 1 + K;
-  return {b0:1/a0, b1:-1/a0, b2:0, a1:(1-K)/a0, a2:0};
+  return {b0:1/a0, b1:-1/a0, b2:0, a1:(K-1)/a0, a2:0};
 }
 
 /** RBJ biquads with pre-warped w0 */
@@ -87,9 +88,19 @@ export function normalizeAt(sections, fs, fref){
   for(const s of sections){ s.b0*=g; s.b1*=g; s.b2*=g; }
 }
 
-/** Butterworth band-pass via HP(f1)*LP(f2) split. N => split to ⌊N/2⌋ and ⌈N/2⌉. */
-export function designButterworthBandpassSOS_N(fc, fs, N){
-  const f1 = fc/Math.SQRT2, f2 = fc*Math.SQRT2;
+/** Base-ten octave ratio (IEC 61260-1:2014, 5.2). */
+export const G10 = Math.pow(10, 3/10);
+
+/** Band edges of a 1/b-octave band with exact mid-band frequency fc (IEC 61260-1:2014, 5.6). */
+export function bandEdges(fc, b = 1){
+  const g = Math.pow(G10, 1/(2*b));
+  return [fc/g, fc*g];
+}
+
+/** Butterworth band-pass as HP(f1) * LP(f2), each of order N (total order 2N).
+ *  b: bandwidth designator (1 = octave, 3 = one-third octave). Edges follow bandEdges(). */
+export function designButterworthBandpassSOS_N(fc, fs, N, b = 1){
+  const [f1, f2] = bandEdges(fc, b);
   const M  = Math.max(2, 2*Math.max(1, Math.round(N)));
   const hpOrd = Math.floor(M/2), lpOrd = Math.ceil(M/2);
   const hp = butterHP_sos(f1, fs, hpOrd), lp = butterLP_sos(f2, fs, lpOrd);
@@ -119,22 +130,17 @@ export function sosFilter(xFloat32, sosArray){
   return y;
 }
 
-/** Band centers */
+/** Exact base-ten mid-band frequencies, nominal 16 Hz to 16 kHz (IEC 61260-1:2014, 5.4).
+ *  Octave: 1000·G^x, one-third octave: 1000·G^(x/3). Use preferredLabel() for display. */
 export function centersOct(){
   const a = [];
-  for(let x = -16; x <= 13; x++){
-    const fc = 1000 * Math.pow(10, x / 10);
-    if(fc >= 16 && fc <= 16000) a.push(fc);
-  }
+  for(let x = -6; x <= 4; x++) a.push(1000 * Math.pow(G10, x));
   return a;
 }
 
 export function centersThird(){
   const a = [];
-  for(let x = -16; x <= 13; x++){
-    const fc = 1000 * Math.pow(10, x / 30);
-    if(fc >= 16 && fc <= 16000) a.push(fc);
-  }
+  for(let x = -18; x <= 12; x++) a.push(1000 * Math.pow(G10, x / 3));
   return a;
 }
 
@@ -178,7 +184,7 @@ export function movingLeqSPL(y, sr, winSec){
     const v=y[i], vv=v*v;
     acc += vv;
     if(i>=win){ const old=y[i-win]; acc -= old*old; }
-    const denom = P0*P0*Math.min(win, i+1)/sr;
+    const denom = P0*P0*Math.min(win, i+1);   // mean square over the samples in the window
     out[i] = 10*Math.log10( Math.max(1e-24, acc/denom) );
   }
   return out;

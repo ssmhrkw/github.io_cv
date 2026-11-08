@@ -47,6 +47,7 @@
   <div class="flex flex-col md:flex-row justify-between items-end mb-4 gap-4">
     <div>
       <h1 class="text-xl font-bold text-gray-800">LH（重量）予測マトリクス</h1>
+      <p class="text-xs text-gray-500 mt-1">試験版：予測式の定数（衝撃力・ΔC・放射係数の表）は Floorimpact.html と異なる旧方式です。等級曲線は他のツールと同じ L-50 = 73/63/56/50 dB に統一しています。</p>
       <p class="text-xs text-gray-500">
         正方形スラブ (Lx=Ly) / 素面 / 固定パラメータ(ρ=2300, E=2.1e10)
       </p>
@@ -102,15 +103,10 @@ const BANDS = [63, 125, 250, 500];
 const FRMS = {63:32, 125:20, 250:13, 500:4}; // JIS基準
 const DL_PEAK = 8;
 
-// L等級曲線 (JIS)
-const L_CURVE = {
-  'L-40': [68, 56, 49, 42],
-  'L-45': [73, 61, 54, 47],
-  'L-50': [78, 66, 59, 52],
-  'L-55': [83, 71, 64, 57],
-  'L-60': [88, 76, 69, 62],
-  'L-65': [93, 81, 74, 67]
-};
+// L等級曲線（63/125/250/500 Hz）。L-50 = 73/63/56/50 dB を 5 dB ずつ平行移動。
+// Floorimpact.html・NA28_FIC.html・slab-thickness*.html と同じ値（以前の 78/66/59/52 は L-50 より 2〜5 dB 緩かった）。
+const L_BASE_50 = [73, 63, 56, 50];
+const L_CURVE = Object.fromEntries([40, 45, 50, 55, 60, 65].map(g => [`L-${g}`, L_BASE_50.map(v => v + g - 50)]));
 
 // 拘束条件ごとのΔL曲線 (補間用)
 const DL_CURVE_DATA = {

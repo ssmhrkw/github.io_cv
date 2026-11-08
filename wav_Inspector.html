@@ -180,6 +180,8 @@
   const readStr = (dv, off, len)=>{ let s=''; for(let i=0;i<len;i++){ const c=dv.getUint8(off+i); if(c===0) break; s+=String.fromCharCode(c); } return s.trim(); };
   const getI64 = (dv, off)=> Number(dv.getBigInt64(off, true));
   const hex2 = (n)=> n.toString(16).padStart(2,'0');
+  // Strings read from the file are escaped before they are placed in innerHTML.
+  const esc = (v)=> String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const ver32 = (u32)=>{ const h=u32.toString(16).padStart(8,'0'); return `${h.slice(0,2)}.${h.slice(2,4)}.${h.slice(4,6)}${h.slice(6,8)}`; };
 
   const errBox = el('#err');
@@ -423,7 +425,7 @@
     if(p.fmt){
       const f=p.fmt;
       setTable(fmtTbl,[
-        ['Chunk ID', `<span class="mono">${f.id}</span>`],
+        ['Chunk ID', `<span class="mono">${esc(f.id)}</span>`],
         ['Chunk Size', `${fmtNum(f.size)} bytes`],
         ['Offset', fmtNum(f.dataOffset)],
         ['wFormatTag', `0x${f.wFormatTag.toString(16).padStart(4,'0')} ${f.wFormatTag===1?'(PCM)':(f.wFormatTag===3?'(IEEE float)':'')}`],
@@ -438,7 +440,7 @@
     if(p.data){
       const f=p.fmt, d=p.data; const frames=f?Math.floor(d.size/f.nBlockAlign):0; const dur=f?frames/f.nSamplesPerSec:NaN;
       setTable(dataTbl,[
-        ['Chunk ID', `<span class="mono">${d.id}</span>`],
+        ['Chunk ID', `<span class="mono">${esc(d.id)}</span>`],
         ['Chunk Size', `${fmtNum(d.size)} bytes`],
         ['Offset', fmtNum(d.dataOffset)],
         ['推定フレーム数', fmtNum(frames)],
@@ -452,16 +454,16 @@
     if(p.type){
       const t=p.type;
       setTable(typeTbl,[
-        ['Chunk ID', `<span class="mono">${t.id}</span>`],
+        ['Chunk ID', `<span class="mono">${esc(t.id)}</span>`],
         ['Chunk Size', `${fmtNum(t.size)} bytes`],
-        ['File Type', `<span class="mono">${t.fileType}</span>`],
+        ['File Type', `<span class="mono">${esc(t.fileType)}</span>`],
         ['File Revision', `${fmtNum(t.fileRev)} <span class="chip">0x${t.fileRev.toString(16)}</span>`],
       ]);
     } else setTable(typeTbl,[['情報','TYPE は見つかりません']]);
     if(p.wset){
       const w=p.wset;
       setTable(wsetTbl,[
-        ['Chunk ID', `<span class="mono">${w.id}</span>`],
+        ['Chunk ID', `<span class="mono">${esc(w.id)}</span>`],
         ['Chunk Size', `${fmtNum(w.size)} bytes`],
         ['プリトリガ秒 (Pre-time)', `${w.pretime} s（0 / -1 / -5 等）`],
       ]);
@@ -472,12 +474,12 @@
     if(p.cset){
       const c=p.cset.common;
       setTable(deviceTbl,[
-        ['Unit Name', `<span class="mono">${c.unitName}</span>`],
-        ['Unit Type', `<span class="mono">${c.unitType}</span>`],
-        ['Unit Serial', `<span class="mono">${c.unitSerial}</span>`],
+        ['Unit Name', `<span class="mono">${esc(c.unitName)}</span>`],
+        ['Unit Type', `<span class="mono">${esc(c.unitType)}</span>`],
+        ['Unit Serial', `<span class="mono">${esc(c.unitSerial)}</span>`],
         ['CPU/DSP/CPLD/Sub', `${ver32(c.unitCpuVer)} / ${ver32(c.unitDspVer)} / ${ver32(c.unitCpldVer)} / ${ver32(c.unitSubMiconVer)}`],
         ['Equipped / Enabled CH', `${fmtNum(c.unitEquippedCh)} / ${fmtNum(c.totalEnabledCh)}`],
-        ['Product Type', `<span class="mono">${c.productType}</span>`],
+        ['Product Type', `<span class="mono">${esc(c.productType)}</span>`],
       ]);
     } else setTable(deviceTbl,[['情報','CSET 未検出のため装置情報は表示できません']]);
 
@@ -526,7 +528,7 @@
         const vpb = (typeof ch.valuePerBit==='number') ? ch.valuePerBit.toExponential(3) : (ch.valuePerBit ?? '');
         const vpv = (typeof ch.valuePerVolt==='number') ? ch.valuePerVolt.toExponential(3) : (ch.valuePerVolt ?? '');
         tr.innerHTML = `<td>${fmtNum(ch.number||i+1)}</td>
-                        <td class="mono">${ch.name||''}</td>
+                        <td class="mono">${esc(ch.name)}</td>
                         <td>${ch.enabled?'true':'false'}</td>
                         <td>${ch.measureEnabled?'true':'false'}</td>
                         <td>${friendly(SENSOR_CODE, ch.sensorType)}</td>
@@ -535,7 +537,7 @@
                         <td>${friendly(HPF, ch.hpfCutoff)}</td>
                         <td>${ch.ccld?'ON':'OFF'}</td>
                         <td>${ch.inversion?'true':'false'}</td>
-                        <td class="mono">${ch.unit}</td>
+                        <td class="mono">${esc(ch.unit)}</td>
                         <td class="mono">${vpb}</td>
                         <td class="mono">${vpv}</td>
                         <td class="mono">${ch.offsetValue}</td>
@@ -554,7 +556,7 @@
       if(p.adtl){ p.adtl.items.forEach(it=>{ if(it.type==='labl'||it.type==='note') labels[it.cuePointId]=it.text; }); }
       p.cue.points.forEach((pt,i)=>{
         const tr=document.createElement('tr');
-        tr.innerHTML = `<td>${i+1}</td><td>${fmtNum(pt.position)}</td><td class="mono">${labels[pt.id]||''}</td>`;
+        tr.innerHTML = `<td>${i+1}</td><td>${fmtNum(pt.position)}</td><td class="mono">${esc(labels[pt.id])}</td>`;
         markerTbl.appendChild(tr);
       });
     } else {
@@ -566,7 +568,7 @@
     p.skipped.forEach((c,i)=>{
       const tr=document.createElement('tr');
       const hexHead = (c.head||[]).map(b=>hex2(b)).join(' ');
-      tr.innerHTML = `<td>${i+1}</td><td class="mono">${c.id}</td><td>${fmtNum(c.size)}</td><td>${fmtNum(c.dataOffset)}</td><td><details><summary>表示</summary><div class="hex">${hexHead}</div></details></td>`;
+      tr.innerHTML = `<td>${i+1}</td><td class="mono">${esc(c.id)}</td><td>${fmtNum(c.size)}</td><td>${fmtNum(c.dataOffset)}</td><td><details><summary>表示</summary><div class="hex">${hexHead}</div></details></td>`;
       skipTbl.appendChild(tr);
     });
 
@@ -579,7 +581,7 @@
     summary.innerHTML = `
       <div>サンプルレート: <span class="chip">${p.fmt?fmtNum(p.fmt.nSamplesPerSec):'Unknown'} Hz</span></div>
       <div>レンジ: <span class="chip">${rangeSummary}</span></div>
-      <div>使用機器: <span class="chip">${deviceSummary}</span></div>
+      <div>使用機器: <span class="chip">${esc(deviceSummary)}</span></div>
       <div>開始時刻: <span class="chip">${startSummary}</span></div>
       <div>長さ: <span class="chip">${toTime(dur)}</span></div>
     `;

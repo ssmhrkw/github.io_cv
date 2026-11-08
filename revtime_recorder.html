@@ -250,7 +250,7 @@ tr:hover td{background:var(--bg3)}
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px">
     <label class="check-row"><input type="checkbox" id="snrInclude63" checked><span data-i18n="include63">判定に63 Hzを含める</span></label>
-    <label class="check-row"><input type="checkbox" id="noiseComp" checked><span data-i18n="bgsub">BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）</span></label>
+    <label class="check-row"><input type="checkbox" id="noiseComp" checked><span data-i18n="bgsub">ノイズ補償（Lundeby 法で積分の終点を決め、残りを指数減衰で補う）</span></label>
     <label class="check-row"><input type="checkbox" id="manualRegress"><span data-i18n="manualChk">手動回帰区間モード</span></label>
   </div>
   <p class="hint" data-i18n="snrRule">
@@ -274,6 +274,7 @@ tr:hover td{background:var(--bg3)}
           <th>EDT [s]</th><th>T10 [s]</th><th>T20 [s]</th><th>T30 [s]</th>
           <th data-i18n="r2rep">R²</th>
           <th>SNR [dB]</th>
+          <th>DR [dB]</th>
           <th data-i18n="judgeH">判定</th>
         </tr>
       </thead>
@@ -373,12 +374,12 @@ const LANG = {
     constraint:"echoCancellation=false · noiseSuppression=false · autoGainControl=false（適用可否は端末次第）",
     bandL:"帯域種別", analyze:"解析する", saveCsv:"CSV保存",
     include63:"判定に63 Hzを含める",
-    bgsub:"BGノイズ補正（シュレーダー積分時に暗騒音電力を減算）",
+    bgsub:"ノイズ補償（Lundeby 法で積分の終点を決め、残りを指数減衰で補う）",
     manualChk:"手動回帰区間モード",
-    snrRule:"SNR = <b>手拍子直後200 ms</b>の平均パワー ÷ <b>手拍子前0.5 s</b>の平均パワー（10log₁₀）。中央値SNR ≥ 20 dB → <b>OK</b>。",
+    snrRule:"DR = 帯域ごとの<b>ピーク（10 ms 平均）</b>と<b>暗騒音レベル</b>（Lundeby 法で推定）の差。T30 は DR ≥ 45 dB、T20 は ≥ 35 dB、T10 は ≥ 25 dB のときだけ表示します（ISO 3382-2:2008）。DR ≥ 35 dB → <b>OK</b>。SNR（直後200 ms ÷ 直前0.5 s）は参考値。",
     overall:"全体判定",
     fc:"中心周波数 [Hz]", r2rep:"R²", judgeH:"判定",
-    tableNote:"判定に使用した回帰＝T30優先→T20→T10→EDT。<b>!!</b>: 信頼性警告。<b>※</b>: ショートRT不一致警告（全て1.0s以下かつ最大差0.3s以上）。",
+    tableNote:"代表値＝減衰レンジが足りる範囲で T30→T20→T10→EDT。<b>!!</b>: 信頼性警告。<b>※</b>: ショートRT不一致警告（全て1.0s以下かつ最大差0.3s以上）。<b>BT</b>: 帯域幅×残響時間 &lt; 16（フィルタの残響で長めに出るおそれ）。",
     showBand:"表示帯域", zoomStartL:"開始 [s]", zoomEndL:"終了 [s]", applyZoom:"ズーム適用",
     t20Start:"開始 [s] (≈−5 dB)", t20End:"終了 [s] (≈−25 dB)", calcT20:"T20を計算",
     dragHint:"グラフ上をドラッグ（選択）すると開始・終了時間が自動入力されます。",
@@ -396,12 +397,12 @@ const LANG = {
     constraint:"echoCancellation=false · noiseSuppression=false · autoGainControl=false (device-dependent)",
     bandL:"Band type", analyze:"Analyze", saveCsv:"Save CSV",
     include63:"Include 63 Hz in judgment",
-    bgsub:"BG-noise compensation (subtract pre-noise in Schroeder)",
+    bgsub:"Noise compensation (Lundeby truncation + exponential tail)",
     manualChk:"Manual regression window mode",
-    snrRule:"SNR = 10·log₁₀(<b>power 200 ms after clap</b> / <b>power 0.5 s before</b>). Median SNR ≥ 20 dB → <b>OK</b>.",
+    snrRule:"DR = band <b>peak (10 ms average)</b> minus <b>noise level</b> (Lundeby). T30 shown only if DR ≥ 45 dB, T20 ≥ 35 dB, T10 ≥ 25 dB (ISO 3382-2:2008). DR ≥ 35 dB → <b>OK</b>. SNR (200 ms after / 0.5 s before) is for reference.",
     overall:"Overall",
     fc:"Center freq [Hz]", r2rep:"R²", judgeH:"Judge",
-    tableNote:"Regression priority: T30 > T20 > T10 > EDT. <b>!!</b>: reliability warning. <b>※</b>: short-RT inconsistency.",
+    tableNote:"Representative: T30 > T20 > T10 > EDT within the available decay range. <b>!!</b>: reliability warning. <b>※</b>: short-RT inconsistency. <b>BT</b>: bandwidth × T < 16 (filter ringing).",
     showBand:"Display band", zoomStartL:"Start [s]", zoomEndL:"End [s]", applyZoom:"Apply zoom",
     t20Start:"Start [s] (≈−5 dB)", t20End:"End [s] (≈−25 dB)", calcT20:"Compute T20",
     dragHint:"Drag-select on the graph to auto-fill start/end.",
@@ -540,10 +541,65 @@ function makeBands(kind){
 }
 
 function bpf(x, fs, fc, kind){
-  // acoustics-core.js の関数をwindow経由で使用
+  // acoustics-core.js の関数をwindow経由で使用（b = 1: 1/1 oct, 3: 1/3 oct）
   const N = kind === 'tb' ? 24 : 36;
-  const sos = window.designButterworthBandpassSOS_N(fc, fs, N);
+  const sos = window.designButterworthBandpassSOS_N(fc, fs, N, kind === 'tb' ? 3 : 1);
   return window.sosFilter(x, sos);
+}
+/* Bandwidth of the 1/b-octave band (base-ten, IEC 61260-1:2014) for the B·T check. */
+function bandwidth(fc, kind){ const g = Math.pow(10, 0.3 / (2 * (kind === 'tb' ? 3 : 1))); return fc * (g - 1 / g); }
+
+/* ── noise floor and truncation point by Lundeby et al. (Acustica 81, 1995) ── */
+const toDb = v => 10 * Math.log10(Math.max(v, 1e-30));
+function blockEnergy(y, fs, sec){
+  const n = Math.max(1, Math.round(sec * fs)), m = Math.floor(y.length / n);
+  const p = new Float64Array(m), t = new Float64Array(m);
+  for(let k = 0; k < m; k++){ let s = 0; for(let i = k * n; i < (k + 1) * n; i++) s += y[i] * y[i]; p[k] = s / n; t[k] = (k + 0.5) * n / fs; }
+  return {p, t};
+}
+function regress(t, L, i0, i1){
+  const xs = Array.from(t.slice(i0, i1)), ys = L.slice(i0, i1);
+  const r = linreg(xs, ys); return {a: r.a, b: r.b};
+}
+const meanOf = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+function lundeby(y, fs){
+  let {p, t} = blockEnergy(y, fs, 0.01);
+  let m = p.length; if(m < 20) return null;
+  let L = Array.from(p, toDb);
+  const iPeak = L.indexOf(Math.max(...L)), peakDb = L[iPeak];
+  const tail = Math.max(1, Math.floor(m * 0.1));
+  let noise = meanOf(Array.from(p.slice(m - tail))), Ln = toDb(noise);
+  let iEnd = L.findIndex((v, i) => i > iPeak && v <= Ln + 10);
+  if(iEnd < 0 || iEnd - iPeak < 4) return {ok: false, noise, Ln, DR: peakDb - Ln};
+  let {a, b} = regress(t, L, iPeak, iEnd);
+  if(!(a < 0)) return {ok: false, noise, Ln, DR: peakDb - Ln};
+  let tc = (Ln - b) / a;
+  for(let it = 0; it < 6; it++){
+    const blk = Math.min(0.05, Math.max(0.002, (10 / Math.abs(a)) / 5));   // about 5 intervals per 10 dB
+    ({p, t} = blockEnergy(y, fs, blk)); m = p.length; L = Array.from(p, toDb);
+    const minTail = Math.max(2, Math.floor(m * 0.1));
+    let iN = t.findIndex(v => v >= tc + 5 / Math.abs(a));                  // noise from 5 dB below the crosspoint
+    if(iN < 0 || iN > m - minTail) iN = m - minTail;
+    noise = meanOf(Array.from(p.slice(iN))); Ln = toDb(noise);
+    const i0 = L.findIndex(v => v <= Ln + 20), i1 = L.findIndex(v => v <= Ln + 5); // late decay 5–20 dB above noise
+    if(i0 < 0 || i1 < 0 || i1 - i0 < 3) break;
+    const r = regress(t, L, i0, i1); if(!(r.a < 0)) break;
+    const tcNew = (Ln - r.b) / r.a; a = r.a; b = r.b;
+    const done = Math.abs(tcNew - tc) < 0.001; tc = tcNew; if(done) break;
+  }
+  tc = Math.max(0.02, Math.min(tc, y.length / fs));
+  return {ok: true, tc, noise, Ln, slope: a, DR: peakDb - Ln};
+}
+/* Schroeder integral truncated at the crosspoint, plus the energy of an exponential tail (ISO 3382-1:2009, 5.3.3). */
+function schroederTrunc(y, fs, lb){
+  const nc = Math.min(y.length, Math.max(2, Math.round(lb.tc * fs)));
+  const k = -lb.slope * Math.LN10 / 10;                // decay constant of the late slope [1/s]
+  const C = k > 0 ? lb.noise * fs / k : 0;             // tail energy in sum-of-squares units
+  const e = new Float64Array(nc); let acc = C;
+  for(let i = nc - 1; i >= 0; i--){ acc += y[i] * y[i]; e[i] = acc; }
+  const e0 = e[0] + 1e-24, out = new Float32Array(nc);
+  for(let i = 0; i < nc; i++) out[i] = 10 * Math.log10(Math.max(e[i] / e0, 1e-12));
+  return out;
 }
 
 /* detect clap peak */
@@ -609,15 +665,18 @@ function fitRT(dec, fs, mode){
   return (T60 > 0 && T60 < 30) ? {T:T60, a, b, r2, seg} : {T:NaN, a, b, r2, seg};
 }
 
-function fitAll(dec, fs){
-  const fits = {
-    EDT: fitRT(dec, fs, 'EDT'), T10: fitRT(dec, fs, 'T10'),
-    T20: fitRT(dec, fs, 'T20'), T30: fitRT(dec, fs, 'T30'),
-  };
-  let rep = fits.T30, tag = 'T30';
-  if(!isFinite(rep.T)){ rep = fits.T20; tag = 'T20'; }
-  if(!isFinite(rep.T)){ rep = fits.T10; tag = 'T10'; }
-  if(!isFinite(rep.T)){ rep = fits.EDT; tag = 'EDT'; }
+/* Minimum dynamic range (peak to noise) for each evaluation range: bottom of the range
+   at least 10 dB above the noise (ISO 3382-2:2008: T20 needs 35 dB, T30 needs 45 dB). */
+const DR_MIN = {EDT: 20, T10: 25, T20: 35, T30: 45};
+function fitAll(dec, fs, DR){
+  const fits = {};
+  for(const k of ['EDT', 'T10', 'T20', 'T30']){
+    const f = fitRT(dec, fs, k);
+    if(!(DR >= DR_MIN[k])) { f.T = NaN; f.short = true; }
+    fits[k] = f;
+  }
+  let rep = {T: NaN, r2: NaN}, tag = '—';
+  for(const k of ['T30', 'T20', 'T10', 'EDT']) if(isFinite(fits[k].T)){ rep = fits[k]; tag = k; break; }
   return {fits, rep, tag};
 }
 
@@ -668,16 +727,23 @@ async function analyze(){
     psig /= Math.max(1, postN);
     const SNR = db10(psig / Math.max(pbg, 1e-24));
 
-    // Decay: BPF on analysis window
-    const yAna = bpf(xAna, fs, fc, kind);
-    const dec  = useNS ? schroederNS(yAna, pbg) : schroeder(yAna);
+    // Decay: BPF on analysis window; noise floor and truncation point by Lundeby
+    // Start the decay at this band's own peak, so EDT does not include the pre-onset part.
+    const yBand = bpf(xAna, fs, fc, kind);
+    let ipk = 0, vpk = 0;
+    for(let i = 0; i < yBand.length; i++){ const v = Math.abs(yBand[i]); if(v > vpk){ vpk = v; ipk = i; } }
+    const yAna = yBand.subarray(ipk);
+    const lb   = lundeby(yAna, fs);
+    const DR   = lb ? lb.DR : NaN;
+    const dec  = (useNS && lb && lb.ok) ? schroederTrunc(yAna, fs, lb) : schroeder(yAna);
 
-    const {fits, rep, tag} = fitAll(dec, fs);
+    const {fits, rep, tag} = fitAll(dec, fs, DR);
+    const BT = isFinite(rep.T) ? bandwidth(fc, kind) * rep.T : NaN;
     results.push({
-      fc, SNR, decay:dec, fits, rep, repTag:tag,
+      fc, SNR, DR, BT, decay:dec, fits, rep, repTag:tag,
       EDT:fits.EDT.T, T10:fits.T10.T, T20:fits.T20.T, T30:fits.T30.T,
       R2: isFinite(rep.r2) ? rep.r2.toFixed(3) : '',
-      judge: (!inc63 && fc===63) ? '—' : (SNR >= 20 ? 'OK' : 'NG'),
+      judge: (!inc63 && fc===63) ? '—' : (DR >= DR_MIN.T20 ? 'OK' : 'NG'),
       T20_manual: NaN
     });
   }
@@ -725,6 +791,7 @@ function renderTable(){
       <td>${manMode ? dash : fmtT(r.T30, true)}</td>
       <td style="color:var(--dim)">${manMode ? '' : r.R2}</td>
       <td>${r.SNR.toFixed(1)}</td>
+      <td>${isFinite(r.DR) ? r.DR.toFixed(1) : '—'}${isFinite(r.BT) && r.BT < 16 ? `<span class="wm" title="B·T = ${r.BT.toFixed(1)} < 16: filter ringing may lengthen T">BT</span>` : ''}</td>
       <td class="${jc}">${r.judge}</td>`;
     tbody.appendChild(tr);
   }
@@ -741,12 +808,12 @@ document.getElementById('manualRegress').onchange = () => {
 function renderOverall(){
   const inc63 = document.getElementById('snrInclude63').checked;
   const valid  = latestResults.filter(r => inc63 || r.fc !== 63);
-  const okN    = valid.filter(r => r.SNR >= 20).length;
+  const okN    = valid.filter(r => r.DR >= DR_MIN.T20).length;
   const ok     = okN >= Math.ceil(valid.length * 0.6);
   const el     = document.getElementById('overallJudge');
   el.className = 'overall-val ' + (ok ? 'ok' : 'ng');
   el.textContent = ok ? 'OK' : 'NG';
-  document.getElementById('overallNote').textContent = `(${okN}/${valid.length} bands ≥ 20 dB)`;
+  document.getElementById('overallNote').textContent = `(${okN}/${valid.length} bands DR ≥ ${DR_MIN.T20} dB)`;
 }
 
 /* ── DECAY PLOT ── */
@@ -880,9 +947,9 @@ document.getElementById('btnAvg').onclick = () => {
   fcs.forEach((fc, bi) => {
     const g  = savedTakes.map(t => t[bi]);
     const av = arr => { const a=arr.filter(isFinite); return a.length ? a.reduce((x,y)=>x+y)/a.length : NaN; };
-    const snrA = av(g.map(r => r.SNR));
+    const snrA = av(g.map(r => r.SNR)), drA = av(g.map(r => r.DR));
     const fmt  = v => isFinite(v) ? v.toFixed(3) : `<span style="color:var(--dim)">—</span>`;
-    const jc   = snrA >= 20 ? 'j-ok' : 'j-ng';
+    const jc   = drA >= DR_MIN.T20 ? 'j-ok' : 'j-ng';
     const tr   = document.createElement('tr');
     tr.innerHTML = `
       <td>${fc}</td>
@@ -892,7 +959,8 @@ document.getElementById('btnAvg').onclick = () => {
       <td>${fmt(av(g.map(r=>r.T30)))}</td>
       <td style="color:var(--dim)">avg×${savedTakes.length}</td>
       <td>${snrA.toFixed(1)}</td>
-      <td class="${jc}">${snrA>=20?'OK':'NG'}</td>`;
+      <td>${isFinite(drA) ? drA.toFixed(1) : '—'}</td>
+      <td class="${jc}">${drA>=DR_MIN.T20?'OK':'NG'}</td>`;
     tbody.appendChild(tr);
   });
   setState(`${savedTakes.length}点平均表示中`);
@@ -901,7 +969,7 @@ document.getElementById('btnAvg').onclick = () => {
 /* ── CSV ── */
 document.getElementById('btnDownloadCsv').onclick = () => {
   if(!latestResults.length) return;
-  const h = ['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','Judge'];
+  const h = ['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','DR_dB','BT','Judge'];
   const lines = [h.join(',')];
   for(const r of latestResults){
     const t20 = isFinite(r.T20_manual) ? r.T20_manual : r.T20;
@@ -910,7 +978,7 @@ document.getElementById('btnDownloadCsv').onclick = () => {
       isFinite(r.T10)?r.T10.toFixed(3):'',
       isFinite(t20)?t20.toFixed(3):'',
       isFinite(r.T30)?r.T30.toFixed(3):'',
-      r.R2, r.SNR.toFixed(1), r.judge
+      r.R2, r.SNR.toFixed(1), isFinite(r.DR)?r.DR.toFixed(1):'', isFinite(r.BT)?r.BT.toFixed(1):'', r.judge
     ].join(','));
   }
   const a = document.createElement('a');

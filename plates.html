@@ -181,7 +181,7 @@
           <h4>SS: $X_m=\sin(m\pi x/L)$, $\beta_m L=m\pi$, $\int X^2=L/2$</h4>
           <h4>CC: $\cos\beta L\cosh\beta L=1$, $\int X^2=L$</h4>
           <h4>CS: $\tan\beta L=\tanh\beta L$, $\int X^2=L$</h4>
-          <p>$ \omega_{pq}=\sqrt{D/\rho h}\,(\beta_p^2+\gamma_q^2) $</p>
+          <p>$$ \omega_{pq}^2=\frac{D}{\rho h}\left[\beta_p^4+\gamma_q^4+2\,\frac{\int X_p'^2}{\int X_p^2}\,\frac{\int Y_q'^2}{\int Y_q^2}\right] $$（梁関数の Rayleigh 商、Warburton。SS–SS では $\omega_{pq}=\sqrt{D/\rho h}(\beta_p^2+\gamma_q^2)$ に一致）</p>
           <p>$$ Y(\omega)=\frac{i\omega}{\rho h L_x L_y}\sum_p\sum_q \frac{X_p^2(x_0)\,Y_q^2(y_0)\,L_xL_y}{N_xN_y\,[\omega_{pq}^2(1+i\eta)-\omega^2]} $$</p>
         </div>
       </details>
@@ -260,6 +260,43 @@
       return betaL_CS(n);
     }
 
+    /* Clamped–clamped / clamped–simply-supported beam function and its slope on ξ = x/L,
+       written without cosh/sinh so that it stays accurate for high modes:
+       cosh − σ·sinh = ((1−σ)e^{bξ} + (1+σ)e^{−bξ})/2, with (1−σ)e^{bξ} formed from e^{bξ−bL}. */
+    function beamFn(bL, xi){
+      const sig = sigma_beam(bL);
+      const den = 1 - Math.exp(-2*bL) - 2*Math.sin(bL)*Math.exp(-bL);       // (sinh bL − sin bL)·2e^{−bL}
+      const oneMinusSig = (Math.cos(bL) - Math.sin(bL) - Math.exp(-bL));     // ·1/(sinh bL − sin bL)
+      const bx = bL*xi;
+      const grow = oneMinusSig * 2*Math.exp(bx - bL) / den;                  // (1−σ)e^{bx}
+      const decay = (1 + sig) * Math.exp(-bx);
+      const X  = 0.5*(grow + decay) - Math.cos(bx) + sig*Math.sin(bx);
+      const dX = bL*(0.5*(grow - decay) + Math.sin(bx) + sig*Math.cos(bx)); // dX/dξ
+      return {X, dX};
+    }
+    /* ∫X² dξ and ∫X'² dξ / ∫X² dξ over 0..1 (Simpson). For SS these are 1/2 and (mπ)². */
+    const _intCache = {};
+    function beamIntegrals(type, m){
+      const key = type + m; if(_intCache[key]) return _intCache[key];
+      if(type === "SS"){ return (_intCache[key] = {norm: 0.5, slope2: (m*Math.PI)**2}); }
+      const bL = (type === "CC" ? betaL_CC(m) : betaL_CS(m))[m-1];
+      const N = 4000; let sX = 0, sD = 0;
+      for(let i = 0; i <= N; i++){
+        const w = (i === 0 || i === N) ? 1 : (i % 2 ? 4 : 2);
+        const {X, dX} = beamFn(bL, i/N); sX += w*X*X; sD += w*dX*dX;
+      }
+      sX /= 3*N; sD /= 3*N;
+      return (_intCache[key] = {norm: sX, slope2: sD / sX});
+    }
+    /* Natural angular frequency by the Rayleigh quotient of the beam-function product
+       (Warburton): ω² = (D/ρh)[β_p⁴ + γ_q⁴ + 2 (∫X'²/∫X²)(∫Y'²/∫Y²)]. Exact for SS–SS. */
+    function omegaPQ(xType, yType, p, q, Lx, Ly, D, m){
+      const bx = getBetaLRoots(xType, p)[p-1], by = getBetaLRoots(yType, q)[q-1];
+      const ix = beamIntegrals(xType, p).slope2, iy = beamIntegrals(yType, q).slope2;
+      const w2 = (D/m) * ((bx/Lx)**4 + (by/Ly)**4 + 2*(ix/Lx**2)*(iy/Ly**2));
+      return Math.sqrt(w2);
+    }
+
     function beamEval(bcType, x0, L, mmax){
       const vals=[], norms=[];
       if(bcType==="SS"){
@@ -271,9 +308,8 @@
       } else {
         const roots = bcType==="CC" ? betaL_CC(mmax) : betaL_CS(mmax);
         for(let m=0;m<mmax;m++){
-          const bL=roots[m], beta=bL/L, sig=sigma_beam(bL), bx=beta*x0;
-          vals.push(Math.cosh(bx)-Math.cos(bx)-sig*(Math.sinh(bx)-Math.sin(bx)));
-          norms.push(L);
+          vals.push(beamFn(roots[m], x0/L).X);
+          norms.push(L*beamIntegrals(bcType, m+1).norm);
         }
       }
       return {vals, norms};
@@ -327,10 +363,7 @@
 
     function fmn(m,n){
       const xb=xB(), yb=yB();
-      const bLx=getBetaLRoots(xb.type,Math.max(m,S.mx));
-      const bLy=getBetaLRoots(yb.type,Math.max(n,S.ny));
-      const bp=bLx[m-1]/S.Lx, bq=bLy[n-1]/S.Ly;
-      return Math.sqrt(Df(S.E,S.nu,S.h)/mpf(S.rho,S.h))*(bp*bp+bq*bq)/(2*Math.PI);
+      return omegaPQ(xb.type, yb.type, m, n, S.Lx, S.Ly, Df(S.E,S.nu,S.h), mpf(S.rho,S.h))/(2*Math.PI);
     }
 
     function mobilityAtPoint(freqs, x0, y0){
@@ -344,11 +377,10 @@
       const Mplate=rho*h*Lx*Ly;
       const Y=new Array(freqs.length).fill(0).map(()=>({re:0,im:0}));
       for(let p=0;p<mx;p++){
-        const px=xE.vals[p], nx_=xE.norms[p], bp=bLx[p]/Lx;
+        const px=xE.vals[p], nx_=xE.norms[p];
         for(let q=0;q<ny;q++){
-          const py=yE.vals[q], ny_=yE.norms[q], bq=bLy[q]/Ly;
-          const k2=bp*bp+bq*bq;
-          const omg=Math.sqrt(Df(E,nu,h)/mpf(rho,h))*k2;
+          const py=yE.vals[q], ny_=yE.norms[q];
+          const omg=omegaPQ(xb.type, yb.type, p+1, q+1, Lx, Ly, Df(E,nu,h), mpf(rho,h));
           const omg2=omg*omg;
           const phi2n=(px*px*py*py*Lx*Ly)/(nx_*ny_);
           const C=phi2n/Mplate;

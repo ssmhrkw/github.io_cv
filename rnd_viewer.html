@@ -14,7 +14,7 @@
   gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
 </script>
 
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
   :root{--bg:#f8fafc;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--accent:#2563eb}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic',sans-serif}
@@ -73,7 +73,6 @@
 ファイルをドラッグアンドドロップしますが、アップロードはされません計算はすべてローカルで行われます。
 既に分かっている問題、これからの改善点として以下のものがあります。このほかにもあれば作成者に連絡してください。
 □ みたいものだけ選択する（今は全表示）
-□ SUBとMain（1/1 OCT)に線がつながっているのでこれを変更する
 
       「OK」を押すまで操作はできません。
     </div>
@@ -179,9 +178,11 @@
     if(arr.length===0) return;
     state.files.push(...arr);
     renderFileList();
-    Promise.all(arr.map(readRND)).then(results=>{
-      state.data.push(...results.filter(Boolean));
+    Promise.allSettled(arr.map(readRND)).then(results=>{
+      const bad=[];
+      results.forEach((r,i)=>{ if(r.status==='fulfilled' && r.value) state.data.push(r.value); else bad.push(arr[i].name); });
       renderAll();
+      if(bad.length) fileList.insertAdjacentHTML('beforeend', `<div style="color:#b91c1c;margin-top:6px">読み込めなかったファイル：${bad.map(escapeHtml).join('、')}（RND の形式ではないか、行が足りません）</div>`);
     });
   }
 
@@ -196,6 +197,7 @@
     try{ text = new TextDecoder('shift_jis').decode(buf); }
     catch{ text = new TextDecoder('utf-8').decode(buf); }
     const rows = text.replace(/\r\n?/g,'\n').split('\n').map(r=>r.split(','));
+    if(rows.length < 21 || !rows[7]) return null;   // same layout check as NA28_FIC.html
     const headOct = rows[7].slice(1,14).map(s=>s.trim());
     const head13  = rows[7].slice(14,47).map(s=>s.trim());
 
@@ -232,6 +234,9 @@
     const mount = document.getElementById(kind);
     if(state.data.length===0){ mount.innerHTML='<div class="u">ファイルを読み込むと表示されます。</div>'; return; }
     const freqs = state.data[0][kind].freqs;
+    // Columns that are frequency bands (e.g. "63", "1k"); overall values such as AP/A/C stay in the table only.
+    const bandIdx = freqs.map((f,i)=>[parseHz(f),i]).filter(([hz])=>Number.isFinite(hz)).map(([,i])=>i);
+    const bandLabels = bandIdx.map(i=>freqs[i]);
 
     const traces = [];
     const layout = {
@@ -245,16 +250,17 @@
     SERIES_ORDER.forEach((seriesName, idx)=>{
       const r = Math.floor(idx/3)+1;
       const c = (idx%3)+1;
-      state.data.forEach((d)=>{
+      state.data.forEach((d, fi)=>{
         const y = d[kind].series[seriesName] || [];
         traces.push({
-          x: freqs, y: y, name: d.fileName, mode: 'lines+markers',
+          x: bandLabels, y: bandIdx.map(i=>y[i]), name: d.fileName, mode: 'lines+markers',
+          legendgroup: `f${fi}`, showlegend: idx === 0, line: {color: PALETTE[fi % PALETTE.length]}, marker: {color: PALETTE[fi % PALETTE.length]},
           xaxis: `x${idx+1}`, yaxis: `y${idx+1}`,
-          hovertemplate: `${seriesName} · %{x}: %{y:.1f} dB<extra>${d.fileName}</extra>`
+          hovertemplate: `${seriesName} · %{x}: %{y:.1f} dB<extra>${escapeHtml(d.fileName)}</extra>`
         });
       });
       layout[`xaxis${idx+1}`] = {title:'Frequency',type:'category',tickangle:-45};
-      layout[`yaxis${idx+1}`] = {title:'dB',rangemode:'tozero'};
+      layout[`yaxis${idx+1}`] = {title:'dB'};
       layout.annotations.push({ text: seriesName, xref:`x${idx+1} domain`, yref:`y${idx+1} domain`, x:0.02, y:0.98, showarrow:false, font:{size:12} });
     });
 
@@ -313,6 +319,13 @@
   }
 
   function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])) }
+  // Frequency label → Hz ("63", "1k", "1.25 kHz"); NaN for non-band columns. Same rule as NA28_FIC.html.
+  function parseHz(str){
+    const t=String(str??'').trim().toLowerCase().replace(/,/g,'').replace(/\s+/g,'');
+    const m=t.match(/^(\d+(\.\d+)?)(k|khz|hz)?$/); if(!m) return NaN;
+    return parseFloat(m[1])*(m[3]&&m[3].startsWith('k')?1000:1);
+  }
+  const PALETTE=['#2563eb','#db2777','#059669','#c2410c','#7c3aed','#0891b2','#ca8a04','#4b5563','#dc2626','#65a30d'];
 })();
 </script>
 </body>

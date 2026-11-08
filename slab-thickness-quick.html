@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>必要スラブ厚さ かんたん入力｜重量床衝撃音</title>
+<meta name="description" content="質問に答えるだけで、目標の重量床衝撃音等級（LH）を満たすスラブの等価厚を求めます。梁の条件は81通りすべてを計算し、安全側と分布を示します。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F1F3F2; --sheet:#FAFBFB; --ink:#1B2540; --ink-soft:#4E5A75; --line:#2F45A3; --line-soft:rgba(47,69,163,.36);
+  --rule:#CBD3E1; --grid:#E0E5EE; --shu:#C23A1E; --pass:rgba(47,69,163,.08); --field:#FFFFFF; --field-line:#AEB8CC; --focus:#2F45A3;
+  --q0:#2F45A3; --q1:#6F80C4; --q2:#A59AAE; --q3:#D8825F; --q4:#C23A1E;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#12264D; --sheet:#152D58; --ink:#EEF2FA; --ink-soft:#B3C1DE; --line:#D3DEF6; --line-soft:rgba(211,222,246,.42);
+    --rule:rgba(211,222,246,.22); --grid:rgba(211,222,246,.11); --shu:#FF8C6B; --pass:rgba(211,222,246,.08); --field:#1A3767; --field-line:rgba(211,222,246,.35); --focus:#FFD27A;
+    --q0:#D3DEF6; --q1:#98AAE2; --q2:#B6A8C2; --q3:#F2B49B; --q4:#FF7A55;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.75 "BIZ UDPGothic",system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;font-variant-numeric:tabular-nums}
+a{color:var(--line);text-underline-offset:2px}
+h1,h2,h3,p{margin:0}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.page{max-width:820px;margin:0 auto;padding:22px 20px 64px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.top h1{font-size:17px;font-weight:700}
+.top a{font-size:14px}
+
+/* progress */
+.progress{display:flex;align-items:center;gap:14px;margin-bottom:26px;min-height:34px}
+.back{border:0;background:none;color:var(--line);cursor:pointer;padding:4px 0;font-size:15px}
+.back:disabled{visibility:hidden}
+.dots{display:flex;gap:6px;flex:1}
+.dots i{flex:1;height:4px;background:var(--rule);border-radius:2px}
+.dots i.done{background:var(--line)}
+.count{font-size:13px;color:var(--ink-soft);white-space:nowrap}
+
+/* slides */
+.slide{display:grid;gap:18px;animation:slideIn .32s cubic-bezier(.2,.7,.2,1) both}
+.slide.from-left{animation-name:slideInLeft}
+@keyframes slideIn{from{opacity:0;transform:translateX(42px)}to{opacity:1;transform:none}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-42px)}to{opacity:1;transform:none}}
+.q{font-size:28px;line-height:1.4;font-weight:700;outline:none}
+.q small{display:block;font-size:15px;font-weight:400;color:var(--ink-soft);margin-top:8px;line-height:1.7}
+.choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.choice{border:1.5px solid var(--line-soft);background:var(--sheet);border-radius:6px;padding:16px 12px;cursor:pointer;text-align:center;font-size:22px;font-weight:700;color:var(--ink)}
+.choice small{display:block;font-size:12.5px;font-weight:400;color:var(--ink-soft);margin-top:2px}
+.choice:hover{border-color:var(--line)}
+.choice[aria-pressed="true"]{border-color:var(--line);background:var(--pass);box-shadow:inset 0 0 0 1px var(--line)}
+.yn{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.yn .choice{font-size:19px;padding:18px 14px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:grid;gap:5px;font-size:14px;color:var(--ink-soft);min-width:0}
+.field input{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--field-line);border-radius:5px;background:var(--field);font-size:18px;color:var(--ink)}
+.field.invalid input{border-color:var(--shu);box-shadow:0 0 0 1px var(--shu)}
+.err{color:var(--shu);font-size:14px}
+.err:empty{display:none}
+.help{font-size:14px;color:var(--ink-soft)}
+.next{justify-self:start;border:0;background:var(--line);color:var(--sheet);padding:11px 26px;border-radius:5px;font-weight:700;cursor:pointer;font-size:16px}
+.reveal{display:grid;gap:14px;padding-top:4px}
+.mats{display:grid;gap:8px}
+.mat{display:flex;gap:12px;align-items:center;border:1.5px solid var(--line-soft);background:var(--sheet);border-radius:6px;padding:11px 14px;cursor:pointer}
+.mat input{width:18px;height:18px;accent-color:var(--line);flex:none}
+.mat b{display:block;font-size:16px}
+.mat span{font-size:13px;color:var(--ink-soft)}
+.mat:has(input:checked){border-color:var(--line);background:var(--pass)}
+
+/* result */
+.result{display:grid;gap:30px}
+.hero{display:grid;grid-template-columns:1.2fr 1fr;gap:4px 28px;align-items:end;padding:18px 20px;background:var(--sheet);border:1px solid var(--rule);border-radius:2px}
+.hero .lab{font-size:14px;color:var(--ink-soft)}
+.hero .big{font-size:58px;line-height:1.05;font-weight:700;letter-spacing:-.01em}
+.hero .big span{font-size:20px;font-weight:400;margin-left:4px}
+.hero .safe .big{color:var(--shu)}
+.hero .sub{grid-column:1/-1;font-size:15px;color:var(--ink-soft);margin-top:10px}
+.block{display:grid;gap:10px;min-width:0}
+.block h2{font-size:19px;font-weight:700}
+.lead{font-size:14.5px;color:var(--ink-soft)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:middle}
+th{font-size:13px;color:var(--ink-soft);font-weight:700}
+td.num{text-align:right;font-weight:700;white-space:nowrap}
+td.num.none{color:var(--shu)}
+tr.safe td{color:var(--shu)}
+.chart{background:var(--sheet);border:1px solid var(--rule);border-radius:2px;padding:6px}
+.chart svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-soft);align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;margin-right:5px;vertical-align:-1px}
+.slider{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center}
+.slider input{width:100%;accent-color:var(--line)}
+.slider output{font-size:15px}
+.slider output b{font-size:19px}
+.combos{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.combo{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.combo b{margin-left:auto;font-size:16px;white-space:nowrap}
+.recap{display:grid;gap:0}
+.recap div{display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.recap dt{width:8.5em;color:var(--ink-soft);flex:none}
+.recap dd{margin:0;flex:1}
+.recap button{border:0;background:none;color:var(--line);cursor:pointer;font-size:14px;text-decoration:underline;text-underline-offset:2px}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+.btn{border:1px solid var(--line-soft);background:transparent;color:var(--line);padding:8px 14px;border-radius:4px;cursor:pointer;font-size:14.5px;text-decoration:none}
+.btn.primary{background:var(--line);color:var(--sheet);border-color:var(--line)}
+.notes{font-size:13.5px;color:var(--ink-soft)}
+.notes ul{margin:6px 0 0;padding-left:1.3em;display:grid;gap:5px}
+.computing{font-size:15px;color:var(--ink-soft)}
+/* SVG tokens */
+.s-ink{stroke:var(--ink)}.s-line{stroke:var(--line)}.s-grid{stroke:var(--grid)}.s-shu{stroke:var(--shu)}.s-paper{stroke:var(--sheet)}
+.f-ink{fill:var(--ink)}.f-soft{fill:var(--ink-soft)}.f-shu{fill:var(--shu)}.f-paper{fill:var(--sheet)}.f-pass{fill:var(--pass)}.f-none{fill:none}
+.f-q0{fill:var(--q0)}.f-q1{fill:var(--q1)}.f-q2{fill:var(--q2)}.f-q3{fill:var(--q3)}.f-q4{fill:var(--q4)}
+svg text{font-family:"BIZ UDPGothic",system-ui,sans-serif}
+@media (max-width:620px){
+  .page{padding:16px 14px 56px}.q{font-size:23px}.choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hero{grid-template-columns:1fr}.hero .big{font-size:48px}.combos{grid-template-columns:1fr}.field input{font-size:17px}
+  .recap dt{width:6.5em}
+}
+@media (prefers-reduced-motion:reduce){.slide{animation:none}}
+@media print{body{background:#fff}.progress,.actions,.top a,.slider{display:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <h1>必要なスラブ厚さ（かんたん入力）</h1>
+    <a href="slab-thickness.html" id="toDetail">詳細入力版</a>
+  </div>
+
+  <nav class="progress" aria-label="進み具合">
+    <button type="button" class="back" id="back">戻る</button>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+    <span class="count" id="count"></span>
+  </nav>
+
+  <main id="stage" aria-live="polite"></main>
+</div>
+
+<script>
+/* ==== BEGIN slab-thickness-core.js (inlined so this page works on its own; keep identical in both slab pages) ==== */
+/* slab-thickness-core.js
+ * Shared model and charts for slab-thickness.html (detailed) and slab-thickness-quick.html (wizard).
+ *
+ * Prediction formulas follow floor-impact-3d.html (FloorEngine.evaluate) with four documented changes:
+ *  1. Radiating region = overlap of the receiving room and the excited slab panel (S, U, Seff).
+ *  2. Beams exist only at slab edges; room edges inside the slab are partitions (no Seff reduction).
+ *  3. Point-end correction uses each excitation point's distance to the slab-edge beams, per edge type.
+ *  4. Excitation points are combined by arithmetic mean (energy mean kept as an option).
+ * With room == slab, all edges 'obari' and energy averaging, evaluate() equals the original engine.
+ *
+ * Unknown inputs (beam type per edge, room position) are expanded into cases. The safe-side answer
+ * is the smallest thickness above which every case meets the target (= max of per-case answers).
+ */
+(function (global) {
+  'use strict';
+
+  const BANDS = [63, 125, 250, 500];
+  const LF_RMS = {63: 33, 125: 20, 250: 15, 500: 7};
+  const DELTA_C = {63: 9.8, 125: 8.3, 250: 6.5, 500: 5.6};
+  const Z_DROP = {
+    '31.5': {63: -15, 125: -12, 250: -9, 500: -6},
+    '63': {63: -12, 125: -9, 250: -6, 500: -3},
+    '125': {63: -9, 125: -6, 250: -3, 500: 0}
+  };
+  const BASES = {reference: [73, 63, 56, 50], original: [88, 76, 69, 62]};
+  const C_AIR = 340, F_THETA = 25, NU2 = 0.04, K_CONST = 152;
+  const F0_COEF = 0.8 * Math.PI / (4 * Math.sqrt(3));
+  const DOM_LIMITS = [44.7, 89.1];
+  const REL_POINTS = [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75], [0.75, 0.25], [0.25, 0.75]];
+  const EDGE_TYPES = ['obari', 'kobari', 'none'];
+  const EDGE_LABEL = {obari: '大ばり', kobari: '小ばり', none: '梁なし', unknown: '未定'};
+  const SIDES = ['top', 'btm', 'left', 'right'];
+  const SIDE_LABEL = {top: '上', btm: '下', left: '左', right: '右'};
+  const EPS = 1e-6;
+
+  /* Young's modulus by the AIJ RC standard formula: E = 3.35e4 (γ/24)^2 (Fc/60)^(1/3) [N/mm²]. */
+  const aijE = (gamma, Fc) => 3.35e4 * (gamma / 24) ** 2 * Math.cbrt(Fc / 60) * 1e6;
+  const MATERIALS = [
+    {id: 'nc36', label: '普通コンクリート Fc36 相当', rho: 2300, E: 2.6e10, note: '元の計算コードと同じ値'},
+    {id: 'nc21', label: '普通コンクリート Fc21', rho: 2300, E: aijE(23, 21)},
+    {id: 'nc24', label: '普通コンクリート Fc24', rho: 2300, E: aijE(23, 24)},
+    {id: 'nc27', label: '普通コンクリート Fc27', rho: 2300, E: aijE(23, 27)},
+    {id: 'nc30', label: '普通コンクリート Fc30', rho: 2300, E: aijE(23, 30)},
+    {id: 'lc1', label: '軽量コンクリート1種 Fc24', rho: 1900, E: aijE(19, 24)},
+    {id: 'lc2', label: '軽量コンクリート2種 Fc24', rho: 1700, E: aijE(17, 24)}
+  ];
+  const DEFAULTS = {T: 0.5, H: 2.5, material: 'nc36', hmin: 80, hmax: 500, target: 50};
+
+  function calcSigma(f, fc, S, U) {
+    if (f >= fc) return 1;
+    return Math.min((U * C_AIR) / (Math.PI ** 2 * S * Math.sqrt(f * fc)), 1);
+  }
+  function calcPolyDeltaL(r, type) {
+    if (r < 0 || type === 'none') return 0;
+    let dL = 0;
+    if (type === 'obari' && r <= 0.6) dL = 15.37 - 68.86 * r + 98.65 * r * r - 45.36 * r * r * r;
+    if (type === 'kobari' && r <= 0.5) dL = 10.93 - 55.86 * r + 92.57 * r * r - 49.72 * r * r * r;
+    return Math.max(0, dL);
+  }
+
+  /* One plan axis. L: slab length, r: room length, o: room offset from the slab's low edge. */
+  function axisGeom(L, r, o) {
+    if (r <= L + EPS) {
+      return {a0: o, a1: o + r, len: r, roomInside: true,
+        lowOnEdge: Math.abs(o) < EPS, highOnEdge: Math.abs(o + r - L) < EPS};
+    }
+    return {a0: 0, a1: L, len: L, roomInside: false, lowOnEdge: true, highOnEdge: true};
+  }
+
+  /* Full evaluation with every intermediate value, for the calculation sheet. edges must be concrete. */
+  function evaluate(c, hmm, pos, edges) {
+    const h = hmm / 1000, rho = c.rho, E = c.E;
+    const gx = axisGeom(c.Lx, c.rx, pos.ox), gy = axisGeom(c.Ly, c.ry, pos.oy);
+    const Z0 = (4 / Math.sqrt(3)) * Math.sqrt(rho * E) * h * h;
+    const Lz0 = 20 * Math.log10(Z0);
+    const cl = Math.sqrt(E / rho);
+    const f0 = F0_COEF * (2.25 / c.Lx ** 2 + 1.4 / c.Ly ** 2) * cl * h;
+    const fc = (C_AIR ** 2 / (2 * Math.PI * h)) * Math.sqrt(12 * rho * (1 - NU2) / E);
+    const dom = f0 < DOM_LIMITS[0] ? '31.5' : f0 < DOM_LIMITS[1] ? '63' : '125';
+    const S = gx.len * gy.len, U = 2 * (gx.len + gy.len);
+    const V = c.rx * c.ry * c.H;
+    const Araw = 0.161 * V / c.T, A = Math.max(0.1, Araw), tenLogA = 10 * Math.log10(A);
+    const lamTheta = Math.sqrt(Math.PI * cl * h / (Math.sqrt(3) * F_THETA));
+    const beams = {
+      left: gx.lowOnEdge && edges.left !== 'none', right: gx.highOnEdge && edges.right !== 'none',
+      btm: gy.lowOnEdge && edges.btm !== 'none', top: gy.highOnEdge && edges.top !== 'none'
+    };
+    const nx = Number(beams.left) + Number(beams.right), ny = Number(beams.btm) + Number(beams.top);
+    const bands = {};
+    for (const f of BANDS) {
+      const lam = Math.sqrt(Math.PI * cl * h / (Math.sqrt(3) * f));
+      const axRaw = gx.len - nx * lam / 4, ayRaw = gy.len - ny * lam / 4;
+      const ax = Math.max(0.1, axRaw), ay = Math.max(0.1, ayRaw);
+      const Seff = ax * ay, sigma = calcSigma(f, fc, S, U);
+      bands[f] = {lam, ax, ay, Seff, tenLogSe: 10 * Math.log10(Seff), sigma, tenLogK: 10 * Math.log10(sigma),
+        dz: Z_DROP[dom][f], clamped: axRaw < 0.1 || ayRaw < 0.1};
+    }
+    const points = REL_POINTS.map(([rx, ry], i) => {
+      const px = gx.a0 + rx * gx.len, py = gy.a0 + ry * gy.len;
+      const d = {left: px, right: c.Lx - px, btm: py, top: c.Ly - py};
+      const dl = {};
+      SIDES.forEach(s => { dl[s] = calcPolyDeltaL(d[s] / lamTheta, edges[s]); });
+      const dLx = Math.max(dl.left, dl.right), dLy = Math.max(dl.btm, dl.top), dLz = dLx + dLy;
+      const L = {};
+      for (const f of BANDS) {
+        const b = bands[f];
+        L[f] = LF_RMS[f] - (Lz0 + dLz + b.dz) + b.tenLogSe + b.tenLogK - tenLogA + DELTA_C[f] + K_CONST;
+      }
+      return {id: i + 1, px, py, d, dl, dLx, dLy, dLz, L};
+    });
+    const spectrum = {};
+    for (const f of BANDS) {
+      const v = points.map(p => p.L[f]);
+      if (c.avg === 'energy') {
+        const m = Math.max(...v);
+        spectrum[f] = m + 10 * Math.log10(v.reduce((s, x) => s + 10 ** ((x - m) / 10), 0) / v.length);
+      } else spectrum[f] = v.reduce((s, x) => s + x, 0) / v.length;
+    }
+    return {h: hmm, Z0, Lz0, cl, f0, fc, dom, S, U, V, Araw, A, tenLogA, lamTheta, beams, nx, ny,
+      bands, points, spectrum, gx, gy, pos, edges};
+  }
+
+  function assess(spectrum, base, tol, target) {
+    let offset = -Infinity, gov = null;
+    const margins = {}, limits = {};
+    BANDS.forEach((f, i) => {
+      const o = spectrum[f] - base[i] - tol;
+      if (o > offset) { offset = o; gov = f; }
+      limits[f] = base[i] + target - 50 + tol;
+      margins[f] = limits[f] - spectrum[f];
+    });
+    const cg = 50 + offset;
+    return {cg, grade: Math.ceil(cg / 5 - 1e-9) * 5, gov, margins, limits, pass: cg <= target + 1e-9};
+  }
+
+  /* Room positions: both ends and centre along each axis where the room sits inside the slab. */
+  function positionsFor(c) {
+    const axis = (L, r, o) => {
+      if (r > L + EPS) return [(L - r) / 2];
+      if (c.posMode === 'fixed') return [o];
+      const free = L - r;
+      return free < EPS ? [0] : [0, free / 2, free];
+    };
+    const out = [];
+    for (const ox of axis(c.Lx, c.rx, c.ox)) for (const oy of axis(c.Ly, c.ry, c.oy)) out.push({ox, oy});
+    return out;
+  }
+
+  /* Expand 'unknown' edges into all three beam types. */
+  function edgeCombos(choice) {
+    let sets = [{}];
+    SIDES.forEach(s => {
+      const opts = choice[s] === 'unknown' ? EDGE_TYPES : [choice[s]];
+      sets = sets.flatMap(set => opts.map(t => ({...set, [s]: t})));
+    });
+    return sets;
+  }
+
+  function buildCases(c) {
+    const out = [];
+    for (const edges of edgeCombos(c.edgeChoice)) for (const pos of positionsFor(c)) out.push({edges, pos});
+    return out;
+  }
+
+  /* Fast sweep: predicted continuous L value (cg) for every case at every thickness (1 mm step).
+   * Matches assess(evaluate(...)).cg; per-thickness quantities are computed once and shared by all cases. */
+  function sweep(c) {
+    const cases = buildCases(c);
+    const nH = c.hmax - c.hmin + 1;
+    const hs = new Int32Array(nH);
+    const rho = c.rho, E = c.E, cl = Math.sqrt(E / rho);
+    const gx0 = axisGeom(c.Lx, c.rx, 0), gy0 = axisGeom(c.Ly, c.ry, 0);
+    const lenX = gx0.len, lenY = gy0.len, S = lenX * lenY, U = 2 * (lenX + lenY);
+    const A = Math.max(0.1, 0.161 * c.rx * c.ry * c.H / c.T), tenLogA = 10 * Math.log10(A);
+    const geo = 2.25 / c.Lx ** 2 + 1.4 / c.Ly ** 2;
+    // Per-thickness constants, band-major.
+    const Lz0 = new Float64Array(nH), lamT = new Float64Array(nH);
+    const lam = BANDS.map(() => new Float64Array(nH)), rest = BANDS.map(() => new Float64Array(nH));
+    for (let i = 0; i < nH; i++) {
+      const hmm = c.hmin + i, h = hmm / 1000;
+      hs[i] = hmm;
+      Lz0[i] = 20 * Math.log10((4 / Math.sqrt(3)) * Math.sqrt(rho * E) * h * h);
+      const f0 = F0_COEF * geo * cl * h;
+      const fc = (C_AIR ** 2 / (2 * Math.PI * h)) * Math.sqrt(12 * rho * (1 - NU2) / E);
+      const dom = f0 < DOM_LIMITS[0] ? '31.5' : f0 < DOM_LIMITS[1] ? '63' : '125';
+      lamT[i] = Math.sqrt(Math.PI * cl * h / (Math.sqrt(3) * F_THETA));
+      BANDS.forEach((f, b) => {
+        lam[b][i] = Math.sqrt(Math.PI * cl * h / (Math.sqrt(3) * f));
+        // Everything in L except Seff and the point correction dLz.
+        rest[b][i] = LF_RMS[f] - (Lz0[i] + Z_DROP[dom][f]) + 10 * Math.log10(calcSigma(f, fc, S, U)) - tenLogA + DELTA_C[f] + K_CONST - c.base[b] - c.tol;
+      });
+    }
+    const out = cases.map(cs => {
+      const gx = axisGeom(c.Lx, c.rx, cs.pos.ox), gy = axisGeom(c.Ly, c.ry, cs.pos.oy), e = cs.edges;
+      const nx = Number(gx.lowOnEdge && e.left !== 'none') + Number(gx.highOnEdge && e.right !== 'none');
+      const ny = Number(gy.lowOnEdge && e.btm !== 'none') + Number(gy.highOnEdge && e.top !== 'none');
+      const pts = REL_POINTS.map(([rx, ry]) => {
+        const px = gx.a0 + rx * gx.len, py = gy.a0 + ry * gy.len;
+        return [px, c.Lx - px, py, c.Ly - py];
+      });
+      const cg = new Float64Array(nH);
+      const dlz = new Float64Array(pts.length);
+      for (let i = 0; i < nH; i++) {
+        const lt = lamT[i];
+        let mean = 0;
+        for (let p = 0; p < pts.length; p++) {
+          const d = pts[p];
+          const dLx = Math.max(calcPolyDeltaL(d[0] / lt, e.left), calcPolyDeltaL(d[1] / lt, e.right));
+          const dLy = Math.max(calcPolyDeltaL(d[2] / lt, e.btm), calcPolyDeltaL(d[3] / lt, e.top));
+          dlz[p] = dLx + dLy; mean += dlz[p];
+        }
+        mean /= pts.length;
+        let off = -Infinity;
+        for (let b = 0; b < 4; b++) {
+          const l4 = lam[b][i] / 4;
+          const se = 10 * Math.log10(Math.max(0.1, lenX - nx * l4) * Math.max(0.1, lenY - ny * l4));
+          let v;
+          if (c.avg === 'energy') {
+            let m = -Infinity;
+            for (let p = 0; p < pts.length; p++) m = Math.max(m, -dlz[p]);
+            let s = 0;
+            for (let p = 0; p < pts.length; p++) s += 10 ** ((-dlz[p] - m) / 10);
+            v = rest[b][i] + se + m + 10 * Math.log10(s / pts.length);
+          } else v = rest[b][i] + se - mean;
+          if (v > off) off = v;
+        }
+        cg[i] = 50 + off;
+      }
+      return {edges: e, pos: cs.pos, cg};
+    });
+    const worst = new Float64Array(nH), worstIdx = new Int32Array(nH), best = new Float64Array(nH);
+    for (let i = 0; i < nH; i++) {
+      let w = -Infinity, wi = 0, bst = Infinity;
+      out.forEach((cs, k) => {
+        const v = cs.cg[i];
+        if (v > w + 1e-9 || (Math.abs(v - w) <= 1e-9 && noneCount(cs) > noneCount(out[wi]))) { w = Math.max(w, v); wi = k; }
+        if (v < bst) bst = v;
+      });
+      worst[i] = w; worstIdx[i] = wi; best[i] = bst;
+    }
+    // Beam combinations: an unknown room position is always taken at its worst for that thickness.
+    const groups = new Map();
+    out.forEach((cs, k) => {
+      const key = SIDES.map(sd => cs.edges[sd]).join('-');
+      if (!groups.has(key)) groups.set(key, {edges: cs.edges, members: []});
+      groups.get(key).members.push(k);
+    });
+    const combos = [...groups.values()].map(g => {
+      const cg = new Float64Array(nH), posIdx = new Int32Array(nH);
+      for (let i = 0; i < nH; i++) {
+        let w = -Infinity, wk = g.members[0];
+        for (const k of g.members) if (out[k].cg[i] > w) { w = out[k].cg[i]; wk = k; }
+        cg[i] = w; posIdx[i] = wk;
+      }
+      return {edges: g.edges, cg, caseIdx: posIdx, nPos: g.members.length, members: g.members};
+    });
+    return {hs, cases: out, combos, worst, worstIdx, best, tenLogA};
+  }
+
+  /* Safe-side requirement on one cg curve: smallest h such that every thicker h also meets the target. */
+  function requirement(hs, cg, target) {
+    const n = hs.length, ok = i => cg[i] <= target + 1e-9;
+    let first = -1;
+    for (let i = 0; i < n; i++) if (ok(i)) { first = i; break; }
+    let stable = -1;
+    for (let i = n - 1; i >= 0; i--) { if (ok(i)) stable = i; else break; }
+    const gaps = [];
+    if (first >= 0) {
+      let start = null;
+      for (let i = first; i < n; i++) {
+        if (!ok(i) && start === null) start = hs[i];
+        if (ok(i) && start !== null) { gaps.push([start, hs[i - 1]]); start = null; }
+      }
+      if (start !== null) gaps.push([start, hs[n - 1]]);
+    }
+    return {first: first >= 0 ? hs[first] : null, req: stable >= 0 ? hs[stable] : null, gaps};
+  }
+
+  /* Per-beam-combination answers for a target (room position at its worst), plus statistics.
+   * null = not met within the thickness range. */
+  function distribution(sw, target) {
+    const reqs = sw.combos.map(cs => requirement(sw.hs, cs.cg, target).req);
+    const met = reqs.filter(v => v !== null).sort((a, b) => a - b);
+    const n = reqs.length, unmet = n - met.length;
+    const q = p => met.length ? met[Math.min(met.length - 1, Math.max(0, Math.ceil(p * n) - 1))] : null;
+    const key = v => v ?? Infinity;
+    const order = reqs.map((v, i) => i).sort((a, b) => (key(reqs[b]) - key(reqs[a])) || (noneCount(sw.combos[b]) - noneCount(sw.combos[a])) || a - b);
+    const ties = v => reqs.filter(x => x === v).length;
+    return {reqs, n, unmet, min: met[0] ?? null, max: unmet ? null : met[met.length - 1],
+      median: unmet > n / 2 ? null : q(0.5), order, ties,
+      coverage: h => reqs.filter(v => v !== null && v <= h).length};
+  }
+
+  /* Does the room position change the result of this beam combination at thickness h (mm)? */
+  function comboPosMatters(sw, comboIdx, h) {
+    const i = Math.max(0, Math.min(sw.hs.length - 1, h - sw.hs[0]));
+    let lo = Infinity, hi = -Infinity;
+    for (const k of sw.combos[comboIdx].members) { const v = sw.cases[k].cg[i]; lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    return hi - lo > 1e-9;
+  }
+  /* Same question for a single case (used by the detailed page's governing case). */
+  function casePosMatters(sw, caseIdx, h) {
+    const key = SIDES.map(sd => sw.cases[caseIdx].edges[sd]).join('-');
+    const ci = sw.combos.findIndex(cb => SIDES.map(sd => cb.edges[sd]).join('-') === key);
+    return ci >= 0 && comboPosMatters(sw, ci, h);
+  }
+
+  /* Room position that governs a beam combination at thickness h (mm). */
+  function comboPosAt(sw, comboIdx, h) {
+    const i = Math.max(0, Math.min(sw.hs.length - 1, h - sw.hs[0]));
+    return sw.cases[sw.combos[comboIdx].caseIdx[i]].pos;
+  }
+
+  function describeEdges(e) { return SIDES.map(s => `${SIDE_LABEL[s]} ${EDGE_LABEL[e[s]]}`).join('／'); }
+
+  function placeText(c, pos) {
+    const fm = v => (Math.round(v * 100) / 100).toFixed(2);
+    const axis = (inside, o, L, r, lo, hi) => {
+      if (!inside || L - r < EPS) return null;
+      if (Math.abs(o) < EPS) return `${lo}寄せ`;
+      if (Math.abs(o - (L - r)) < EPS) return `${hi}寄せ`;
+      if (Math.abs(o - (L - r) / 2) < EPS) return '中央';
+      return `${lo}から ${fm(o)} m`;
+    };
+    const ax = axis(c.rx <= c.Lx + EPS, pos.ox, c.Lx, c.rx, '左端', '右端');
+    const ay = axis(c.ry <= c.Ly + EPS, pos.oy, c.Ly, c.ry, '下端', '上端');
+    if (ax === '中央' && ay === '中央') return 'スラブの中央';
+    return [ax && `短辺方向は${ax}`, ay && `長辺方向は${ay}`].filter(Boolean).join('、') || 'スラブ全体';
+  }
+
+  /* Model switch thicknesses (fc crossing band centres, f0 crossing band limits), in mm. */
+  function switchPoints(c) {
+    const K = (C_AIR ** 2 / (2 * Math.PI)) * Math.sqrt(12 * c.rho * (1 - NU2) / c.E) * 1000;
+    const kf0 = F0_COEF * (2.25 / c.Lx ** 2 + 1.4 / c.Ly ** 2) * Math.sqrt(c.E / c.rho) / 1000;
+    return BANDS.map(f => ({h: K / f, label: `fc=${f}Hz`}))
+      .concat(DOM_LIMITS.map(l => ({h: l / kf0, label: `f0=${l}Hz`})))
+      .sort((a, b) => a.h - b.h);
+  }
+
+  /* ---------- charts (SVG strings; colours come from CSS classes defined by each page) ---------- */
+
+  function edgeIcon(e, w = 34, h = 42) {
+    const st = t => t === 'obari' ? 'stroke-width="4"' : t === 'kobari' ? 'stroke-width="2"' : 'stroke-width="1" stroke-dasharray="2.5 2"';
+    const p = 4;
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <rect x="${p}" y="${p}" width="${w - 2 * p}" height="${h - 2 * p}" class="f-pass"/>
+      <line x1="${p}" y1="${p}" x2="${w - p}" y2="${p}" class="s-line" ${st(e.top)}/>
+      <line x1="${p}" y1="${h - p}" x2="${w - p}" y2="${h - p}" class="s-line" ${st(e.btm)}/>
+      <line x1="${p}" y1="${p}" x2="${p}" y2="${h - p}" class="s-line" ${st(e.left)}/>
+      <line x1="${w - p}" y1="${p}" x2="${w - p}" y2="${h - p}" class="s-line" ${st(e.right)}/></svg>`;
+  }
+
+  /* Number of beamless edges per case: the dominant driver of the spread. */
+  function noneCount(cs) { return SIDES.filter(sd => cs.edges[sd] === 'none').length; }
+
+  /* Safe-side answer when at most k edges may be beamless (k = 0..4). null = some case not met. */
+  function byNoneLimit(sw, dist) {
+    const out = [];
+    for (let k = 0; k <= 4; k++) {
+      const idx = sw.combos.map((cs, i) => [noneCount(cs), i]).filter(([n]) => n <= k).map(([, i]) => i);
+      if (!idx.length) { out.push(null); continue; }
+      const v = idx.map(i => dist.reqs[i]);
+      out.push({k, n: idx.length, req: v.some(x => x === null) ? null : Math.max(...v), unmet: v.filter(x => x === null).length});
+    }
+    return out;
+  }
+
+  /* Histogram of per-case answers, stacked by number of beamless edges, with a cumulative
+   * "share of cases met" line on the right axis. */
+  function distributionChart(sw, dist, opt) {
+    const W = opt.width || 680, H = opt.height || 300, l = 48, r = 52, t = 34, b = 44;
+    const pw = W - l - r, ph = H - t - b;
+    const groups = sw.combos.map(noneCount);
+    const met = dist.reqs.filter(v => v !== null);
+    const lo0 = met.length ? Math.min(...met) : opt.hmax, hi0 = met.length ? Math.max(...met) : opt.hmax;
+    const span = Math.max(20, hi0 - lo0);
+    const bin = span > 240 ? 20 : span > 100 ? 10 : 5;
+    const lo = Math.floor((lo0 - bin) / bin) * bin;
+    const hasUnmet = dist.unmet > 0;
+    const hiMet = Math.ceil((hi0 + bin) / bin) * bin;
+    const hi = hiMet + (hasUnmet ? 3 * bin : 0);
+    const X = v => l + (v - lo) / (hi - lo) * pw;
+    const bins = new Map();
+    const unmetByG = [0, 0, 0, 0, 0];
+    dist.reqs.forEach((v, i) => {
+      if (v === null) { unmetByG[groups[i]]++; return; }
+      const k = Math.floor(v / bin) * bin;
+      if (!bins.has(k)) bins.set(k, [0, 0, 0, 0, 0]);
+      bins.get(k)[groups[i]]++;
+    });
+    const total = a => a.reduce((x, y) => x + y, 0);
+    const maxCount = Math.max(1, total(unmetByG), ...[...bins.values()].map(total));
+    const Y = n => t + ph - n / maxCount * ph;
+    const Yp = f => t + ph - f * ph;
+    const s = [];
+    for (let k = 0; k <= 4; k++) {
+      const y = Yp(k / 4);
+      s.push(`<line x1="${l}" x2="${l + pw}" y1="${y}" y2="${y}" class="s-grid"/><text x="${l + pw + 6}" y="${y + 4}" class="f-soft" font-size="11">${k * 25}%</text>`);
+    }
+    const tickStep = (hiMet - lo) > 300 ? 100 : (hiMet - lo) > 120 ? 50 : 20;
+    for (let v = Math.ceil(lo / tickStep) * tickStep; v <= hiMet; v += tickStep) {
+      s.push(`<text x="${X(v)}" y="${t + ph + 16}" class="f-soft" font-size="11.5" text-anchor="middle">${v}</text>`);
+    }
+    s.push(`<text x="${l + pw / 2}" y="${H - 6}" class="f-soft" font-size="12" text-anchor="middle">その組合せで目標を満たす等価厚 [mm]</text>`);
+    s.push(`<text x="12" y="${t + ph / 2}" class="f-soft" font-size="12" text-anchor="middle" transform="rotate(-90 12 ${t + ph / 2})">組合せの数</text>`);
+    [Math.round(maxCount / 2), maxCount].forEach(n => { if (n > 0) s.push(`<text x="${l - 6}" y="${Y(n) + 4}" class="f-soft" font-size="10.5" text-anchor="end">${n}</text>`); });
+    const stack = (x0, x1, counts, tip) => {
+      let acc = 0;
+      counts.forEach((n, g) => {
+        if (!n) return;
+        s.push(`<rect x="${x0 + 1}" y="${Y(acc + n)}" width="${Math.max(1, x1 - x0 - 2)}" height="${Y(acc) - Y(acc + n)}" class="f-q${g} s-paper" stroke-width=".8"><title>${tip}：梁なし${g}辺 ${n} 通り</title></rect>`);
+        acc += n;
+      });
+    };
+    bins.forEach((counts, k) => stack(X(k), X(k + bin), counts, `${k}〜${k + bin - 1} mm`));
+    if (hasUnmet) {
+      const x0 = X(hiMet + bin), x1 = X(hi);
+      stack(x0, x1, unmetByG, `${opt.hmax} mm でも満たさない`);
+      s.push(`<text x="${(x0 + x1) / 2}" y="${t + ph + 16}" class="f-shu" font-size="11" text-anchor="middle">${opt.hmax}超</text>`);
+    }
+    const sorted = [...met].sort((a, c) => a - c);
+    const pts = [[X(lo), Yp(0)]];
+    sorted.forEach((v, i) => { pts.push([X(v), Yp(i / dist.n)]); pts.push([X(v), Yp((i + 1) / dist.n)]); });
+    pts.push([X(hiMet), Yp(met.length / dist.n)]);
+    s.push(`<path d="${pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('')}" class="s-ink f-none" stroke-width="1.8"/>`);
+    const mark = (v, label, cls) => {
+      if (v === null || v === undefined) return;
+      const x = X(v), anchor = x > l + pw - 70 ? 'end' : x < l + 70 ? 'start' : 'middle';
+      s.push(`<line x1="${x}" x2="${x}" y1="${t - 4}" y2="${t + ph}" class="${cls}" stroke-width="1.4"${cls === 's-shu' ? '' : ' stroke-dasharray="3 3"'}/>`);
+      s.push(`<text x="${x}" y="${t - 10}" class="${cls === 's-shu' ? 'f-shu' : 'f-ink'}" font-size="12" font-weight="700" text-anchor="${anchor}">${label}</text>`);
+    };
+    if (dist.min !== null && dist.min !== dist.max) mark(dist.min, `最も有利 ${dist.min} mm`, 's-ink');
+    if (dist.max !== null) mark(dist.max, `安全側 ${dist.max} mm`, 's-shu');
+    if (opt.cursor !== undefined && opt.cursor !== null) {
+      const cov = dist.coverage(opt.cursor), x = X(Math.min(opt.cursor, hiMet));
+      s.push(`<line x1="${x}" x2="${x}" y1="${t}" y2="${t + ph}" class="s-ink" stroke-opacity=".45"/>`);
+      s.push(`<circle cx="${x}" cy="${Yp(cov / dist.n)}" r="5" class="f-paper s-ink" stroke-width="2.2"/>`);
+    }
+    return {svg: s.join(''), lo, hi, hiMet, X, pw, l, W, bin};
+  }
+
+  global.SlabModel = {BANDS, LF_RMS, DELTA_C, Z_DROP, BASES, EDGE_TYPES, EDGE_LABEL, SIDES, SIDE_LABEL, MATERIALS, DEFAULTS,
+    REL_POINTS, DOM_LIMITS, calcSigma, calcPolyDeltaL, axisGeom, evaluate, assess, positionsFor, edgeCombos, buildCases,
+    sweep, requirement, distribution, comboPosAt, comboPosMatters, casePosMatters, byNoneLimit, noneCount, describeEdges, placeText, switchPoints, aijE, EPS};
+  global.SlabCharts = {edgeIcon, distributionChart};
+})(typeof window !== 'undefined' ? window : globalThis);
+/* ==== END slab-thickness-core.js ==== */
+</script>
+<script>
+(() => {
+'use strict';
+const M = window.SlabModel, C = window.SlabCharts;
+const $ = id => document.getElementById(id);
+const fm = v => (Math.round(v * 100) / 100).toFixed(2);
+const fE = E => (E / 1e10).toFixed(2);
+const mat = id => M.MATERIALS.find(m => m.id === id) || M.MATERIALS[0];
+const defMat = mat(M.DEFAULTS.material);
+
+const state = {target: null, Lx: null, Ly: null, same: null, rx: null, ry: null, T: null, H: null, material: null};
+const STEPS = ['target', 'slab', 'room', 'T', 'H', 'material', 'result'];
+let step = 0, dir = 1, sw = null, dist = null, cursor = null;
+
+/* ---------- slide renderers ---------- */
+const slides = {
+  target() {
+    const opts = [40, 45, 50, 55, 60, 65];
+    return `<h2 class="q" tabindex="-1">目標の性能は？<small>重量床衝撃音の等級（LH）です。数字が小さいほど遮音性能が高くなります。</small></h2>
+      <div class="choices">${opts.map(v => `<button type="button" class="choice" data-target="${v}" aria-pressed="${state.target === v}">LH-${v}</button>`).join('')}</div>`;
+  },
+  slab() {
+    return `<h2 class="q" tabindex="-1">スラブの大きさは？<small>梁で囲まれた1枚の床スラブの寸法を入れてください。</small></h2>
+      <div class="fields">
+        <label class="field" id="f-Lx">短辺 [m]<input id="Lx" type="number" inputmode="decimal" step="any" value="${state.Lx ?? ''}" placeholder="例 4.5"></label>
+        <label class="field" id="f-Ly">長辺 [m]<input id="Ly" type="number" inputmode="decimal" step="any" value="${state.Ly ?? ''}" placeholder="例 5.5"></label>
+      </div>
+      <p class="err" id="err"></p>
+      <button type="button" class="next" id="next">次へ</button>`;
+  },
+  room() {
+    const no = state.same === false;
+    return `<h2 class="q" tabindex="-1">下の部屋は、スラブと同じ大きさでいいですか？<small>部屋の位置が分からなくても大丈夫です。スラブの端と中央に寄せた配置を計算し、最も厳しい配置で評価します。</small></h2>
+      <div class="yn">
+        <button type="button" class="choice" data-yn="yes" aria-pressed="${state.same === true}">はい<small>${fm(state.Lx)} × ${fm(state.Ly)} m</small></button>
+        <button type="button" class="choice" data-yn="no" aria-pressed="${no}">いいえ<small>部屋の寸法を入れる</small></button>
+      </div>
+      <div class="reveal" id="reveal" ${no ? '' : 'hidden'}>
+        <div class="fields">
+          <label class="field" id="f-rx">幅（スラブ短辺の方向）[m]<input id="rx" type="number" inputmode="decimal" step="any" value="${state.rx ?? ''}"></label>
+          <label class="field" id="f-ry">奥行（スラブ長辺の方向）[m]<input id="ry" type="number" inputmode="decimal" step="any" value="${state.ry ?? ''}"></label>
+        </div>
+        <p class="help">部屋がスラブより広い方向では、加振するスラブ1枚だけを計算します（隣のスラブは含みません）。</p>
+        <p class="err" id="err"></p>
+        <button type="button" class="next" id="next">次へ</button>
+      </div>`;
+  },
+  T() { return ynSlide('T', '残響時間は 0.5 秒でいいですか？', '下の部屋の残響時間です。吸音力 A = 0.161 V / T の計算に使います。', '0.5 秒', '残響時間 [s]', M.DEFAULTS.T); },
+  H() { return ynSlide('H', '天井高は 2.5 m でいいですか？', '下の部屋の天井高です。室容積の計算に使います。', '2.5 m', '天井高 [m]', M.DEFAULTS.H); },
+  material() {
+    const no = state.material !== null && state.material !== defMat.id;
+    const showList = no || state._matNo;
+    return `<h2 class="q" tabindex="-1">スラブの材料は「${defMat.label}」でいいですか？<small>密度 ${defMat.rho.toLocaleString()} kg/m³・ヤング率 ${fE(defMat.E)}×10¹⁰ N/m²。この材料の均質な板として等価厚を求めます。</small></h2>
+      <div class="yn">
+        <button type="button" class="choice" data-yn="yes" aria-pressed="${state.material === defMat.id && !showList}">はい<small>${defMat.note}</small></button>
+        <button type="button" class="choice" data-yn="no" aria-pressed="${!!showList}">いいえ<small>ほかの材料から選ぶ</small></button>
+      </div>
+      <div class="reveal" id="reveal" ${showList ? '' : 'hidden'}>
+        <div class="mats" role="radiogroup" aria-label="材料">
+          ${M.MATERIALS.map(m => `<label class="mat"><input type="radio" name="mat" value="${m.id}" ${state.material === m.id ? 'checked' : ''}><div><b>${m.label}</b><span>ρ ${m.rho.toLocaleString()} kg/m³・E ${fE(m.E)}×10¹⁰ N/m²</span></div></label>`).join('')}
+        </div>
+        <p class="help">ヤング率は日本建築学会 RC 規準の式 E = 3.35×10⁴ (γ/24)² (Fc/60)^1/3 [N/mm²] による代表値です（Fc36 相当は元の計算コードの値）。</p>
+        <p class="err" id="err"></p>
+        <button type="button" class="next" id="next">計算する</button>
+      </div>`;
+  },
+  result() { return `<p class="computing" tabindex="-1">計算しています…</p>`; }
+};
+
+function ynSlide(key, q, help, yesLabel, inputLabel, def) {
+  const no = state[key] !== null && state[key] !== def;
+  const showInput = no || state['_' + key + 'No'];
+  return `<h2 class="q" tabindex="-1">${q}<small>${help}</small></h2>
+    <div class="yn">
+      <button type="button" class="choice" data-yn="yes" aria-pressed="${state[key] === def && !showInput}">はい<small>${yesLabel}</small></button>
+      <button type="button" class="choice" data-yn="no" aria-pressed="${!!showInput}">いいえ<small>値を入れる</small></button>
+    </div>
+    <div class="reveal" id="reveal" ${showInput ? '' : 'hidden'}>
+      <div class="fields"><label class="field" id="f-v">${inputLabel}<input id="v" type="number" inputmode="decimal" step="any" value="${no ? state[key] : ''}"></label></div>
+      <p class="err" id="err"></p>
+      <button type="button" class="next" id="next">次へ</button>
+    </div>`;
+}
+
+/* ---------- navigation ---------- */
+function go(i, d) {
+  dir = d ?? (i >= step ? 1 : -1);
+  step = Math.max(0, Math.min(STEPS.length - 1, i));
+  render();
+}
+function render() {
+  const name = STEPS[step];
+  const stage = $('stage');
+  stage.innerHTML = `<section class="slide ${dir < 0 ? 'from-left' : ''}">${slides[name]()}</section>`;
+  $('dots').innerHTML = STEPS.slice(0, -1).map((_, i) => `<i class="${i < step ? 'done' : ''}"></i>`).join('');
+  $('count').textContent = name === 'result' ? '結果' : `${step + 1} / ${STEPS.length - 1}`;
+  $('back').disabled = step === 0;
+  wire(name);
+  const h = stage.querySelector('[tabindex="-1"]');
+  if (h) h.focus({preventScroll: true});
+  window.scrollTo({top: 0, behavior: 'instant' in window ? 'instant' : 'auto'});
+  if (name === 'result') setTimeout(computeResult, 30);
+}
+$('back').addEventListener('click', () => go(step - 1, -1));
+
+function num(id) { const el = $(id); return el && el.value.trim() !== '' ? Number(el.value) : NaN; }
+function bad(id, on) { $('f-' + id)?.classList.toggle('invalid', on); }
+function onEnter(handler) { $('stage').querySelectorAll('input[type=number]').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handler(); } })); }
+
+function wire(name) {
+  const stage = $('stage');
+  if (name === 'target') {
+    stage.querySelectorAll('[data-target]').forEach(b => b.addEventListener('click', () => { state.target = Number(b.dataset.target); go(step + 1); }));
+  }
+  if (name === 'slab') {
+    const next = () => {
+      let a = num('Lx'), b = num('Ly');
+      bad('Lx', !(a > 0)); bad('Ly', !(b > 0));
+      if (!(a > 0) || !(b > 0)) { $('err').textContent = '短辺と長辺に正の数を入れてください。'; return; }
+      if (a > b) [a, b] = [b, a];
+      state.Lx = a; state.Ly = b;
+      if (state.same !== false) { state.rx = a; state.ry = b; }
+      go(step + 1);
+    };
+    $('next').addEventListener('click', next); onEnter(next);
+    $('Lx').focus();
+  }
+  if (name === 'room') {
+    stage.querySelector('[data-yn="yes"]').addEventListener('click', () => { state.same = true; state.rx = state.Lx; state.ry = state.Ly; go(step + 1); });
+    stage.querySelector('[data-yn="no"]').addEventListener('click', () => {
+      state.same = false; $('reveal').hidden = false;
+      stage.querySelector('[data-yn="no"]').setAttribute('aria-pressed', 'true'); stage.querySelector('[data-yn="yes"]').setAttribute('aria-pressed', 'false');
+      $('rx').focus();
+    });
+    const next = () => {
+      const a = num('rx'), b = num('ry');
+      bad('rx', !(a > 0)); bad('ry', !(b > 0));
+      if (!(a > 0) || !(b > 0)) { $('err').textContent = '幅と奥行に正の数を入れてください。'; return; }
+      state.rx = a; state.ry = b; go(step + 1);
+    };
+    $('next').addEventListener('click', next); onEnter(next);
+  }
+  if (name === 'T' || name === 'H') {
+    const def = M.DEFAULTS[name];
+    stage.querySelector('[data-yn="yes"]').addEventListener('click', () => { state[name] = def; state['_' + name + 'No'] = false; go(step + 1); });
+    stage.querySelector('[data-yn="no"]').addEventListener('click', () => {
+      state['_' + name + 'No'] = true; $('reveal').hidden = false;
+      stage.querySelector('[data-yn="no"]').setAttribute('aria-pressed', 'true'); stage.querySelector('[data-yn="yes"]').setAttribute('aria-pressed', 'false');
+      $('v').focus();
+    });
+    const next = () => {
+      const v = num('v'), ok = name === 'T' ? v > 0 && v <= 10 : v > 0 && v <= 20;
+      bad('v', !ok);
+      if (!ok) { $('err').textContent = name === 'T' ? '残響時間は 0〜10 秒の数を入れてください。' : '天井高は 0〜20 m の数を入れてください。'; return; }
+      state[name] = v; go(step + 1);
+    };
+    $('next').addEventListener('click', next); onEnter(next);
+  }
+  if (name === 'material') {
+    stage.querySelector('[data-yn="yes"]').addEventListener('click', () => { state.material = defMat.id; state._matNo = false; go(step + 1); });
+    stage.querySelector('[data-yn="no"]').addEventListener('click', () => {
+      state._matNo = true; $('reveal').hidden = false;
+      stage.querySelector('[data-yn="no"]').setAttribute('aria-pressed', 'true'); stage.querySelector('[data-yn="yes"]').setAttribute('aria-pressed', 'false');
+      (stage.querySelector('input[name=mat]:checked') || stage.querySelector('input[name=mat]')).focus();
+    });
+    $('next').addEventListener('click', () => {
+      const sel = stage.querySelector('input[name=mat]:checked');
+      if (!sel) { $('err').textContent = '材料を1つ選んでください。'; return; }
+      state.material = sel.value; go(step + 1);
+    });
+  }
+}
+
+/* ---------- result ---------- */
+function config() {
+  const m = mat(state.material);
+  return {Lx: state.Lx, Ly: state.Ly, rx: state.rx, ry: state.ry, H: state.H, T: state.T, rho: m.rho, E: m.E,
+    avg: 'arith', base: M.BASES.reference, tol: 0, hmin: M.DEFAULTS.hmin, hmax: M.DEFAULTS.hmax, target: state.target,
+    posMode: 'unknown', ox: 0, oy: 0, edgeChoice: {top: 'unknown', btm: 'unknown', left: 'unknown', right: 'unknown'}};
+}
+
+function computeResult() {
+  const c = config();
+  sw = M.sweep(c);
+  dist = M.distribution(sw, c.target);
+  cursor = dist.median ?? dist.min ?? c.hmax;
+  renderResult(c);
+  writeUrl();
+}
+
+const mmText = (v, c) => v === null ? `${c.hmax} mm 超` : `${v} mm`;
+
+function renderResult(c) {
+  const nPos = M.positionsFor(c).length;
+  const limits = M.byNoneLimit(sw, dist);
+  const bestI = dist.order[dist.order.length - 1], worstI = dist.order[0];
+  const best = sw.combos[bestI], worst = sw.combos[worstI];
+  const atSafe = dist.max ?? c.hmax;
+  const worstPos = M.comboPosAt(sw, worstI, atSafe), worstPosMatters = nPos > 1 && M.comboPosMatters(sw, worstI, atSafe);
+  const nTie = dist.max === null ? dist.unmet : dist.ties(dist.max);
+  const posNote = (i, h) => nPos <= 1 ? '' : (M.comboPosMatters(sw, i, h) ? `部屋は${M.placeText(c, M.comboPosAt(sw, i, h))}のとき` : '部屋の位置によらない');
+  const caseText = nPos > 1 ? `${dist.n} 通り。部屋の位置は ${nPos} 通りの配置のうち、組合せごとに最も厳しいものを使用` : `${dist.n} 通り`;
+  const safe = dist.max;
+  const rows = [
+    ['4辺とも梁あり（大ばり・小ばり）', limits[0]], ['梁なしが1辺まで', limits[1]], ['梁なしが2辺まで', limits[2]],
+    ['梁なしが3辺まで', limits[3]], ['すべての組合せ（安全側）', limits[4]]
+  ];
+  const s = [];
+  s.push(`<section class="slide result ${dir < 0 ? 'from-left' : ''}">`);
+  s.push(`<h2 class="q" tabindex="-1">LH-${c.target} に必要な等価厚<small>スラブ周辺の梁（大ばり・小ばり・梁なし）を4辺すべての組合せで計算しました（${caseText}）。</small></h2>`);
+  s.push(`<div class="hero">
+      <div class="safe"><p class="lab">安全側（どの組合せでも満たす）</p><p class="big">${safe === null ? `${c.hmax}<span>mm 超</span>` : `${safe}<span>mm</span>`}</p></div>
+      <div><p class="lab">最も有利な組合せなら</p><p class="big">${dist.min === null ? '—' : `${dist.min}<span>mm</span>`}</p></div>
+      <p class="sub">${dist.min !== null ? `梁の条件しだいで ${dist.min}〜${mmText(safe, c)} の幅があります。` : ''}半数の組合せは ${mmText(dist.median, c)} で満たします。安全側の値になる組合せは ${nTie} 通りで、たとえば ${M.describeEdges(worst.edges)}${nPos > 1 ? (worstPosMatters ? `（部屋は${M.placeText(c, worstPos)}）` : '（部屋の位置によらない）') : ''} の場合です。</p>
+    </div>`);
+  s.push(`<div class="block"><h2>梁の条件ごとの必要厚</h2>
+      <p class="lead">梁なしの辺が多いほど厚さが必要になります。設計で梁が決まっている範囲に合わせて読んでください。</p>
+      <table><thead><tr><th>梁の条件</th><th style="text-align:right">組合せ</th><th style="text-align:right">必要な等価厚</th></tr></thead><tbody>
+      ${rows.map(([lab, r], i) => `<tr class="${i === 4 ? 'safe' : ''}"><td>${lab}</td><td style="text-align:right">${r.n} 通り</td><td class="num ${r.req === null ? 'none' : ''}">${mmText(r.req, c)}</td></tr>`).join('')}
+      <tr><td>最も有利（${M.describeEdges(best.edges)}）</td><td style="text-align:right">1 通り</td><td class="num">${mmText(dist.min, c)}</td></tr>
+      </tbody></table></div>`);
+  s.push(`<div class="block"><h2>組合せごとの必要厚の分布</h2>
+      <p class="lead">棒は、その厚さで目標を満たすようになる組合せの数です。色は梁なしの辺の数。黒い線は、その厚さで目標を満たす組合せの割合（右の目盛）です。</p>
+      <div class="chart"><svg id="dist" viewBox="0 0 680 300" role="img" aria-label="必要厚の分布"></svg></div>
+      <div class="legend" aria-hidden="true">梁なしの辺の数：${[0, 1, 2, 3, 4].map(k => `<span><i style="background:var(--q${k})"></i>${k}辺</span>`).join('')}</div>
+      <div class="slider"><label for="cur">厚さを動かす</label><input id="cur" type="range" min="${c.hmin}" max="${c.hmax}" step="1" value="${cursor}"><span></span><output id="curOut"></output></div>
+    </div>`);
+  const top = list => list.map(i => { const cs = sw.combos[i], v = dist.reqs[i]; return `<div class="combo">${C.edgeIcon(cs.edges)}<span>${M.describeEdges(cs.edges)}${nPos > 1 ? `<br><span class="help">${posNote(i, v ?? c.hmax)}</span>` : ''}</span><b>${mmText(v, c)}</b></div>`; }).join('');
+  const uniq = arr => arr;
+  s.push(`<div class="block"><h2>厳しい組合せと有利な組合せ</h2><div class="combos">
+      <div><h3 class="lead" style="font-weight:700;margin-bottom:4px">厳しい順</h3>${top(uniq(dist.order).slice(0, 4))}</div>
+      <div><h3 class="lead" style="font-weight:700;margin-bottom:4px">有利な順</h3>${top(uniq([...dist.order].reverse()).slice(0, 4))}</div>
+    </div></div>`);
+  const m = mat(state.material);
+  const recap = [
+    ['目標', `LH-${c.target}`, 0], ['スラブ', `${fm(c.Lx)} × ${fm(c.Ly)} m`, 1],
+    ['下の部屋', state.same ? 'スラブと同じ大きさ' : `${fm(c.rx)} × ${fm(c.ry)} m（位置は未定）`, 2],
+    ['残響時間', `${c.T} 秒`, 3], ['天井高', `${c.H} m`, 4], ['材料', `${m.label}（ρ ${m.rho}・E ${fE(m.E)}×10¹⁰）`, 5]
+  ];
+  s.push(`<div class="block"><h2>入力した条件</h2><dl class="recap">${recap.map(([k, v, i]) => `<div><dt>${k}</dt><dd>${v}</dd><button type="button" data-goto="${i}">変更</button></div>`).join('')}</dl></div>`);
+  s.push(`<div class="actions">
+      <a class="btn primary" id="openDetail" href="#">詳細入力版で計算書を見る</a>
+      <button type="button" class="btn" id="copy">この結果のリンクをコピー</button>
+      <button type="button" class="btn" id="restart">最初からやり直す</button>
+    </div>`);
+  s.push(`<div class="notes"><h2 style="font-size:15px;color:var(--ink)">この結果について</h2><ul>
+      <li>判定は公開資料の L-50 基準曲線（73・63・56・50 dB）と厳密に比べています（各帯域 2 dB の許容なし）。許容や基準曲線は詳細入力版で変えられます。</li>
+      <li>衝撃源はタイヤ（バングマシン）。加振点は5点、加振点間は算術平均です。受音側は室内平均として扱います。</li>
+      <li>「必要な等価厚」は、それ以上ならどの厚さでも目標を満たす最小値です（${c.hmin}〜${c.hmax} mm を 1 mm 刻みで計算）。</li>
+      <li>予測式の検証と規格原本との照合は完了していません。設計の目安としてお使いください。式と前提は詳細入力版の計算書にあります。</li>
+    </ul></div>`);
+  s.push('</section>');
+  $('stage').innerHTML = s.join('');
+  drawDist(c);
+  $('cur').addEventListener('input', e => { cursor = Number(e.target.value); drawDist(c); });
+  $('stage').querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => go(Number(b.dataset.goto), -1)));
+  $('restart').addEventListener('click', () => { Object.keys(state).forEach(k => { state[k] = null; }); history.replaceState(null, '', location.pathname); go(0, -1); });
+  $('copy').addEventListener('click', async () => {
+    const b = $('copy');
+    try { await navigator.clipboard.writeText(location.href); b.textContent = 'コピーしました'; } catch (_) { b.textContent = 'アドレスバーのURLをコピーしてください'; }
+    setTimeout(() => { b.textContent = 'この結果のリンクをコピー'; }, 2200);
+  });
+  $('openDetail').href = detailUrl(c);
+  $('stage').querySelector('[tabindex="-1"]').focus({preventScroll: true});
+}
+
+function drawDist(c) {
+  const ch = C.distributionChart(sw, dist, {hmax: c.hmax, cursor});
+  $('dist').innerHTML = ch.svg;
+  const cov = dist.coverage(cursor);
+  $('curOut').innerHTML = `<b>${cursor} mm</b> なら ${dist.n} 通り中 <b>${cov}</b> 通り（${Math.round(cov / dist.n * 100)}%）で目標を満たします。`;
+}
+
+/* ---------- URL ---------- */
+function writeUrl() {
+  const q = new URLSearchParams({t: state.target, Lx: state.Lx, Ly: state.Ly, same: state.same ? 1 : 0, rx: state.rx, ry: state.ry, T: state.T, H: state.H, mat: state.material});
+  history.replaceState(null, '', `${location.pathname}?${q}`);
+}
+function detailUrl(c) {
+  const m = mat(state.material);
+  const q = new URLSearchParams({t: c.target, Lx: c.Lx, Ly: c.Ly, rho: m.rho, E: fE(m.E), mat: m.id, same: state.same ? 1 : 0, rx: c.rx, ry: c.ry, H: c.H, T: c.T,
+    pos: 'unknown', et: 'unknown', eb: 'unknown', el: 'unknown', er: 'unknown', tol: 0, base: 'reference', avg: 'arith'});
+  return `slab-thickness.html?${q}`;
+}
+function readUrl() {
+  const q = new URLSearchParams(location.search);
+  const n = k => (q.has(k) && q.get(k) !== '' ? Number(q.get(k)) : NaN);
+  const t = n('t'), Lx = n('Lx'), Ly = n('Ly'), T = n('T'), H = n('H');
+  if (![t, Lx, Ly, T, H].every(Number.isFinite)) return false;
+  Object.assign(state, {target: t, Lx: Math.min(Lx, Ly), Ly: Math.max(Lx, Ly), same: q.get('same') !== '0', T, H,
+    material: M.MATERIALS.some(m => m.id === q.get('mat')) ? q.get('mat') : defMat.id});
+  state.rx = state.same ? state.Lx : n('rx'); state.ry = state.same ? state.Ly : n('ry');
+  if (!(state.rx > 0 && state.ry > 0)) return false;
+  return true;
+}
+
+if (readUrl()) go(STEPS.length - 1, 1); else go(0, 1);
+})();
+</script>
+</body>
+</html>

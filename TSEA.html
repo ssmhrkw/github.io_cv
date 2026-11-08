@@ -204,10 +204,10 @@ function su_TSEA(p){
         const denom=clampPos(mass[i]);
         for(let n=0;n<fm;n++){
           const vrms=Math.sqrt(Math.max(E[i][n]/denom, EPS));
-          lin[n]=vrms*2e5*1e-9;
+          lin[n]=vrms*(P0/1e-9);   // velocity level re 1e-9 m/s (ISO 1683:2015) expressed through the same dB routine
         }
       }
-      const spl = ewmaSquaredToSPL(Float32Array.from(lin,Number), fs[m], 0.01);
+      const spl = ewmaSquaredToSPL(Float32Array.from(lin,Number), fs[m], 0.125);   // F time weighting, τ = 0.125 s (IEC 61672-1:2013)
       let maxdB=-Infinity; for(let k=0;k<spl.length;k++) if(spl[k]>maxdB) maxdB=spl[k];
       LFmax[i][m]=round2(maxdB);
     }
@@ -230,7 +230,8 @@ function demoMatrices(ns,nf){
   const CLF = Array.from({length:ns},(_,i)=>Array.from({length:ns},(_,j)=>Array(nf).fill(0)));
   for(let m=0;m<nf;m++) for(let i=0;i<ns-1;i++){ CLF[i+1][i][m]=0.005; CLF[i][i+1][m]=0.005; }
   const tmfp = Array.from({length:ns}, ()=>Array(nf).fill(0.1));
-  const subTYPE = Array.from({length:ns}, (_,i)=> i<Math.floor(ns/2) ? "struc":"space");
+  // validateInputs() requires the acoustic spaces to come first, so the demo lists them first.
+  const subTYPE = Array.from({length:ns}, (_,i)=> i<Math.ceil(ns/2) ? "space":"struc");
   const mass = Array.from({length:ns}, (_,i)=> subTYPE[i]==="struc"?10:0);
   const volume = Array.from({length:ns}, (_,i)=> subTYPE[i]==="space"?50:0);
   const PIn = Array(nf).fill(1);
