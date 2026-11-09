@@ -1,0 +1,1015 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>LH等級の聴き比べ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="重量床衝撃音の等級（LH-30〜LH-80）と暗騒音（20〜50 dB(A)）の組み合わせを聴き比べるページ">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: instrument panel. Tap matrix (grade x background) on the left, readout and settings column on the right; a single column below 920px. */
+:root{
+  --bg:#eceff3;
+  --surface:#fbfcfd;
+  --ink:#16202c;
+  --muted:#586577;
+  --line:#d3d9e1;
+  --accent:#2456c9;
+  --on-accent:#ffffff;
+  --warn:#9a5400;
+  --warn-bg:#fff1db;
+  --font-ui:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f141a; --surface:#161d25; --ink:#e4e9ef; --muted:#8d9aab; --line:#283240;
+    --accent:#7ea2ff; --on-accent:#0c1422; --warn:#f0b45a; --warn-bg:#2a2112;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --surface:#161d25; --ink:#e4e9ef; --muted:#8d9aab; --line:#283240;
+  --accent:#7ea2ff; --on-accent:#0c1422; --warn:#f0b45a; --warn-bg:#2a2112;
+  color-scheme:dark;
+}
+html{ -webkit-text-size-adjust:100%; }
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--font-ui); font-size:15px; line-height:1.6;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:20px 48px;
+}
+.wrap{ max-width:1180px; margin:0 auto; display:grid; gap:16px; }
+h1,h2,h3{ text-wrap:balance; margin:0; }
+header h1{ font-size:1.55rem; font-weight:700; letter-spacing:.02em; }
+header p{ margin:.35rem 0 0; color:var(--muted); max-width:64ch; }
+sub{ font-size:.72em; }
+.num{ font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+
+.toolbar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.seg{ display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+.seg button{
+  font:inherit; font-size:.88rem; border:0; background:transparent; color:var(--ink);
+  padding:.45rem .95rem; cursor:pointer; touch-action:manipulation;
+}
+.seg button + button{ border-left:1px solid var(--line); }
+.seg button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); }
+.btn{
+  font:inherit; font-size:.88rem; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:999px; padding:.45rem .95rem; cursor:pointer; touch-action:manipulation;
+}
+.btn:hover,.seg button:hover{ border-color:var(--accent); }
+.btn:focus-visible,.seg button:focus-visible,.cell:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{
+  outline:3px solid var(--accent); outline-offset:2px;
+}
+.btn.stop{ font-weight:500; }
+.check{ display:inline-flex; gap:.4rem; align-items:center; font-size:.88rem; }
+.chip{ font-size:.8rem; padding:.28rem .75rem; border-radius:999px; border:1px solid var(--line); color:var(--muted); background:var(--surface); }
+.chip.ok{ border-color:var(--accent); color:var(--accent); }
+.caution{ font-size:.85rem; color:var(--ink); background:var(--warn-bg); border-radius:10px; padding:.6rem .85rem; max-width:80ch; }
+.caution b{ color:var(--warn); }
+
+.board{ display:grid; gap:18px; grid-template-columns:minmax(0,1fr); align-items:start; }
+@media (min-width:920px){ .board{ grid-template-columns:minmax(0,1fr) 370px; } }
+
+.matrix-wrap{ min-width:0; }
+.matrix{ display:grid; grid-template-columns:5.4rem repeat(5, minmax(0,1fr)); gap:4px; }
+.mh{ font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; justify-content:center; padding:2px 4px; line-height:1.3; }
+.mh.col{ align-items:flex-start; padding-bottom:4px; }
+.mh.col b{ color:var(--ink); font-size:.9rem; font-weight:700; }
+.mh.row b{ color:var(--ink); font-size:.92rem; font-weight:700; font-family:var(--font-num); }
+.mh.row span{ font-size:.7rem; }
+.mh.sep{ border-top:1px solid var(--line); margin-top:4px; padding-top:6px; }
+.cell{
+  min-height:46px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink);
+  font:inherit; padding:4px 7px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+  cursor:pointer; position:relative; text-align:left; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  transition:transform .08s ease;
+}
+.cell:active{ transform:scale(.97); }
+.cell .k{ font-size:.66rem; opacity:.8; letter-spacing:.02em; line-height:1.2; }
+.cell .v{ font-family:var(--font-num); font-variant-numeric:tabular-nums; font-size:.95rem; font-weight:500; line-height:1.3; }
+.cell.hot{ color:var(--on-accent); border-color:transparent; }
+.cell.sel{ outline:2px solid var(--ink); outline-offset:1px; }
+.cell.playing{ outline:3px solid var(--ink); outline-offset:1px; }
+.cell.playing::after{
+  content:""; position:absolute; left:6px; bottom:5px; width:6px; height:6px; border-radius:50%; background:currentColor;
+  animation:pulse 1s ease-in-out infinite;
+}
+.cell .clip{
+  position:absolute; top:3px; right:4px; font-size:.62rem; line-height:1; padding:2px 4px; border-radius:4px;
+  background:var(--warn-bg); color:var(--warn); font-weight:700;
+}
+.cell.blank{ visibility:hidden; }
+.matrix-note{ font-size:.8rem; color:var(--muted); margin:.6rem 0 0; max-width:70ch; }
+@keyframes pulse{ 0%,100%{ opacity:.25 } 50%{ opacity:1 } }
+@media (prefers-reduced-motion: reduce){ .cell.playing::after{ animation:none; } .cell{ transition:none; } }
+
+.side{ display:grid; gap:14px; min-width:0; }
+.readout{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:grid; gap:10px; }
+.ro-state{ font-size:.75rem; color:var(--muted); letter-spacing:.08em; }
+.ro-state.on{ color:var(--accent); font-weight:700; }
+.readout h2{ font-size:1.15rem; font-weight:700; }
+.chart{ width:100%; height:auto; display:block; }
+.chart .grid{ stroke:var(--line); stroke-width:1; }
+.chart text{ fill:var(--muted); font-family:var(--font-num); font-size:10px; }
+.chart .bar-imp{ fill:var(--accent); }
+.chart .bar-bg{ fill:var(--muted); opacity:.5; }
+.chart .curve{ stroke:var(--ink); stroke-width:1.5; stroke-dasharray:4 3; fill:none; }
+.chart .dot{ fill:var(--ink); }
+.ro-nums{ display:grid; grid-template-columns:auto 1fr; gap:2px 12px; margin:0; font-size:.88rem; }
+.ro-nums dt{ color:var(--muted); }
+.ro-nums dd{ margin:0; text-align:right; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+.ro-warn{ font-size:.82rem; color:var(--warn); margin:0; }
+.tbl-wrap{ overflow-x:auto; }
+table.t{ border-collapse:collapse; width:100%; font-size:.8rem; }
+table.t th, table.t td{ padding:3px 5px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
+table.t th:first-child, table.t td:first-child{ text-align:left; color:var(--muted); font-weight:400; }
+table.t thead th{ color:var(--muted); font-weight:500; }
+table.t td{ font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+
+details{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:0 16px; }
+details[open]{ padding-bottom:14px; }
+summary{ cursor:pointer; padding:12px 0; font-weight:700; font-size:.95rem; list-style-position:inside; }
+details p, details li{ font-size:.86rem; }
+details p{ margin:.4rem 0; }
+details ol, details ul{ margin:.4rem 0; padding-left:1.3rem; }
+.form{ display:grid; gap:10px; }
+.field{ display:grid; gap:4px; font-size:.86rem; }
+.field label{ color:var(--muted); }
+.row-inline{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+input[type="number"], select{
+  font:inherit; font-family:var(--font-num); font-size:.88rem; color:var(--ink); background:var(--bg);
+  border:1px solid var(--line); border-radius:6px; padding:.3rem .45rem; width:5.2rem;
+}
+select{ font-family:var(--font-ui); width:auto; }
+input[type="file"]{ font:inherit; font-size:.82rem; max-width:100%; }
+.hint{ font-size:.78rem; color:var(--muted); }
+.status{ font-size:.82rem; color:var(--muted); }
+.status.err{ color:var(--warn); }
+.formula{ font-family:var(--font-num); font-size:.8rem; background:var(--bg); border-radius:6px; padding:.4rem .55rem; overflow-x:auto; white-space:nowrap; }
+.busy{ position:fixed; right:max(16px, env(safe-area-inset-right, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); background:var(--ink); color:var(--bg); font-size:.82rem; padding:.4rem .8rem; border-radius:999px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>LH等級の聴き比べ</h1>
+    <p>重量床衝撃音の等級（LH-30〜LH-80）と暗騒音（20〜50 dB(A)）の組み合わせを、セルをタップして再生します。衝撃音は各帯域の L<sub>i,Fmax</sub> が等級曲線にちょうど接するように合成しています。</p>
+  </header>
+
+  <div class="toolbar" role="group" aria-label="再生">
+    <div class="seg" id="seg-pattern" role="group" aria-label="再生パターン">
+      <button type="button" data-p="single" aria-pressed="true">単発</button>
+      <button type="button" data-p="triple" aria-pressed="false">3回</button>
+      <button type="button" data-p="run" aria-pressed="false">連続</button>
+    </div>
+    <button type="button" class="btn stop" id="btn-stop">■ 停止</button>
+    <label class="check"><input type="checkbox" id="chk-nums" checked> 数値を表示</label>
+    <span class="chip" id="chip-cal">未校正（相対比較）</span>
+  </div>
+
+  <p class="caution"><b>再生環境：</b>63 Hz 帯は iPad の内蔵スピーカーからはほとんど出ません。外部スピーカーかヘッドホンを使ってください。LH-70 以上は大きな音になるので、最初は音量を下げて試してください。</p>
+
+  <div class="board">
+    <div class="matrix-wrap">
+      <div class="matrix" id="matrix" role="grid" aria-label="等級と暗騒音の組み合わせ"></div>
+      <p class="matrix-note">セルの数値は ΔL<sub>A</sub> = L<sub>A,Fmax</sub>（衝撃音）− L<sub>Aeq</sub>（暗騒音）。色が濃いほど衝撃音が暗騒音を上回ります。「なし」列は L<sub>A,Fmax</sub>。<span class="num">⚠</span> は出力が 0 dBFS を超える組み合わせ（この端末と音量では正しく再生できません）。</p>
+    </div>
+
+    <div class="side">
+      <section class="readout" aria-live="polite">
+        <div>
+          <div class="ro-state" id="ro-state">選択中</div>
+          <h2 id="ro-title">LH-50 ＋ 暗騒音 30 dB(A)</h2>
+        </div>
+        <svg class="chart" id="ro-chart" viewBox="0 0 360 214" role="img" aria-label="帯域ごとのレベル"></svg>
+        <dl class="ro-nums" id="ro-nums"></dl>
+        <div class="tbl-wrap"><table class="t" id="ro-table"></table></div>
+        <p class="ro-warn" id="ro-warn" hidden></p>
+      </section>
+
+      <details id="d-source">
+        <summary>音源</summary>
+        <div class="form">
+          <div class="row-inline" role="radiogroup" aria-label="音源">
+            <label class="check"><input type="radio" name="src" id="src-synth" value="synth" checked> 合成音</label>
+            <label class="check"><input type="radio" name="src" id="src-wav" value="wav" disabled> 録音（WAV）</label>
+          </div>
+          <div class="field">
+            <label for="in-T">減衰時間 T（60 dB 減衰、合成音のみ）</label>
+            <div class="row-inline"><input type="number" id="in-T" min="0.2" max="2" step="0.05" value="0.5"><span class="hint">s</span></div>
+          </div>
+          <div class="field">
+            <label for="in-wav">タイヤ・ボールの加振音（WAV）を読み込む</label>
+            <input type="file" id="in-wav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+            <span class="hint">ファイル中で一番大きい衝撃を 3 s 切り出し、帯域ごとに L<sub>i,Fmax</sub> を等級曲線に合わせ込みます。録音の暗騒音も一緒に拡大されるので、S/N のよい録音を使ってください。</span>
+          </div>
+          <div class="status" id="st-source">合成音（モード合成、T = 0.5 s）</div>
+        </div>
+      </details>
+
+      <details id="d-curve">
+        <summary>等級曲線と帯域の形</summary>
+        <div class="form">
+          <p>L-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット）を帯域ごとに設定します。オフセットが全帯域 0 なら、全帯域が曲線に接する上限側のスペクトルになります。</p>
+          <div class="tbl-wrap">
+            <table class="t" id="tbl-curve">
+              <thead><tr><th>帯域 Hz</th><th>63</th><th>125</th><th>250</th><th>500</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">L-50 基準値 dB</th>
+                  <td><input type="number" id="cv0" step="1" aria-label="63 Hz の L-50 基準値"></td>
+                  <td><input type="number" id="cv1" step="1" aria-label="125 Hz の L-50 基準値"></td>
+                  <td><input type="number" id="cv2" step="1" aria-label="250 Hz の L-50 基準値"></td>
+                  <td><input type="number" id="cv3" step="1" aria-label="500 Hz の L-50 基準値"></td></tr>
+                <tr><th scope="row">オフセット dB</th>
+                  <td><input type="number" id="of0" step="1" max="0" aria-label="63 Hz のオフセット"></td>
+                  <td><input type="number" id="of1" step="1" max="0" aria-label="125 Hz のオフセット"></td>
+                  <td><input type="number" id="of2" step="1" max="0" aria-label="250 Hz のオフセット"></td>
+                  <td><input type="number" id="of3" step="1" max="0" aria-label="500 Hz のオフセット"></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="row-inline">
+            <span class="hint">評価外の帯域（500 Hz の基準値からの差）</span>
+            <label class="check">1 kHz <input type="number" id="ex0" step="1"></label>
+            <label class="check">2 kHz <input type="number" id="ex1" step="1"></label>
+          </div>
+          <div><button type="button" class="btn" id="btn-curve-reset">初期値に戻す</button></div>
+        </div>
+      </details>
+
+      <details id="d-bg">
+        <summary>暗騒音</summary>
+        <div class="form">
+          <div class="field">
+            <label for="in-slope">スペクトルの傾き（1/1 オクターブ帯域レベル）</label>
+            <select id="in-slope">
+              <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
+              <option value="-3">−3 dB/oct（ピンクノイズ）</option>
+              <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
+            </select>
+          </div>
+          <p class="hint">定常ランダム雑音です。A 特性の L<sub>Aeq</sub> が列の値に一致するように作っています（22.4 Hz〜11.2 kHz）。</p>
+        </div>
+      </details>
+
+      <details id="d-cal">
+        <summary>校正</summary>
+        <div class="form">
+          <ol>
+            <li>受聴位置に騒音計を置きます（ヘッドホンの場合はカプラなど）。</li>
+            <li>端末の音量を決めます。校正後は音量を変えないでください。</li>
+            <li>帯域の「再生」で −20 dBFS のオクターブバンドノイズが流れます。Z 特性・1/1 オクターブの L<sub>eq</sub>（10 s 以上）を測って入力します。</li>
+          </ol>
+          <p class="hint">1 kHz だけ入れても使えます（全帯域を同じ値とみなします）。未入力の帯域は入力済みの帯域から補間し、外側は端の値を使います。入力値はこのブラウザに保存されます。</p>
+          <div class="tbl-wrap"><table class="t" id="tbl-cal"></table></div>
+          <div class="row-inline"><button type="button" class="btn" id="btn-cal-clear">校正値をクリア</button></div>
+        </div>
+      </details>
+
+      <details id="d-method">
+        <summary>計算方法</summary>
+        <div class="form">
+          <p><b>等級曲線</b>：JIS A 1419-2:2000 の重量床衝撃音の等級曲線。L-50 を 63/125/250/500 Hz で 73/63/56/50 dB とし、等級 G の目標値は L<sub>b</sub>(G) = L<sub>b</sub>(50) + (G − 50) + オフセット<sub>b</sub>。1 kHz・2 kHz は評価外の帯域で、500 Hz 基準値からの差（初期値 −10 dB・−20 dB）は仮定です。</p>
+          <p><b>衝撃音（合成）</b>：帯域 b ごとに N<sub>b</sub> 本（8/12/20/30/40/40 本）の減衰正弦波を足し合わせます。周波数は帯域内にランダム（乱数の種は固定）。全等級で同じ波形を使い、等級による違いはレベルだけです。</p>
+          <div class="formula">p<sub>b</sub>(t) = Σ<sub>k</sub> a<sub>k</sub> (1 − e<sup>−t/τ<sub>a</sub></sup>) e<sup>−6.91 t/T</sup> sin(2π f<sub>k</sub> t + φ<sub>k</sub>)、τ<sub>a</sub> = 4 ms</div>
+          <p><b>帯域レベルの合わせ込み</b>：足し合わせた音を 1/1 オクターブ（Butterworth の HP 36 次 × LP 36 次、wav2Fmax と同じフィルタ。帯域端は IEC 61260-1:2014 の基数 10）で分析し、F 特性（τ = 0.125 s、IEC 61672-1:2013）の最大値 L<sub>Fmax</sub> が目標値に一致するまで帯域ゲインを反復補正します。L<sub>A,Fmax</sub> は A 特性フィルタ（IEC 61672-1:2013 附属書 E の極・零点を双一次変換）を通した F 特性最大値です。</p>
+          <p><b>暗騒音</b>：振幅スペクトルにランダム位相を与えて逆 FFT（2<sup>19</sup> 点前後、約 11 s）。周期信号なので継ぎ目なくループします。L<sub>Aeq</sub> は周波数領域で A 特性の重みを掛けて合わせています。</p>
+          <p><b>校正</b>：帯域 b で −20 dBFS のノイズを測った値を M<sub>b</sub> とすると K<sub>b</sub> = M<sub>b</sub> + 20（0 dBFS に相当する音圧レベル）。目標 L の帯域成分は 10<sup>(L − K<sub>b</sub>)/20</sup> の振幅で出力します。未校正のときは K<sub>b</sub> = 118 dB とします。</p>
+          <p><b>⚠ の判定</b>：衝撃音のピークと暗騒音のピークの和（安全側）が 0 dBFS 以上。</p>
+          <p><b>注意</b>：全帯域が曲線に接するので、同じ等級の実際の床より L<sub>A</sub> は大きめになります。実際の床に近づけるには、接しない帯域にオフセットを入れてください。ΔL<sub>A</sub> は目安で、聞こえるかどうかは帯域ごとの差（表）で考えるほうが確かです。</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+<div class="busy" id="busy" hidden>計算中…</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants ---------- */
+const P0 = 2e-5;
+const G10 = Math.pow(10, 0.3);                       // IEC 61260-1:2014 base-ten octave ratio
+const BAND_LABEL = ['63', '125', '250', '500', '1k', '2k'];
+const BAND_FC = [-4, -3, -2, -1, 0, 1].map(x => 1000 * Math.pow(G10, x));
+const CAL_LABEL = ['63', '125', '250', '500', '1k', '2k', '4k'];
+const CAL_FC = [-4, -3, -2, -1, 0, 1, 2].map(x => 1000 * Math.pow(G10, x));
+const MODES = [8, 12, 20, 30, 40, 40];
+const GRADES = [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
+const BG_LEVELS = [null, 20, 30, 40, 50];
+const K_DEFAULT = 118;                             // dB SPL assumed for 0 dBFS when uncalibrated
+const CAL_DBFS = -20;
+const PATTERNS = { single: [0], triple: [0, 1, 2], run: [0, 0.45, 0.9, 1.35, 1.8, 2.25] };
+const LEAD = 0.8;                                     // s of background before the first impact
+const STORE_KEY = 'lh-listening-v1';
+const DEF = {
+  pattern: 'single', T: 0.5, slope: -5,
+  curve: [73, 63, 56, 50], off: [0, 0, 0, 0], ext: [-10, -20],
+  nums: true, cal: [null, null, null, null, null, null, null]
+};
+
+/* ---------- settings ---------- */
+function numOr(v, d){ return (typeof v === 'number' && Number.isFinite(v)) ? v : d; }
+function arrOr(v, d){
+  if (!Array.isArray(v) || v.length !== d.length) return d.slice();
+  return d.map((x, i) => (v[i] === null && x === null) ? null : numOr(v[i], x));
+}
+function loadSettings(){
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (e) { s = {}; }
+  return {
+    pattern: (s.pattern in PATTERNS) ? s.pattern : DEF.pattern,
+    T: Math.min(2, Math.max(0.2, numOr(s.T, DEF.T))),
+    slope: [-3, -5, -8].includes(s.slope) ? s.slope : DEF.slope,
+    curve: arrOr(s.curve, DEF.curve),
+    off: arrOr(s.off, DEF.off),
+    ext: arrOr(s.ext, DEF.ext),
+    nums: typeof s.nums === 'boolean' ? s.nums : DEF.nums,
+    cal: Array.isArray(s.cal) && s.cal.length === 7
+      ? s.cal.map(v => (typeof v === 'number' && Number.isFinite(v)) ? v : null)
+      : DEF.cal.slice()
+  };
+}
+function saveSettings(){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ }
+}
+let S = loadSettings();
+
+/* ---------- DSP: filters ---------- */
+function d1LP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: K / a0, b1: K / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function d1HP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function rbjLP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 - c) / 2 / a0, b1: (1 - c) / a0, b2: (1 - c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function rbjHP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 + c) / 2 / a0, b1: -(1 + c) / a0, b2: (1 + c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function butterQ(n, k){ return 1 / (2 * Math.sin((2 * k + 1) * Math.PI / (2 * n))); }
+function butterLP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjLP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1LP(fc, fs)); return s; }
+function butterHP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjHP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1HP(fc, fs)); return s; }
+function sosMag(sections, fs, f){
+  const w = 2 * Math.PI * f / fs, c1 = Math.cos(w), s1 = -Math.sin(w), c2 = Math.cos(2 * w), s2 = -Math.sin(2 * w);
+  let Nr = 1, Ni = 0, Dr = 1, Di = 0;
+  for (const q of sections){
+    const nr = q.b0 + q.b1 * c1 + q.b2 * c2, ni = q.b1 * s1 + q.b2 * s2;
+    const dr = 1 + q.a1 * c1 + q.a2 * c2, di = q.a1 * s1 + q.a2 * s2;
+    let t = Nr * nr - Ni * ni; Ni = Nr * ni + Ni * nr; Nr = t;
+    t = Dr * dr - Di * di; Di = Dr * di + Di * dr; Dr = t;
+  }
+  return Math.hypot(Nr, Ni) / Math.hypot(Dr, Di);
+}
+function normalizeAt(sections, fs, f){
+  const h = sosMag(sections, fs, f);
+  if (!(h > 0)) return sections;
+  const g = Math.pow(1 / h, 1 / sections.length);
+  for (const q of sections){ q.b0 *= g; q.b1 *= g; q.b2 *= g; }
+  return sections;
+}
+/** Octave band-pass: Butterworth HP(f1) x LP(f2), order n each (same as wav2Fmax: n = 36); edges fc*G^(-1/2), fc*G^(1/2). */
+const BP_ORDER = 36;
+function bandpassSOS(fc, fs, n = BP_ORDER){
+  const g = Math.sqrt(G10);
+  return normalizeAt(butterHP(fc / g, fs, n).concat(butterLP(fc * g, fs, n)), fs, fc);
+}
+/** A-weighting (IEC 61672-1:2013 Annex E poles), first-order sections via pre-warped bilinear, 0 dB at 1 kHz. */
+function aWeightSOS(fs){
+  const f1 = 20.598997, f2 = 107.65265, f3 = 737.86223, f4 = 12194.217;
+  const s = [d1HP(f1, fs), d1HP(f1, fs), d1HP(f2, fs), d1HP(f3, fs), d1LP(Math.min(f4, 0.45 * fs), fs), d1LP(Math.min(f4, 0.45 * fs), fs)];
+  return normalizeAt(s, fs, 1000);
+}
+function sosFilter(x, sections){
+  let y = Float64Array.from(x);
+  for (const q of sections){
+    let s1 = 0, s2 = 0;
+    const b0 = q.b0, b1 = q.b1, b2 = q.b2, a1 = q.a1, a2 = q.a2;
+    for (let n = 0; n < y.length; n++){
+      const w = y[n] - a1 * s1 - a2 * s2;
+      y[n] = b0 * w + b1 * s1 + b2 * s2;
+      s2 = s1; s1 = w;
+    }
+  }
+  return y;
+}
+function reverseInPlace(a){ for (let i = 0, j = a.length - 1; i < j; i++, j--){ const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function filtfilt(x, sections, pad){
+  const y = new Float64Array(x.length + 2 * pad);
+  y.set(x, pad);
+  let z = sosFilter(y, sections);
+  z = sosFilter(reverseInPlace(z), sections);
+  reverseInPlace(z);
+  return z.subarray(pad, pad + x.length).slice();
+}
+/** Maximum of F time-weighted level (tau = 0.125 s), dB re 20 uPa. */
+function fastMaxDb(x, fs){
+  const al = 1 - Math.exp(-1 / (fs * 0.125));
+  let s = 0, m = 0;
+  for (let n = 0; n < x.length; n++){ s += al * (x[n] * x[n] - s); if (s > m) m = s; }
+  return 10 * Math.log10(Math.max(m, 1e-30) / (P0 * P0));
+}
+/** A-weighting gain (linear) from IEC 61672-1:2013 eq. E.6 (A1000 = -2.00 dB). */
+function aLin(f){
+  const f2 = f * f;
+  const ra = (12194.217 * 12194.217 * f2 * f2) /
+    ((f2 + 20.598997 * 20.598997) * Math.sqrt((f2 + 107.65265 * 107.65265) * (f2 + 737.86223 * 737.86223)) * (f2 + 12194.217 * 12194.217));
+  return ra * Math.pow(10, 2.0 / 20);
+}
+
+/* ---------- DSP: FFT ---------- */
+function fftInPlace(re, im, inverse){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = 2 * Math.PI / len * (inverse ? 1 : -1), wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let j = 0; j < h; j++){
+        const p = i + j, q = p + h;
+        const br = re[q] * cr - im[q] * ci, bi = re[q] * ci + im[q] * cr;
+        re[q] = re[p] - br; im[q] = im[p] - bi;
+        re[p] += br; im[p] += bi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  if (inverse){ for (let i = 0; i < n; i++){ re[i] /= n; im[i] /= n; } }
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+/** Log-frequency raised-cosine edge: 0 below lo, 1 above hi. */
+function edgeUp(f, lo, hi){
+  if (f <= lo) return 0; if (f >= hi) return 1;
+  const u = Math.log(f / lo) / Math.log(hi / lo);
+  return 0.5 - 0.5 * Math.cos(Math.PI * u);
+}
+
+/* ---------- calibration ---------- */
+function calK(){
+  const m = S.cal, idx = [];
+  for (let i = 0; i < 7; i++) if (m[i] !== null) idx.push(i);
+  if (!idx.length) return new Array(7).fill(K_DEFAULT);
+  const K = new Array(7);
+  for (let i = 0; i < 7; i++){
+    if (m[i] !== null){ K[i] = m[i] - CAL_DBFS; continue; }
+    let lo = -1, hi = -1;
+    for (const j of idx){ if (j < i) lo = j; if (j > i && hi < 0) hi = j; }
+    if (lo < 0) K[i] = m[hi] - CAL_DBFS;
+    else if (hi < 0) K[i] = m[lo] - CAL_DBFS;
+    else K[i] = (m[lo] + (m[hi] - m[lo]) * (i - lo) / (hi - lo)) - CAL_DBFS;
+  }
+  return K;
+}
+function kAtF(K, f){
+  const x = Math.log(f / CAL_FC[0]) / Math.log(G10);
+  if (x <= 0) return K[0];
+  if (x >= 6) return K[6];
+  const i = Math.floor(x), u = x - i;
+  return K[i] + (K[i + 1] - K[i]) * u;
+}
+
+/* ---------- impact sound ---------- */
+function targets50(){
+  const c = S.curve, o = S.off;
+  return [c[0] + o[0], c[1] + o[1], c[2] + o[2], c[3] + o[3], c[3] + S.ext[0], c[3] + S.ext[1]];
+}
+function synthBands(fs, T){
+  const dur = Math.min(4, 0.15 + 2.2 * T), N = Math.round(dur * fs);
+  const rnd = mulberry32(20261109), decay = Math.log(1000) / T;
+  const r = Math.exp(-decay / fs), na = 0.004 * fs, nf = Math.round(0.05 * fs);
+  const out = [];
+  for (let b = 0; b < BAND_FC.length; b++){
+    const x = new Float64Array(N);
+    for (let k = 0; k < MODES[b]; k++){
+      const f = BAND_FC[b] * Math.pow(G10, (0.1 + 0.8 * rnd()) - 0.5);
+      const amp = 0.6 + 0.8 * rnd(), ph = 2 * Math.PI * rnd(), w = 2 * Math.PI * f / fs;
+      const cr = r * Math.cos(w), ci = r * Math.sin(w);
+      let re = amp * Math.cos(ph), im = amp * Math.sin(ph);
+      for (let n = 0; n < N; n++){ x[n] += im; const t = re * cr - im * ci; im = re * ci + im * cr; re = t; }
+    }
+    for (let n = 0; n < N; n++){
+      let e = 1 - Math.exp(-n / na);
+      if (n > N - nf) e *= 0.5 - 0.5 * Math.cos(Math.PI * (N - n) / nf);
+      x[n] *= e;
+    }
+    out.push(x);
+  }
+  return out;
+}
+function analyzeSum(sum, fs, sosBands, sosA){
+  return { band: sosBands.map(s => fastMaxDb(sosFilter(sum, s), fs)), LAF: fastMaxDb(sosFilter(sum, sosA), fs) };
+}
+/** Scale band components so that the 1/1-octave L_Fmax of their sum hits the targets (Pa domain). */
+function fitBands(raw, targets, fs){
+  const nb = raw.length, N = raw[0].length;
+  const sosBands = BAND_FC.map(fc => bandpassSOS(fc, fs)), sosA = aWeightSOS(fs);
+  const g = raw.map((x, b) => Math.pow(10, (targets[b] - fastMaxDb(x, fs)) / 20));
+  const sum = new Float64Array(N);
+  const mix = () => { sum.fill(0); for (let b = 0; b < nb; b++){ const gb = g[b], x = raw[b]; for (let n = 0; n < N; n++) sum[n] += gb * x[n]; } };
+  let res = null;
+  for (let it = 0; it < 6; it++){
+    mix();
+    res = analyzeSum(sum, fs, sosBands, sosA);
+    let maxErr = 0;
+    for (let b = 0; b < nb; b++){
+      const e = targets[b] - res.band[b];
+      maxErr = Math.max(maxErr, Math.abs(e));
+      g[b] = Math.max(1e-9, g[b] * Math.pow(10, e / 20));
+    }
+    if (maxErr < 0.02) break;
+  }
+  mix();
+  res = analyzeSum(sum, fs, sosBands, sosA);
+  return { gains: g, pa: sum, bandFmax: res.band, LAF: res.LAF, err: Math.max(...targets.map((t, b) => Math.abs(t - res.band[b]))) };
+}
+
+/* ---------- background noise ---------- */
+function bgSize(fs){ return 1 << Math.ceil(Math.log2(fs * 10)); }
+function buildBgData(fs, slope, K){
+  const N = bgSize(fs), half = N >> 1;
+  const re = new Float64Array(N), im = new Float64Array(N), psd = new Float64Array(half);
+  let msA = 0;
+  for (let k = 1; k < half; k++){
+    const f = k * fs / N;
+    const w = edgeUp(f, 18, 28) * (1 - edgeUp(f, 9000, 14000));
+    if (w <= 0) continue;
+    psd[k] = Math.pow(10, ((slope - 3) / 10) * Math.log2(f / 1000)) * w;
+    const a = aLin(f);
+    msA += psd[k] * a * a;
+  }
+  msA *= 2 / (N * N);
+  const sc = Math.sqrt(P0 * P0 * 1e5 / msA);           // LAeq = 50 dB
+  const band = BAND_FC.map(fc => {
+    const lo = fc / Math.sqrt(G10), hi = fc * Math.sqrt(G10);
+    let m = 0;
+    for (let k = Math.ceil(lo * N / fs); k <= Math.floor(hi * N / fs) && k < half; k++) m += psd[k];
+    return 10 * Math.log10(Math.max(1e-30, m * 2 / (N * N) * sc * sc) / (P0 * P0));
+  });
+  const rnd = mulberry32(7);
+  for (let k = 1; k < half; k++){
+    const ph = 2 * Math.PI * rnd();
+    if (psd[k] <= 0) continue;
+    const amp = sc * Math.sqrt(psd[k]) / (P0 * Math.pow(10, kAtF(K, k * fs / N) / 20));
+    re[k] = amp * Math.cos(ph); im[k] = amp * Math.sin(ph);
+    re[N - k] = re[k]; im[N - k] = -im[k];
+  }
+  fftInPlace(re, im, true);
+  const dig = new Float32Array(N);
+  let peak = 0;
+  for (let n = 0; n < N; n++){ dig[n] = re[n]; const a = Math.abs(re[n]); if (a > peak) peak = a; }
+  return { dig, peak, band, N };
+}
+/** Octave-band noise at CAL_DBFS (rms) for calibration, digital domain. */
+function buildCalNoise(fs, fc){
+  const N = 1 << Math.ceil(Math.log2(fs * 3)), half = N >> 1;
+  const re = new Float64Array(N), im = new Float64Array(N);
+  const lo = fc / Math.sqrt(G10), hi = fc * Math.sqrt(G10), t = Math.pow(2, 0.08);
+  const rnd = mulberry32(Math.round(fc));
+  let ms = 0;
+  for (let k = 1; k < half; k++){
+    const f = k * fs / N;
+    const w = edgeUp(f, lo, lo * t) * (1 - edgeUp(f, hi / t, hi));
+    if (w <= 0) continue;
+    const m = Math.sqrt(w / f), ph = 2 * Math.PI * rnd();
+    re[k] = m * Math.cos(ph); im[k] = m * Math.sin(ph); re[N - k] = re[k]; im[N - k] = -im[k];
+    ms += 2 * m * m / (N * N);
+  }
+  fftInPlace(re, im, true);
+  const sc = Math.pow(10, CAL_DBFS / 20) / Math.sqrt(ms);
+  const out = new Float32Array(N);
+  for (let n = 0; n < N; n++) out[n] = re[n] * sc;
+  return out;
+}
+
+/* ---------- audio engine ---------- */
+let ctx = null, master = null, fs = 48000;
+let impact = null, bg = null, wav = null, source = 'synth';
+const calCache = new Map();
+const P = { bgSrc: null, bgGain: null, bgLA: null, imps: [], timer: 0, key: null, cal: null };
+
+function createCtx(){
+  if (ctx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    ctx = new AC();
+    master = ctx.createGain();
+    master.connect(ctx.destination);
+    fs = ctx.sampleRate;
+  } catch (e) { ctx = null; }
+}
+function ensureRunning(){
+  createCtx();
+  if (!ctx) return false;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+  if (ctx.state !== 'running') ctx.resume();
+  return true;
+}
+function toBuffer(data){
+  if (!ctx) return null;
+  const b = ctx.createBuffer(1, data.length, fs);
+  if (b.copyToChannel) b.copyToChannel(data, 0); else b.getChannelData(0).set(data);
+  return b;
+}
+function rebuildImpact(){
+  const raw = (source === 'wav' && wav) ? wav.bands : synthBands(fs, S.T);
+  const fit = fitBands(raw, targets50(), fs);
+  const K = calK(), N = raw[0].length, dig = new Float32Array(N);
+  for (let b = 0; b < raw.length; b++){
+    const gd = fit.gains[b] / (P0 * Math.pow(10, K[b] / 20)), x = raw[b];
+    for (let n = 0; n < N; n++) dig[n] += gd * x[n];
+  }
+  let peak = 0;
+  for (let n = 0; n < N; n++){ const a = Math.abs(dig[n]); if (a > peak) peak = a; }
+  impact = { bandFmax: fit.bandFmax, LAF: fit.LAF, err: fit.err, dig, peak, dur: N / fs, buffer: toBuffer(dig), pa: fit.pa };
+}
+function rebuildBg(){
+  const d = buildBgData(fs, S.slope, calK());
+  bg = { dig: d.dig, peak: d.peak, band: d.band, buffer: toBuffer(d.dig) };
+}
+function cellInfo(G, LA){
+  const LAF = G === null ? null : impact.LAF + (G - 50);
+  const pk = (G === null ? 0 : impact.peak * Math.pow(10, (G - 50) / 20)) + (LA === null ? 0 : bg.peak * Math.pow(10, (LA - 50) / 20));
+  return { LAF, dLA: (LAF !== null && LA !== null) ? LAF - LA : null, peakDb: 20 * Math.log10(Math.max(pk, 1e-12)), clip: pk >= 1 };
+}
+
+function stopImpacts(t){
+  for (const it of P.imps){
+    try { it.gain.gain.cancelScheduledValues(t); it.gain.gain.setTargetAtTime(0, t, 0.012); it.src.stop(t + 0.1); } catch (e) { /* already stopped */ }
+  }
+  P.imps = [];
+}
+function stopBg(t, fade){
+  if (!P.bgSrc) return;
+  const src = P.bgSrc, g = P.bgGain.gain;
+  try {
+    if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t); else { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); }
+    g.linearRampToValueAtTime(0, t + fade);
+    src.stop(t + fade + 0.02);
+  } catch (e) { /* already stopped */ }
+  P.bgSrc = null; P.bgGain = null; P.bgLA = null;
+}
+function stopCal(){
+  if (P.cal){ try { P.cal.src.stop(); } catch (e) { /* stopped */ } P.cal.btn.textContent = '再生'; P.cal = null; }
+}
+function stopAll(){
+  clearTimeout(P.timer);
+  stopCal();
+  if (ctx){ const t = ctx.currentTime; stopImpacts(t); stopBg(t, 0.05); }
+  setPlaying(null);
+}
+function play(G, LA){
+  if (!ensureRunning() || !impact || !bg) return;
+  if (!impact.buffer) impact.buffer = toBuffer(impact.dig);
+  if (!bg.buffer) bg.buffer = toBuffer(bg.dig);
+  stopCal();
+  clearTimeout(P.timer);
+  const now = ctx.currentTime;
+  stopImpacts(now);
+  let t0;
+  if (LA !== null && P.bgSrc && P.bgLA === LA){
+    const g = P.bgGain.gain;
+    if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(now); else g.cancelScheduledValues(now);
+    g.setValueAtTime(Math.pow(10, (LA - 50) / 20), now + 0.01);
+    t0 = now + 0.12;
+  } else {
+    stopBg(now, 0.05);
+    if (LA !== null){
+      const src = ctx.createBufferSource(), gain = ctx.createGain();
+      src.buffer = bg.buffer; src.loop = true;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(Math.pow(10, (LA - 50) / 20), now + 0.15);
+      src.connect(gain); gain.connect(master);
+      src.start(now, Math.random() * bg.buffer.duration * 0.9);
+      P.bgSrc = src; P.bgGain = gain; P.bgLA = LA;
+      t0 = now + LEAD;
+    } else {
+      t0 = now + 0.06;
+    }
+  }
+  let tEnd;
+  if (G !== null){
+    const offs = PATTERNS[S.pattern], gl = Math.pow(10, (G - 50) / 20);
+    for (const o of offs){
+      const src = ctx.createBufferSource(), gain = ctx.createGain();
+      src.buffer = impact.buffer; gain.gain.value = gl;
+      src.connect(gain); gain.connect(master);
+      src.start(t0 + o);
+      P.imps.push({ src, gain });
+    }
+    tEnd = t0 + offs[offs.length - 1] + impact.dur + (LA !== null ? 0.4 : 0);
+  } else {
+    tEnd = now + 4;
+  }
+  P.timer = setTimeout(() => { if (ctx) stopBg(ctx.currentTime, 0.3); setPlaying(null); }, Math.max(0, (tEnd - now) * 1000));
+  setPlaying(keyOf(G, LA));
+}
+function playCal(i, btn){
+  if (!ensureRunning()) return;
+  const was = P.cal && P.cal.i === i;
+  stopAll();
+  if (was) return;
+  let data = calCache.get(i + ':' + fs);
+  if (!data){ data = buildCalNoise(fs, CAL_FC[i]); calCache.set(i + ':' + fs, data); }
+  const src = ctx.createBufferSource();
+  src.buffer = toBuffer(data); src.loop = true; src.connect(master); src.start();
+  P.cal = { src, btn, i };
+  btn.textContent = '停止';
+}
+
+/* ---------- UI ---------- */
+const $ = s => document.querySelector(s);
+const fmt = (v, d = 1) => (v === null || !Number.isFinite(v)) ? '—' : v.toFixed(d);
+const sgn = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(0);
+const keyOf = (G, LA) => (G === null ? 'bg' : G) + '|' + (LA === null ? 'none' : LA);
+let selected = { G: 50, LA: 30 };
+
+function setPlaying(key){
+  P.key = key;
+  document.querySelectorAll('.cell.playing').forEach(el => el.classList.remove('playing'));
+  if (key){ const el = document.querySelector('.cell[data-key="' + key + '"]'); if (el) el.classList.add('playing'); }
+  const st = $('#ro-state');
+  st.textContent = key ? '再生中' : '選択中';
+  st.classList.toggle('on', !!key);
+}
+function heat(info, G, LA){
+  if (G === null) return 0;
+  if (LA === null) return Math.min(1, Math.max(0, (info.LAF - 25) / 70)) * 55;
+  return Math.min(1, Math.max(0, (info.dLA + 10) / 60)) * 85;
+}
+const MIX_OK = !!(window.CSS && CSS.supports && CSS.supports('background', 'color-mix(in oklab, red 50%, blue)'));
+function renderMatrix(){
+  const m = $('#matrix');
+  m.textContent = '';
+  const add = (el) => { m.appendChild(el); return el; };
+  const corner = add(document.createElement('div'));
+  corner.className = 'mh col'; corner.innerHTML = '<span>等級 ＼ 暗騒音</span>';
+  for (const LA of BG_LEVELS){
+    const h = add(document.createElement('div'));
+    h.className = 'mh col'; h.setAttribute('role', 'columnheader');
+    h.innerHTML = LA === null ? '<b>なし</b><span>衝撃音のみ</span>' : '<b>' + LA + ' dB(A)</b><span>L<sub>Aeq</sub></span>';
+  }
+  const rows = GRADES.map(G => G).concat([null]);
+  for (const G of rows){
+    const h = add(document.createElement('div'));
+    h.className = 'mh row' + (G === null ? ' sep' : ''); h.setAttribute('role', 'rowheader');
+    h.innerHTML = G === null ? '<b style="font-family:var(--font-ui)">暗騒音のみ</b>'
+      : '<b>LH-' + G + '</b><span class="num">L<sub>A,Fmax</sub> ' + fmt(impact.LAF + G - 50, 0) + '</span>';
+    for (const LA of BG_LEVELS){
+      const c = add(document.createElement('button'));
+      c.type = 'button'; c.className = 'cell';
+      if (G === null && LA === null){ c.classList.add('blank'); c.tabIndex = -1; c.setAttribute('aria-hidden', 'true'); continue; }
+      const info = cellInfo(G, LA), key = keyOf(G, LA);
+      c.dataset.key = key; c.dataset.g = G === null ? '' : String(G); c.dataset.la = LA === null ? '' : String(LA);
+      const pct = MIX_OK ? heat(info, G, LA) : 0;
+      if (pct > 0) c.style.background = 'color-mix(in oklab, var(--accent) ' + pct.toFixed(0) + '%, var(--surface))';
+      if (pct > 52) c.classList.add('hot');
+      const k = G === null ? LA + ' dB(A)' : 'LH-' + G + (LA === null ? '' : ' / ' + LA);
+      let v = '';
+      if (S.nums) v = G === null ? 'L<sub>Aeq</sub> ' + LA : (LA === null ? 'L<sub>A</sub> ' + fmt(info.LAF, 0) : 'Δ ' + sgn(info.dLA));
+      else v = '▶';
+      c.innerHTML = '<span class="k">' + k + '</span><span class="v">' + v + '</span>' + (info.clip ? '<span class="clip" title="出力が 0 dBFS を超えます">⚠</span>' : '');
+      c.setAttribute('aria-label', (G === null ? '暗騒音のみ ' + LA + ' dB(A)' : 'LH-' + G + (LA === null ? ' 暗騒音なし' : ' 暗騒音 ' + LA + ' dB(A)')) + ' を再生');
+      if (selected.G === G && selected.LA === LA) c.classList.add('sel');
+      if (P.key === key) c.classList.add('playing');
+    }
+  }
+}
+function renderReadout(){
+  const { G, LA } = selected;
+  $('#ro-title').textContent = G === null ? '暗騒音のみ ' + LA + ' dB(A)' : 'LH-' + G + (LA === null ? '（暗騒音なし）' : ' ＋ 暗騒音 ' + LA + ' dB(A)');
+  const info = cellInfo(G, LA);
+  const imp = G === null ? null : impact.bandFmax.map(v => v + G - 50);
+  const bgb = LA === null ? null : bg.band.map(v => v + LA - 50);
+  drawChart(G, imp, bgb);
+  const rows = [];
+  if (G !== null) rows.push(['衝撃音 L<sub>A,Fmax</sub>', fmt(info.LAF) + ' dB']);
+  if (LA !== null) rows.push(['暗騒音 L<sub>Aeq</sub>', LA.toFixed(1) + ' dB']);
+  if (info.dLA !== null) rows.push(['ΔL<sub>A</sub>', (info.dLA >= 0 ? '+' : '') + fmt(info.dLA) + ' dB']);
+  rows.push(['出力ピーク（安全側）', fmt(info.peakDb) + ' dBFS']);
+  $('#ro-nums').innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+  let h = '<thead><tr><th>帯域 Hz</th>' + BAND_LABEL.map(b => '<th>' + b + '</th>').join('') + '</tr></thead><tbody>';
+  if (imp) h += '<tr><td>衝撃音 L<sub>Fmax</sub></td>' + imp.map(v => '<td>' + fmt(v, 0) + '</td>').join('') + '</tr>';
+  if (bgb) h += '<tr><td>暗騒音 L<sub>eq</sub></td>' + bgb.map(v => '<td>' + fmt(v, 0) + '</td>').join('') + '</tr>';
+  if (imp && bgb) h += '<tr><td>差</td>' + imp.map((v, b) => '<td>' + sgn(v - bgb[b]) + '</td>').join('') + '</tr>';
+  $('#ro-table').innerHTML = h + '</tbody>';
+  const w = $('#ro-warn');
+  if (info.clip){
+    w.hidden = false;
+    w.textContent = 'この組み合わせは出力が 0 dBFS を超えるため、ひずんで再生されます。' + (S.cal.some(v => v !== null) ? '校正時の音量を上げて校正し直すか、より出力の大きいスピーカーを使ってください。' : '');
+  } else w.hidden = true;
+}
+function drawChart(G, imp, bgb){
+  const x0 = 34, x1 = 352, yT = 22, yB = 186, lo = 0, hi = 110;
+  const y = v => yB - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (yB - yT);
+  const gw = (x1 - x0) / BAND_LABEL.length;
+  let s = '';
+  for (let v = 0; v <= 100; v += 20){
+    s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + y(v) + '" y2="' + y(v) + '"/>';
+    s += '<text x="' + (x0 - 5) + '" y="' + (y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  }
+  s += '<text x="' + (x0 - 5) + '" y="12" text-anchor="end">dB</text>';
+  for (let b = 0; b < BAND_LABEL.length; b++){
+    const cx = x0 + gw * (b + 0.5);
+    if (imp){ const v = imp[b]; s += '<rect class="bar-imp" x="' + (cx - 13) + '" y="' + y(v) + '" width="12" height="' + (yB - y(v)) + '"><title>衝撃音 ' + BAND_LABEL[b] + ' Hz ' + v.toFixed(1) + ' dB</title></rect>'; }
+    if (bgb){ const v = bgb[b]; s += '<rect class="bar-bg" x="' + (cx + 1) + '" y="' + y(v) + '" width="12" height="' + (yB - y(v)) + '"><title>暗騒音 ' + BAND_LABEL[b] + ' Hz ' + v.toFixed(1) + ' dB</title></rect>'; }
+    s += '<text x="' + cx + '" y="' + (yB + 14) + '" text-anchor="middle">' + BAND_LABEL[b] + '</text>';
+  }
+  if (G !== null){
+    const pts = S.curve.map((c, b) => (x0 + gw * (b + 0.5)) + ',' + y(c + G - 50)).join(' ');
+    s += '<polyline class="curve" points="' + pts + '"/>';
+  }
+  s += '<rect class="bar-imp" x="150" y="6" width="9" height="9"/><text x="163" y="14">衝撃音 L_Fmax</text>';
+  s += '<rect class="bar-bg" x="246" y="6" width="9" height="9"/><text x="259" y="14">暗騒音 L_eq</text>';
+  s += '<line class="curve" x1="76" x2="98" y1="10.5" y2="10.5"/><text x="102" y="14">LH曲線</text>';
+  $('#ro-chart').innerHTML = s;
+}
+function renderCalTable(){
+  const K = calK(), any = S.cal.some(v => v !== null);
+  let h = '<thead><tr><th>帯域 Hz</th><th>信号</th><th>測定 L<sub>eq</sub> dB</th><th>K dB</th></tr></thead><tbody>';
+  CAL_LABEL.forEach((lab, i) => {
+    h += '<tr><td>' + lab + '</td><td><button type="button" class="btn" data-cal="' + i + '">再生</button></td>' +
+      '<td><input type="number" step="0.1" id="cal' + i + '" aria-label="' + lab + ' Hz の測定値" value="' + (S.cal[i] === null ? '' : S.cal[i]) + '"></td>' +
+      '<td>' + K[i].toFixed(1) + (S.cal[i] === null && any ? '（補間）' : '') + '</td></tr>';
+  });
+  $('#tbl-cal').innerHTML = h + '</tbody>';
+  const n = S.cal.filter(v => v !== null).length;
+  const chip = $('#chip-cal');
+  chip.textContent = n ? '校正済み（' + n + ' 帯域）' : '未校正（相対比較）';
+  chip.classList.toggle('ok', n > 0);
+}
+function syncInputs(){
+  document.querySelectorAll('#seg-pattern button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === S.pattern)));
+  $('#chk-nums').checked = S.nums;
+  $('#in-T').value = S.T;
+  $('#in-slope').value = String(S.slope);
+  for (let i = 0; i < 4; i++){ $('#cv' + i).value = S.curve[i]; $('#of' + i).value = S.off[i]; }
+  $('#ex0').value = S.ext[0]; $('#ex1').value = S.ext[1];
+  $('#in-T').disabled = source === 'wav';
+}
+function sourceStatus(){
+  const st = $('#st-source');
+  st.classList.remove('err');
+  if (source === 'wav' && wav) st.textContent = '録音：' + wav.name + '（' + wav.dur.toFixed(2) + ' s を使用、合わせ込み誤差 ' + impact.err.toFixed(2) + ' dB）';
+  else st.textContent = '合成音（モード合成、T = ' + S.T + ' s、合わせ込み誤差 ' + impact.err.toFixed(2) + ' dB）';
+}
+
+let busyTimer = 0;
+function withBusy(fn){
+  const b = $('#busy');
+  b.hidden = false;
+  clearTimeout(busyTimer);
+  busyTimer = setTimeout(() => {
+    try { fn(); } finally { b.hidden = true; }
+  }, 30);
+}
+function refresh(what){
+  withBusy(() => {
+    stopAll();
+    if (what.impact) rebuildImpact();
+    if (what.bg) rebuildBg();
+    renderMatrix(); renderReadout(); renderCalTable(); sourceStatus();
+  });
+}
+
+/* ---------- events ---------- */
+$('#matrix').addEventListener('click', e => {
+  const c = e.target.closest('.cell');
+  if (!c || c.classList.contains('blank')) return;
+  const G = c.dataset.g === '' ? null : Number(c.dataset.g), LA = c.dataset.la === '' ? null : Number(c.dataset.la);
+  selected = { G, LA };
+  document.querySelectorAll('.cell.sel').forEach(el => el.classList.remove('sel'));
+  c.classList.add('sel');
+  renderReadout();
+  play(G, LA);
+});
+$('#seg-pattern').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.pattern = b.dataset.p; saveSettings(); syncInputs();
+});
+$('#btn-stop').addEventListener('click', stopAll);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') stopAll(); });
+$('#chk-nums').addEventListener('change', e => { S.nums = e.target.checked; saveSettings(); renderMatrix(); });
+let tmr = 0;
+const later = (fn) => { clearTimeout(tmr); tmr = setTimeout(fn, 350); };
+$('#in-T').addEventListener('input', e => later(() => {
+  const v = Number(e.target.value);
+  if (!Number.isFinite(v) || v < 0.2 || v > 2) return;
+  S.T = v; saveSettings(); refresh({ impact: true });
+}));
+$('#in-slope').addEventListener('change', e => { S.slope = Number(e.target.value); saveSettings(); refresh({ bg: true }); });
+for (let i = 0; i < 4; i++){
+  $('#cv' + i).addEventListener('input', e => later(() => { const v = Number(e.target.value); if (!Number.isFinite(v) || e.target.value === '') return; S.curve[i] = v; saveSettings(); refresh({ impact: true }); }));
+  $('#of' + i).addEventListener('input', e => later(() => { const v = Number(e.target.value); if (!Number.isFinite(v) || e.target.value === '') return; S.off[i] = v; saveSettings(); refresh({ impact: true }); }));
+}
+for (let i = 0; i < 2; i++){
+  $('#ex' + i).addEventListener('input', e => later(() => { const v = Number(e.target.value); if (!Number.isFinite(v) || e.target.value === '') return; S.ext[i] = v; saveSettings(); refresh({ impact: true }); }));
+}
+$('#btn-curve-reset').addEventListener('click', () => {
+  S.curve = DEF.curve.slice(); S.off = DEF.off.slice(); S.ext = DEF.ext.slice();
+  saveSettings(); syncInputs(); refresh({ impact: true });
+});
+$('#tbl-cal').addEventListener('click', e => {
+  const b = e.target.closest('button[data-cal]'); if (!b) return;
+  playCal(Number(b.dataset.cal), b);
+});
+$('#tbl-cal').addEventListener('change', e => {
+  const m = /^cal(\d)$/.exec(e.target.id || ''); if (!m) return;
+  const i = Number(m[1]), raw = e.target.value.trim(), v = Number(raw);
+  S.cal[i] = (raw === '' || !Number.isFinite(v)) ? null : v;
+  saveSettings(); refresh({ impact: true, bg: true });
+});
+$('#btn-cal-clear').addEventListener('click', () => { S.cal = DEF.cal.slice(); saveSettings(); refresh({ impact: true, bg: true }); });
+document.querySelectorAll('input[name="src"]').forEach(r => r.addEventListener('change', e => {
+  source = e.target.value === 'wav' && wav ? 'wav' : 'synth';
+  syncInputs(); refresh({ impact: true });
+}));
+$('#in-wav').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const st = $('#st-source');
+  st.classList.remove('err');
+  st.textContent = '読み込み中…';
+  try {
+    createCtx();
+    if (!ctx) throw new Error('このブラウザは Web Audio に対応していません。');
+    const arr = await file.arrayBuffer();
+    const ab = await new Promise((res, rej) => {
+      const p = ctx.decodeAudioData(arr, res, rej);
+      if (p && typeof p.then === 'function') p.then(res, rej);
+    });
+    wav = extractImpact(ab, file.name);
+    source = 'wav';
+    $('#src-wav').disabled = false; $('#src-wav').checked = true;
+    syncInputs(); refresh({ impact: true });
+  } catch (err){
+    st.classList.add('err');
+    st.textContent = '読み込めませんでした：' + (err && err.message ? err.message : 'WAV の形式を確認してください。');
+  }
+});
+function extractImpact(ab, name){
+  const sr = ab.sampleRate, x = ab.getChannelData(0);
+  if (sr !== fs) throw new Error('サンプリング周波数が再生側と一致しません（' + sr + ' Hz）。');
+  if (x.length < sr * 0.3) throw new Error('録音が短すぎます（0.3 s 以上必要）。');
+  const pre = butterHP(40, sr, 2).concat(butterLP(3000, sr, 2));
+  let s = pre.map(() => [0, 0]), best = 0, idx = 0;
+  for (let n = 0; n < x.length; n++){
+    let v = x[n];
+    for (let k = 0; k < pre.length; k++){
+      const q = pre[k], st = s[k];
+      const w = v - q.a1 * st[0] - q.a2 * st[1];
+      v = q.b0 * w + q.b1 * st[0] + q.b2 * st[1];
+      st[1] = st[0]; st[0] = w;
+    }
+    const a = Math.abs(v);
+    if (a > best){ best = a; idx = n; }
+  }
+  if (!(best > 0)) throw new Error('信号が入っていません。');
+  const i0 = Math.max(0, idx - Math.round(0.08 * sr)), len = Math.min(x.length - i0, Math.round(3 * sr));
+  const seg = new Float64Array(len);
+  const nIn = Math.round(0.005 * sr), nOut = Math.min(Math.round(0.3 * sr), Math.floor(len / 3));
+  for (let n = 0; n < len; n++){
+    let e = 1;
+    if (n < nIn) e = 0.5 - 0.5 * Math.cos(Math.PI * n / nIn);
+    if (n > len - nOut) e *= 0.5 - 0.5 * Math.cos(Math.PI * (len - n) / nOut);
+    seg[n] = x[i0 + n] * e;
+  }
+  const pad = Math.round(0.3 * sr);
+  const bands = BAND_FC.map(fc => filtfilt(seg, bandpassSOS(fc, sr), pad));
+  return { name, bands, dur: len / sr };
+}
+
+/* ---------- start ---------- */
+createCtx();
+syncInputs();
+rebuildImpact();
+rebuildBg();
+renderMatrix();
+renderReadout();
+renderCalTable();
+sourceStatus();
+if (!ctx){
+  const st = $('#st-source');
+  st.classList.add('err');
+  st.textContent = 'このブラウザでは音を再生できません（Web Audio 非対応）。';
+}
+window.__lh = { get impact(){ return impact; }, get bg(){ return bg; }, get fs(){ return fs; }, cellInfo, calK, get S(){ return S; },
+  dsp: { aWeightSOS, bandpassSOS, sosMag, aLin } };
+})();
+</script>
+
+</body></html>
