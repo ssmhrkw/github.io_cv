@@ -4,7 +4,7 @@
 //   dist/tl-listening.html     airborne insulation (Dr / Rr / TL) only
 // All three share the same code and the same saved settings.
 import fs from 'node:fs';
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const r = f => fs.readFileSync(new URL('./src/' + f, import.meta.url), 'utf8');
 const parts = { '/*__CSS__*/': r('style.css'), '/*__DSP__*/': r('dsp.js'), '/*__SHELL__*/': r('shell.js'), '/*__LH__*/': r('lh.js'), '/*__TL__*/': r('tl.js') };
 if (/<\/script>/i.test(Object.values(parts).join(''))) throw new Error('a source part contains </script>');

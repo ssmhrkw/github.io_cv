@@ -95,14 +95,15 @@
             <div class="seg" id="lh-seg-pattern" role="group" aria-label="打撃の回数">
               <button type="button" data-p="single" aria-pressed="true">単発</button>
               <button type="button" data-p="triple" aria-pressed="false">3回（1 秒間隔）</button>
-              <button type="button" data-p="run" aria-pressed="false">連続（1.8 秒間隔・停止まで）</button>
+              <button type="button" data-p="run" aria-pressed="false">連続（1.9 秒間隔・停止まで）</button>
             </div>
           </div>
           <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
           <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
           <div class="msg" id="lh-over" role="status"></div>
-          <p class="hint">斜線のセルは、いまの出力レベルではデジタル出力の上限（−1 dBFS）を超えるため再生しません。数字はそのセルを再生できる出力レベルです。</p>
-          <label class="check"><input type="checkbox" id="lh-nums"><span>セルに ΔL<sub>A</sub>（衝撃音のモデル L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>）を表示</span></label>
+          <p class="hint">斜線のセルは、いまの出力レベルではデジタル出力の上限（−1 dBFS）を超えるため再生しません。「≤−20」は「出力レベルを −20 dB 以下にすると再生できる」という意味です（音を 20 dB 上げ下げする指定ではありません）。</p>
+          <label class="check"><input type="checkbox" id="lh-nums"><span>セルに Δ（衝撃音の参考 L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>、dB）を表示</span></label>
+          <p class="hint">Δ は「衝撃音が暗騒音より A 特性で何 dB 上か」の目安です。等級の差でも、音量の操作量でもありません。衝撃音は最大値（F、125 ms）、暗騒音は時間平均なので、Δ が 0 でも衝撃音は聞こえます。</p>
         </section>
       </div>
 
@@ -110,15 +111,19 @@
         <section class="card" aria-labelledby="lh-ro-title">
           <div class="hint">選択中の条件</div>
           <div class="ro-title" id="lh-ro-title">—</div>
-          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 214" role="img" aria-label="帯域ごとのモデルレベル"></svg>
+          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 226" role="img" aria-label="等級曲線と帯域レベル"></svg>
+          <ul class="legend" id="lh-ro-legend">
+            <li><i class="lg lg-on"></i>選択中の曲線（基準値）</li><li><i class="lg lg-fam"></i>ほかの等級（5 dB 刻み）</li><li><i class="lg lg-dash"></i>評価範囲外（参考外挿）</li>
+            <li><i class="lg lg-tgt"></i>目標値（基準値＋オフセット）</li><li><i class="lg lg-ana"></i>生成した波形の分析値 L<sub>Fmax</sub></li><li><i class="lg lg-bg"></i>暗騒音の帯域レベル L<sub>eq</sub></li>
+          </ul>
           <dl class="nums" id="lh-ro-nums"></dl>
           <p class="msg err" id="lh-ro-warn" role="status"></p>
           <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
-          <p class="hint">グラフと表はモデル上の目標値（dB re 20 µPa）です。実際の音圧は端末・音量・校正で決まります。基準線のうち破線の区間は評価範囲外の参考外挿です。</p>
+          <p class="hint">縦軸は 1/1 オクターブ帯域レベル（dB re 20 µPa、モデル上の値）、横軸は帯域の中心周波数です。◇は設定から決まる目標、●は実際に作った波形を帯域フィルタで分析した値で、両者が重なっていれば設定どおりの音です。*と破線は評価範囲外の参考外挿で、正式な等級判定には使えません。実際の音圧は端末・音量・校正で決まります。</p>
           <details id="lh-model">
             <summary>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</summary>
             <dl class="nums" id="lh-model-nums"></dl>
-            <p>モデル L<sub>A,Fmax</sub> は、衝撃音<b>1 発</b>の波形に A 特性と時間重み付け特性 F（時定数 125 ms）を適用した最大値の計算値です。出力レベル・暗騒音・連続打撃の重なりは<b>含みません</b>。LH 等級の数字とは別の量で、マイクで測った耳元の音圧でもありません。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
+            <p>① は、このページが作った衝撃音<b>1 発</b>の波形（全帯域の合成）に A 特性フィルタと時間重み付け特性 F（時定数 125 ms）を掛け、その最大値を取った計算値です。② は、帯域ごとの L<sub>Fmax</sub> に A 補正値を足してエネルギー合算した値で、各帯域の最大が同時に起こると仮定した別の量です。帯域ごとの最大値の時刻や波形が違えば ① は変わるので、基準曲線だけからは ① は決まりません（この波形での値です）。</p><p>どちらも出力レベル・暗騒音・連続打撃の重なり・校正を<b>含みません</b>。規格に定める測定条件での値ではなく、LH 等級の数字とも別の量です。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
           </details>
         </section>
 
@@ -130,7 +135,7 @@
           </div>
           <div class="row">
             <label class="lbl" for="lh-T">減衰時間 T（60 dB 減衰・合成音）</label>
-            <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal"><span class="hint">s（0.2〜2。16 Hz を含むときは 0.5 以上）</span>
+            <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal"><span class="hint">s（0.2〜2、初期値 0.7。16 Hz を含むときは 0.5 以上）</span>
           </div>
           <div class="row">
             <label class="lbl" for="lh-wav">加振音の録音を読み込む</label>
@@ -142,23 +147,33 @@
 
         <details id="lh-d-curve">
           <summary>等級曲線の基準値と帯域ごとのオフセット</summary>
-          <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。</p>
+          <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。<b>再生中に値を変えると、止めずに新しい音へ切り替わります</b>（入力が止まって約 0.5 秒後。止まっているときは鳴りません）。</p>
           <div class="tbl-wrap"><table class="t" id="lh-tbl-curve"></table></div>
           <p class="msg" id="lh-curve-msg" role="status"></p>
           <div class="row"><button type="button" class="btn" id="lh-curve-reset">初期値に戻す</button></div>
         </details>
 
         <details id="lh-d-bg">
-          <summary>暗騒音のスペクトル</summary>
+          <summary>暗騒音（合成ノイズ／録音 WAV）</summary>
+          <div class="row" role="radiogroup" aria-label="暗騒音の音源">
+            <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-synth" value="synth" checked> 合成ノイズ</label>
+            <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-wav" value="wav" disabled> 録音（WAV）</label>
+          </div>
           <div class="row">
-            <label class="lbl" for="lh-slope">傾き（オクターブ帯域レベル）</label>
+            <label class="lbl" for="lh-slope">合成ノイズの傾き</label>
             <select id="lh-slope">
               <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
               <option value="-3">−3 dB/oct（ピンクノイズ）</option>
               <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
             </select>
           </div>
-          <p class="hint">定常ランダム雑音です。上で選んだ帯域の中で、A 特性の L<sub>Aeq</sub> が列の値（20〜70 dB(A)）になるように作ります。</p>
+          <div class="row">
+            <label class="lbl" for="lh-bgwav">暗騒音の録音を読み込む</label>
+            <input type="file" id="lh-bgwav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+          </div>
+          <p class="msg" id="lh-bg-status" role="status"></p>
+          <p class="hint">どちらの音源も、上で選んだ暗騒音の帯域の中で、A 特性の時間平均レベル（モデル L<sub>Aeq</sub>）が表の列の値（20〜70 dB(A)）になるよう、全体を一律に増減して鳴らします。録音は元の dBFS を使いません（録音レベルと実際の音圧の関係は校正なしでは分からないため）。スペクトルの形は録音のままなので、合成ノイズとは「同じ L<sub>Aeq</sub> で音色が違う」比較になります。</p>
+          <p class="hint">録音はこのブラウザ内でだけ処理します。2 秒以上が必要で、先頭 30 秒までを使い、モノラル化（全チャンネルの平均）、再生側のサンプリング周波数へ変換、継ぎ目をクロスフェードしてループにします。録音自体は保存しないので、ページを開き直すと合成ノイズに戻ります。</p>
         </details>
 
         <details id="lh-d-cal">
@@ -253,7 +268,11 @@
           <div class="row" id="tl-fill-row" hidden><button type="button" class="btn" id="tl-fill">基準曲線の値を入力欄に写す</button></div>
           <p class="msg" id="tl-band-msg" role="status"></p>
           <svg class="chart" id="tl-chart" viewBox="0 0 520 220" role="img" aria-label="適用する減衰量の曲線"></svg>
+          <ul class="legend"><li><i class="lg lg-on"></i>いま適用する減衰量（選択中の条件）</li><li><i class="lg lg-fam"></i>等級の基準曲線 30〜70（5 刻み）</li><li><i class="lg lg-dash"></i>定義範囲外（参考外挿）</li></ul>
           <p class="hint" id="tl-curve-note"></p>
+          <p class="hint">上のグラフは<b>壁の条件</b>（縦軸：減衰量 dB、大きいほど遮音が大きい）です。下のグラフは<b>音そのもの</b>の帯域レベルで、別の量です。</p>
+          <svg class="chart" id="tl-spec" viewBox="0 0 520 220" role="img" aria-label="音のスペクトル"></svg>
+          <p class="hint" id="tl-spec-note"></p>
           <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
           <details id="tl-d-room">
             <summary>室条件で換算する（任意）：D = R + 10 log<sub>10</sub>(A/S)</summary>
@@ -292,7 +311,7 @@
               <option value="-30">原音だけ 30 dB 下げる</option>
             </select>
           </div>
-          <p class="hint">遮音後の音が小さくて端末の音量を上げると、原音に戻したとき大音量になります。原音への切り替えは約 1.5 秒かけて徐々に大きくします。原音を下げる設定にすると、その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
+          <p class="hint">条件の切り替えは約 0.02 秒で終わります（同じ再生位置のまま、10 ms のクロスフェード）。原音に戻すと実際の差の分だけ一気に大きくなるので、遮音後の音に合わせて端末の音量を上げないでください。心配なときは「原音だけ下げる」を使えます。その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
           <p class="msg" id="tl-status" role="status"></p>
         </section>
 
@@ -302,7 +321,7 @@
           <p><b>外挿</b>：基準曲線の定義範囲は 125 Hz〜2 kHz です。それより低い側は 500 Hz 以下と同じ 7.5 dB/oct の傾きを延長、高い側は 2 kHz の値を水平に延長した参考値で、実際の壁の性能予測ではありません（実際の壁は共鳴透過やコインシデンスで大きく変わります）。</p>
           <p><b>TL と室間音圧レベル差</b>：R（TL）と D は同じ量ではありません。換算を使わない場合は A/S = 1 の直接透過だけを仮定しています。実際の建物では側路伝搬や隙間により、室間音圧レベル差は部材の値より 1〜2 ランク（5〜10 dB）程度下がるのが一般的とされています。</p>
           <p><b>周波数</b>：画面の帯域名は公称中心周波数（16、31.5、63 Hz …）、計算には 1 kHz から正確に 1 オクターブずつ離れた周波数（15.625、31.25、62.5 Hz …）を使います。このため 125 Hz より下は 1 オクターブごとに正確に 7.5 dB 下がります。</p>
-          <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは 80 ms のクロスフェード、原音へは約 1.5 秒かけて上げます。</p>
+          <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは、旧音と新音の開始・終了を揃えた 10 ms のクロスフェード（相補的な二乗余弦）です。すべての条件は同じ信号をゼロ位相で整形したものなので、切り替え中の音量は一方からもう一方へ単調に移り、一時的な低下や超過は起きません。再生開始時だけ、原音は 0.2 秒かけて立ち上げます。</p>
           <ul>
             <li><a href="https://www.chiyoda-ute.co.jp/data/syaon_rank.html" target="_blank" rel="noopener noreferrer">チヨダウーテ：遮音等級 Dr・Rr と基準曲線</a></li>
             <li><a href="https://www.jtccm.or.jp/sites/default/files/books_pdf/2008/Vol44,No6,2008.pdf#page=43" target="_blank" rel="noopener noreferrer">建材試験センター：Dr／Rr の説明（p.41）</a></li>

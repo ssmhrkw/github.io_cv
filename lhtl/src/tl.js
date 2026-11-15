@@ -11,7 +11,11 @@ const RANGES = ['125,2000', '125,4000', '63,8000', '31.5,8000', '16,8000'];
 const DEF_LO = 125, DEF_HI = 2000;             // range where the grade curve is defined
 const NORM_PEAK = 0.25;                        // -12 dBFS, applied once when a source is loaded
 const MAX_SECONDS = 30, CEIL = Math.pow(10, -1 / 20);
-const XFADE = 0.08, DRY_RAMP = 1.5, DRY_START_DB = -40, FADE = 0.05;
+// Switching: old and new voices cross-fade over the same 10 ms with complementary raised-cosine gains.
+// All conditions are zero-phase versions of one signal (fully coherent), so the sum moves monotonically from one
+// to the other: no dip, no overshoot. 10 ms keeps the switching splatter > 60 dB below even the attenuated signal
+// (tests/study-crossfade.mjs); an abrupt switch is +4 dB above it (audible click).
+const XF = 0.010, LEAD = 0.010, START_FADE = 0.2, STOP_FADE = 0.02;
 const VOL_MIN = -60, VOL_MAX = 0, VOL_STEP = 5;
 const PADS = [0, -10, -20, -30];
 const TYPING_MS = 500;
@@ -110,14 +114,28 @@ async function loadFile(f){
     const rate = ab.sampleRate, n = Math.min(ab.length, Math.round(rate * MAX_SECONDS));
     if (n < rate * 0.2) throw new Error('音声が短すぎます（0.2 秒以上必要）。');
     const a = new Float32Array(n);
-    for (let c = 0; c < ab.numberOfChannels; c++){ const d = ab.getChannelData(c); for (let i = 0; i < n; i++) a[i] += d[i] / ab.numberOfChannels; }
+    for (let c = 0; c < ab.numberOfChannels; c++){
+      const d = ab.getChannelData(c);
+      if (!D.allFinite(d.subarray(0, n))) throw new Error('数値として読めないサンプル（NaN／∞）が含まれています。');
+      for (let i = 0; i < n; i++) a[i] += d[i] / ab.numberOfChannels;
+    }
     const gainDb = normalize(a);
+    const prev = { source, srcInfo };
     stop();
     source = a;
     srcInfo = f.name + '：' + (n / rate).toFixed(1) + ' 秒を使用' + (ab.length > n ? '（全 ' + (ab.length / rate).toFixed(1) + ' 秒の先頭）' : '') +
       '／' + ab.numberOfChannels + ' ch → モノラル／ピークを −12 dBFS に正規化（' + sgn(gainDb, 1) + ' dB）／' + rate + ' Hz';
-    invalidate(false);
+    resetProc();
     info.classList.remove('err'); info.textContent = srcInfo;
+    const myGen = gen, ok = await prepare();
+    if (!ok && myGen === gen && token === srcToken && prev.source){   // could not be processed: go back to the working source
+      const why = el('tl-status').textContent;
+      source = prev.source; srcInfo = prev.srcInfo;
+      resetProc();
+      info.classList.add('err');
+      info.textContent = '「' + f.name + '」は処理できなかったため、元の音源に戻しました。' + why + '　現在の音源：' + srcInfo;
+      prepare();
+    }
   } catch (e){
     if (token !== srcToken) return;
     info.classList.add('err');
@@ -155,6 +173,8 @@ function prepare(){
   if (pendingPrep && pendingPrep.gen === gen) return pendingPrep.promise;
   const promise = doPrepare(gen);
   pendingPrep = { gen, promise };
+  const done = () => { if (pendingPrep && pendingPrep.promise === promise) pendingPrep = null; };   // a failed job is retried next time
+  promise.then(done, done);
   return promise;
 }
 async function doPrepare(myGen){
@@ -164,11 +184,12 @@ async function doPrepare(myGen){
     const res = await runProcess({ input: source, sr: App.audio.fs, x: c.x, y: c.y, offsets: OFFSETS, lo: r.fxLo, hi: r.fxHi });
     if (myGen !== gen) return false;
     if (res.empty) throw new Error('この音源には、選んだ帯域の成分がありません。');
+    if (!Number.isFinite(res.peak) || !(res.peak > 0) || !OFFSETS.every(o => Number.isFinite(res.stats[String(o)].dZ))) throw new Error('計算結果に数値として扱えない値が含まれています。');
     const wet = {};
     for (const o of OFFSETS) wet[String(o)] = App.audio.newBuffer(res.variants[String(o)]);
     proc = { dry: App.audio.newBuffer(res.dry), wet, stats: res.stats, peak: res.peak, dryPeak: res.dryPeak,
-      safe: Math.min(1, CEIL / res.peak), dur: res.dry.length / App.audio.fs, data: { dry: res.dry, variants: res.variants } };
-    App.busy(false); renderResult(); renderTransport();
+      safe: Math.min(1, CEIL / res.peak), bands: res.bands, bandIdx: c.idx, dur: res.dry.length / App.audio.fs, data: { dry: res.dry, variants: res.variants } };
+    App.busy(false); renderResult(); renderSpec(); renderTransport();
     return true;
   } catch (e){
     if (myGen !== gen) return false;
@@ -180,12 +201,16 @@ async function doPrepare(myGen){
 }
 /** Curve / range / source changed: drop the processed audio; optionally resume playback with the new condition. */
 let resumePending = false;          // playback was interrupted by a condition change and should continue afterwards
-function invalidate(resume, delay){
-  resumePending = !!resume && (playing || resumePending);
+/** Drop the processed audio and any running job (the source or the curve changed). */
+function resetProc(){
   haltVoices();
   gen++; killWorker(); proc = null; pendingPrep = null; App.busy(false);
-  clearTimeout(procTimer);
-  renderChart(); renderResult(); renderTransport();
+  clearTimeout(procTimer); procTimer = 0;
+  renderChart(); renderSpec(); renderResult(); renderTransport();
+}
+function invalidate(resume, delay){
+  resumePending = !!resume && (playing || resumePending);
+  resetProc();
   if (!source) return;
   const req = playReq;
   procTimer = setTimeout(async () => {
@@ -196,7 +221,7 @@ function invalidate(resume, delay){
 }
 
 /* ---------- audio engine ---------- */
-let graph = null, voices = [], playing = false, cond = 0, epoch = 0, playReq = 0;
+let graph = null, playing = false, cond = 0, epoch = 0, playReq = 0;
 function getGraph(){
   const c = App.audio.ctx;
   if (!c) return null;
@@ -204,55 +229,54 @@ function getGraph(){
     const master = c.createGain();
     master.gain.value = Math.pow(10, S.vol / 20);
     master.connect(c.destination);
-    graph = { ctx: c, master };
+    graph = { ctx: c, master, mix: null, live: [], all: new Set(), killEnd: 0 };
   }
   return graph;
 }
-function rampValue(r, t){
-  if (t < r.t0) return 0;
-  if (t >= r.t1) return r.v1;
-  const u = (t - r.t0) / (r.t1 - r.t0);
-  return r.type === 'exp' ? r.v0 * Math.pow(r.v1 / r.v0, u) : r.v0 + (r.v1 - r.v0) * u;
+function fadeCurve(from, to){
+  const n = 65, c = new Float32Array(n);
+  for (let i = 0; i < n; i++) c[i] = from + (to - from) * (0.5 - 0.5 * Math.cos(Math.PI * i / (n - 1)));
+  return c;
 }
-function retire(v, now, end){
-  try {
-    const g = v.g.gain;
-    g.cancelScheduledValues(now);
-    g.setValueAtTime(rampValue(v.ramp, now), now);
-    g.linearRampToValueAtTime(0, end);
-    v.s.stop(end + 0.02);
-  } catch (e) { /* already stopped */ }
+function fadeParam(param, from, to, t, dur){
+  try { param.setValueCurveAtTime(fadeCurve(from, to), t, dur); }
+  catch (e) { param.setValueAtTime(from, t); param.linearRampToValueAtTime(to, t + dur); }   // very old engines
 }
+/** Round a time up to a whole sample frame, so every voice starts sample-aligned with the shared loop position. */
+function onFrame(t){ const fs = App.audio.fs; return Math.ceil(t * fs - 1e-6) / fs; }
 function condTarget(c){ return proc.safe * (c === 'dry' ? Math.pow(10, S.pad / 20) : 1); }
-/** Start the current condition at the shared loop position and cross-fade from whatever is sounding. */
-function swap(){
+/* Switching without queues. Every switch builds  mix_n = (1 - w)·mix_(n-1) + w·newVoice  with one raised-cosine w over
+   [t, t + XF], t = now + LEAD. Each gain parameter receives exactly one automation and is never interrupted, so a new
+   switch never has to wait for an earlier one, however fast they arrive. All conditions are coherent, and the weights
+   of every stage add up to one, so the output stays between the signals involved (no dip, no overshoot).
+   Stop inserts one more stage that fades the whole current mix, including switches that have not started yet. */
+function swap(fade){
   if (!playing || !proc) return;
-  const g = getGraph(), ctx = g.ctx, now = ctx.currentTime, t = now + 0.02, dur = proc.dur;
+  const g = getGraph(), ctx = g.ctx, now = ctx.currentTime, t = onFrame(Math.max(now + LEAD, g.killEnd)), dur = proc.dur, T = fade || XF;
   const pos = (((t - epoch) % dur) + dur) % dur;
-  const s = ctx.createBufferSource(), gn = ctx.createGain(), target = condTarget(cond);
+  const s = ctx.createBufferSource(), v = ctx.createGain(), mix = ctx.createGain();
   s.buffer = cond === 'dry' ? proc.dry : proc.wet[String(cond)]; s.loop = true;
-  s.connect(gn); gn.connect(g.master);
-  gn.gain.value = 0; gn.gain.setValueAtTime(0, now);
-  let ramp;
-  if (cond === 'dry'){              // never jump to the loud original: rise from -40 dB over 1.5 s
-    const v0 = target * Math.pow(10, DRY_START_DB / 20);
-    gn.gain.setValueAtTime(v0, t); gn.gain.exponentialRampToValueAtTime(target, t + DRY_RAMP);
-    ramp = { type: 'exp', t0: t, t1: t + DRY_RAMP, v0, v1: target };
-  } else {
-    gn.gain.linearRampToValueAtTime(target, t + XFADE);
-    ramp = { type: 'lin', t0: now, t1: t + XFADE, v0: 0, v1: target };
+  v.gain.value = 0; fadeParam(v.gain, 0, condTarget(cond), t, T);
+  s.connect(v); v.connect(mix); mix.connect(g.master);
+  if (g.mix){
+    const prev = g.mix, p = ctx.createGain();
+    fadeParam(p.gain, 1, 0, t, T);
+    prev.connect(p); p.connect(mix);
+    try { prev.disconnect(g.master); } catch (e) { /* not connected */ }
+    for (const o of g.live) try { o.stop(t + T + 0.01); } catch (e) { /* ended */ }
   }
+  s.onended = () => { g.all.delete(s); try { s.disconnect(); v.disconnect(); } catch (e) { /* gone */ } };
+  g.mix = mix; g.live = [s]; g.all.add(s);
+  s.startAt = t;
   s.start(t, pos);
-  const old = voices;
-  voices = [{ s, g: gn, ramp }];
-  for (const v of old) retire(v, now, t + XFADE);
 }
 function startPlayback(){
   if (!proc) return false;
   if (!App.audio.ensureRunning()){ say('tl-status', 'この表示画面では音声を使えません。HTML を保存して Safari または Chrome で開いてください。'); return false; }
   const g = getGraph();
-  if (!playing){ playing = true; epoch = g.ctx.currentTime + 0.02; }
-  swap(); renderResult(); renderTransport();
+  if (!playing){ playing = true; epoch = onFrame(Math.max(g.ctx.currentTime + LEAD, g.killEnd)); swap(cond === 'dry' ? START_FADE : XF); }
+  else swap();
+  renderResult(); renderTransport();
   return true;
 }
 async function play(){
@@ -268,17 +292,26 @@ async function play(){
 function stop(){ resumePending = false; haltVoices(); }     // user stop: also cancels a pending resume
 function haltVoices(){
   playReq++;                                                  // cancels a play that is still waiting for processing
-  if (playing || voices.length){
-    const c = App.audio.ctx;
-    if (c){ const now = c.currentTime; for (const v of voices) retire(v, now, now + FADE); }
+  const g = graph && graph.ctx === App.audio.ctx ? graph : null;
+  if (g && g.mix){
+    const ctx = g.ctx, t = ctx.currentTime + 0.003, k = ctx.createGain();
+    fadeParam(k.gain, 1, 0, t, STOP_FADE);                    // fades everything at once, whatever is still scheduled inside
+    g.mix.connect(k); k.connect(g.master);
+    try { g.mix.disconnect(g.master); } catch (e) { /* not connected */ }
+    // A switch that has not started yet is dropped altogether (stop before start: it never sounds), so pressing
+    // "original" and then stop cannot let the loud original through during the fade.
+    for (const o of g.all) try { o.stop(o.startAt > ctx.currentTime ? 0 : t + STOP_FADE + 0.01); } catch (e) { /* ended */ }
+    g.killEnd = t + STOP_FADE + 0.001;                        // the next start waits these few ms, so old and new never add up
+    g.mix = null; g.live = [];
   }
-  voices = []; playing = false;
+  playing = false;
   renderTransport();
 }
 function setCond(c){
+  if (c === cond) return;                                     // pressing the selected condition again changes nothing
   cond = c;
   document.querySelectorAll('#tl-cmp button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cond === String(c))));
-  renderChart(); renderResult(); renderTransport();
+  renderChart(); renderSpec(); renderResult(); renderTransport();
   if (playing) swap();
 }
 function setVol(v){
@@ -356,6 +389,11 @@ function renderChart(){
   for (const f of FREQ) s += '<text x="' + X(f) + '" y="' + (yB + 14) + '" text-anchor="middle">' + (f >= 1000 ? f / 1000 + 'k' : f) + '</text>';
   s += '<text x="' + X(500) + '" y="' + (yT + 11) + '" text-anchor="middle">基準曲線の定義範囲</text><text x="' + (W - 12) + '" y="' + (yB + 28) + '" text-anchor="end">Hz</text><text x="4" y="10">dB</text>';
   const custom = S.mode === 'custom', y = c.y.map(v => Math.max(0, v + off));
+  for (const g of GRADES){                                  // the grade reference curves themselves (no offset, no room term)
+    const on = !custom && cond !== 'dry' && g === S.grade + off && !S.room.on;
+    c.idx.forEach((bi, j) => { if (j > 0) s += '<line class="fam' + (FREQ[bi] > DEF_HI || FREQ[c.idx[j - 1]] < DEF_LO ? ' dash' : '') + '" x1="' + X(FREQ[c.idx[j - 1]]) + '" y1="' + Y(Math.max(0, D.refCurve(FX[c.idx[j - 1]], g))) + '" x2="' + X(FREQ[bi]) + '" y2="' + Y(Math.max(0, D.refCurve(FX[bi], g))) + '"/>'; });
+    if (!on) s += '<text class="famlab" x="' + (X(FREQ[c.idx[c.idx.length - 1]]) + 7) + '" y="' + (Y(Math.max(0, D.refCurve(FX[c.idx[c.idx.length - 1]], g))) + 3.5) + '">' + g + '</text>';
+  }
   c.idx.forEach((bi, j) => {
     const f = FREQ[bi];
     if (j > 0){
@@ -366,6 +404,26 @@ function renderChart(){
   });
   el('tl-chart').innerHTML = s;
   el('tl-chart').setAttribute('aria-label', '適用する減衰量：' + c.idx.map((bi, j) => hz(FREQ[bi]) + ' ' + y[j].toFixed(1) + ' dB').join('、'));
+}
+/** Octave-band levels of the actual sound: source vs. what remains behind the selected condition (relative dB). */
+function renderSpec(){
+  const svg = el('tl-spec'), note = el('tl-spec-note');
+  if (!proc || !proc.bands){ svg.innerHTML = ''; svg.setAttribute('aria-label', '音のスペクトル（未計算）'); note.textContent = '「▶ 再生」で音源を処理すると、原音と遮音後の帯域レベルをここに表示します。'; return; }
+  const idx = proc.bandIdx, dry = proc.bands.dry, wet = cond === 'dry' ? null : proc.bands.variants[String(cond)], top = Math.max(...dry);
+  const x0 = 36, x1 = 508, yT = 14, yB = 186, lo = -100, gw = (x1 - x0) / idx.length, Y = v => yB - (Math.max(lo, Math.min(0, v)) - lo) / -lo * (yB - yT);
+  let s = '';
+  for (let v = 0; v >= lo; v -= 20) s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text x="' + (x0 - 5) + '" y="' + (Y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  const parts = [];
+  idx.forEach((bi, j) => {
+    const cx = x0 + gw * (j + 0.5), d = dry[j] - top, w = wet ? wet[j] - top : null, bw = Math.min(26, gw / 2 - 3);
+    s += '<rect class="bar-bg" x="' + (cx - bw - 1) + '" y="' + Y(d) + '" width="' + bw + '" height="' + (yB - Y(d)) + '"><title>原音 ' + hz(FREQ[bi]) + ' ' + d.toFixed(1) + ' dB</title></rect>';
+    if (wet) s += '<rect class="bar-imp" x="' + (cx + 1) + '" y="' + Y(w) + '" width="' + bw + '" height="' + (yB - Y(w)) + '"><title>遮音後 ' + hz(FREQ[bi]) + ' ' + w.toFixed(1) + ' dB</title></rect><text x="' + cx + '" y="' + (yB + 26) + '" text-anchor="middle">−' + (d - w).toFixed(0) + '</text>';
+    s += '<text x="' + cx + '" y="' + (yB + 13) + '" text-anchor="middle">' + (FREQ[bi] >= 1000 ? FREQ[bi] / 1000 + 'k' : FREQ[bi]) + '</text>';
+    parts.push(hz(FREQ[bi]) + ' 原音 ' + d.toFixed(0) + (wet ? '、遮音後 ' + w.toFixed(0) : '') + ' dB');
+  });
+  s += '<text x="4" y="10">dB</text><text x="' + (x1 + 6) + '" y="' + (yB + 13) + '" text-anchor="end">Hz</text>' + (wet ? '<text x="' + (x0 - 5) + '" y="' + (yB + 26) + '" text-anchor="end">差</text>' : '');
+  svg.innerHTML = s; svg.setAttribute('aria-label', '音の帯域レベル（原音の最大帯域を 0 dB とした相対値）：' + parts.join('；'));
+  note.textContent = 'いまの音源の 1/1 オクターブ帯域レベルです（原音の最大帯域を 0 dB とした相対値。実際の音圧ではありません）。灰色＝原音、濃い色＝' + (wet ? condName(cond) + ' の遮音後。下段の数字は帯域ごとの差で、上のグラフの減衰量に対応します。' : '（原音を選択中のため遮音後は表示していません）。');
 }
 function renderRoom(){
   const r = roomDb();
@@ -378,7 +436,7 @@ function syncInputs(){
   el('tl-grade').value = String(S.grade); el('tl-range').value = S.range; el('tl-pad').value = String(S.pad);
   el('tl-room-on').checked = S.room.on; setVal(el('tl-room-S'), S.room.S); setVal(el('tl-room-A'), S.room.A);
 }
-function renderAll(){ syncInputs(); renderBands(); renderCmp(); renderRoom(); renderChart(); renderResult(); renderTransport(); }
+function renderAll(){ syncInputs(); renderBands(); renderCmp(); renderRoom(); renderChart(); renderSpec(); renderResult(); renderTransport(); }
 
 /* ---------- events ---------- */
 function bind(){
@@ -408,7 +466,7 @@ return {
   show(){ renderAll(); },
   stop,
   get S(){ return S; }, get proc(){ return proc; }, get playing(){ return playing; }, get cond(){ return cond; }, get source(){ return source; },
-  get voices(){ return voices.length; }, get srcInfo(){ return srcInfo; }, get graph(){ return getGraph(); },
+  get voices(){ return graph && graph.mix ? graph.live.length : 0; }, get sounding(){ return graph ? graph.all.size : 0; }, XF, LEAD, START_FADE, get srcInfo(){ return srcInfo; }, get graph(){ return getGraph(); },
   FREQ, OFFSETS, KEY, curve, prepare, play, startPlayback, setCond, setVol, useNoise, invalidate, sanitize, defaults
 };
 })());

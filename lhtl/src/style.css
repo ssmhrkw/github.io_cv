@@ -124,7 +124,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;color:var(--muted)
 table.t td{font-family:var(--font-num);font-variant-numeric:tabular-nums}
 table.t input[type="number"]{width:4.6rem}
 table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
-.formula{font-family:var(--font-num);font-size:.8rem;background:var(--bg);border-radius:6px;padding:.4rem .55rem;overflow-x:auto;white-space:nowrap}
+.formula{font-family:var(--font-num);font-size:.8rem;background:var(--bg);border-radius:6px;padding:.4rem .55rem;overflow-wrap:anywhere;white-space:normal}
 .big{font-size:1.05rem;font-weight:700;margin:.3rem 0}
 .bands{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin:.5rem 0}
 .bands label{display:grid;gap:2px;font-size:.8rem;color:var(--muted)}
@@ -168,3 +168,23 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
   .stepper button{width:36px;height:36px}
   .tp-title{font-size:.88rem}
 }
+
+/* charts: families of grade curves, targets, analysed values */
+.chart text{font-size:11px}
+.chart .fam{stroke:var(--muted);stroke-width:1;opacity:.6;fill:none}
+.chart .fam.dash{stroke-dasharray:4 3}
+.chart .fam.on{stroke:var(--ink);stroke-width:2.8;opacity:1}
+.chart .famlab{font-size:9.5px;fill:var(--muted)}
+.chart .famlab.on{fill:var(--ink);font-weight:700;font-size:11px}
+.chart .tgt{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.chart .ana{fill:var(--fill);stroke:var(--surface);stroke-width:.8}
+.chart .offl{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:2 2}
+.legend{list-style:none;margin:.3rem 0;padding:0;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:.78rem;color:var(--muted)}
+.legend li{display:inline-block}
+.legend .lg{vertical-align:middle;margin-right:6px}
+.lg{display:inline-block;width:22px;height:0;border-top:2.8px solid var(--ink);flex:none}
+.lg-fam{border-top:1px solid var(--muted)}
+.lg-dash{border-top:1.5px dashed var(--muted)}
+.lg-tgt{width:9px;height:9px;border:1.5px solid var(--ink);transform:rotate(45deg);margin:0 6px;background:var(--surface)}
+.lg-ana{width:9px;height:9px;border:0;border-radius:50%;background:var(--fill);margin:0 6px}
+.lg-bg{width:9px;height:11px;border:0;background:var(--muted);opacity:.55;margin:0 6px}

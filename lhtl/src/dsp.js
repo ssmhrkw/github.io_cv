@@ -125,7 +125,9 @@ function edgeUp(f, lo, hi){
   const u = Math.log(f / lo) / Math.log(hi / lo);
   return 0.5 - 0.5 * Math.cos(Math.PI * u);
 }
-function peakOf(a){ let p = 0; for (let i = 0; i < a.length; i++){ const v = Math.abs(a[i]); if (v > p) p = v; } return p; }
+/** Largest |sample|. A NaN or infinite sample yields Infinity, so every level guard that uses the peak refuses it. */
+function peakOf(a){ let p = 0; for (let i = 0; i < a.length; i++){ const v = Math.abs(a[i]); if (!(v <= 1e300)) return Infinity; if (v > p) p = v; } return p; }
+function allFinite(a){ for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i])) return false; return true; }
 function rmsOf(a){ let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / Math.max(1, a.length)); }
 /** Peak of the sum of copies of x started at the given sample offsets (exact overlap peak). */
 function overlapPeak(x, offsets){
@@ -169,16 +171,16 @@ function tlProcess(input, sr, x, y, offsets, lo, hi){
     att[k] = f > 0 ? interpLog(f, x, y) : 0;
     aw[k] = f > 0 ? aLin(f) : 0;
   }
+  const bandOf = new Int16Array(half + 1).fill(-1);          // octave band (index into x) that each bin belongs to
+  for (let k = 1; k <= half; k++){ const f = k * sr / n; for (let b = 0; b < x.length; b++) if (f >= x[b] / Math.SQRT2 && f < x[b] * Math.SQRT2){ bandOf[k] = b; break; } }
   const nfade = Math.max(1, Math.round(sr * 0.02)), L = input.length;
+  /** Shape the spectrum, return the played buffer (L samples, 20 ms fades at both ends). */
   const render = (gainOf) => {
     const r = new Float64Array(n), i = new Float64Array(n);
-    let z = 0, a = 0;
     for (let k = 0; k <= half; k++){
       const g = mask[k] * gainOf(k);
       if (g === 0) continue;
       r[k] = re[k] * g; i[k] = im[k] * g;
-      const p = (r[k] * r[k] + i[k] * i[k]) * ((k === 0 || k === half) ? 1 : 2);
-      z += p; a += p * aw[k] * aw[k];
       if (k > 0 && k < half){ r[n - k] = r[k]; i[n - k] = -i[k]; }
     }
     fftInPlace(r, i, true);
@@ -187,28 +189,42 @@ function tlProcess(input, sr, x, y, offsets, lo, hi){
     for (let m = 0; m < L; m++){
       const fade = Math.min(1, m / nfade, (L - 1 - m) / nfade);
       out[m] = r[m] * fade;
-      const v = Math.abs(out[m]); if (v > peak) peak = v;
+      const v = Math.abs(out[m]); if (!(v <= 1e300)) peak = Infinity; else if (v > peak) peak = v;
     }
-    return { out, peak, z, a };
+    return { out, peak, lev: measure(out) };
   };
+  /** Levels of a played buffer itself: overall power (Z), A-weighted power and octave-band powers. Zero-phase shaping
+      spreads a short sound beyond its original length; what is cut off or faded there is not played, so it must not be
+      counted. Measuring the finished buffer keeps the displayed reduction equal to the reduction that is heard. */
+  function measure(out){
+    const r = new Float64Array(n), i = new Float64Array(n), bp = new Float64Array(x.length);
+    r.set(out); fftInPlace(r, i, false);
+    let z = 0, a = 0;
+    for (let k = 1; k <= half; k++){
+      const p = (r[k] * r[k] + i[k] * i[k]) * (k === half ? 1 : 2);
+      z += p; a += p * aw[k] * aw[k];
+      if (bandOf[k] >= 0) bp[bandOf[k]] += p;
+    }
+    return { z, a, bands: Array.from(bp, v => 10 * Math.log10(Math.max(v, 1e-300))) };
+  }
   const dry = render(() => 1);
-  const variants = {}, stats = {};
+  const variants = {}, stats = {}, bands = { dry: dry.lev.bands, variants: {} };
   let peak = dry.peak;
   for (const off of offsets){
     const w = render(k => Math.pow(10, -Math.max(0, att[k] + off) / 20));
-    variants[String(off)] = w.out;
+    variants[String(off)] = w.out; bands.variants[String(off)] = w.lev.bands;
     peak = Math.max(peak, w.peak);
     stats[String(off)] = {
-      dZ: 10 * Math.log10(Math.max(dry.z, 1e-300) / Math.max(w.z, 1e-300)),
-      dA: 10 * Math.log10(Math.max(dry.a, 1e-300) / Math.max(w.a, 1e-300)),
+      dZ: 10 * Math.log10(Math.max(dry.lev.z, 1e-300) / Math.max(w.lev.z, 1e-300)),
+      dA: 10 * Math.log10(Math.max(dry.lev.a, 1e-300) / Math.max(w.lev.a, 1e-300)),
       peakDb: 20 * Math.log10(Math.max(w.peak, 1e-30))
     };
   }
-  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, empty: !(dry.z > 0) };
+  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, bands, empty: !(dry.lev.z > 0) };
 }
 
 const DSP = { P0, G10, d1LP, d1HP, butterLP, butterHP, sosMag, normalizeAt, bandpassSOS, aWeightSOS, sosFilter, filtfilt, fastMaxDb,
-  aLin, aDb, fftInPlace, mulberry32, edgeUp, peakOf, rmsOf, overlapPeak, TL_FREQ, TL_FX, refCurve, interpLog, bandMask, tlProcess };
+  aLin, aDb, fftInPlace, mulberry32, edgeUp, peakOf, allFinite, rmsOf, overlapPeak, TL_FREQ, TL_FX, refCurve, interpLog, bandMask, tlProcess };
 root.DSP = DSP;
 if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
 })(typeof self !== 'undefined' ? self : globalThis);
