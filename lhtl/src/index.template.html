@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>__TITLE__</title>
+<meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
+<meta name="app-version" content="__VERSION__">
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<a class="skip" href="#main">本文へ移動</a>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>__H1__</h1>
+      <p class="lead">等級曲線や入力値どおりに整形した音を、同じ条件で切り替えて比べる参考試聴です。音声の生成・読み込み・処理はすべてこのブラウザ内で行い、外部へ送信しません。</p>
+    </div>
+    <div>
+      <div class="seg" id="seg-theme" role="group" aria-label="配色">
+        <button type="button" data-theme="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme="black" aria-pressed="false">Black</button>
+      </div>
+      <div class="hint">配色：<a href="https://nipponcolors.com/" target="_blank" rel="noopener noreferrer">NIPPON COLORS</a>（白練・墨・黒 ほか）</div>
+    </div>
+  </header>
+
+  <!--IF:both--><div class="tabs" role="tablist" aria-label="試聴の種類">
+    <button type="button" role="tab" id="tab-lh" aria-controls="panel-lh" aria-selected="true">床衝撃音（LH）</button>
+    <button type="button" role="tab" id="tab-tl" aria-controls="panel-tl" aria-selected="false" tabindex="-1">壁の遮音（Dr／Rr・TL）</button>
+  </div><!--/IF:both-->
+
+  <p class="notice" id="app-error" role="alert" hidden></p>
+  <p class="notice"><b>はじめに：</b>端末の音量を小さくしてから始めてください。画面の dB はモデル上の計算値で、耳元の音圧（dB SPL）ではありません。添付プレビューで音が出ないときは、この HTML を保存して Safari／Chrome で開いてください。</p>
+
+  <main id="main">
+<!--IF:lh-->  <!-- ======================= LH ======================= -->
+  <section id="panel-lh" role="tabpanel" aria-labelledby="tab-lh">
+    <div class="grid2">
+      <div class="col">
+        <section class="card" aria-labelledby="lh-h-1">
+          <h2 id="lh-h-1"><span class="step">1</span>衝撃音の条件と帯域を選ぶ</h2>
+          <div class="row">
+            <span class="lbl">衝撃音の条件</span>
+            <div class="seg" id="lh-seg-mode" role="group" aria-label="衝撃音の条件">
+              <button type="button" data-mode="grade" aria-pressed="true">LH等級曲線</button>
+              <button type="button" data-mode="custom" aria-pressed="false">指定値（63〜500 Hz）</button>
+            </div>
+          </div>
+          <div id="lh-grade-box">
+            <div class="row">
+              <span class="lbl">基本の帯域</span>
+              <span class="chipfix">63</span><span class="chipfix">125</span><span class="chipfix">250</span><span class="chipfix">500</span>
+              <span class="hint">Hz（重量床衝撃音の評価範囲。常に使用）</span>
+            </div>
+            <fieldset class="row" id="lh-add">
+              <legend class="lbl" style="float:left">帯域を追加（参考）</legend>
+              <label class="check"><input type="checkbox" id="lh-add-0" data-add="16"> 16 Hz</label>
+              <label class="check"><input type="checkbox" id="lh-add-1" data-add="31.5"> 31.5 Hz</label>
+              <label class="check"><input type="checkbox" id="lh-add-2" data-add="1k"> 1 kHz</label>
+              <label class="check"><input type="checkbox" id="lh-add-3" data-add="2k"> 2 kHz</label>
+            </fieldset>
+          </div>
+          <div id="lh-custom-box" hidden>
+            <div class="row" role="group" aria-label="指定値（各オクターブ帯の L Fmax）">
+              <span class="lbl">指定値 L<sub>Fmax</sub> dB</span>
+              <label class="check">63 Hz <input type="number" id="lh-c0" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">125 Hz <input type="number" id="lh-c1" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">250 Hz <input type="number" id="lh-c2" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">500 Hz <input type="number" id="lh-c3" min="0" max="140" step="0.1" inputmode="decimal"></label>
+            </div>
+            <p class="hint">この4帯域だけの合成衝撃音を再生します（0〜140 dB）。下の表の「指定値」行が入力どおり、上下の行は 5 dB ずつ平行移動です。任意の入力値に LH 等級は付きません。</p>
+            <p class="msg" id="lh-custom-msg" role="status"></p>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
+            <select id="lh-bgband">
+              <option value="wide">広帯域（約 22 Hz〜11 kHz）</option>
+              <option value="b4">63〜500 Hz の4帯域内のみ</option>
+            </select>
+          </div>
+          <div class="bandline" id="lh-bandline" role="status"></div>
+          <p class="hint" id="lh-rangeline" role="status"></p>
+          <p class="hint">16 Hz・31.5 Hz・1 kHz・2 kHz は規格の評価範囲外です。目標値は逆 A 特性による参考外挿で、内蔵スピーカーや多くのヘッドホンでは 16／31.5 Hz を再生できません。低音が聞こえなくても音量を上げないでください。</p>
+          <p class="hint">参考：<a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A（L 値と逆 A 特性基準曲線）</a></p>
+        </section>
+
+        <section class="card" aria-labelledby="lh-h-2">
+          <h2 id="lh-h-2"><span class="step">2</span>表のセルを押して聴き比べる</h2>
+          <div class="row">
+            <span class="lbl">打撃の回数</span>
+            <div class="seg" id="lh-seg-pattern" role="group" aria-label="打撃の回数">
+              <button type="button" data-p="single" aria-pressed="true">単発</button>
+              <button type="button" data-p="triple" aria-pressed="false">3回（1 秒間隔）</button>
+              <button type="button" data-p="run" aria-pressed="false">連続（1.8 秒間隔・停止まで）</button>
+            </div>
+          </div>
+          <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
+          <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
+          <div class="msg" id="lh-over" role="status"></div>
+          <p class="hint">斜線のセルは、いまの出力レベルではデジタル出力の上限（−1 dBFS）を超えるため再生しません。数字はそのセルを再生できる出力レベルです。</p>
+          <label class="check"><input type="checkbox" id="lh-nums"><span>セルに ΔL<sub>A</sub>（衝撃音のモデル L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>）を表示</span></label>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="lh-ro-title">
+          <div class="hint">選択中の条件</div>
+          <div class="ro-title" id="lh-ro-title">—</div>
+          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 214" role="img" aria-label="帯域ごとのモデルレベル"></svg>
+          <dl class="nums" id="lh-ro-nums"></dl>
+          <p class="msg err" id="lh-ro-warn" role="status"></p>
+          <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
+          <p class="hint">グラフと表はモデル上の目標値（dB re 20 µPa）です。実際の音圧は端末・音量・校正で決まります。基準線のうち破線の区間は評価範囲外の参考外挿です。</p>
+          <details id="lh-model">
+            <summary>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</summary>
+            <dl class="nums" id="lh-model-nums"></dl>
+            <p>モデル L<sub>A,Fmax</sub> は、衝撃音<b>1 発</b>の波形に A 特性と時間重み付け特性 F（時定数 125 ms）を適用した最大値の計算値です。出力レベル・暗騒音・連続打撃の重なりは<b>含みません</b>。LH 等級の数字とは別の量で、マイクで測った耳元の音圧でもありません。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
+          </details>
+        </section>
+
+        <details id="lh-d-source">
+          <summary>音源（合成音／録音 WAV）</summary>
+          <div class="row" role="radiogroup" aria-label="音源">
+            <label class="check"><input type="radio" name="lh-src" id="lh-src-synth" value="synth" checked> 合成音</label>
+            <label class="check"><input type="radio" name="lh-src" id="lh-src-wav" value="wav" disabled> 録音（WAV）</label>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-T">減衰時間 T（60 dB 減衰・合成音）</label>
+            <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal"><span class="hint">s（0.2〜2。16 Hz を含むときは 0.5 以上）</span>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-wav">加振音の録音を読み込む</label>
+            <input type="file" id="lh-wav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+          </div>
+          <p class="hint">ファイルはこのブラウザ内でだけ処理します。再生側のサンプリング周波数に変換し、複数チャンネルは第 1 チャンネルを使い、最大の衝撃の前後 3 秒を切り出して、帯域ごとに L<sub>Fmax</sub> を目標値へ合わせ込みます。録音の暗騒音も一緒に拡大されるので S/N のよい録音を使ってください。</p>
+          <p class="msg" id="lh-src-status" role="status"></p>
+        </details>
+
+        <details id="lh-d-curve">
+          <summary>等級曲線の基準値と帯域ごとのオフセット</summary>
+          <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。</p>
+          <div class="tbl-wrap"><table class="t" id="lh-tbl-curve"></table></div>
+          <p class="msg" id="lh-curve-msg" role="status"></p>
+          <div class="row"><button type="button" class="btn" id="lh-curve-reset">初期値に戻す</button></div>
+        </details>
+
+        <details id="lh-d-bg">
+          <summary>暗騒音のスペクトル</summary>
+          <div class="row">
+            <label class="lbl" for="lh-slope">傾き（オクターブ帯域レベル）</label>
+            <select id="lh-slope">
+              <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
+              <option value="-3">−3 dB/oct（ピンクノイズ）</option>
+              <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
+            </select>
+          </div>
+          <p class="hint">定常ランダム雑音です。上で選んだ帯域の中で、A 特性の L<sub>Aeq</sub> が列の値（20〜70 dB(A)）になるように作ります。</p>
+        </details>
+
+        <details id="lh-d-cal">
+          <summary>校正（騒音計がある場合）<span class="hint" id="lh-chip-cal"></span></summary>
+          <ol>
+            <li>受聴位置に騒音計を置き、端末の音量を決めます（校正後は変えません）。</li>
+            <li>帯域の「再生」で −20 dBFS のオクターブバンドノイズを流します。<b>出力レベルの設定に関係なく −20 dBFS で出ます。</b>音量を下げてから押してください。</li>
+            <li>Z 特性・1/1 オクターブの L<sub>eq</sub>（10 s 以上）を入力します。</li>
+          </ol>
+          <p class="hint">1 帯域だけでも使えます（未入力の帯域は補間、外側は端の値）。校正時は出力レベル 0 dB がモデル上の dB に対応します。出力レベルを動かすと、その分だけ校正からずれます。</p>
+          <div class="tbl-wrap"><table class="t" id="lh-tbl-cal"></table></div>
+          <p class="msg" id="lh-cal-msg" role="status"></p>
+          <div class="row"><button type="button" class="btn" id="lh-cal-clear">校正値をクリア</button></div>
+        </details>
+
+        <details id="lh-d-method">
+          <summary>計算方法と参考資料</summary>
+          <p><b>基準曲線</b>：LH-65 を 63／125／250／500 Hz で 88／78／71／65 dB とし、等級は 5 dB 刻みで平行移動します（JIS A 1419-2:2000 の L 曲線）。重量床衝撃音の評価対象はこの 4 帯域です。</p>
+          <p><b>追加帯域（参考外挿）</b>：L 曲線は逆 A 特性を整数に丸めた形なので、追加帯域も同じ規則 C(f) = 62 − A(f)（LH-65、整数に丸め）で決めます。A(f) は厳密中心周波数 f<sub>m</sub> = 1000·10<sup>0.3x</sup> Hz で評価した値（16 Hz：−56.7、31.5 Hz：−39.4、1 kHz：0、2 kHz：+1.2 dB）で、LH-65 の基準値は 16 Hz：119、31.5 Hz：101、1 kHz：62、2 kHz：61 dB です。画面の帯域名は公称中心周波数、フィルタと計算は厳密中心周波数で統一しています。これらは規格の評価値ではありません。</p>
+          <p><b>衝撃音（合成）</b>：帯域ごとに減衰正弦波（16〜2k Hz に対し 8／8／8／12／20／30／40／50 本、周波数は帯域内で乱数・種は帯域ごとに固定）を重ねます。帯域を追加しても他の帯域の波形は変わりません。全等級で同じ波形を使い、等級の違いはレベルだけです。実際の衝撃源や建物の再現ではありません。</p>
+          <div class="formula">p<sub>b</sub>(t) = Σ a<sub>k</sub> (1 − e<sup>−t/τ</sup>) e<sup>−6.91 t/T</sup> sin(2π f<sub>k</sub> t + φ<sub>k</sub>)、τ = 4 ms</div>
+          <p><b>合わせ込み</b>：合成した音を 1/1 オクターブ（Butterworth HP 36 次 × LP 36 次、帯域端は IEC 61260-1:2014 の基数 10）で分析し、時間重み付け特性 F（125 ms、IEC 61672-1:2013）の最大値 L<sub>Fmax</sub> が目標に一致するまで帯域ゲインを反復補正します。</p>
+          <p><b>音量の決め方</b>：デジタル信号 = モデル音圧 ÷ (20 µPa × 10<sup>K/20</sup>) × 出力レベル。未校正時は K = 126 dB（出力レベル 0 dB のとき、モデル上 126 dB のピークが 0 dBFS）。この換算は帯域やセルを変えても変わりません。上限 −1 dBFS を超える組み合わせは再生せず、自動で全体を下げることもしません。打撃の重なりは実際の波形を重ねてピークを求めます。</p>
+          <p><b>参考資料</b></p>
+          <ul>
+            <li><a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A：L 値と逆 A 特性基準曲線</a></li>
+            <li><a href="https://www.onosokki.co.jp/HP-WK/c_support/newreport/noise/souon_12.htm" target="_blank" rel="noopener noreferrer">小野測器：A 特性の周波数重み付け補正値</a></li>
+          </ul>
+          <p class="hint">規格の現行版と適用範囲は原典で確認してください。</p>
+        </details>
+      </div>
+    </div>
+
+    <div class="transport" id="lh-transport" role="region" aria-label="再生操作（床衝撃音）">
+      <div class="tp-state">
+        <span class="dot" id="lh-dot" aria-hidden="true"></span>
+        <div><div class="tp-kicker" id="lh-state" role="status">停止中</div><div class="tp-title" id="lh-now">—</div></div>
+      </div>
+      <div class="stepper" role="group" aria-label="出力レベル（全条件共通）">
+        <span class="tp-lbl">出力レベル<small>全条件共通</small></span>
+        <button type="button" id="lh-level-down" aria-label="出力レベルを 5 dB 下げる">−</button>
+        <output id="lh-level" aria-live="polite">0 dB</output>
+        <button type="button" id="lh-level-up" aria-label="出力レベルを 5 dB 上げる">＋</button>
+      </div>
+      <div class="tp-btns">
+        <button type="button" class="btn primary" id="lh-play">▶ <span class="long">選択中を</span>再生</button>
+        <button type="button" class="btn stop" id="lh-stop">■ 停止</button>
+      </div>
+    </div>
+  </section>
+
+<!--/IF:lh--><!--IF:tl-->  <!-- ======================= TL ======================= -->
+  <section id="panel-tl" role="tabpanel" aria-labelledby="tab-tl" hidden>
+    <div class="grid2">
+      <div class="col">
+        <section class="card" aria-labelledby="tl-h-1">
+          <h2 id="tl-h-1"><span class="step">1</span>音源を用意する</h2>
+          <div class="row">
+            <button type="button" class="btn" id="tl-noise">ピンクノイズを使う</button>
+            <label class="check" for="tl-file">手元の音声ファイル</label>
+            <input type="file" id="tl-file" accept="audio/*">
+          </div>
+          <p class="msg" id="tl-src-info" role="status"></p>
+          <p class="hint">ファイルはこのブラウザ内でだけ処理します。読み込み時に、先頭 30 秒まで・モノラル化（全チャンネルの平均）・ピークを −12 dBFS へ一度だけ正規化します。録音の元の絶対レベルは引き継ぎません。条件ごとの音量正規化はしません。</p>
+        </section>
+
+        <section class="card" aria-labelledby="tl-h-2">
+          <h2 id="tl-h-2"><span class="step">2</span>壁の遮音条件を決める</h2>
+          <div class="row">
+            <span class="lbl">条件の種類</span>
+            <div class="seg" id="tl-seg-mode" role="group" aria-label="条件の種類">
+              <button type="button" data-mode="ref" aria-pressed="true">Dr／Rr 等級の基準曲線</button>
+              <button type="button" data-mode="custom" aria-pressed="false">帯域別の値を入力（TL 実測値など）</button>
+            </div>
+          </div>
+          <div class="row" id="tl-grade-row">
+            <label class="lbl" for="tl-grade">等級</label>
+            <select id="tl-grade"></select>
+            <span class="hint">等級 50 の基準点：125 Hz = 35、500 Hz = 50、2 kHz = 60 dB（間は対数周波数軸で補間）</span>
+          </div>
+          <div class="row">
+            <label class="lbl" for="tl-range">鳴らす帯域</label>
+            <select id="tl-range">
+              <option value="125,2000">125 Hz〜2 kHz（基準曲線の定義範囲・外挿なし）</option>
+              <option value="125,4000">125 Hz〜4 kHz（2 kHz 超は水平延長・参考外挿）</option>
+              <option value="63,8000">63 Hz〜8 kHz（低域は傾きを延長・参考外挿）</option>
+              <option value="31.5,8000">31.5 Hz〜8 kHz（参考外挿）</option>
+              <option value="16,8000">16 Hz〜8 kHz（参考外挿）</option>
+            </select>
+          </div>
+          <div class="bands" id="tl-bands" role="group" aria-label="帯域別の減衰量 dB"></div>
+          <div class="row" id="tl-fill-row" hidden><button type="button" class="btn" id="tl-fill">基準曲線の値を入力欄に写す</button></div>
+          <p class="msg" id="tl-band-msg" role="status"></p>
+          <svg class="chart" id="tl-chart" viewBox="0 0 520 220" role="img" aria-label="適用する減衰量の曲線"></svg>
+          <p class="hint" id="tl-curve-note"></p>
+          <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
+          <details id="tl-d-room">
+            <summary>室条件で換算する（任意）：D = R + 10 log<sub>10</sub>(A/S)</summary>
+            <p>入力値が部材の音響透過損失 R（TL）のとき、受音室の等価吸音面積 A と壁の面積 S から室間音圧レベル差 D の目安へ換算します。全帯域に同じ補正を加える簡易換算で、側路伝搬・隙間・A の周波数特性は含みません。使わないときは A/S = 1（D = R）として、入力値をそのまま減衰量にします。</p>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="tl-room-on"> 換算する</label>
+              <label class="check">壁の面積 S <input type="number" id="tl-room-S" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+              <label class="check">等価吸音面積 A <input type="number" id="tl-room-A" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+            </div>
+            <p class="msg" id="tl-room-out" role="status"></p>
+          </details>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="tl-h-3">
+          <h2 id="tl-h-3"><span class="step">3</span>同じ位置で切り替えて聴く</h2>
+          <p class="hint">下の「▶ 再生」で停止までループします。ボタンで条件を切り替えても再生位置は変わりません。数値が大きいほど遮音が大きく、音は小さくなります。</p>
+          <div class="cmp" id="tl-cmp" role="group" aria-label="聴く条件">
+            <button type="button" class="btn dry" data-cond="dry" aria-pressed="false">原音（壁なし）<small>選んだ帯域に制限した元の音</small></button>
+            <button type="button" class="btn" data-cond="-10" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="-5" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="0" aria-pressed="true"></button>
+            <button type="button" class="btn" data-cond="5" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="10" aria-pressed="false"></button>
+          </div>
+          <p class="big" id="tl-result" role="status">音源を用意して再生してください。</p>
+          <div class="tbl-wrap"><table class="t" id="tl-stats"></table></div>
+          <p class="hint">「低下量」は、いまの音源・帯域で、原音に対して遮音後の音が全体で何 dB 小さくなるかの計算値です（10 dB 小さいと、およそ半分の大きさに感じるのが目安）。条件ごとの自動音量調整はしていないので、聞こえる差がそのまま低下量です。</p>
+          <div class="row">
+            <label class="lbl" for="tl-pad">原音の再生レベル</label>
+            <select id="tl-pad">
+              <option value="0">実際の差のまま（0 dB）</option>
+              <option value="-10">原音だけ 10 dB 下げる</option>
+              <option value="-20">原音だけ 20 dB 下げる</option>
+              <option value="-30">原音だけ 30 dB 下げる</option>
+            </select>
+          </div>
+          <p class="hint">遮音後の音が小さくて端末の音量を上げると、原音に戻したとき大音量になります。原音への切り替えは約 1.5 秒かけて徐々に大きくします。原音を下げる設定にすると、その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
+          <p class="msg" id="tl-status" role="status"></p>
+        </section>
+
+        <details id="tl-d-method">
+          <summary>根拠・試聴モデル・参考資料</summary>
+          <p><b>基準曲線</b>：Dr（室間音圧レベル差等級）と Rr（音響透過損失等級）の基準曲線は共通ですが、評価する対象が違います。このページは曲線や入力値の数値を、振幅倍率 10<sup>−値/20</sup> としてそのまま音に掛けます。実測の空間平均値や規格の等級を保証するものではありません。</p>
+          <p><b>外挿</b>：基準曲線の定義範囲は 125 Hz〜2 kHz です。それより低い側は 500 Hz 以下と同じ 7.5 dB/oct の傾きを延長、高い側は 2 kHz の値を水平に延長した参考値で、実際の壁の性能予測ではありません（実際の壁は共鳴透過やコインシデンスで大きく変わります）。</p>
+          <p><b>TL と室間音圧レベル差</b>：R（TL）と D は同じ量ではありません。換算を使わない場合は A/S = 1 の直接透過だけを仮定しています。実際の建物では側路伝搬や隙間により、室間音圧レベル差は部材の値より 1〜2 ランク（5〜10 dB）程度下がるのが一般的とされています。</p>
+          <p><b>周波数</b>：画面の帯域名は公称中心周波数（16、31.5、63 Hz …）、計算には 1 kHz から正確に 1 オクターブずつ離れた周波数（15.625、31.25、62.5 Hz …）を使います。このため 125 Hz より下は 1 オクターブごとに正確に 7.5 dB 下がります。</p>
+          <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは 80 ms のクロスフェード、原音へは約 1.5 秒かけて上げます。</p>
+          <ul>
+            <li><a href="https://www.chiyoda-ute.co.jp/data/syaon_rank.html" target="_blank" rel="noopener noreferrer">チヨダウーテ：遮音等級 Dr・Rr と基準曲線</a></li>
+            <li><a href="https://www.jtccm.or.jp/sites/default/files/books_pdf/2008/Vol44,No6,2008.pdf#page=43" target="_blank" rel="noopener noreferrer">建材試験センター：Dr／Rr の説明（p.41）</a></li>
+            <li><a href="https://www.melcoairtec.co.jp/info/interception/index.html" target="_blank" rel="noopener noreferrer">透過損失と室間音圧レベル差の関係</a></li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
+    <div class="transport" id="tl-transport" role="region" aria-label="再生操作（遮音）">
+      <div class="tp-state">
+        <span class="dot" id="tl-dot" aria-hidden="true"></span>
+        <div><div class="tp-kicker" id="tl-state" role="status">停止中</div><div class="tp-title" id="tl-now">—</div></div>
+      </div>
+      <div class="stepper" role="group" aria-label="音量（全条件共通）">
+        <span class="tp-lbl">音量<small>全条件共通</small></span>
+        <button type="button" id="tl-vol-down" aria-label="音量を 5 dB 下げる">−</button>
+        <output id="tl-vol" aria-live="polite">−10 dB</output>
+        <button type="button" id="tl-vol-up" aria-label="音量を 5 dB 上げる">＋</button>
+      </div>
+      <div class="tp-btns">
+        <button type="button" class="btn primary" id="tl-play">▶ 再生</button>
+        <button type="button" class="btn stop" id="tl-stop">■ 停止</button>
+      </div>
+    </div>
+  </section>
+<!--/IF:tl-->  </main>
+  <footer>v__VERSION__ ・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+</div>
+<div class="busy" id="busy" role="status" hidden>計算中…</div>
+
+<script id="dsp">
+/*__DSP__*/
+</script>
+<script>
+/*__SHELL__*/
+</script>
+<!--IF:lh--><script>
+/*__LH__*/
+</script><!--/IF:lh-->
+<!--IF:tl--><script>
+/*__TL__*/
+</script><!--/IF:tl-->
+<script>
+App.start();
+</script>
+</body>
+</html>

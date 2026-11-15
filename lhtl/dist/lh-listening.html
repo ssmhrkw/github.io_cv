@@ -1,0 +1,1616 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>床衝撃音の聴き比べ（LH）</title>
+<meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
+<meta name="app-version" content="2.0.0">
+<style>
+/* Colours follow NIPPON COLORS (https://nipponcolors.com): 白練 #FCFAF2, 胡粉 #FFFFFB, 墨 #1C1C1C, 黒 #080808, 呂 #0C0C0C,
+   消炭 #434343, 藍墨茶 #373C38, 白鼠 #BDC0BA, 銀鼠 #91989F, 藍 #0D5661, 浅葱 #33A6B8, 白群 #78C2C4, 山吹 #FFB11B. */
+:root{
+  color-scheme:light;
+  --bg:#FCFAF2; --surface:#FFFFFB; --ink:#1C1C1C; --muted:#434343; --line:#BDC0BA; --ctl:#434343;
+  --accent:#0D5661; --fill:#0D5661; --on-fill:#FFFFFB; --warn:#8A4B00; --warn-bg:#FFF1DB;
+  --font-ui:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo","Noto Sans JP",system-ui,sans-serif;
+  --font-num:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#1C1C1C; --surface:#373C38; --ink:#FFFFFB; --muted:#BDC0BA; --line:#91989F; --ctl:#BDC0BA;
+  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+}
+:root[data-theme="black"]{
+  color-scheme:dark;
+  --bg:#080808; --surface:#0C0C0C; --ink:#FFFFFB; --muted:#BDC0BA; --line:#434343; --ctl:#91989F;
+  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.6;
+  padding:16px max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:14px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-size:1.4rem;letter-spacing:.02em}
+h2{font-size:1.02rem;display:flex;align-items:center;gap:.5rem}
+p{margin:.35rem 0}
+a{color:var(--accent)}
+sub{font-size:.72em}
+[hidden]{display:none !important}
+.num,output{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--surface);padding:6px 10px;z-index:20}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
+.lead{color:var(--muted);max-width:68ch;font-size:.9rem}
+.hint{font-size:.8rem;color:var(--muted);max-width:78ch}
+.notice{font-size:.84rem;background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:6px;padding:.5rem .75rem;margin:0}
+.notice b{color:var(--warn)}
+.err{color:var(--warn);font-weight:700}
+
+/* controls */
+button,select,input{font:inherit;color:var(--ink)}
+.btn,.seg button,.tabs button,.stepper button{border:1px solid var(--ctl);background:var(--surface);color:var(--ink);cursor:pointer;touch-action:manipulation;min-height:38px}
+.btn{border-radius:999px;padding:.4rem .95rem;font-size:.9rem}
+.btn.primary{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+.btn.stop{font-weight:700}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.seg{display:inline-flex;flex-wrap:wrap;border-radius:12px;overflow:hidden;border:1px solid var(--ctl);background:var(--surface)}
+.seg button{border:0;border-radius:0;padding:.4rem .85rem;font-size:.88rem}
+.seg button + button{border-left:1px solid var(--ctl)}
+.seg button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);font-weight:700}
+:is(button,select,input,summary,a,[tabindex]):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type="number"],select{background:var(--bg);border:1px solid var(--ctl);border-radius:6px;padding:.3rem .45rem;font-size:.9rem;min-height:36px}
+input[type="number"]{font-family:var(--font-num);width:5.4rem}
+select{max-width:100%;min-width:0;text-overflow:ellipsis}
+.row > select{flex:0 1 auto}
+input[aria-invalid="true"]{border-color:var(--warn);outline:2px solid var(--warn);outline-offset:1px}
+input[type="file"]{font-size:.84rem;max-width:100%}
+input[type="checkbox"],input[type="radio"]{width:1.15rem;height:1.15rem;accent-color:var(--fill)}
+.check{display:inline-flex;gap:.4rem;align-items:center;font-size:.9rem;min-height:36px}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:.5rem 0;border:0;padding:0;min-width:0}
+.lbl{font-size:.84rem;color:var(--muted);min-width:7.2em;padding:0}
+.chipfix{font-family:var(--font-num);font-size:.84rem;border:1px solid var(--line);border-radius:6px;padding:.1rem .45rem;background:var(--bg)}
+.msg{font-size:.84rem;min-height:1.2em;margin:.25rem 0}
+
+/* tabs */
+.tabs{display:flex;gap:6px;border-bottom:2px solid var(--ctl)}
+.tabs button{border-radius:10px 10px 0 0;border-bottom:0;padding:.55rem 1rem;font-size:.95rem;margin-bottom:-2px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+
+/* layout */
+.grid2{display:grid;gap:14px;grid-template-columns:minmax(0,1fr);align-items:start}
+@media (min-width:980px){.grid2{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}}
+.col{display:grid;gap:14px;min-width:0}
+.card,details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+details{padding:0 16px}
+details[open]{padding-bottom:12px}
+summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem}
+details p,details li{font-size:.85rem}
+details ol,details ul{margin:.4rem 0;padding-left:1.3rem}
+.step{display:inline-grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--fill);color:var(--on-fill);font-family:var(--font-num);font-size:.85rem;flex:none}
+.bandline{font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:.45rem .65rem;background:var(--bg);margin:.6rem 0 .3rem}
+.bandline b{font-weight:700}
+.bandline span{display:block}
+
+/* LH matrix: always fits the width (no horizontal scrolling) */
+.matrix{display:grid;grid-template-columns:minmax(3.4rem,auto) repeat(7,minmax(0,1fr));gap:3px;margin-top:.5rem}
+.mrow{display:contents}
+.mh{font-size:.74rem;color:var(--muted);display:flex;flex-direction:column;justify-content:center;line-height:1.25;padding:2px 3px;min-width:0}
+.mh b{color:var(--ink);font-size:.86rem;font-family:var(--font-num)}
+.mh.col{align-items:center;text-align:center}
+.mh.span{grid-column:2 / -1;align-items:center;font-size:.8rem;border-bottom:1px solid var(--line);padding-bottom:3px}
+.mh.sep,.cell.sep{margin-top:6px}
+.cell{min-height:40px;min-width:0;border:1px solid var(--ctl);border-radius:7px;background:var(--surface);color:var(--ink);cursor:pointer;
+  font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:.84rem;padding:2px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.cell.sel{outline:2px solid var(--ink);outline-offset:1px}
+.cell.playing{outline:3px solid var(--accent);outline-offset:1px;font-weight:700}
+.cell.playing::after{content:"";position:absolute;right:4px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--ink);animation:pulse 1s ease-in-out infinite}
+.cell.over{cursor:not-allowed;color:var(--muted);border-style:dashed;
+  background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--muted) 22%,transparent) 5px 6px),var(--bg)}
+.cell.blank{visibility:hidden}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cell.playing::after,.dot.on{animation:none}}
+@media (max-width:520px){.cell{font-size:.74rem;min-height:42px}.mh b{font-size:.78rem}.card,details{padding-left:11px;padding-right:11px}}
+
+/* readout */
+.ro-title{font-size:1.1rem;font-weight:700}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart text{fill:var(--muted);font-family:var(--font-num);font-size:10px}
+.chart .bar-imp{fill:var(--fill)}
+.chart .bar-bg{fill:var(--muted);opacity:.55}
+.chart .curve{stroke:var(--ink);stroke-width:1.5;fill:none}
+.chart .curve.dash{stroke-dasharray:5 4}
+.chart .dot{fill:var(--ink)}
+.chart .zone{fill:var(--fill);opacity:.1}
+.nums{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;margin:.4rem 0;font-size:.86rem}
+.nums dt{color:var(--muted)}
+.nums dd{margin:0;text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:.8rem}
+table.t th,table.t td{padding:3px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left;color:var(--muted);font-weight:400}
+table.t td{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+table.t input[type="number"]{width:4.6rem}
+table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
+.formula{font-family:var(--font-num);font-size:.8rem;background:var(--bg);border-radius:6px;padding:.4rem .55rem;overflow-x:auto;white-space:nowrap}
+.big{font-size:1.05rem;font-weight:700;margin:.3rem 0}
+.bands{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin:.5rem 0}
+.bands label{display:grid;gap:2px;font-size:.8rem;color:var(--muted)}
+.bands input{width:100%}
+.bands label.outside{border-top:3px dashed var(--ctl);padding-top:3px}
+.cmp{display:flex;flex-wrap:wrap;gap:6px;margin:.5rem 0}
+.cmp button{flex:1 1 5.2rem;border-radius:10px;padding:.45rem .4rem;font-size:.86rem;line-height:1.25}
+.cmp button small{display:block;font-size:.72rem;opacity:.85;font-weight:400}
+.cmp button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+.cmp .dry{flex-basis:100%}
+
+/* sticky transport: state, level and stop are always visible */
+.transport{position:sticky;bottom:0;z-index:10;margin-top:14px;background:var(--surface);border:2px solid var(--ctl);border-bottom:0;border-radius:14px 14px 0 0;
+  padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;box-shadow:0 -4px 14px rgba(0,0,0,.18)}
+.tp-state{display:flex;gap:.55rem;align-items:center;min-width:0;flex:1 1 15rem}
+.dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);flex:none}
+.dot.on{background:var(--accent);border-color:var(--accent);animation:pulse 1s ease-in-out infinite}
+.tp-kicker{font-size:.72rem;color:var(--muted);letter-spacing:.06em}
+.tp-kicker.on{color:var(--accent);font-weight:700}
+.tp-title{font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper .tp-lbl{font-size:.78rem;color:var(--muted);line-height:1.2}
+.stepper .tp-lbl small{display:block;font-size:.68rem}
+.stepper button{width:40px;height:40px;border-radius:50%;font-size:1.15rem;font-weight:700;line-height:1}
+.stepper output{min-width:4.4rem;text-align:center;font-weight:700}
+.tp-btns{display:flex;gap:8px}
+.busy{position:fixed;right:14px;top:14px;z-index:30;background:var(--ink);color:var(--bg);font-size:.82rem;padding:.4rem .8rem;border-radius:999px}
+footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
+
+@media (max-width:600px){
+  body{font-size:14.5px;padding-top:10px}
+  .tabs button{padding:.45rem .6rem;font-size:.86rem}
+  .transport{gap:6px 10px;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px))}
+  .tp-state{order:1;flex:1 1 7rem}
+  .tp-btns{order:2;gap:6px}
+  .tp-btns .btn{padding:.35rem .7rem}
+  .tp-btns .long{display:none}
+  .stepper{order:3;flex:1 1 100%;justify-content:flex-end}
+  .stepper .tp-lbl{margin-right:auto}
+  .stepper .tp-lbl small{display:inline;margin-left:.4em}
+  .stepper button{width:36px;height:36px}
+  .tp-title{font-size:.88rem}
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">本文へ移動</a>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>床衝撃音の聴き比べ（LH）</h1>
+      <p class="lead">等級曲線や入力値どおりに整形した音を、同じ条件で切り替えて比べる参考試聴です。音声の生成・読み込み・処理はすべてこのブラウザ内で行い、外部へ送信しません。</p>
+    </div>
+    <div>
+      <div class="seg" id="seg-theme" role="group" aria-label="配色">
+        <button type="button" data-theme="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme="black" aria-pressed="false">Black</button>
+      </div>
+      <div class="hint">配色：<a href="https://nipponcolors.com/" target="_blank" rel="noopener noreferrer">NIPPON COLORS</a>（白練・墨・黒 ほか）</div>
+    </div>
+  </header>
+
+  
+
+  <p class="notice" id="app-error" role="alert" hidden></p>
+  <p class="notice"><b>はじめに：</b>端末の音量を小さくしてから始めてください。画面の dB はモデル上の計算値で、耳元の音圧（dB SPL）ではありません。添付プレビューで音が出ないときは、この HTML を保存して Safari／Chrome で開いてください。</p>
+
+  <main id="main">
+  <!-- ======================= LH ======================= -->
+  <section id="panel-lh" role="region" aria-label="床衝撃音の聴き比べ（LH）">
+    <div class="grid2">
+      <div class="col">
+        <section class="card" aria-labelledby="lh-h-1">
+          <h2 id="lh-h-1"><span class="step">1</span>衝撃音の条件と帯域を選ぶ</h2>
+          <div class="row">
+            <span class="lbl">衝撃音の条件</span>
+            <div class="seg" id="lh-seg-mode" role="group" aria-label="衝撃音の条件">
+              <button type="button" data-mode="grade" aria-pressed="true">LH等級曲線</button>
+              <button type="button" data-mode="custom" aria-pressed="false">指定値（63〜500 Hz）</button>
+            </div>
+          </div>
+          <div id="lh-grade-box">
+            <div class="row">
+              <span class="lbl">基本の帯域</span>
+              <span class="chipfix">63</span><span class="chipfix">125</span><span class="chipfix">250</span><span class="chipfix">500</span>
+              <span class="hint">Hz（重量床衝撃音の評価範囲。常に使用）</span>
+            </div>
+            <fieldset class="row" id="lh-add">
+              <legend class="lbl" style="float:left">帯域を追加（参考）</legend>
+              <label class="check"><input type="checkbox" id="lh-add-0" data-add="16"> 16 Hz</label>
+              <label class="check"><input type="checkbox" id="lh-add-1" data-add="31.5"> 31.5 Hz</label>
+              <label class="check"><input type="checkbox" id="lh-add-2" data-add="1k"> 1 kHz</label>
+              <label class="check"><input type="checkbox" id="lh-add-3" data-add="2k"> 2 kHz</label>
+            </fieldset>
+          </div>
+          <div id="lh-custom-box" hidden>
+            <div class="row" role="group" aria-label="指定値（各オクターブ帯の L Fmax）">
+              <span class="lbl">指定値 L<sub>Fmax</sub> dB</span>
+              <label class="check">63 Hz <input type="number" id="lh-c0" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">125 Hz <input type="number" id="lh-c1" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">250 Hz <input type="number" id="lh-c2" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">500 Hz <input type="number" id="lh-c3" min="0" max="140" step="0.1" inputmode="decimal"></label>
+            </div>
+            <p class="hint">この4帯域だけの合成衝撃音を再生します（0〜140 dB）。下の表の「指定値」行が入力どおり、上下の行は 5 dB ずつ平行移動です。任意の入力値に LH 等級は付きません。</p>
+            <p class="msg" id="lh-custom-msg" role="status"></p>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
+            <select id="lh-bgband">
+              <option value="wide">広帯域（約 22 Hz〜11 kHz）</option>
+              <option value="b4">63〜500 Hz の4帯域内のみ</option>
+            </select>
+          </div>
+          <div class="bandline" id="lh-bandline" role="status"></div>
+          <p class="hint" id="lh-rangeline" role="status"></p>
+          <p class="hint">16 Hz・31.5 Hz・1 kHz・2 kHz は規格の評価範囲外です。目標値は逆 A 特性による参考外挿で、内蔵スピーカーや多くのヘッドホンでは 16／31.5 Hz を再生できません。低音が聞こえなくても音量を上げないでください。</p>
+          <p class="hint">参考：<a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A（L 値と逆 A 特性基準曲線）</a></p>
+        </section>
+
+        <section class="card" aria-labelledby="lh-h-2">
+          <h2 id="lh-h-2"><span class="step">2</span>表のセルを押して聴き比べる</h2>
+          <div class="row">
+            <span class="lbl">打撃の回数</span>
+            <div class="seg" id="lh-seg-pattern" role="group" aria-label="打撃の回数">
+              <button type="button" data-p="single" aria-pressed="true">単発</button>
+              <button type="button" data-p="triple" aria-pressed="false">3回（1 秒間隔）</button>
+              <button type="button" data-p="run" aria-pressed="false">連続（1.8 秒間隔・停止まで）</button>
+            </div>
+          </div>
+          <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
+          <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
+          <div class="msg" id="lh-over" role="status"></div>
+          <p class="hint">斜線のセルは、いまの出力レベルではデジタル出力の上限（−1 dBFS）を超えるため再生しません。数字はそのセルを再生できる出力レベルです。</p>
+          <label class="check"><input type="checkbox" id="lh-nums"><span>セルに ΔL<sub>A</sub>（衝撃音のモデル L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>）を表示</span></label>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="lh-ro-title">
+          <div class="hint">選択中の条件</div>
+          <div class="ro-title" id="lh-ro-title">—</div>
+          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 214" role="img" aria-label="帯域ごとのモデルレベル"></svg>
+          <dl class="nums" id="lh-ro-nums"></dl>
+          <p class="msg err" id="lh-ro-warn" role="status"></p>
+          <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
+          <p class="hint">グラフと表はモデル上の目標値（dB re 20 µPa）です。実際の音圧は端末・音量・校正で決まります。基準線のうち破線の区間は評価範囲外の参考外挿です。</p>
+          <details id="lh-model">
+            <summary>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</summary>
+            <dl class="nums" id="lh-model-nums"></dl>
+            <p>モデル L<sub>A,Fmax</sub> は、衝撃音<b>1 発</b>の波形に A 特性と時間重み付け特性 F（時定数 125 ms）を適用した最大値の計算値です。出力レベル・暗騒音・連続打撃の重なりは<b>含みません</b>。LH 等級の数字とは別の量で、マイクで測った耳元の音圧でもありません。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
+          </details>
+        </section>
+
+        <details id="lh-d-source">
+          <summary>音源（合成音／録音 WAV）</summary>
+          <div class="row" role="radiogroup" aria-label="音源">
+            <label class="check"><input type="radio" name="lh-src" id="lh-src-synth" value="synth" checked> 合成音</label>
+            <label class="check"><input type="radio" name="lh-src" id="lh-src-wav" value="wav" disabled> 録音（WAV）</label>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-T">減衰時間 T（60 dB 減衰・合成音）</label>
+            <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal"><span class="hint">s（0.2〜2。16 Hz を含むときは 0.5 以上）</span>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-wav">加振音の録音を読み込む</label>
+            <input type="file" id="lh-wav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+          </div>
+          <p class="hint">ファイルはこのブラウザ内でだけ処理します。再生側のサンプリング周波数に変換し、複数チャンネルは第 1 チャンネルを使い、最大の衝撃の前後 3 秒を切り出して、帯域ごとに L<sub>Fmax</sub> を目標値へ合わせ込みます。録音の暗騒音も一緒に拡大されるので S/N のよい録音を使ってください。</p>
+          <p class="msg" id="lh-src-status" role="status"></p>
+        </details>
+
+        <details id="lh-d-curve">
+          <summary>等級曲線の基準値と帯域ごとのオフセット</summary>
+          <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。</p>
+          <div class="tbl-wrap"><table class="t" id="lh-tbl-curve"></table></div>
+          <p class="msg" id="lh-curve-msg" role="status"></p>
+          <div class="row"><button type="button" class="btn" id="lh-curve-reset">初期値に戻す</button></div>
+        </details>
+
+        <details id="lh-d-bg">
+          <summary>暗騒音のスペクトル</summary>
+          <div class="row">
+            <label class="lbl" for="lh-slope">傾き（オクターブ帯域レベル）</label>
+            <select id="lh-slope">
+              <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
+              <option value="-3">−3 dB/oct（ピンクノイズ）</option>
+              <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
+            </select>
+          </div>
+          <p class="hint">定常ランダム雑音です。上で選んだ帯域の中で、A 特性の L<sub>Aeq</sub> が列の値（20〜70 dB(A)）になるように作ります。</p>
+        </details>
+
+        <details id="lh-d-cal">
+          <summary>校正（騒音計がある場合）<span class="hint" id="lh-chip-cal"></span></summary>
+          <ol>
+            <li>受聴位置に騒音計を置き、端末の音量を決めます（校正後は変えません）。</li>
+            <li>帯域の「再生」で −20 dBFS のオクターブバンドノイズを流します。<b>出力レベルの設定に関係なく −20 dBFS で出ます。</b>音量を下げてから押してください。</li>
+            <li>Z 特性・1/1 オクターブの L<sub>eq</sub>（10 s 以上）を入力します。</li>
+          </ol>
+          <p class="hint">1 帯域だけでも使えます（未入力の帯域は補間、外側は端の値）。校正時は出力レベル 0 dB がモデル上の dB に対応します。出力レベルを動かすと、その分だけ校正からずれます。</p>
+          <div class="tbl-wrap"><table class="t" id="lh-tbl-cal"></table></div>
+          <p class="msg" id="lh-cal-msg" role="status"></p>
+          <div class="row"><button type="button" class="btn" id="lh-cal-clear">校正値をクリア</button></div>
+        </details>
+
+        <details id="lh-d-method">
+          <summary>計算方法と参考資料</summary>
+          <p><b>基準曲線</b>：LH-65 を 63／125／250／500 Hz で 88／78／71／65 dB とし、等級は 5 dB 刻みで平行移動します（JIS A 1419-2:2000 の L 曲線）。重量床衝撃音の評価対象はこの 4 帯域です。</p>
+          <p><b>追加帯域（参考外挿）</b>：L 曲線は逆 A 特性を整数に丸めた形なので、追加帯域も同じ規則 C(f) = 62 − A(f)（LH-65、整数に丸め）で決めます。A(f) は厳密中心周波数 f<sub>m</sub> = 1000·10<sup>0.3x</sup> Hz で評価した値（16 Hz：−56.7、31.5 Hz：−39.4、1 kHz：0、2 kHz：+1.2 dB）で、LH-65 の基準値は 16 Hz：119、31.5 Hz：101、1 kHz：62、2 kHz：61 dB です。画面の帯域名は公称中心周波数、フィルタと計算は厳密中心周波数で統一しています。これらは規格の評価値ではありません。</p>
+          <p><b>衝撃音（合成）</b>：帯域ごとに減衰正弦波（16〜2k Hz に対し 8／8／8／12／20／30／40／50 本、周波数は帯域内で乱数・種は帯域ごとに固定）を重ねます。帯域を追加しても他の帯域の波形は変わりません。全等級で同じ波形を使い、等級の違いはレベルだけです。実際の衝撃源や建物の再現ではありません。</p>
+          <div class="formula">p<sub>b</sub>(t) = Σ a<sub>k</sub> (1 − e<sup>−t/τ</sup>) e<sup>−6.91 t/T</sup> sin(2π f<sub>k</sub> t + φ<sub>k</sub>)、τ = 4 ms</div>
+          <p><b>合わせ込み</b>：合成した音を 1/1 オクターブ（Butterworth HP 36 次 × LP 36 次、帯域端は IEC 61260-1:2014 の基数 10）で分析し、時間重み付け特性 F（125 ms、IEC 61672-1:2013）の最大値 L<sub>Fmax</sub> が目標に一致するまで帯域ゲインを反復補正します。</p>
+          <p><b>音量の決め方</b>：デジタル信号 = モデル音圧 ÷ (20 µPa × 10<sup>K/20</sup>) × 出力レベル。未校正時は K = 126 dB（出力レベル 0 dB のとき、モデル上 126 dB のピークが 0 dBFS）。この換算は帯域やセルを変えても変わりません。上限 −1 dBFS を超える組み合わせは再生せず、自動で全体を下げることもしません。打撃の重なりは実際の波形を重ねてピークを求めます。</p>
+          <p><b>参考資料</b></p>
+          <ul>
+            <li><a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A：L 値と逆 A 特性基準曲線</a></li>
+            <li><a href="https://www.onosokki.co.jp/HP-WK/c_support/newreport/noise/souon_12.htm" target="_blank" rel="noopener noreferrer">小野測器：A 特性の周波数重み付け補正値</a></li>
+          </ul>
+          <p class="hint">規格の現行版と適用範囲は原典で確認してください。</p>
+        </details>
+      </div>
+    </div>
+
+    <div class="transport" id="lh-transport" role="region" aria-label="再生操作（床衝撃音）">
+      <div class="tp-state">
+        <span class="dot" id="lh-dot" aria-hidden="true"></span>
+        <div><div class="tp-kicker" id="lh-state" role="status">停止中</div><div class="tp-title" id="lh-now">—</div></div>
+      </div>
+      <div class="stepper" role="group" aria-label="出力レベル（全条件共通）">
+        <span class="tp-lbl">出力レベル<small>全条件共通</small></span>
+        <button type="button" id="lh-level-down" aria-label="出力レベルを 5 dB 下げる">−</button>
+        <output id="lh-level" aria-live="polite">0 dB</output>
+        <button type="button" id="lh-level-up" aria-label="出力レベルを 5 dB 上げる">＋</button>
+      </div>
+      <div class="tp-btns">
+        <button type="button" class="btn primary" id="lh-play">▶ <span class="long">選択中を</span>再生</button>
+        <button type="button" class="btn stop" id="lh-stop">■ 停止</button>
+      </div>
+    </div>
+  </section>
+
+  </main>
+  <footer>v2.0.0 ・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+</div>
+<div class="busy" id="busy" role="status" hidden>計算中…</div>
+
+<script id="dsp">
+/* Shared DSP. Runs in the page, in a Worker (TL processing) and in Node (unit tests). No DOM access. */
+(function (root) {
+'use strict';
+const P0 = 2e-5;
+const G10 = Math.pow(10, 0.3);                       // IEC 61260-1:2014 base-ten octave ratio
+
+/* ---------- IIR sections ---------- */
+function d1LP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: K / a0, b1: K / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function d1HP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function rbjLP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 - c) / 2 / a0, b1: (1 - c) / a0, b2: (1 - c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function rbjHP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 + c) / 2 / a0, b1: -(1 + c) / a0, b2: (1 + c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function butterQ(n, k){ return 1 / (2 * Math.sin((2 * k + 1) * Math.PI / (2 * n))); }
+function butterLP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjLP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1LP(fc, fs)); return s; }
+function butterHP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjHP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1HP(fc, fs)); return s; }
+function sosMag(sections, fs, f){
+  const w = 2 * Math.PI * f / fs, c1 = Math.cos(w), s1 = -Math.sin(w), c2 = Math.cos(2 * w), s2 = -Math.sin(2 * w);
+  let Nr = 1, Ni = 0, Dr = 1, Di = 0;
+  for (const q of sections){
+    const nr = q.b0 + q.b1 * c1 + q.b2 * c2, ni = q.b1 * s1 + q.b2 * s2;
+    const dr = 1 + q.a1 * c1 + q.a2 * c2, di = q.a1 * s1 + q.a2 * s2;
+    let t = Nr * nr - Ni * ni; Ni = Nr * ni + Ni * nr; Nr = t;
+    t = Dr * dr - Di * di; Di = Dr * di + Di * dr; Dr = t;
+  }
+  return Math.hypot(Nr, Ni) / Math.hypot(Dr, Di);
+}
+function normalizeAt(sections, fs, f){
+  const h = sosMag(sections, fs, f);
+  if (!(h > 0)) return sections;
+  const g = Math.pow(1 / h, 1 / sections.length);
+  for (const q of sections){ q.b0 *= g; q.b1 *= g; q.b2 *= g; }
+  return sections;
+}
+/** Octave band-pass: Butterworth HP(f1) x LP(f2), order n each; edges fc*G^(-1/2), fc*G^(1/2). */
+const BP_ORDER = 36;
+function bandpassSOS(fc, fs, n){
+  n = n || BP_ORDER;
+  const g = Math.sqrt(G10);
+  return normalizeAt(butterHP(fc / g, fs, n).concat(butterLP(fc * g, fs, n)), fs, fc);
+}
+/** A-weighting (IEC 61672-1:2013 Annex E poles), pre-warped bilinear first-order sections, 0 dB at 1 kHz. */
+function aWeightSOS(fs){
+  const f1 = 20.598997, f2 = 107.65265, f3 = 737.86223, f4 = 12194.217;
+  const s = [d1HP(f1, fs), d1HP(f1, fs), d1HP(f2, fs), d1HP(f3, fs), d1LP(Math.min(f4, 0.45 * fs), fs), d1LP(Math.min(f4, 0.45 * fs), fs)];
+  return normalizeAt(s, fs, 1000);
+}
+function sosFilter(x, sections){
+  const y = Float64Array.from(x);
+  for (const q of sections){
+    let s1 = 0, s2 = 0;
+    const b0 = q.b0, b1 = q.b1, b2 = q.b2, a1 = q.a1, a2 = q.a2;
+    for (let n = 0; n < y.length; n++){
+      const w = y[n] - a1 * s1 - a2 * s2;
+      y[n] = b0 * w + b1 * s1 + b2 * s2;
+      s2 = s1; s1 = w;
+    }
+  }
+  return y;
+}
+function reverseInPlace(a){ for (let i = 0, j = a.length - 1; i < j; i++, j--){ const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function filtfilt(x, sections, pad){
+  const y = new Float64Array(x.length + 2 * pad);
+  y.set(x, pad);
+  let z = sosFilter(y, sections);
+  z = sosFilter(reverseInPlace(z), sections);
+  reverseInPlace(z);
+  return z.subarray(pad, pad + x.length).slice();
+}
+/** Maximum of F time-weighted level (tau = 0.125 s), dB re 20 uPa. */
+function fastMaxDb(x, fs){
+  const al = 1 - Math.exp(-1 / (fs * 0.125));
+  let s = 0, m = 0;
+  for (let n = 0; n < x.length; n++){ s += al * (x[n] * x[n] - s); if (s > m) m = s; }
+  return 10 * Math.log10(Math.max(m, 1e-30) / (P0 * P0));
+}
+/** A-weighting gain (linear) from IEC 61672-1:2013 eq. E.6 (A1000 = -2.00 dB). */
+function aLin(f){
+  const f2 = f * f;
+  const ra = (12194.217 * 12194.217 * f2 * f2) /
+    ((f2 + 20.598997 * 20.598997) * Math.sqrt((f2 + 107.65265 * 107.65265) * (f2 + 737.86223 * 737.86223)) * (f2 + 12194.217 * 12194.217));
+  return ra * Math.pow(10, 2.0 / 20);
+}
+function aDb(f){ return 20 * Math.log10(aLin(f)); }
+
+/* ---------- FFT ---------- */
+function fftInPlace(re, im, inverse){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = 2 * Math.PI / len * (inverse ? 1 : -1), wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let j = 0; j < h; j++){
+        const p = i + j, q = p + h;
+        const br = re[q] * cr - im[q] * ci, bi = re[q] * ci + im[q] * cr;
+        re[q] = re[p] - br; im[q] = im[p] - bi;
+        re[p] += br; im[p] += bi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  if (inverse){ for (let i = 0; i < n; i++){ re[i] /= n; im[i] /= n; } }
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+/** Log-frequency raised-cosine edge: 0 below lo, 1 above hi. */
+function edgeUp(f, lo, hi){
+  if (f <= lo) return 0; if (f >= hi) return 1;
+  const u = Math.log(f / lo) / Math.log(hi / lo);
+  return 0.5 - 0.5 * Math.cos(Math.PI * u);
+}
+function peakOf(a){ let p = 0; for (let i = 0; i < a.length; i++){ const v = Math.abs(a[i]); if (v > p) p = v; } return p; }
+function rmsOf(a){ let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / Math.max(1, a.length)); }
+/** Peak of the sum of copies of x started at the given sample offsets (exact overlap peak). */
+function overlapPeak(x, offsets){
+  if (offsets.length <= 1) return peakOf(x);
+  const last = offsets[offsets.length - 1], y = new Float64Array(last + x.length);
+  for (const o of offsets) for (let n = 0; n < x.length; n++) y[o + n] += x[n];
+  return peakOf(y);
+}
+
+/* ---------- airborne insulation (TL / Dr / Rr) ---------- */
+const TL_FREQ = [16, 31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000];   // nominal octave centres
+/** Frequencies used for the curve, interpolation and band edges: exact octave steps from 1 kHz (15.625 ... 8000 Hz),
+    so that each octave below 125 Hz is exactly 7.5 dB lower. Labels on screen use the nominal values above. */
+const TL_FX = TL_FREQ.map((f, i) => 1000 * Math.pow(2, i - 6));
+/** Dr / Rr grade curve. Defined 125 Hz - 2 kHz (grade g: 125 Hz = g-15, 500 Hz = g, 2 kHz = g+10, log-f interpolation).
+    Outside that range the same slopes are continued (low) / held flat (high): listening-only extrapolation. */
+function refCurve(f, g){ return f <= 500 ? g + 7.5 * Math.log2(f / 500) : f <= 2000 ? g + 5 * Math.log2(f / 500) : g + 10; }
+/** Piecewise-linear over log f through (x[i], y[i]); held flat outside the end points. */
+function interpLog(f, x, y){
+  if (f <= x[0]) return y[0];
+  for (let i = 1; i < x.length; i++) if (f <= x[i]) return y[i - 1] + (y[i] - y[i - 1]) * Math.log(f / x[i - 1]) / Math.log(x[i] / x[i - 1]);
+  return y[y.length - 1];
+}
+/** 1 inside the octave bands lo..hi (band edges lo/sqrt2 .. hi*sqrt2), raised-cosine to 0 a quarter octave outside. */
+function bandMask(f, lo, hi){
+  if (!(f > 0)) return 0;
+  const e1 = lo / Math.SQRT2, e2 = hi * Math.SQRT2, q = Math.pow(2, 0.25);
+  return edgeUp(f, e1 / q, e1) * (1 - edgeUp(f, e2, e2 * q));
+}
+/** Apply attenuation curves to a mono signal with a zero-phase FFT gain.
+    x/y: band centres and attenuation (dB) for offset 0; offsets: list of dB shifts; attenuation is floored at 0 dB.
+    Returns the band-limited dry signal, one wet signal per offset, the overall peak and level statistics. */
+function tlProcess(input, sr, x, y, offsets, lo, hi){
+  let n = 1; while (n < input.length) n *= 2;
+  const re = new Float64Array(n), im = new Float64Array(n);
+  re.set(input); fftInPlace(re, im, false);
+  const half = n >> 1, mask = new Float64Array(half + 1), att = new Float64Array(half + 1), aw = new Float64Array(half + 1);
+  for (let k = 0; k <= half; k++){
+    const f = k * sr / n;
+    mask[k] = bandMask(f, lo, hi);
+    att[k] = f > 0 ? interpLog(f, x, y) : 0;
+    aw[k] = f > 0 ? aLin(f) : 0;
+  }
+  const nfade = Math.max(1, Math.round(sr * 0.02)), L = input.length;
+  const render = (gainOf) => {
+    const r = new Float64Array(n), i = new Float64Array(n);
+    let z = 0, a = 0;
+    for (let k = 0; k <= half; k++){
+      const g = mask[k] * gainOf(k);
+      if (g === 0) continue;
+      r[k] = re[k] * g; i[k] = im[k] * g;
+      const p = (r[k] * r[k] + i[k] * i[k]) * ((k === 0 || k === half) ? 1 : 2);
+      z += p; a += p * aw[k] * aw[k];
+      if (k > 0 && k < half){ r[n - k] = r[k]; i[n - k] = -i[k]; }
+    }
+    fftInPlace(r, i, true);
+    const out = new Float32Array(L);
+    let peak = 0;
+    for (let m = 0; m < L; m++){
+      const fade = Math.min(1, m / nfade, (L - 1 - m) / nfade);
+      out[m] = r[m] * fade;
+      const v = Math.abs(out[m]); if (v > peak) peak = v;
+    }
+    return { out, peak, z, a };
+  };
+  const dry = render(() => 1);
+  const variants = {}, stats = {};
+  let peak = dry.peak;
+  for (const off of offsets){
+    const w = render(k => Math.pow(10, -Math.max(0, att[k] + off) / 20));
+    variants[String(off)] = w.out;
+    peak = Math.max(peak, w.peak);
+    stats[String(off)] = {
+      dZ: 10 * Math.log10(Math.max(dry.z, 1e-300) / Math.max(w.z, 1e-300)),
+      dA: 10 * Math.log10(Math.max(dry.a, 1e-300) / Math.max(w.a, 1e-300)),
+      peakDb: 20 * Math.log10(Math.max(w.peak, 1e-30))
+    };
+  }
+  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, empty: !(dry.z > 0) };
+}
+
+const DSP = { P0, G10, d1LP, d1HP, butterLP, butterHP, sosMag, normalizeAt, bandpassSOS, aWeightSOS, sosFilter, filtfilt, fastMaxDb,
+  aLin, aDb, fftInPlace, mulberry32, edgeUp, peakOf, rmsOf, overlapPeak, TL_FREQ, TL_FX, refCurve, interpLog, bandMask, tlProcess };
+root.DSP = DSP;
+if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
+})(typeof self !== 'undefined' ? self : globalThis);
+
+</script>
+<script>
+/* Shell: shared audio context, storage, theme, tabs. */
+const App = (function () {
+'use strict';
+const VERSION = '2.0.0';
+const SHELL_KEY = 'listening-shell-v1';
+const modules = [];
+const ALL_TABS = ['lh', 'tl'];
+/** Tabs that exist in this build (the single-purpose builds contain one panel and no tab bar). */
+function tabsPresent(){ return ALL_TABS.filter(t => document.getElementById('panel-' + t)); }
+
+/** Strict element lookup: a missing element is a bug and must be loud, never silently replaced. */
+function el(id){
+  const e = document.getElementById(id);
+  if (!e) throw new Error('画面要素 #' + id + ' が見つかりません');
+  return e;
+}
+const store = {
+  get(key){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(key, value){ try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; } }
+};
+const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v)) ? '—' : v.toFixed(d).replace('-', '−');
+const sgn = (v, d = 0) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d);
+const db = v => 20 * Math.log10(Math.max(v, 1e-30));
+
+/** Numeric field: every valid keystroke is stored immediately; invalid text is never stored and is reverted on blur. */
+function bindNumber(input, o){
+  const say = t => { if (o.msg) o.msg.textContent = t; };
+  input.addEventListener('input', () => {
+    const raw = input.value.trim(), v = Number(raw);
+    if (raw === '' || !Number.isFinite(v) || v < o.min || v > o.max){
+      input.setAttribute('aria-invalid', 'true');
+      say(o.label + '：' + o.min + '〜' + o.max + ' の数値を入力してください（まだ反映していません）。');
+      return;
+    }
+    input.removeAttribute('aria-invalid'); say('');
+    if (v !== o.get()){ o.set(v); }
+  });
+  input.addEventListener('change', () => {
+    if (input.getAttribute('aria-invalid') === 'true'){
+      input.value = String(o.get());
+      input.removeAttribute('aria-invalid');
+      say(o.label + '：範囲外だったため、元の値 ' + o.get() + ' に戻しました。');
+    }
+  });
+}
+
+const audio = {
+  ctx: null, fs: 48000, offline: false,
+  create(){
+    if (this.ctx) return this.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { this.ctx = new AC(); this.fs = this.ctx.sampleRate; } catch (e) { this.ctx = null; }
+    return this.ctx;
+  },
+  ensureRunning(){
+    const c = this.create();
+    if (!c) return false;
+    if (this.offline) return true;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+    if (c.state !== 'running'){ const p = c.resume(); if (p && p.catch) p.catch(() => {}); }
+    return true;
+  },
+  newBuffer(data){
+    let b;
+    try { b = new AudioBuffer({ length: data.length, numberOfChannels: 1, sampleRate: this.fs }); }
+    catch (e) { b = this.ctx.createBuffer(1, data.length, this.fs); }
+    if (b.copyToChannel) b.copyToChannel(data, 0); else b.getChannelData(0).set(data);
+    return b;
+  },
+  /** Test hook: render through another real context (e.g. OfflineAudioContext) with the unchanged engine code. */
+  useContext(c){
+    stopAll();
+    this.ctx = c; this.fs = c.sampleRate;
+    this.offline = (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext);
+  }
+};
+
+let shell = { tab: 'lh', theme: 'light' };
+function loadShell(){
+  const s = store.get(SHELL_KEY) || {};
+  const legacyLh = store.get('lh-listening-v4-range') || store.get('lh-listening-v3-2khz') || store.get('lh-listening-v2') || store.get('lh-listening-v1') || {};
+  const legacyTl = store.get('tl-listening-v1') || {};
+  const themes = ['light', 'dark', 'black'];
+  let theme = [s.theme, legacyLh.theme, legacyTl.theme].find(t => themes.includes(t));
+  if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  shell = { tab: s.tab === 'tl' ? 'tl' : 'lh', theme };   // the saved tab is only used by the two-tab build
+}
+function applyTheme(){
+  document.documentElement.dataset.theme = shell.theme;
+  document.querySelectorAll('#seg-theme button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === shell.theme)));
+}
+function stopAll(){ for (const m of modules) { try { m.mod.stop(); } catch (e) { /* keep stopping the others */ } } }
+function showTab(name, focus){
+  const tabs = tabsPresent();
+  if (!tabs.includes(name)) name = tabs[0];
+  stopAll();
+  if (tabs.length > 1){ shell.tab = name; store.set(SHELL_KEY, shell); }
+  for (const t of tabs){
+    const on = t === name, tab = document.getElementById('tab-' + t);
+    if (tab){ tab.setAttribute('aria-selected', String(on)); tab.tabIndex = on ? 0 : -1; if (on && focus) tab.focus(); }
+    el('panel-' + t).hidden = !on;
+  }
+  const m = modules.find(x => x.name === name);
+  if (m && m.ok && m.mod.show) { try { m.mod.show(); } catch (e) { showError(e); } }
+}
+function showError(e){
+  const box = document.getElementById('app-error');
+  const text = '起動または処理でエラーが発生しました：' + (e && e.message ? e.message : String(e));
+  if (box){ box.hidden = false; box.textContent = text; }
+  if (window.console) console.error(e);
+}
+function busy(on){ const b = document.getElementById('busy'); if (b) b.hidden = !on; }
+function register(name, mod){ modules.push({ name, mod, ok: false }); api[name] = mod; }
+function start(){
+  loadShell(); applyTheme();
+  audio.create();
+  el('seg-theme').addEventListener('click', e => {
+    const b = e.target.closest('button[data-theme]'); if (!b) return;
+    shell.theme = b.dataset.theme; applyTheme(); store.set(SHELL_KEY, shell);
+    for (const m of modules) if (m.ok && m.mod.themeChanged) m.mod.themeChanged();
+  });
+  const tabs = tabsPresent().filter(t => document.getElementById('tab-' + t));
+  for (const t of tabs){
+    el('tab-' + t).addEventListener('click', () => showTab(t, false));
+    el('tab-' + t).addEventListener('keydown', e => {
+      const i = tabs.indexOf(t);
+      let j = -1;
+      if (e.key === 'ArrowRight') j = (i + 1) % tabs.length; else if (e.key === 'ArrowLeft') j = (i + tabs.length - 1) % tabs.length;
+      else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = tabs.length - 1;
+      if (j >= 0){ e.preventDefault(); showTab(tabs[j], true); }
+    });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') stopAll(); });
+  window.addEventListener('pagehide', stopAll);
+  for (const m of modules){
+    try { m.mod.init(); m.ok = true; } catch (e) { showError(e); }
+  }
+  const hash = (location.hash || '').replace('#', '');
+  showTab(hash === 'tl' || hash === 'lh' ? hash : shell.tab, false);
+}
+const api = { VERSION, el, store, fmt, sgn, db, bindNumber, audio, register, start, busy, showError, stopAll, showTab, get shell(){ return shell; } };
+return api;
+})();
+window.__app = App;
+
+</script>
+<script>
+/* LH: heavy floor impact sound listening. */
+App.register('lh', (function () {
+'use strict';
+const D = DSP, P0 = D.P0, G10 = D.G10, el = App.el, fmt = App.fmt, sgn = App.sgn, db = App.db;
+
+/* ---------- constants ---------- */
+const KEY = 'lh-listening-v5';
+const OLD_KEYS = ['lh-listening-v4-range', 'lh-listening-v3-2khz', 'lh-listening-v2', 'lh-listening-v1'];
+const BANDS = [
+  { label: '16', x: -6, modes: 8, add: true }, { label: '31.5', x: -5, modes: 8, add: true },
+  { label: '63', x: -4, modes: 8 }, { label: '125', x: -3, modes: 12 }, { label: '250', x: -2, modes: 20 }, { label: '500', x: -1, modes: 30 },
+  { label: '1k', x: 0, modes: 40, add: true }, { label: '2k', x: 1, modes: 50, add: true }
+];
+BANDS.forEach((b, i) => { b.i = i; b.fc = 1000 * Math.pow(G10, b.x); });          // exact (base-ten) centre frequency
+const ADD_LABELS = BANDS.filter(b => b.add).map(b => b.label);
+/** LH-65 reference: C(f) = round(62 - A(f_exact)); reproduces 88/78/71/65/62 and extends it with the same rounding. */
+const REF65 = BANDS.map(b => Math.round(62 - D.aDb(b.fc)));
+const GRADES = [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
+const BG_LEVELS = [null, 20, 30, 40, 50, 60, 70];
+const K_REF = 126;                 // uncalibrated: model dB (peak) that maps to 0 dBFS at output level 0 dB
+const CAL_DBFS = -20;
+const CEIL = Math.pow(10, -1 / 20); // digital peak ceiling, -1 dBFS
+const LEVEL_MIN = -40, LEVEL_MAX = 20, LEVEL_STEP = 5;
+const QUIET_DBFS = -90;            // below this rms a signal is at the 16-bit quantisation floor
+const TRIPLE_OFFSETS = [0, 1, 2], RUN_INTERVAL = 1.8, RUN_LOOKAHEAD = 3, RUN_TICK_MS = 250;
+const LEAD = 0.8, FADE = 0.05, GAP = 0.08, BG_FADE_IN = 0.15;
+const PATTERNS = ['single', 'triple', 'run'];
+const TYPING_MS = 500;            // rebuild delay while a number is being typed
+
+/* ---------- settings ---------- */
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+function defaults(){
+  const ref50 = {}, off = {};
+  BANDS.forEach((b, i) => { ref50[b.label] = REF65[i] - 15; off[b.label] = 0; });
+  return { v: 5, mode: 'grade', add: { '16': false, '31.5': false, '1k': false, '2k': false }, custom4: [88, 78, 71, 65], ref50, off,
+    pattern: 'single', T: 0.5, slope: -5, bgBand: 'wide', nums: false, level: 0, cal: {} };
+}
+function sanitize(s){
+  const o = defaults();
+  if (!s || typeof s !== 'object') return o;
+  if (s.mode === 'custom' || s.mode === 'grade') o.mode = s.mode;
+  if (s.add && typeof s.add === 'object') for (const k of ADD_LABELS) o.add[k] = s.add[k] === true;
+  if (Array.isArray(s.custom4) && s.custom4.length === 4 && s.custom4.every(v => isNum(v) && v >= 0 && v <= 140)) o.custom4 = s.custom4.slice();
+  for (const b of BANDS){
+    if (s.ref50 && isNum(s.ref50[b.label]) && s.ref50[b.label] >= 0 && s.ref50[b.label] <= 140) o.ref50[b.label] = s.ref50[b.label];
+    if (s.off && isNum(s.off[b.label]) && s.off[b.label] <= 0 && s.off[b.label] >= -60) o.off[b.label] = s.off[b.label];
+    if (s.cal && isNum(s.cal[b.label]) && s.cal[b.label] >= 0 && s.cal[b.label] <= 140) o.cal[b.label] = s.cal[b.label];
+  }
+  if (PATTERNS.includes(s.pattern)) o.pattern = s.pattern;
+  if (isNum(s.T)) o.T = Math.min(2, Math.max(0.2, s.T));
+  if ([-3, -5, -8].includes(s.slope)) o.slope = s.slope;
+  if (s.bgBand === 'b4' || s.bgBand === 'wide') o.bgBand = s.bgBand;
+  if (typeof s.nums === 'boolean') o.nums = s.nums;
+  if (isNum(s.level)) o.level = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(s.level / LEVEL_STEP) * LEVEL_STEP));
+  if (o.mode === 'grade' && o.add['16'] && o.T < 0.5) o.T = 0.5;
+  return o;
+}
+/** Convert settings saved by earlier versions (v1 - v4). Old keys are only read, never deleted. */
+function migrate(old){
+  const s = defaults();
+  if (!old || typeof old !== 'object') return s;
+  const range = old.range;
+  s.mode = range === 'custom4' ? 'custom' : 'grade';
+  if (range === 'custom4') s.bgBand = 'b4';
+  s.add['1k'] = range !== 'custom4';                       // v1 - v4 always included 1 kHz in the grade modes
+  s.add['31.5'] = range === 'extended' || range === 'wide';
+  s.add['16'] = range === 'wide';
+  if (Array.isArray(old.custom4)) s.custom4 = old.custom4;
+  ['63', '125', '250', '500'].forEach((lab, i) => {
+    if (Array.isArray(old.curve) && isNum(old.curve[i])) s.ref50[lab] = old.curve[i];
+    if (Array.isArray(old.off) && isNum(old.off[i])) s.off[lab] = Math.min(0, old.off[i]);
+  });
+  if (Array.isArray(old.ext) && isNum(old.ext[0]) && !(old.ext[0] === -10 && old.ext[1] === -20)){
+    s.ref50['1k'] = s.ref50['500'] + old.ext[0];
+    if (isNum(old.ext[1])) s.ref50['2k'] = s.ref50['500'] + old.ext[1];
+  }
+  s.pattern = old.pattern; s.T = old.T; s.slope = old.slope; s.nums = old.nums;
+  if (old.calMap && typeof old.calMap === 'object') s.cal = Object.assign({}, old.calMap);
+  else if (Array.isArray(old.cal)) ['63', '125', '250', '500', '1k', '2k'].forEach((lab, i) => { if (isNum(old.cal[i])) s.cal[lab] = old.cal[i]; });
+  return s;                                                // outputMode (compare / audition) no longer exists
+}
+function loadSettings(){
+  const cur = App.store.get(KEY);
+  if (cur) return sanitize(cur);
+  for (const k of OLD_KEYS){ const old = App.store.get(k); if (old) return sanitize(migrate(old)); }
+  return defaults();
+}
+let S = defaults();
+function save(){ App.store.set(KEY, S); }
+
+/* ---------- derived state ---------- */
+let source = 'synth', wav = null;
+let impact = null, bg = null, buildError = null, dirty = true;
+let selected = { G: 50, LA: 30 };
+let playing = null;                // { G, LA } while something sounds
+
+function activeBands(){ return BANDS.filter(b => S.mode === 'custom' ? !b.add : (!b.add || S.add[b.label])); }
+function calibrated(){ return BANDS.some(b => isNum(S.cal[b.label])); }
+/** K (dB SPL at 0 dBFS) for all eight bands; measured bands exactly, others interpolated over band index, ends held. */
+function calKAll(){
+  const idx = BANDS.filter(b => isNum(S.cal[b.label])).map(b => b.i);
+  if (!idx.length) return BANDS.map(() => K_REF);
+  return BANDS.map(b => {
+    const m = j => S.cal[BANDS[j].label] - CAL_DBFS;
+    if (idx.includes(b.i)) return m(b.i);
+    let lo = -1, hi = -1;
+    for (const j of idx){ if (j < b.i) lo = j; if (j > b.i && hi < 0) hi = j; }
+    if (lo < 0) return m(hi);
+    if (hi < 0) return m(lo);
+    return m(lo) + (m(hi) - m(lo)) * (b.i - lo) / (hi - lo);
+  });
+}
+function kAtF(K, f){
+  const x = Math.log(f / BANDS[0].fc) / Math.log(G10);
+  if (x <= 0) return K[0];
+  if (x >= K.length - 1) return K[K.length - 1];
+  const i = Math.floor(x), u = x - i;
+  return K[i] + (K[i + 1] - K[i]) * u;
+}
+function ref50(b){ return S.mode === 'custom' ? S.custom4[b.i - 2] - 15 : S.ref50[b.label]; }
+function target50(b){ return S.mode === 'custom' ? ref50(b) : S.ref50[b.label] + S.off[b.label]; }
+function gradeName(G){ return S.mode === 'custom' ? (G === 65 ? '指定値' : '指定値 ' + sgn(G - 65) + ' dB') : 'LH-' + G; }
+function cellName(G, LA){
+  return G === null ? '暗騒音のみ ' + LA + ' dB(A)' : gradeName(G) + (LA === null ? '（暗騒音なし）' : ' ＋ 暗騒音 ' + LA + ' dB(A)');
+}
+const keyOf = (G, LA) => (G === null ? 'bg' : G) + '|' + (LA === null ? 'none' : LA);
+
+/* ---------- impact sound ---------- */
+const rawCache = new Map(), sosCache = new Map();
+function bandSOS(b, fs){
+  const k = b.label + ':' + fs;
+  if (!sosCache.has(k)) sosCache.set(k, D.bandpassSOS(b.fc, fs));
+  return sosCache.get(k);
+}
+/** One band of the modal impact model. The random seed depends only on the band, so adding a band never changes the others. */
+function synthBand(b, fs, T, N){
+  const k = b.label + ':' + fs + ':' + T;
+  if (rawCache.has(k)) return rawCache.get(k);
+  const rnd = D.mulberry32(20261109 + 7919 * b.i), decay = Math.log(1000) / T;
+  const r = Math.exp(-decay / fs), na = 0.004 * fs, nf = Math.round(0.05 * fs);
+  let x = new Float64Array(N);
+  for (let m = 0; m < b.modes; m++){
+    const f = b.fc * Math.pow(G10, (0.1 + 0.8 * rnd()) - 0.5);
+    const amp = 0.6 + 0.8 * rnd(), ph = 2 * Math.PI * rnd(), w = 2 * Math.PI * f / fs;
+    const cr = r * Math.cos(w), ci = r * Math.sin(w);
+    let re = amp * Math.cos(ph), im = amp * Math.sin(ph);
+    for (let n = 0; n < N; n++){ x[n] += im; const t = re * cr - im * ci; im = re * ci + im * cr; re = t; }
+  }
+  for (let n = 0; n < N; n++){
+    let e = 1 - Math.exp(-n / na);
+    if (n > N - nf) e *= 0.5 - 0.5 * Math.cos(Math.PI * (N - n) / nf);
+    x[n] *= e;
+  }
+  if (b.fc < 50){   // keep the very-low-frequency attack from spilling into higher bands
+    const z = D.filtfilt(x, bandSOS(b, fs), Math.round(fs));
+    const edge = Math.min(Math.round(fs * 0.2), Math.floor(N / 3));
+    for (let n = 0; n < edge; n++){ const w = 0.5 - 0.5 * Math.cos(Math.PI * n / edge); z[n] *= w; z[N - 1 - n] *= w; }
+    x = z;
+  }
+  if (rawCache.size > 24) rawCache.clear();
+  rawCache.set(k, x);
+  return x;
+}
+function synthBands(fs, T, bands){
+  if (bands[0].fc < 20 && T < 0.5) throw new Error('16 Hz 帯を含む合成音では T を 0.5 秒以上にしてください。');
+  const dur = Math.min(4, 0.15 + 2.2 * T), N = Math.round(dur * fs);
+  return bands.map(b => synthBand(b, fs, T, N));
+}
+/** Scale band components so that the 1/1-octave L_Fmax of their sum hits the targets (Pa domain). */
+function fitBands(raw, targets, fs, bands){
+  const nb = raw.length, N = raw[0].length;
+  const sos = bands.map(b => bandSOS(b, fs)), sosA = D.aWeightSOS(fs);
+  const g = raw.map((x, b) => Math.pow(10, (targets[b] - D.fastMaxDb(x, fs)) / 20));
+  const sum = new Float64Array(N);
+  const mix = () => { sum.fill(0); for (let b = 0; b < nb; b++){ const gb = g[b], x = raw[b]; for (let n = 0; n < N; n++) sum[n] += gb * x[n]; } };
+  const analyze = () => sos.map(s => D.fastMaxDb(D.sosFilter(sum, s), fs));
+  for (let it = 0; it < 20; it++){
+    mix();
+    const band = analyze();
+    let maxErr = 0;
+    for (let b = 0; b < nb; b++){
+      const e = targets[b] - band[b];
+      maxErr = Math.max(maxErr, Math.abs(e));
+      g[b] = Math.max(1e-9, g[b] * Math.pow(10, e / 20));
+    }
+    if (maxErr < 0.02) break;
+  }
+  mix();
+  const band = analyze();
+  return { gains: g, bandFmax: band, LAF: D.fastMaxDb(D.sosFilter(sum, sosA), fs), err: Math.max(...targets.map((t, b) => Math.abs(t - band[b]))) };
+}
+function buildImpact(){
+  const fs = App.audio.fs, bands = activeBands();
+  if (bands[bands.length - 1].fc * Math.sqrt(G10) >= fs / 2 * 0.98) throw new Error('この再生サンプリング周波数（' + fs + ' Hz）では選択した帯域の上端を扱えません。');
+  const raw = (source === 'wav' && wav) ? wav.bands : synthBands(fs, S.T, bands);
+  const fit = fitBands(raw, bands.map(target50), fs, bands);
+  const K = calKAll(), N = raw[0].length, dig = new Float32Array(N);
+  for (let j = 0; j < raw.length; j++){
+    const gd = fit.gains[j] / (P0 * Math.pow(10, K[bands[j].i] / 20)), x = raw[j];
+    for (let n = 0; n < N; n++) dig[n] += gd * x[n];
+  }
+  const runCount = Math.ceil(N / fs / RUN_INTERVAL) + 1;
+  const peaks = {
+    single: D.peakOf(dig),
+    triple: D.overlapPeak(dig, TRIPLE_OFFSETS.map(o => Math.round(o * fs))),
+    run: D.overlapPeak(dig, Array.from({ length: runCount }, (_, i) => Math.round(i * RUN_INTERVAL * fs)))
+  };
+  return { bands, bandFmax: fit.bandFmax, LAF: fit.LAF, err: fit.err, dig, peaks, dur: N / fs, buffer: null, fs };
+}
+
+/* ---------- background noise ---------- */
+function bgWindow(f){
+  if (S.bgBand === 'b4'){ const lo = BANDS[2].fc, hi = BANDS[5].fc; return D.edgeUp(f, lo / Math.sqrt(G10), lo) * (1 - D.edgeUp(f, hi, hi * Math.sqrt(G10))); }
+  return D.edgeUp(f, 18, 28) * (1 - D.edgeUp(f, 9000, 14000));
+}
+function buildBg(){
+  const fs = App.audio.fs, bands = activeBands(), K = calKAll();
+  const N = 1 << Math.ceil(Math.log2(fs * 10)), half = N >> 1;
+  const re = new Float64Array(N), im = new Float64Array(N), psd = new Float64Array(half);
+  let msA = 0;
+  for (let k = 1; k < half; k++){
+    const f = k * fs / N, w = bgWindow(f);
+    if (w <= 0) continue;
+    psd[k] = Math.pow(10, ((S.slope - 3) / 10) * Math.log2(f / 1000)) * w;
+    const a = D.aLin(f);
+    msA += psd[k] * a * a;
+  }
+  msA *= 2 / (N * N);
+  const sc = Math.sqrt(P0 * P0 * 1e5 / msA);           // model LAeq = 50 dB
+  const band = bands.map(b => {
+    const lo = b.fc / Math.sqrt(G10), hi = b.fc * Math.sqrt(G10);
+    let m = 0;
+    for (let k = Math.ceil(lo * N / fs); k <= Math.floor(hi * N / fs) && k < half; k++) m += psd[k];
+    return 10 * Math.log10(Math.max(1e-30, m * 2 / (N * N) * sc * sc) / (P0 * P0));
+  });
+  const rnd = D.mulberry32(7);
+  for (let k = 1; k < half; k++){
+    const ph = 2 * Math.PI * rnd();
+    if (psd[k] <= 0) continue;
+    const amp = sc * Math.sqrt(psd[k]) / (P0 * Math.pow(10, kAtF(K, k * fs / N) / 20));
+    re[k] = amp * Math.cos(ph); im[k] = amp * Math.sin(ph);
+    re[N - k] = re[k]; im[N - k] = -im[k];
+  }
+  D.fftInPlace(re, im, true);
+  const dig = new Float32Array(N);
+  for (let n = 0; n < N; n++) dig[n] = re[n];
+  return { dig, peak: D.peakOf(dig), rms: D.rmsOf(dig), band, buffer: null, fs };
+}
+/** Octave-band noise at CAL_DBFS (rms) for calibration, digital domain. */
+function buildCalNoise(fs, fc){
+  const N = 1 << Math.ceil(Math.log2(fs * 3)), half = N >> 1;
+  const re = new Float64Array(N), im = new Float64Array(N);
+  const lo = fc / Math.sqrt(G10), hi = fc * Math.sqrt(G10), t = Math.pow(2, 0.08);
+  const rnd = D.mulberry32(Math.round(fc));
+  let ms = 0;
+  for (let k = 1; k < half; k++){
+    const f = k * fs / N;
+    const w = D.edgeUp(f, lo, lo * t) * (1 - D.edgeUp(f, hi / t, hi));
+    if (w <= 0) continue;
+    const m = Math.sqrt(w / f), ph = 2 * Math.PI * rnd();
+    re[k] = m * Math.cos(ph); im[k] = m * Math.sin(ph); re[N - k] = re[k]; im[N - k] = -im[k];
+    ms += 2 * m * m / (N * N);
+  }
+  D.fftInPlace(re, im, true);
+  const sc = Math.pow(10, CAL_DBFS / 20) / Math.sqrt(ms);
+  const out = new Float32Array(N);
+  for (let n = 0; n < N; n++) out[n] = re[n] * sc;
+  return out;
+}
+
+/* ---------- level design ----------
+   digital = model pressure / (20 uPa * 10^(K/20)); the master gain is the user's output level and nothing else.
+   Nothing here depends on which cell or which bands are selected, so comparisons stay valid across cells and band choices. */
+const levelLin = (L = S.level) => Math.pow(10, L / 20);
+const gradeGain = G => Math.pow(10, (G - 50) / 20);
+function cellPeak(G, LA){      // upper bound of the digital peak at output level 0 dB
+  if (!impact || !bg) return Infinity;
+  return (G === null ? 0 : impact.peaks[S.pattern] * gradeGain(G)) + (LA === null ? 0 : bg.peak * gradeGain(LA));
+}
+function maxLevelFor(G, LA){ return db(CEIL / cellPeak(G, LA)); }
+function playableAt(G, LA, L){ return L <= maxLevelFor(G, LA) + 1e-9; }
+function playable(G, LA){ return playableAt(G, LA, S.level); }
+/** Highest 5 dB step at which the cell fits, or null when it does not fit even at the minimum level. */
+function neededLevel(G, LA){
+  const L = Math.min(LEVEL_MAX, Math.floor((maxLevelFor(G, LA) + 1e-9) / LEVEL_STEP) * LEVEL_STEP);
+  return L < LEVEL_MIN ? null : L;
+}
+function cellInfo(G, LA){
+  const LAF = G === null ? null : impact.LAF + (G - 50);
+  return { LAF, dLA: (LAF !== null && LA !== null) ? LAF - LA : null,
+    impPeakDb: G === null ? null : db(impact.peaks[S.pattern] * gradeGain(G)) + S.level,
+    bgRmsDb: LA === null ? null : db(bg.rms * gradeGain(LA)) + S.level,
+    peakDb: db(cellPeak(G, LA)) + S.level, playable: playable(G, LA), needed: neededLevel(G, LA) };
+}
+
+/* ---------- audio engine ---------- */
+let graph = null;
+const V = { imps: [], bg: null, cal: null };
+let playToken = 0, endTimer = 0, loopTimer = 0, loop = null;
+
+function getGraph(){
+  const c = App.audio.ctx;
+  if (!c) return null;
+  if (!graph || graph.ctx !== c){
+    const master = c.createGain();
+    master.gain.value = levelLin();
+    master.connect(c.destination);
+    graph = { ctx: c, master };
+  }
+  return graph;
+}
+/** Fade a voice out from its analytically known current gain (no reliance on AudioParam.value or cancelAndHoldAtTime). */
+function fadeOutVoice(v, now){
+  let cur = v.target;
+  if (v.t1 > v.t0) cur = v.target * Math.min(1, Math.max(0, (now - v.t0) / (v.t1 - v.t0)));
+  try {
+    const g = v.gain.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(cur, now);
+    g.linearRampToValueAtTime(0, now + FADE);
+    v.src.stop(now + FADE + 0.01);
+  } catch (e) { /* already stopped */ }
+}
+function stopVoices(now){
+  for (const v of V.imps) fadeOutVoice(v, now);
+  V.imps = [];
+  if (V.bg){ fadeOutVoice(V.bg, now); V.bg = null; }
+  if (V.cal){ fadeOutVoice(V.cal, now); V.cal = null; }
+}
+function cancelTimers(){
+  clearTimeout(endTimer); endTimer = 0;
+  clearTimeout(loopTimer); loopTimer = 0; loop = null;
+}
+function stopAll(){
+  playToken++;                      // invalidates every pending timer, loop tick and deferred "rebuild then play"
+  cancelTimers();
+  const c = App.audio.ctx;
+  if (c) stopVoices(c.currentTime);
+  setPlaying(null);
+}
+function startImpactAt(g, t, gl){
+  const src = g.ctx.createBufferSource(), gain = g.ctx.createGain();
+  src.buffer = impact.buffer; gain.gain.value = gl;
+  src.connect(gain); gain.connect(g.master);
+  const v = { src, gain, target: gl, t0: 0, t1: 0 };
+  V.imps.push(v);
+  src.onended = () => {
+    const i = V.imps.indexOf(v);
+    if (i >= 0) V.imps.splice(i, 1);
+    try { src.disconnect(); gain.disconnect(); } catch (e) { /* already disconnected */ }
+  };
+  src.start(t);
+}
+function runTick(){
+  const L = loop, g = graph;
+  if (!L || !g || L.token !== playToken) return;
+  const now = g.ctx.currentTime;
+  // After a throttled/suspended tab, skip missed beats rather than burst-play them.
+  if (L.next < now + 0.02) L.next += Math.ceil((now + 0.02 - L.next) / RUN_INTERVAL) * RUN_INTERVAL;
+  while (L.next < now + RUN_LOOKAHEAD){ startImpactAt(g, L.next, L.gl); L.next += RUN_INTERVAL; }
+  loopTimer = setTimeout(runTick, RUN_TICK_MS);
+}
+function play(G, LA){
+  playToken++;
+  const token = playToken;
+  cancelTimers();
+  if (!impact || !bg){ stopAll(); say('lh-over', buildError || '音源を計算できていません。'); return false; }
+  if (G !== null && !(impact.err <= 0.25)){
+    stopAll(); say('lh-over', '帯域レベルを目標に合わせ込めなかったため再生しません（誤差 ' + fmt(impact.err, 2) + ' dB）。帯域・減衰時間・録音を見直してください。'); return false;
+  }
+  if (!playable(G, LA)){ stopAll(); showOver(G, LA); return false; }
+  if (!App.audio.ensureRunning()){
+    stopAll(); say('lh-over', 'この表示画面では音声を使えません。HTML を保存して Safari または Chrome で開いてください。'); return false;
+  }
+  const g = getGraph(), ctx = g.ctx, now = ctx.currentTime;
+  if (!impact.buffer) impact.buffer = App.audio.newBuffer(impact.dig);
+  if (!bg.buffer) bg.buffer = App.audio.newBuffer(bg.dig);
+  stopVoices(now);                  // old voices are silent by now + FADE; new ones start at now + GAP
+  const start = now + GAP;
+  let t0, tEnd;
+  if (LA !== null){
+    const src = ctx.createBufferSource(), gain = ctx.createGain(), target = gradeGain(LA);
+    src.buffer = bg.buffer; src.loop = true;
+    gain.gain.value = 0;
+    gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(target, start + BG_FADE_IN);
+    src.connect(gain); gain.connect(g.master);
+    src.start(start, App.audio.offline ? 0 : Math.random() * bg.buffer.duration * 0.9);
+    V.bg = { src, gain, target, t0: start, t1: start + BG_FADE_IN };
+    t0 = start + LEAD;
+  } else t0 = start + 0.04;
+  if (G !== null){
+    const gl = gradeGain(G);
+    if (S.pattern === 'run'){ loop = { token, next: t0, gl }; runTick(); }
+    else {
+      const offs = S.pattern === 'triple' ? TRIPLE_OFFSETS : [0];
+      for (const o of offs) startImpactAt(g, t0 + o, gl);
+      tEnd = t0 + offs[offs.length - 1] + impact.dur + (LA !== null ? 0.4 : 0);
+    }
+  } else if (S.pattern !== 'run') tEnd = start + 4;
+  if (tEnd !== undefined){
+    endTimer = setTimeout(() => {
+      if (token !== playToken) return;
+      const c = App.audio.ctx;
+      if (c && V.bg){ fadeOutVoice(V.bg, c.currentTime); V.bg = null; }
+      setPlaying(null);
+    }, Math.max(0, (tEnd - now) * 1000));
+  }
+  say('lh-over', '');
+  setPlaying({ G, LA });
+  return true;
+}
+function playCal(i){
+  const was = V.cal && V.cal.i === i;
+  stopAll();
+  if (!was){
+    if (!App.audio.ensureRunning()){ say('lh-cal-msg', 'この表示画面では音声を使えません。'); return; }
+    const g = getGraph(), ctx = g.ctx, start = ctx.currentTime + GAP, fs = App.audio.fs;
+    const src = ctx.createBufferSource(), gain = ctx.createGain();
+    src.buffer = App.audio.newBuffer(buildCalNoise(fs, BANDS[i].fc)); src.loop = true;
+    gain.gain.value = 0;
+    gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(1, start + 0.3);
+    src.connect(gain); gain.connect(ctx.destination);       // not through the master: always -20 dBFS
+    src.start(start);
+    V.cal = { src, gain, target: 1, t0: start, t1: start + 0.3, i };
+  }
+  updateCalButtons(); renderTransport();
+}
+function setLevel(L){
+  L = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(L / LEVEL_STEP) * LEVEL_STEP));
+  if (L === S.level) return;
+  let delay = 0.01, note = '';
+  if (playing && !playableAt(playing.G, playing.LA, L)){
+    stopAll(); delay = FADE + 0.03;                         // let the old voices finish fading before the gain rises
+    note = '出力レベルを上げると再生中の条件が上限（−1 dBFS）を超えるため、再生を止めました。';
+  }
+  S.level = L; save();
+  if (graph){ const p = graph.master.gain, t = graph.ctx.currentTime + delay; p.cancelScheduledValues(t); p.setTargetAtTime(levelLin(), t, 0.02); }
+  renderMatrix(); renderReadout(); renderTransport(); renderRangeLine();
+  say('lh-over', note);
+}
+
+/* ---------- rebuild scheduling: one job, always from the latest settings ---------- */
+let rebuildTimer = 0, afterPlay = null;
+function requestRebuild(delay, thenPlay){
+  stopAll();
+  dirty = true; App.busy(true);
+  afterPlay = thenPlay ? { token: playToken, G: selected.G, LA: selected.LA } : null;
+  renderTransport();
+  clearTimeout(rebuildTimer);
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = 0;
+    rebuildNow();
+    const a = afterPlay; afterPlay = null;
+    if (a && a.token === playToken) play(a.G, a.LA);
+  }, delay === undefined ? 60 : delay);
+}
+function rebuildNow(){
+  clearTimeout(rebuildTimer); rebuildTimer = 0;
+  try { impact = buildImpact(); bg = buildBg(); buildError = null; }
+  catch (e) { impact = null; bg = null; buildError = (e && e.message) ? e.message : String(e); }
+  dirty = false; App.busy(false);
+  renderAll();
+}
+
+/* ---------- rendering ---------- */
+function say(id, text){ el(id).textContent = text || ''; }
+function setPlaying(p){
+  playing = p;
+  document.querySelectorAll('#lh-matrix .cell.playing').forEach(c => c.classList.remove('playing'));
+  if (p){ const c = cellEl(p.G, p.LA); if (c) c.classList.add('playing'); }
+  updateCalButtons(); renderTransport();
+}
+function cellEl(G, LA){ return document.querySelector('#lh-matrix .cell[data-key="' + keyOf(G, LA) + '"]'); }
+const patternName = () => ({ single: '単発', triple: '3回', run: '連続' })[S.pattern];
+function renderTransport(){
+  const st = el('lh-state'), on = !!playing || !!V.cal;
+  st.textContent = V.cal ? '校正信号を再生中（−20 dBFS）' : playing ? '再生中（' + (playing.G === null ? (S.pattern === 'run' ? '暗騒音のみ・停止まで' : '暗騒音のみ・4 秒') : patternName()) + '）' : dirty ? '計算中…' : '停止中';
+  st.classList.toggle('on', on); el('lh-dot').classList.toggle('on', on);
+  const p = playing || selected;
+  el('lh-now').textContent = V.cal ? BANDS[V.cal.i].label + ' Hz 帯域ノイズ' : cellName(p.G, p.LA);
+  el('lh-level').textContent = sgn(S.level) + ' dB';
+  el('lh-level-down').disabled = S.level <= LEVEL_MIN; el('lh-level-up').disabled = S.level >= LEVEL_MAX;
+}
+function heatPct(info, G, LA){
+  if (G === null) return 0;
+  if (LA === null) return Math.min(1, Math.max(0, (info.LAF - 25) / 70)) * 35;
+  return Math.min(1, Math.max(0, (info.dLA + 10) / 60)) * 55;
+}
+function renderMatrix(){
+  const m = el('lh-matrix'), hadFocus = m.contains(document.activeElement);
+  m.textContent = '';
+  const add = (tag, cls, html) => { const e = document.createElement(tag); e.className = cls; if (html !== undefined) e.innerHTML = html; m.appendChild(e); return e; };
+  add('div', 'mh', ''); add('div', 'mh span', '<span>暗騒音（モデル L<sub>Aeq</sub>、dB(A)）</span>');
+  add('div', 'mh', S.mode === 'custom' ? '<span>指定値<br>からの差</span>' : '<span>等級</span>');
+  for (const LA of BG_LEVELS) add('div', 'mh col', '<b>' + (LA === null ? 'なし' : LA) + '</b>');
+  const ok = !!impact && !!bg;
+  for (const G of GRADES.concat([null])){
+    const sep = G === null ? ' sep' : '';
+    add('div', 'mh' + sep, G === null ? '<b style="font-family:var(--font-ui)">暗騒音<br>のみ</b>' : '<b>' + (S.mode === 'custom' ? (G === 65 ? '指定値' : sgn(G - 65)) : 'LH-' + G) + '</b>');
+    for (const LA of BG_LEVELS){
+      const c = add('button', 'cell' + sep);
+      c.type = 'button'; c.tabIndex = -1;
+      if (G === null && LA === null){ c.classList.add('blank'); c.disabled = true; c.setAttribute('aria-hidden', 'true'); continue; }
+      c.dataset.key = keyOf(G, LA); c.dataset.g = G === null ? '' : String(G); c.dataset.la = LA === null ? '' : String(LA);
+      const name = cellName(G, LA);
+      if (!ok){ c.classList.add('over'); c.textContent = '—'; c.setAttribute('aria-disabled', 'true'); c.setAttribute('aria-label', name + '：計算できていません'); continue; }
+      const info = cellInfo(G, LA);
+      if (!info.playable){
+        c.classList.add('over'); c.setAttribute('aria-disabled', 'true');
+        c.textContent = info.needed === null ? '×' : sgn(info.needed);
+        c.setAttribute('aria-label', name + '：いまの出力レベルでは再生できません' + (info.needed === null ? '' : '（出力レベル ' + sgn(info.needed) + ' dB 以下で再生可）'));
+      } else {
+        const pct = heatPct(info, G, LA);
+        if (pct > 0) c.style.background = 'color-mix(in oklab, var(--fill) ' + pct.toFixed(0) + '%, var(--surface))';
+        c.textContent = (S.nums && info.dLA !== null) ? sgn(info.dLA) : '▶';
+        c.setAttribute('aria-label', name + ' を再生' + (info.dLA !== null ? '（ΔLA ' + sgn(info.dLA) + ' dB）' : ''));
+      }
+      if (selected.G === G && selected.LA === LA){ c.classList.add('sel'); c.tabIndex = 0; c.setAttribute('aria-pressed', 'true'); }
+      else c.setAttribute('aria-pressed', 'false');
+      if (playing && playing.G === G && playing.LA === LA) c.classList.add('playing');
+    }
+  }
+  if (hadFocus){ const c = cellEl(selected.G, selected.LA); if (c) c.focus(); }
+}
+function bandText(b){ return b.label.replace('k', ' k') + ' Hz'; }
+function renderBandLine(){
+  const bands = activeBands(), extra = bands.filter(b => b.add);
+  const imp = S.mode === 'custom'
+    ? '63・125・250・500 Hz（指定値の4帯域のみ）'
+    : '63・125・250・500 Hz' + (extra.length ? ' ＋ ' + extra.map(bandText).join('・') + '（参考外挿）' : '（評価範囲のみ）');
+  const bgt = S.bgBand === 'b4' ? '63〜500 Hz の4帯域内（約 45〜710 Hz）' : '広帯域 約 22 Hz〜11 kHz（衝撃音の帯域選択とは独立）';
+  el('lh-bandline').innerHTML = '<span><b>衝撃音の帯域：</b>' + imp + '</span><span><b>暗騒音の帯域：</b>' + bgt + '</span>';
+  el('lh-grade-box').hidden = S.mode === 'custom'; el('lh-custom-box').hidden = S.mode !== 'custom';
+}
+function renderRangeLine(){
+  if (!impact || !bg){ say('lh-rangeline', buildError ? '計算できません：' + buildError : ''); return; }
+  const okG = GRADES.filter(G => playable(G, null)), top = GRADES[GRADES.length - 1], all = neededLevel(top, 70);
+  let t = 'いまの出力レベル（' + sgn(S.level) + ' dB）で再生できる衝撃音：';
+  t += okG.length === GRADES.length ? 'すべて（' + gradeName(GRADES[0]) + '〜' + gradeName(top) + '）。'
+    : okG.length ? gradeName(okG[0]) + '〜' + gradeName(okG[okG.length - 1]) + '。' : 'なし。';
+  if (okG.length < GRADES.length || !playable(top, 70)){
+    t += all === null ? gradeName(top) + ' はこの条件では上限を超えるため再生できません。'
+      : gradeName(top) + ' ＋暗騒音 70 まで全部を比べるには出力レベルを ' + sgn(all) + ' dB にします。全条件が同じだけ小さくなり、そのとき暗騒音 20 dB(A) のデジタル出力は約 ' + fmt(db(bg.rms * gradeGain(20)) + all, 0) + ' dBFS です。';
+  }
+  say('lh-rangeline', t);
+}
+function renderReadout(){
+  const { G, LA } = selected;
+  el('lh-ro-title').textContent = cellName(G, LA);
+  const nums = el('lh-ro-nums'), warn = el('lh-ro-warn'), model = el('lh-model-nums');
+  if (!impact || !bg){
+    el('lh-ro-chart').innerHTML = ''; nums.innerHTML = ''; el('lh-ro-table').innerHTML = ''; model.innerHTML = '';
+    warn.textContent = buildError ? '計算できません：' + buildError : ''; return;
+  }
+  const info = cellInfo(G, LA), bands = impact.bands;
+  const imp = G === null ? null : impact.bandFmax.map(v => v + G - 50);
+  const bgb = LA === null ? null : bg.band.map(v => v + LA - 50);
+  drawChart(G, imp, bgb, bands);
+  const cal = calibrated(), rows = [];
+  rows.push(['再生', info.playable ? '可' : '不可（上限 −1 dBFS 超過）']);
+  if (G !== null) rows.push(['衝撃音のデジタル出力（ピーク）', (info.impPeakDb > 0 ? '+' : '') + fmt(info.impPeakDb) + ' dBFS' + (info.impPeakDb > -1 ? '（上限超過）' : '')]);
+  if (LA !== null) rows.push(['暗騒音のデジタル出力（実効値）', fmt(info.bgRmsDb) + ' dBFS']);
+  rows.push(['出力レベル（全条件共通）', sgn(S.level) + ' dB']);
+  rows.push(['音量の基準', cal ? (S.level === 0 ? '校正済み：モデル dB ≒ 受聴位置の dB' : '校正値から ' + sgn(S.level) + ' dB ずらして再生') : '未校正：モデル上の ' + (K_REF - S.level) + ' dB が 0 dBFS']);
+  nums.innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+  let h = '<thead><tr><th>帯域 Hz</th>' + bands.map(b => '<th>' + b.label + (b.add ? '*' : '') + '</th>').join('') + '</tr></thead><tbody>';
+  if (imp) h += '<tr><td>衝撃音 L<sub>Fmax</sub></td>' + imp.map(v => '<td>' + fmt(v, 0) + '</td>').join('') + '</tr>';
+  if (bgb) h += '<tr><td>暗騒音 L<sub>eq</sub></td>' + bgb.map(v => '<td>' + fmt(v, 0) + '</td>').join('') + '</tr>';
+  if (imp && bgb) h += '<tr><td>差</td>' + imp.map((v, b) => '<td>' + sgn(v - bgb[b]) + '</td>').join('') + '</tr>';
+  el('lh-ro-table').innerHTML = h + '</tbody>' + (bands.some(b => b.add) ? '<caption class="hint" style="caption-side:bottom;text-align:left">* 評価範囲外の追加帯域（参考外挿）</caption>' : '');
+  let w = '';
+  if (!info.playable) w = info.needed === null ? 'この条件はデジタル出力の上限を超えるため再生できません。' : 'この条件を再生するには出力レベルを ' + sgn(info.needed) + ' dB 以下にします（全条件が同じだけ小さくなります）。';
+  else if (LA !== null && info.bgRmsDb < QUIET_DBFS) w = '暗騒音のデジタル出力が ' + fmt(info.bgRmsDb, 0) + ' dBFS です。16 bit 出力の量子化雑音（約 −96 dBFS）に近く、ほぼ無音になります。端末の音量を上げずに、出力レベルを上げる（大きい等級は再生不可になります）か、暗騒音の大きい列で比べてください。';
+  warn.textContent = w;
+  const mrows = [];
+  if (G !== null) mrows.push(['モデル L<sub>A,Fmax</sub>（衝撃音 1 発）', fmt(info.LAF) + ' dB']);
+  if (LA !== null) mrows.push(['モデル暗騒音 L<sub>Aeq</sub>', fmt(LA) + ' dB']);
+  if (info.dLA !== null) mrows.push(['ΔL<sub>A</sub>（上の差）', sgn(info.dLA, 1) + ' dB']);
+  mrows.push(['帯域の合わせ込み誤差（最大）', fmt(impact.err, 2) + ' dB']);
+  model.innerHTML = mrows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+}
+function drawChart(G, imp, bgb, bands){
+  const refs = G === null ? null : bands.map(b => ref50(b) + G - 50);
+  const x0 = 34, x1 = 352, yT = 22, yB = 186, lo = 0, hi = Math.max(100, Math.ceil(Math.max(...(imp || [0]), ...(refs || [0])) / 20) * 20);
+  const y = v => yB - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (yB - yT);
+  const gw = (x1 - x0) / bands.length, bw = Math.min(12, gw / 2 - 2);
+  let s = '';
+  for (let v = 0; v <= hi; v += 20){
+    s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + y(v) + '" y2="' + y(v) + '"/>';
+    s += '<text x="' + (x0 - 5) + '" y="' + (y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  }
+  s += '<text x="' + (x0 - 5) + '" y="12" text-anchor="end">dB</text>';
+  bands.forEach((b, j) => {
+    const cx = x0 + gw * (j + 0.5);
+    if (imp) s += '<rect class="bar-imp" x="' + (cx - bw - 0.5) + '" y="' + y(imp[j]) + '" width="' + bw + '" height="' + (yB - y(imp[j])) + '"><title>衝撃音 ' + b.label + ' Hz ' + imp[j].toFixed(1) + ' dB</title></rect>';
+    if (bgb) s += '<rect class="bar-bg" x="' + (cx + 0.5) + '" y="' + y(bgb[j]) + '" width="' + bw + '" height="' + (yB - y(bgb[j])) + '"><title>暗騒音 ' + b.label + ' Hz ' + bgb[j].toFixed(1) + ' dB</title></rect>';
+    s += '<text x="' + cx + '" y="' + (yB + 14) + '" text-anchor="middle">' + b.label + (b.add ? '*' : '') + '</text>';
+    if (refs && j > 0){
+      const px = x0 + gw * (j - 0.5), dash = (b.add || bands[j - 1].add) ? ' dash' : '';
+      s += '<line class="curve' + dash + '" x1="' + px + '" y1="' + y(refs[j - 1]) + '" x2="' + cx + '" y2="' + y(refs[j]) + '"/>';
+    }
+    if (refs) s += '<circle class="dot" cx="' + cx + '" cy="' + y(refs[j]) + '" r="2.2"/>';
+  });
+  s += '<line class="curve" x1="40" x2="60" y1="10.5" y2="10.5"/><text x="64" y="14">' + (S.mode === 'custom' ? '指定値の線' : '基準曲線') + '</text>';
+  s += '<rect class="bar-imp" x="150" y="6" width="9" height="9"/><text x="163" y="14">衝撃音 L_Fmax</text>';
+  s += '<rect class="bar-bg" x="246" y="6" width="9" height="9"/><text x="259" y="14">暗騒音 L_eq</text>';
+  el('lh-ro-chart').innerHTML = s;
+}
+/** Set a field's value unless the user is typing in it (never overwrite text that is being edited). */
+function setVal(input, v){ if (document.activeElement !== input){ input.value = v; input.removeAttribute('aria-invalid'); } }
+function buildCurveTable(){
+  let h = '<thead><tr><th>帯域 Hz</th><th>LH-50 基準値 dB</th><th>オフセット dB</th><th>LH-65 換算</th></tr></thead><tbody>';
+  for (const b of BANDS){
+    h += '<tr><td>' + b.label + (b.add ? '（追加・参考外挿）' : '') + '</td>' +
+      '<td><input type="number" id="lh-cv' + b.i + '" min="0" max="140" step="1" inputmode="decimal" aria-label="' + b.label + ' Hz の LH-50 基準値"></td>' +
+      '<td><input type="number" id="lh-of' + b.i + '" min="-60" max="0" step="1" inputmode="decimal" aria-label="' + b.label + ' Hz のオフセット"></td>' +
+      '<td id="lh-r65-' + b.i + '"></td></tr>';
+  }
+  el('lh-tbl-curve').innerHTML = h + '</tbody>';
+  const msg = el('lh-curve-msg');
+  for (const b of BANDS){
+    App.bindNumber(el('lh-cv' + b.i), { min: 0, max: 140, label: b.label + ' Hz の基準値', msg, get: () => S.ref50[b.label],
+      set: v => { S.ref50[b.label] = v; save(); el('lh-r65-' + b.i).textContent = fmt(v + 15, 0); requestRebuild(TYPING_MS); } });
+    App.bindNumber(el('lh-of' + b.i), { min: -60, max: 0, label: b.label + ' Hz のオフセット', msg, get: () => S.off[b.label],
+      set: v => { S.off[b.label] = v; save(); requestRebuild(TYPING_MS); } });
+  }
+}
+function updateCurveTable(){
+  for (const b of BANDS){
+    const cv = el('lh-cv' + b.i), of = el('lh-of' + b.i);
+    setVal(cv, S.ref50[b.label]); setVal(of, S.off[b.label]);
+    cv.disabled = of.disabled = S.mode === 'custom';
+    el('lh-r65-' + b.i).textContent = fmt(S.ref50[b.label] + 15, 0);
+  }
+  if (S.mode === 'custom') say('lh-curve-msg', '「指定値」の条件では、この表は使いません。');
+  else if (el('lh-curve-msg').textContent.indexOf('この表は使いません') >= 0) say('lh-curve-msg', '');
+}
+function buildCalTable(){
+  let h = '<thead><tr><th>帯域 Hz</th><th>信号</th><th>測定 L<sub>eq</sub> dB</th><th>K dB</th></tr></thead><tbody>';
+  for (const b of BANDS){
+    h += '<tr><td>' + b.label + '</td><td><button type="button" class="btn" data-cal="' + b.i + '" aria-pressed="false">再生</button></td>' +
+      '<td><input type="number" step="0.1" min="0" max="140" inputmode="decimal" id="lh-cal' + b.i + '" aria-label="' + b.label + ' Hz の測定値"></td>' +
+      '<td id="lh-k' + b.i + '"></td></tr>';
+  }
+  el('lh-tbl-cal').innerHTML = h + '</tbody>';
+}
+function updateCalButtons(){
+  document.querySelectorAll('#lh-tbl-cal button[data-cal]').forEach(b => {
+    const on = !!V.cal && V.cal.i === Number(b.dataset.cal);
+    b.textContent = on ? '停止' : '再生'; b.setAttribute('aria-pressed', String(on));
+  });
+}
+function updateCal(){
+  const K = calKAll(), any = calibrated();
+  for (const b of BANDS){
+    const v = S.cal[b.label];
+    setVal(el('lh-cal' + b.i), isNum(v) ? v : '');
+    el('lh-k' + b.i).textContent = K[b.i].toFixed(1) + (!isNum(v) && any ? '（補間）' : '');
+  }
+  updateCalButtons();
+  const n = BANDS.filter(b => isNum(S.cal[b.label])).length;
+  el('lh-chip-cal').textContent = n ? '　校正値あり（' + n + ' 帯域）' : '　未校正';
+}
+function sourceStatus(){
+  const st = el('lh-src-status');
+  st.classList.remove('err');
+  if (buildError){ st.classList.add('err'); st.textContent = buildError; return; }
+  const bad = impact && !(impact.err <= 0.25);
+  const e = impact ? '、合わせ込み誤差 ' + fmt(impact.err, 2) + ' dB' + (bad ? '：目標の帯域レベルに合わせられないため、衝撃音は再生しません' : '') : '';
+  st.classList.toggle('err', !!bad);
+  st.textContent = (source === 'wav' && wav) ? '録音：' + wav.name + '（' + wav.dur.toFixed(2) + ' s を使用' + e + '）' : '合成音（T = ' + S.T + ' s' + e + '）';
+}
+function syncInputs(){
+  document.querySelectorAll('#lh-seg-mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  document.querySelectorAll('#lh-add input[data-add]').forEach(c => { c.checked = !!S.add[c.dataset.add]; });
+  for (let i = 0; i < 4; i++) setVal(el('lh-c' + i), S.custom4[i]);
+  el('lh-bgband').value = S.bgBand;
+  document.querySelectorAll('#lh-seg-pattern button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === S.pattern)));
+  el('lh-nums').checked = S.nums;
+  setVal(el('lh-T'), S.T); el('lh-T').disabled = source === 'wav';
+  el('lh-slope').value = String(S.slope);
+  el('lh-src-synth').checked = source === 'synth'; el('lh-src-wav').checked = source === 'wav'; el('lh-src-wav').disabled = !wav;
+}
+function renderAll(){
+  syncInputs(); renderBandLine(); renderMatrix(); renderReadout(); renderRangeLine(); updateCurveTable(); updateCal(); sourceStatus(); renderTransport();
+}
+
+/* ---------- actions ---------- */
+function showOver(G, LA){
+  const box = el('lh-over'), need = neededLevel(G, LA);
+  box.textContent = '';
+  const t = document.createElement('span');
+  t.textContent = cellName(G, LA) + ' は、いまの出力レベル（' + sgn(S.level) + ' dB）ではデジタル出力の上限を超えるため再生しません。';
+  box.appendChild(t);
+  if (need === null){ t.textContent += 'この条件は最小の出力レベルでも上限を超えます。'; return; }
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn'; b.id = 'lh-over-btn';
+  b.textContent = '出力レベルを ' + sgn(need) + ' dB に下げて再生（全条件が ' + (S.level - need) + ' dB 小さくなります）';
+  b.addEventListener('click', () => { setLevel(need); play(G, LA); });
+  box.appendChild(document.createTextNode(' ')); box.appendChild(b);
+}
+function select(G, LA){
+  selected = { G, LA };
+  document.querySelectorAll('#lh-matrix .cell').forEach(c => { const on = c.dataset.key === keyOf(G, LA); c.classList.toggle('sel', on); c.tabIndex = on ? 0 : -1; if (c.dataset.key) c.setAttribute('aria-pressed', String(on)); });
+  renderReadout(); renderTransport();
+}
+function playSelected(){
+  App.audio.ensureRunning();        // resume inside the user gesture (needed on iOS when playback starts after a rebuild)
+  if (dirty){ requestRebuild(0, true); return; }
+  play(selected.G, selected.LA);
+}
+function setMode(mode){
+  if (mode === S.mode) return;
+  S.mode = mode;
+  if (mode === 'custom'){ source = 'synth'; selected = { G: 65, LA: selected.LA }; }
+  else if (S.add['16'] && S.T < 0.5) S.T = 0.5;
+  if (!GRADES.includes(selected.G) && selected.G !== null) selected.G = 50;
+  save(); reextractWav(); requestRebuild(60); renderBandLine(); syncInputs();
+}
+function reextractWav(){
+  if (wav && wav.originalBuffer && S.mode !== 'custom'){
+    try { wav = extractImpact(wav.originalBuffer, wav.name); }
+    catch (e) { wav = null; source = 'synth'; say('lh-over', '録音をこの帯域で使えないため、合成音に戻しました：' + (e && e.message ? e.message : '')); }
+  }
+}
+function extractImpact(ab, name){
+  const sr = ab.sampleRate, x = ab.getChannelData(0), bands = activeBands();
+  if (sr !== App.audio.fs) throw new Error('サンプリング周波数が再生側と一致しません（' + sr + ' Hz）。');
+  if (x.length < sr * 0.3) throw new Error('録音が短すぎます（0.3 s 以上必要）。');
+  const fLo = bands[0].fc, fHi = bands[bands.length - 1].fc;
+  const pre = D.butterHP(Math.max(8, fLo / Math.sqrt(G10)), sr, 2).concat(D.butterLP(Math.min(sr * 0.45, fHi * Math.sqrt(G10)), sr, 2));
+  const y = D.sosFilter(x, pre);
+  let best = 0, idx = 0;
+  for (let n = 0; n < y.length; n++){ const a = Math.abs(y[n]); if (a > best){ best = a; idx = n; } }
+  if (!(best > 0) || !Number.isFinite(best)) throw new Error('信号が入っていません。');
+  const i0 = Math.max(0, idx - Math.round(0.08 * sr)), len = Math.min(x.length - i0, Math.round(3 * sr));
+  const seg = new Float64Array(len);
+  const nIn = Math.round(0.005 * sr), nOut = Math.min(Math.round(0.3 * sr), Math.floor(len / 3));
+  for (let n = 0; n < len; n++){
+    let e = 1;
+    if (n < nIn) e = 0.5 - 0.5 * Math.cos(Math.PI * n / nIn);
+    if (n > len - nOut) e *= 0.5 - 0.5 * Math.cos(Math.PI * (len - n) / nOut);
+    seg[n] = x[i0 + n] * e;
+  }
+  const pad = Math.round(0.3 * sr);
+  const out = bands.map(b => {
+    const z = D.filtfilt(seg, bandSOS(b, sr), b.fc < 50 ? Math.round(sr) : pad);
+    if (b.fc < 50){ const edge = Math.min(Math.round(sr * 0.2), Math.floor(z.length / 3)); for (let n = 0; n < edge; n++){ const w = 0.5 - 0.5 * Math.cos(Math.PI * n / edge); z[n] *= w; z[z.length - 1 - n] *= w; } }
+    return z;
+  });
+  return { name, bands: out, dur: len / sr, originalBuffer: ab, channels: ab.numberOfChannels };
+}
+let wavToken = 0;
+async function loadWav(file){
+  const st = el('lh-src-status'), token = ++wavToken;
+  st.classList.remove('err'); st.textContent = '読み込み中…';
+  try {
+    if (file.size > 200 * 1024 * 1024) throw new Error('200 MB 以下のファイルを選んでください。');
+    const ctx = App.audio.create();
+    if (!ctx) throw new Error('このブラウザは Web Audio に対応していません。');
+    const arr = await file.arrayBuffer();
+    const ab = await new Promise((res, rej) => { const p = ctx.decodeAudioData(arr, res, rej); if (p && typeof p.then === 'function') p.then(res, rej); });
+    if (token !== wavToken) return;                         // a newer file was chosen meanwhile
+    if (S.mode === 'custom'){ S.mode = 'grade'; save(); }
+    wav = extractImpact(ab, file.name);
+    source = 'wav';
+    requestRebuild(0);
+  } catch (err){
+    if (token !== wavToken) return;
+    st.classList.add('err');
+    st.textContent = '読み込めませんでした（音源は変更していません）：' + (err && err.message ? err.message : '音声ファイルとして解釈できません。');
+  }
+}
+
+/* ---------- events ---------- */
+function bind(){
+  el('lh-seg-mode').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
+  el('lh-add').addEventListener('change', e => {
+    const c = e.target.closest('input[data-add]'); if (!c) return;
+    S.add[c.dataset.add] = c.checked;
+    let note = '';
+    if (S.add['16'] && S.T < 0.5){ S.T = 0.5; note = '16 Hz を含むため、減衰時間 T を 0.5 s に変更しました。'; }
+    save(); reextractWav(); renderBandLine(); requestRebuild(60); say('lh-over', note);
+  });
+  for (let i = 0; i < 4; i++){
+    App.bindNumber(el('lh-c' + i), { min: 0, max: 140, label: BANDS[i + 2].label + ' Hz の指定値', msg: el('lh-custom-msg'), get: () => S.custom4[i],
+      set: v => { S.custom4[i] = v; save(); requestRebuild(TYPING_MS); } });
+  }
+  el('lh-bgband').addEventListener('change', e => { S.bgBand = e.target.value === 'b4' ? 'b4' : 'wide'; save(); renderBandLine(); requestRebuild(60); });
+  el('lh-seg-pattern').addEventListener('click', e => {
+    const b = e.target.closest('button[data-p]'); if (!b || !PATTERNS.includes(b.dataset.p)) return;
+    stopAll(); S.pattern = b.dataset.p; save(); syncInputs(); renderMatrix(); renderReadout(); renderRangeLine(); renderTransport();
+  });
+  el('lh-nums').addEventListener('change', e => { S.nums = e.target.checked; save(); renderMatrix(); });
+  const m = el('lh-matrix');
+  m.addEventListener('click', e => {
+    const c = e.target.closest('.cell'); if (!c || !c.dataset.key) return;
+    select(c.dataset.g === '' ? null : Number(c.dataset.g), c.dataset.la === '' ? null : Number(c.dataset.la));
+    playSelected();
+  });
+  m.addEventListener('keydown', e => {
+    const d = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+    if (!d) return;
+    const rows = GRADES.concat([null]);
+    let r = rows.indexOf(selected.G), c = BG_LEVELS.indexOf(selected.LA);
+    const nr = Math.min(rows.length - 1, Math.max(0, r + d[0])), nc = Math.min(BG_LEVELS.length - 1, Math.max(0, c + d[1]));
+    if (rows[nr] === null && BG_LEVELS[nc] === null) return;
+    e.preventDefault();
+    select(rows[nr], BG_LEVELS[nc]);
+    const t = cellEl(rows[nr], BG_LEVELS[nc]); if (t) t.focus();
+  });
+  el('lh-play').addEventListener('click', playSelected);
+  el('lh-stop').addEventListener('click', stopAll);
+  el('lh-level-down').addEventListener('click', () => setLevel(S.level - LEVEL_STEP));
+  el('lh-level-up').addEventListener('click', () => setLevel(S.level + LEVEL_STEP));
+  App.bindNumber(el('lh-T'), { min: 0.2, max: 2, label: '減衰時間 T', msg: el('lh-src-status'), get: () => S.T,
+    set: v => { if (S.mode === 'grade' && S.add['16'] && v < 0.5){ el('lh-T').setAttribute('aria-invalid', 'true'); say('lh-src-status', '16 Hz を含むときは T を 0.5 s 以上にしてください（まだ反映していません）。'); return; } S.T = v; save(); requestRebuild(TYPING_MS); } });
+  el('lh-slope').addEventListener('change', e => { const v = Number(e.target.value); if ([-3, -5, -8].includes(v)){ S.slope = v; save(); requestRebuild(60); } });
+  el('lh-curve-reset').addEventListener('click', () => { const d = defaults(); S.ref50 = d.ref50; S.off = d.off; save(); requestRebuild(60); });
+  const cal = el('lh-tbl-cal');
+  cal.addEventListener('click', e => { const b = e.target.closest('button[data-cal]'); if (b) playCal(Number(b.dataset.cal)); });
+  cal.addEventListener('input', e => {
+    const mm = /^lh-cal(\d)$/.exec(e.target.id || ''); if (!mm) return;
+    const b = BANDS[Number(mm[1])], raw = e.target.value.trim(), v = Number(raw);
+    if (raw === ''){ delete S.cal[b.label]; e.target.removeAttribute('aria-invalid'); say('lh-cal-msg', ''); }
+    else if (!Number.isFinite(v) || v < 0 || v > 140){ e.target.setAttribute('aria-invalid', 'true'); say('lh-cal-msg', b.label + ' Hz：0〜140 の数値を入力してください（まだ反映していません）。'); return; }
+    else { S.cal[b.label] = v; e.target.removeAttribute('aria-invalid'); say('lh-cal-msg', ''); }
+    save(); requestRebuild(TYPING_MS);
+  });
+  cal.addEventListener('change', e => {
+    const mm = /^lh-cal(\d)$/.exec(e.target.id || ''); if (!mm || e.target.getAttribute('aria-invalid') !== 'true') return;
+    const b = BANDS[Number(mm[1])];
+    e.target.value = isNum(S.cal[b.label]) ? S.cal[b.label] : ''; e.target.removeAttribute('aria-invalid');
+    say('lh-cal-msg', b.label + ' Hz：範囲外だったため、元の値に戻しました。');
+  });
+  el('lh-cal-clear').addEventListener('click', () => { S.cal = {}; save(); requestRebuild(60); });
+  document.querySelectorAll('input[name="lh-src"]').forEach(r => r.addEventListener('change', e => {
+    source = (e.target.value === 'wav' && wav) ? 'wav' : 'synth';
+    requestRebuild(60);
+  }));
+  el('lh-wav').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadWav(f); });
+}
+
+let started = false;
+return {
+  init(){ S = loadSettings(); buildCurveTable(); buildCalTable(); bind(); syncInputs(); renderBandLine(); renderMatrix(); updateCurveTable(); updateCal(); renderTransport(); },
+  show(){
+    if (!started || dirty){ started = true; rebuildNow(); }
+  },
+  stop(){ stopAll(); },
+  /* test / inspection hooks (real objects, no stand-ins) */
+  get S(){ return S; }, get impact(){ return impact; }, get bg(){ return bg; }, get playing(){ return playing; }, get dirty(){ return dirty; },
+  get selected(){ return selected; }, get voices(){ return { imps: V.imps.length, bg: !!V.bg, cal: !!V.cal }; }, get buildError(){ return buildError; }, get graph(){ return getGraph(); },
+  BANDS, REF65, GRADES, BG_LEVELS, K_REF, CEIL, RUN_INTERVAL, TRIPLE_OFFSETS, KEY,
+  activeBands, calKAll, cellPeak, cellInfo, maxLevelFor, neededLevel, playable, play, playCal, stopAll, setLevel, select, rebuildNow, requestRebuild,
+  runTick, sanitize, migrate, defaults, extractImpact, synthBands, fitBands, buildCalNoise
+};
+})());
+
+</script>
+
+<script>
+App.start();
+</script>
+</body>
+</html>

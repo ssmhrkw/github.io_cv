@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>遮音の聴き比べ（Dr／Rr・TL）</title>
+<meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
+<meta name="app-version" content="2.0.0">
+<style>
+/* Colours follow NIPPON COLORS (https://nipponcolors.com): 白練 #FCFAF2, 胡粉 #FFFFFB, 墨 #1C1C1C, 黒 #080808, 呂 #0C0C0C,
+   消炭 #434343, 藍墨茶 #373C38, 白鼠 #BDC0BA, 銀鼠 #91989F, 藍 #0D5661, 浅葱 #33A6B8, 白群 #78C2C4, 山吹 #FFB11B. */
+:root{
+  color-scheme:light;
+  --bg:#FCFAF2; --surface:#FFFFFB; --ink:#1C1C1C; --muted:#434343; --line:#BDC0BA; --ctl:#434343;
+  --accent:#0D5661; --fill:#0D5661; --on-fill:#FFFFFB; --warn:#8A4B00; --warn-bg:#FFF1DB;
+  --font-ui:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo","Noto Sans JP",system-ui,sans-serif;
+  --font-num:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#1C1C1C; --surface:#373C38; --ink:#FFFFFB; --muted:#BDC0BA; --line:#91989F; --ctl:#BDC0BA;
+  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+}
+:root[data-theme="black"]{
+  color-scheme:dark;
+  --bg:#080808; --surface:#0C0C0C; --ink:#FFFFFB; --muted:#BDC0BA; --line:#434343; --ctl:#91989F;
+  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.6;
+  padding:16px max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:14px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-size:1.4rem;letter-spacing:.02em}
+h2{font-size:1.02rem;display:flex;align-items:center;gap:.5rem}
+p{margin:.35rem 0}
+a{color:var(--accent)}
+sub{font-size:.72em}
+[hidden]{display:none !important}
+.num,output{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--surface);padding:6px 10px;z-index:20}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
+.lead{color:var(--muted);max-width:68ch;font-size:.9rem}
+.hint{font-size:.8rem;color:var(--muted);max-width:78ch}
+.notice{font-size:.84rem;background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:6px;padding:.5rem .75rem;margin:0}
+.notice b{color:var(--warn)}
+.err{color:var(--warn);font-weight:700}
+
+/* controls */
+button,select,input{font:inherit;color:var(--ink)}
+.btn,.seg button,.tabs button,.stepper button{border:1px solid var(--ctl);background:var(--surface);color:var(--ink);cursor:pointer;touch-action:manipulation;min-height:38px}
+.btn{border-radius:999px;padding:.4rem .95rem;font-size:.9rem}
+.btn.primary{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+.btn.stop{font-weight:700}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.seg{display:inline-flex;flex-wrap:wrap;border-radius:12px;overflow:hidden;border:1px solid var(--ctl);background:var(--surface)}
+.seg button{border:0;border-radius:0;padding:.4rem .85rem;font-size:.88rem}
+.seg button + button{border-left:1px solid var(--ctl)}
+.seg button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);font-weight:700}
+:is(button,select,input,summary,a,[tabindex]):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type="number"],select{background:var(--bg);border:1px solid var(--ctl);border-radius:6px;padding:.3rem .45rem;font-size:.9rem;min-height:36px}
+input[type="number"]{font-family:var(--font-num);width:5.4rem}
+select{max-width:100%;min-width:0;text-overflow:ellipsis}
+.row > select{flex:0 1 auto}
+input[aria-invalid="true"]{border-color:var(--warn);outline:2px solid var(--warn);outline-offset:1px}
+input[type="file"]{font-size:.84rem;max-width:100%}
+input[type="checkbox"],input[type="radio"]{width:1.15rem;height:1.15rem;accent-color:var(--fill)}
+.check{display:inline-flex;gap:.4rem;align-items:center;font-size:.9rem;min-height:36px}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:.5rem 0;border:0;padding:0;min-width:0}
+.lbl{font-size:.84rem;color:var(--muted);min-width:7.2em;padding:0}
+.chipfix{font-family:var(--font-num);font-size:.84rem;border:1px solid var(--line);border-radius:6px;padding:.1rem .45rem;background:var(--bg)}
+.msg{font-size:.84rem;min-height:1.2em;margin:.25rem 0}
+
+/* tabs */
+.tabs{display:flex;gap:6px;border-bottom:2px solid var(--ctl)}
+.tabs button{border-radius:10px 10px 0 0;border-bottom:0;padding:.55rem 1rem;font-size:.95rem;margin-bottom:-2px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+
+/* layout */
+.grid2{display:grid;gap:14px;grid-template-columns:minmax(0,1fr);align-items:start}
+@media (min-width:980px){.grid2{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}}
+.col{display:grid;gap:14px;min-width:0}
+.card,details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+details{padding:0 16px}
+details[open]{padding-bottom:12px}
+summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem}
+details p,details li{font-size:.85rem}
+details ol,details ul{margin:.4rem 0;padding-left:1.3rem}
+.step{display:inline-grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--fill);color:var(--on-fill);font-family:var(--font-num);font-size:.85rem;flex:none}
+.bandline{font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:.45rem .65rem;background:var(--bg);margin:.6rem 0 .3rem}
+.bandline b{font-weight:700}
+.bandline span{display:block}
+
+/* LH matrix: always fits the width (no horizontal scrolling) */
+.matrix{display:grid;grid-template-columns:minmax(3.4rem,auto) repeat(7,minmax(0,1fr));gap:3px;margin-top:.5rem}
+.mrow{display:contents}
+.mh{font-size:.74rem;color:var(--muted);display:flex;flex-direction:column;justify-content:center;line-height:1.25;padding:2px 3px;min-width:0}
+.mh b{color:var(--ink);font-size:.86rem;font-family:var(--font-num)}
+.mh.col{align-items:center;text-align:center}
+.mh.span{grid-column:2 / -1;align-items:center;font-size:.8rem;border-bottom:1px solid var(--line);padding-bottom:3px}
+.mh.sep,.cell.sep{margin-top:6px}
+.cell{min-height:40px;min-width:0;border:1px solid var(--ctl);border-radius:7px;background:var(--surface);color:var(--ink);cursor:pointer;
+  font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:.84rem;padding:2px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.cell.sel{outline:2px solid var(--ink);outline-offset:1px}
+.cell.playing{outline:3px solid var(--accent);outline-offset:1px;font-weight:700}
+.cell.playing::after{content:"";position:absolute;right:4px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--ink);animation:pulse 1s ease-in-out infinite}
+.cell.over{cursor:not-allowed;color:var(--muted);border-style:dashed;
+  background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--muted) 22%,transparent) 5px 6px),var(--bg)}
+.cell.blank{visibility:hidden}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cell.playing::after,.dot.on{animation:none}}
+@media (max-width:520px){.cell{font-size:.74rem;min-height:42px}.mh b{font-size:.78rem}.card,details{padding-left:11px;padding-right:11px}}
+
+/* readout */
+.ro-title{font-size:1.1rem;font-weight:700}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart text{fill:var(--muted);font-family:var(--font-num);font-size:10px}
+.chart .bar-imp{fill:var(--fill)}
+.chart .bar-bg{fill:var(--muted);opacity:.55}
+.chart .curve{stroke:var(--ink);stroke-width:1.5;fill:none}
+.chart .curve.dash{stroke-dasharray:5 4}
+.chart .dot{fill:var(--ink)}
+.chart .zone{fill:var(--fill);opacity:.1}
+.nums{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;margin:.4rem 0;font-size:.86rem}
+.nums dt{color:var(--muted)}
+.nums dd{margin:0;text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:.8rem}
+table.t th,table.t td{padding:3px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left;color:var(--muted);font-weight:400}
+table.t td{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+table.t input[type="number"]{width:4.6rem}
+table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
+.formula{font-family:var(--font-num);font-size:.8rem;background:var(--bg);border-radius:6px;padding:.4rem .55rem;overflow-x:auto;white-space:nowrap}
+.big{font-size:1.05rem;font-weight:700;margin:.3rem 0}
+.bands{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin:.5rem 0}
+.bands label{display:grid;gap:2px;font-size:.8rem;color:var(--muted)}
+.bands input{width:100%}
+.bands label.outside{border-top:3px dashed var(--ctl);padding-top:3px}
+.cmp{display:flex;flex-wrap:wrap;gap:6px;margin:.5rem 0}
+.cmp button{flex:1 1 5.2rem;border-radius:10px;padding:.45rem .4rem;font-size:.86rem;line-height:1.25}
+.cmp button small{display:block;font-size:.72rem;opacity:.85;font-weight:400}
+.cmp button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+.cmp .dry{flex-basis:100%}
+
+/* sticky transport: state, level and stop are always visible */
+.transport{position:sticky;bottom:0;z-index:10;margin-top:14px;background:var(--surface);border:2px solid var(--ctl);border-bottom:0;border-radius:14px 14px 0 0;
+  padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;box-shadow:0 -4px 14px rgba(0,0,0,.18)}
+.tp-state{display:flex;gap:.55rem;align-items:center;min-width:0;flex:1 1 15rem}
+.dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);flex:none}
+.dot.on{background:var(--accent);border-color:var(--accent);animation:pulse 1s ease-in-out infinite}
+.tp-kicker{font-size:.72rem;color:var(--muted);letter-spacing:.06em}
+.tp-kicker.on{color:var(--accent);font-weight:700}
+.tp-title{font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper .tp-lbl{font-size:.78rem;color:var(--muted);line-height:1.2}
+.stepper .tp-lbl small{display:block;font-size:.68rem}
+.stepper button{width:40px;height:40px;border-radius:50%;font-size:1.15rem;font-weight:700;line-height:1}
+.stepper output{min-width:4.4rem;text-align:center;font-weight:700}
+.tp-btns{display:flex;gap:8px}
+.busy{position:fixed;right:14px;top:14px;z-index:30;background:var(--ink);color:var(--bg);font-size:.82rem;padding:.4rem .8rem;border-radius:999px}
+footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
+
+@media (max-width:600px){
+  body{font-size:14.5px;padding-top:10px}
+  .tabs button{padding:.45rem .6rem;font-size:.86rem}
+  .transport{gap:6px 10px;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px))}
+  .tp-state{order:1;flex:1 1 7rem}
+  .tp-btns{order:2;gap:6px}
+  .tp-btns .btn{padding:.35rem .7rem}
+  .tp-btns .long{display:none}
+  .stepper{order:3;flex:1 1 100%;justify-content:flex-end}
+  .stepper .tp-lbl{margin-right:auto}
+  .stepper .tp-lbl small{display:inline;margin-left:.4em}
+  .stepper button{width:36px;height:36px}
+  .tp-title{font-size:.88rem}
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">本文へ移動</a>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>壁の遮音の聴き比べ（Dr／Rr・TL）</h1>
+      <p class="lead">等級曲線や入力値どおりに整形した音を、同じ条件で切り替えて比べる参考試聴です。音声の生成・読み込み・処理はすべてこのブラウザ内で行い、外部へ送信しません。</p>
+    </div>
+    <div>
+      <div class="seg" id="seg-theme" role="group" aria-label="配色">
+        <button type="button" data-theme="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme="black" aria-pressed="false">Black</button>
+      </div>
+      <div class="hint">配色：<a href="https://nipponcolors.com/" target="_blank" rel="noopener noreferrer">NIPPON COLORS</a>（白練・墨・黒 ほか）</div>
+    </div>
+  </header>
+
+  
+
+  <p class="notice" id="app-error" role="alert" hidden></p>
+  <p class="notice"><b>はじめに：</b>端末の音量を小さくしてから始めてください。画面の dB はモデル上の計算値で、耳元の音圧（dB SPL）ではありません。添付プレビューで音が出ないときは、この HTML を保存して Safari／Chrome で開いてください。</p>
+
+  <main id="main">
+  <!-- ======================= TL ======================= -->
+  <section id="panel-tl" role="region" aria-label="壁の遮音の聴き比べ（Dr／Rr・TL）" hidden>
+    <div class="grid2">
+      <div class="col">
+        <section class="card" aria-labelledby="tl-h-1">
+          <h2 id="tl-h-1"><span class="step">1</span>音源を用意する</h2>
+          <div class="row">
+            <button type="button" class="btn" id="tl-noise">ピンクノイズを使う</button>
+            <label class="check" for="tl-file">手元の音声ファイル</label>
+            <input type="file" id="tl-file" accept="audio/*">
+          </div>
+          <p class="msg" id="tl-src-info" role="status"></p>
+          <p class="hint">ファイルはこのブラウザ内でだけ処理します。読み込み時に、先頭 30 秒まで・モノラル化（全チャンネルの平均）・ピークを −12 dBFS へ一度だけ正規化します。録音の元の絶対レベルは引き継ぎません。条件ごとの音量正規化はしません。</p>
+        </section>
+
+        <section class="card" aria-labelledby="tl-h-2">
+          <h2 id="tl-h-2"><span class="step">2</span>壁の遮音条件を決める</h2>
+          <div class="row">
+            <span class="lbl">条件の種類</span>
+            <div class="seg" id="tl-seg-mode" role="group" aria-label="条件の種類">
+              <button type="button" data-mode="ref" aria-pressed="true">Dr／Rr 等級の基準曲線</button>
+              <button type="button" data-mode="custom" aria-pressed="false">帯域別の値を入力（TL 実測値など）</button>
+            </div>
+          </div>
+          <div class="row" id="tl-grade-row">
+            <label class="lbl" for="tl-grade">等級</label>
+            <select id="tl-grade"></select>
+            <span class="hint">等級 50 の基準点：125 Hz = 35、500 Hz = 50、2 kHz = 60 dB（間は対数周波数軸で補間）</span>
+          </div>
+          <div class="row">
+            <label class="lbl" for="tl-range">鳴らす帯域</label>
+            <select id="tl-range">
+              <option value="125,2000">125 Hz〜2 kHz（基準曲線の定義範囲・外挿なし）</option>
+              <option value="125,4000">125 Hz〜4 kHz（2 kHz 超は水平延長・参考外挿）</option>
+              <option value="63,8000">63 Hz〜8 kHz（低域は傾きを延長・参考外挿）</option>
+              <option value="31.5,8000">31.5 Hz〜8 kHz（参考外挿）</option>
+              <option value="16,8000">16 Hz〜8 kHz（参考外挿）</option>
+            </select>
+          </div>
+          <div class="bands" id="tl-bands" role="group" aria-label="帯域別の減衰量 dB"></div>
+          <div class="row" id="tl-fill-row" hidden><button type="button" class="btn" id="tl-fill">基準曲線の値を入力欄に写す</button></div>
+          <p class="msg" id="tl-band-msg" role="status"></p>
+          <svg class="chart" id="tl-chart" viewBox="0 0 520 220" role="img" aria-label="適用する減衰量の曲線"></svg>
+          <p class="hint" id="tl-curve-note"></p>
+          <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
+          <details id="tl-d-room">
+            <summary>室条件で換算する（任意）：D = R + 10 log<sub>10</sub>(A/S)</summary>
+            <p>入力値が部材の音響透過損失 R（TL）のとき、受音室の等価吸音面積 A と壁の面積 S から室間音圧レベル差 D の目安へ換算します。全帯域に同じ補正を加える簡易換算で、側路伝搬・隙間・A の周波数特性は含みません。使わないときは A/S = 1（D = R）として、入力値をそのまま減衰量にします。</p>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="tl-room-on"> 換算する</label>
+              <label class="check">壁の面積 S <input type="number" id="tl-room-S" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+              <label class="check">等価吸音面積 A <input type="number" id="tl-room-A" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+            </div>
+            <p class="msg" id="tl-room-out" role="status"></p>
+          </details>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="tl-h-3">
+          <h2 id="tl-h-3"><span class="step">3</span>同じ位置で切り替えて聴く</h2>
+          <p class="hint">下の「▶ 再生」で停止までループします。ボタンで条件を切り替えても再生位置は変わりません。数値が大きいほど遮音が大きく、音は小さくなります。</p>
+          <div class="cmp" id="tl-cmp" role="group" aria-label="聴く条件">
+            <button type="button" class="btn dry" data-cond="dry" aria-pressed="false">原音（壁なし）<small>選んだ帯域に制限した元の音</small></button>
+            <button type="button" class="btn" data-cond="-10" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="-5" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="0" aria-pressed="true"></button>
+            <button type="button" class="btn" data-cond="5" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="10" aria-pressed="false"></button>
+          </div>
+          <p class="big" id="tl-result" role="status">音源を用意して再生してください。</p>
+          <div class="tbl-wrap"><table class="t" id="tl-stats"></table></div>
+          <p class="hint">「低下量」は、いまの音源・帯域で、原音に対して遮音後の音が全体で何 dB 小さくなるかの計算値です（10 dB 小さいと、およそ半分の大きさに感じるのが目安）。条件ごとの自動音量調整はしていないので、聞こえる差がそのまま低下量です。</p>
+          <div class="row">
+            <label class="lbl" for="tl-pad">原音の再生レベル</label>
+            <select id="tl-pad">
+              <option value="0">実際の差のまま（0 dB）</option>
+              <option value="-10">原音だけ 10 dB 下げる</option>
+              <option value="-20">原音だけ 20 dB 下げる</option>
+              <option value="-30">原音だけ 30 dB 下げる</option>
+            </select>
+          </div>
+          <p class="hint">遮音後の音が小さくて端末の音量を上げると、原音に戻したとき大音量になります。原音への切り替えは約 1.5 秒かけて徐々に大きくします。原音を下げる設定にすると、その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
+          <p class="msg" id="tl-status" role="status"></p>
+        </section>
+
+        <details id="tl-d-method">
+          <summary>根拠・試聴モデル・参考資料</summary>
+          <p><b>基準曲線</b>：Dr（室間音圧レベル差等級）と Rr（音響透過損失等級）の基準曲線は共通ですが、評価する対象が違います。このページは曲線や入力値の数値を、振幅倍率 10<sup>−値/20</sup> としてそのまま音に掛けます。実測の空間平均値や規格の等級を保証するものではありません。</p>
+          <p><b>外挿</b>：基準曲線の定義範囲は 125 Hz〜2 kHz です。それより低い側は 500 Hz 以下と同じ 7.5 dB/oct の傾きを延長、高い側は 2 kHz の値を水平に延長した参考値で、実際の壁の性能予測ではありません（実際の壁は共鳴透過やコインシデンスで大きく変わります）。</p>
+          <p><b>TL と室間音圧レベル差</b>：R（TL）と D は同じ量ではありません。換算を使わない場合は A/S = 1 の直接透過だけを仮定しています。実際の建物では側路伝搬や隙間により、室間音圧レベル差は部材の値より 1〜2 ランク（5〜10 dB）程度下がるのが一般的とされています。</p>
+          <p><b>周波数</b>：画面の帯域名は公称中心周波数（16、31.5、63 Hz …）、計算には 1 kHz から正確に 1 オクターブずつ離れた周波数（15.625、31.25、62.5 Hz …）を使います。このため 125 Hz より下は 1 オクターブごとに正確に 7.5 dB 下がります。</p>
+          <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは 80 ms のクロスフェード、原音へは約 1.5 秒かけて上げます。</p>
+          <ul>
+            <li><a href="https://www.chiyoda-ute.co.jp/data/syaon_rank.html" target="_blank" rel="noopener noreferrer">チヨダウーテ：遮音等級 Dr・Rr と基準曲線</a></li>
+            <li><a href="https://www.jtccm.or.jp/sites/default/files/books_pdf/2008/Vol44,No6,2008.pdf#page=43" target="_blank" rel="noopener noreferrer">建材試験センター：Dr／Rr の説明（p.41）</a></li>
+            <li><a href="https://www.melcoairtec.co.jp/info/interception/index.html" target="_blank" rel="noopener noreferrer">透過損失と室間音圧レベル差の関係</a></li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
+    <div class="transport" id="tl-transport" role="region" aria-label="再生操作（遮音）">
+      <div class="tp-state">
+        <span class="dot" id="tl-dot" aria-hidden="true"></span>
+        <div><div class="tp-kicker" id="tl-state" role="status">停止中</div><div class="tp-title" id="tl-now">—</div></div>
+      </div>
+      <div class="stepper" role="group" aria-label="音量（全条件共通）">
+        <span class="tp-lbl">音量<small>全条件共通</small></span>
+        <button type="button" id="tl-vol-down" aria-label="音量を 5 dB 下げる">−</button>
+        <output id="tl-vol" aria-live="polite">−10 dB</output>
+        <button type="button" id="tl-vol-up" aria-label="音量を 5 dB 上げる">＋</button>
+      </div>
+      <div class="tp-btns">
+        <button type="button" class="btn primary" id="tl-play">▶ 再生</button>
+        <button type="button" class="btn stop" id="tl-stop">■ 停止</button>
+      </div>
+    </div>
+  </section>
+  </main>
+  <footer>v2.0.0 ・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+</div>
+<div class="busy" id="busy" role="status" hidden>計算中…</div>
+
+<script id="dsp">
+/* Shared DSP. Runs in the page, in a Worker (TL processing) and in Node (unit tests). No DOM access. */
+(function (root) {
+'use strict';
+const P0 = 2e-5;
+const G10 = Math.pow(10, 0.3);                       // IEC 61260-1:2014 base-ten octave ratio
+
+/* ---------- IIR sections ---------- */
+function d1LP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: K / a0, b1: K / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function d1HP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function rbjLP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 - c) / 2 / a0, b1: (1 - c) / a0, b2: (1 - c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function rbjHP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 + c) / 2 / a0, b1: -(1 + c) / a0, b2: (1 + c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function butterQ(n, k){ return 1 / (2 * Math.sin((2 * k + 1) * Math.PI / (2 * n))); }
+function butterLP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjLP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1LP(fc, fs)); return s; }
+function butterHP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjHP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1HP(fc, fs)); return s; }
+function sosMag(sections, fs, f){
+  const w = 2 * Math.PI * f / fs, c1 = Math.cos(w), s1 = -Math.sin(w), c2 = Math.cos(2 * w), s2 = -Math.sin(2 * w);
+  let Nr = 1, Ni = 0, Dr = 1, Di = 0;
+  for (const q of sections){
+    const nr = q.b0 + q.b1 * c1 + q.b2 * c2, ni = q.b1 * s1 + q.b2 * s2;
+    const dr = 1 + q.a1 * c1 + q.a2 * c2, di = q.a1 * s1 + q.a2 * s2;
+    let t = Nr * nr - Ni * ni; Ni = Nr * ni + Ni * nr; Nr = t;
+    t = Dr * dr - Di * di; Di = Dr * di + Di * dr; Dr = t;
+  }
+  return Math.hypot(Nr, Ni) / Math.hypot(Dr, Di);
+}
+function normalizeAt(sections, fs, f){
+  const h = sosMag(sections, fs, f);
+  if (!(h > 0)) return sections;
+  const g = Math.pow(1 / h, 1 / sections.length);
+  for (const q of sections){ q.b0 *= g; q.b1 *= g; q.b2 *= g; }
+  return sections;
+}
+/** Octave band-pass: Butterworth HP(f1) x LP(f2), order n each; edges fc*G^(-1/2), fc*G^(1/2). */
+const BP_ORDER = 36;
+function bandpassSOS(fc, fs, n){
+  n = n || BP_ORDER;
+  const g = Math.sqrt(G10);
+  return normalizeAt(butterHP(fc / g, fs, n).concat(butterLP(fc * g, fs, n)), fs, fc);
+}
+/** A-weighting (IEC 61672-1:2013 Annex E poles), pre-warped bilinear first-order sections, 0 dB at 1 kHz. */
+function aWeightSOS(fs){
+  const f1 = 20.598997, f2 = 107.65265, f3 = 737.86223, f4 = 12194.217;
+  const s = [d1HP(f1, fs), d1HP(f1, fs), d1HP(f2, fs), d1HP(f3, fs), d1LP(Math.min(f4, 0.45 * fs), fs), d1LP(Math.min(f4, 0.45 * fs), fs)];
+  return normalizeAt(s, fs, 1000);
+}
+function sosFilter(x, sections){
+  const y = Float64Array.from(x);
+  for (const q of sections){
+    let s1 = 0, s2 = 0;
+    const b0 = q.b0, b1 = q.b1, b2 = q.b2, a1 = q.a1, a2 = q.a2;
+    for (let n = 0; n < y.length; n++){
+      const w = y[n] - a1 * s1 - a2 * s2;
+      y[n] = b0 * w + b1 * s1 + b2 * s2;
+      s2 = s1; s1 = w;
+    }
+  }
+  return y;
+}
+function reverseInPlace(a){ for (let i = 0, j = a.length - 1; i < j; i++, j--){ const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function filtfilt(x, sections, pad){
+  const y = new Float64Array(x.length + 2 * pad);
+  y.set(x, pad);
+  let z = sosFilter(y, sections);
+  z = sosFilter(reverseInPlace(z), sections);
+  reverseInPlace(z);
+  return z.subarray(pad, pad + x.length).slice();
+}
+/** Maximum of F time-weighted level (tau = 0.125 s), dB re 20 uPa. */
+function fastMaxDb(x, fs){
+  const al = 1 - Math.exp(-1 / (fs * 0.125));
+  let s = 0, m = 0;
+  for (let n = 0; n < x.length; n++){ s += al * (x[n] * x[n] - s); if (s > m) m = s; }
+  return 10 * Math.log10(Math.max(m, 1e-30) / (P0 * P0));
+}
+/** A-weighting gain (linear) from IEC 61672-1:2013 eq. E.6 (A1000 = -2.00 dB). */
+function aLin(f){
+  const f2 = f * f;
+  const ra = (12194.217 * 12194.217 * f2 * f2) /
+    ((f2 + 20.598997 * 20.598997) * Math.sqrt((f2 + 107.65265 * 107.65265) * (f2 + 737.86223 * 737.86223)) * (f2 + 12194.217 * 12194.217));
+  return ra * Math.pow(10, 2.0 / 20);
+}
+function aDb(f){ return 20 * Math.log10(aLin(f)); }
+
+/* ---------- FFT ---------- */
+function fftInPlace(re, im, inverse){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = 2 * Math.PI / len * (inverse ? 1 : -1), wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let j = 0; j < h; j++){
+        const p = i + j, q = p + h;
+        const br = re[q] * cr - im[q] * ci, bi = re[q] * ci + im[q] * cr;
+        re[q] = re[p] - br; im[q] = im[p] - bi;
+        re[p] += br; im[p] += bi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  if (inverse){ for (let i = 0; i < n; i++){ re[i] /= n; im[i] /= n; } }
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+/** Log-frequency raised-cosine edge: 0 below lo, 1 above hi. */
+function edgeUp(f, lo, hi){
+  if (f <= lo) return 0; if (f >= hi) return 1;
+  const u = Math.log(f / lo) / Math.log(hi / lo);
+  return 0.5 - 0.5 * Math.cos(Math.PI * u);
+}
+function peakOf(a){ let p = 0; for (let i = 0; i < a.length; i++){ const v = Math.abs(a[i]); if (v > p) p = v; } return p; }
+function rmsOf(a){ let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / Math.max(1, a.length)); }
+/** Peak of the sum of copies of x started at the given sample offsets (exact overlap peak). */
+function overlapPeak(x, offsets){
+  if (offsets.length <= 1) return peakOf(x);
+  const last = offsets[offsets.length - 1], y = new Float64Array(last + x.length);
+  for (const o of offsets) for (let n = 0; n < x.length; n++) y[o + n] += x[n];
+  return peakOf(y);
+}
+
+/* ---------- airborne insulation (TL / Dr / Rr) ---------- */
+const TL_FREQ = [16, 31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000];   // nominal octave centres
+/** Frequencies used for the curve, interpolation and band edges: exact octave steps from 1 kHz (15.625 ... 8000 Hz),
+    so that each octave below 125 Hz is exactly 7.5 dB lower. Labels on screen use the nominal values above. */
+const TL_FX = TL_FREQ.map((f, i) => 1000 * Math.pow(2, i - 6));
+/** Dr / Rr grade curve. Defined 125 Hz - 2 kHz (grade g: 125 Hz = g-15, 500 Hz = g, 2 kHz = g+10, log-f interpolation).
+    Outside that range the same slopes are continued (low) / held flat (high): listening-only extrapolation. */
+function refCurve(f, g){ return f <= 500 ? g + 7.5 * Math.log2(f / 500) : f <= 2000 ? g + 5 * Math.log2(f / 500) : g + 10; }
+/** Piecewise-linear over log f through (x[i], y[i]); held flat outside the end points. */
+function interpLog(f, x, y){
+  if (f <= x[0]) return y[0];
+  for (let i = 1; i < x.length; i++) if (f <= x[i]) return y[i - 1] + (y[i] - y[i - 1]) * Math.log(f / x[i - 1]) / Math.log(x[i] / x[i - 1]);
+  return y[y.length - 1];
+}
+/** 1 inside the octave bands lo..hi (band edges lo/sqrt2 .. hi*sqrt2), raised-cosine to 0 a quarter octave outside. */
+function bandMask(f, lo, hi){
+  if (!(f > 0)) return 0;
+  const e1 = lo / Math.SQRT2, e2 = hi * Math.SQRT2, q = Math.pow(2, 0.25);
+  return edgeUp(f, e1 / q, e1) * (1 - edgeUp(f, e2, e2 * q));
+}
+/** Apply attenuation curves to a mono signal with a zero-phase FFT gain.
+    x/y: band centres and attenuation (dB) for offset 0; offsets: list of dB shifts; attenuation is floored at 0 dB.
+    Returns the band-limited dry signal, one wet signal per offset, the overall peak and level statistics. */
+function tlProcess(input, sr, x, y, offsets, lo, hi){
+  let n = 1; while (n < input.length) n *= 2;
+  const re = new Float64Array(n), im = new Float64Array(n);
+  re.set(input); fftInPlace(re, im, false);
+  const half = n >> 1, mask = new Float64Array(half + 1), att = new Float64Array(half + 1), aw = new Float64Array(half + 1);
+  for (let k = 0; k <= half; k++){
+    const f = k * sr / n;
+    mask[k] = bandMask(f, lo, hi);
+    att[k] = f > 0 ? interpLog(f, x, y) : 0;
+    aw[k] = f > 0 ? aLin(f) : 0;
+  }
+  const nfade = Math.max(1, Math.round(sr * 0.02)), L = input.length;
+  const render = (gainOf) => {
+    const r = new Float64Array(n), i = new Float64Array(n);
+    let z = 0, a = 0;
+    for (let k = 0; k <= half; k++){
+      const g = mask[k] * gainOf(k);
+      if (g === 0) continue;
+      r[k] = re[k] * g; i[k] = im[k] * g;
+      const p = (r[k] * r[k] + i[k] * i[k]) * ((k === 0 || k === half) ? 1 : 2);
+      z += p; a += p * aw[k] * aw[k];
+      if (k > 0 && k < half){ r[n - k] = r[k]; i[n - k] = -i[k]; }
+    }
+    fftInPlace(r, i, true);
+    const out = new Float32Array(L);
+    let peak = 0;
+    for (let m = 0; m < L; m++){
+      const fade = Math.min(1, m / nfade, (L - 1 - m) / nfade);
+      out[m] = r[m] * fade;
+      const v = Math.abs(out[m]); if (v > peak) peak = v;
+    }
+    return { out, peak, z, a };
+  };
+  const dry = render(() => 1);
+  const variants = {}, stats = {};
+  let peak = dry.peak;
+  for (const off of offsets){
+    const w = render(k => Math.pow(10, -Math.max(0, att[k] + off) / 20));
+    variants[String(off)] = w.out;
+    peak = Math.max(peak, w.peak);
+    stats[String(off)] = {
+      dZ: 10 * Math.log10(Math.max(dry.z, 1e-300) / Math.max(w.z, 1e-300)),
+      dA: 10 * Math.log10(Math.max(dry.a, 1e-300) / Math.max(w.a, 1e-300)),
+      peakDb: 20 * Math.log10(Math.max(w.peak, 1e-30))
+    };
+  }
+  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, empty: !(dry.z > 0) };
+}
+
+const DSP = { P0, G10, d1LP, d1HP, butterLP, butterHP, sosMag, normalizeAt, bandpassSOS, aWeightSOS, sosFilter, filtfilt, fastMaxDb,
+  aLin, aDb, fftInPlace, mulberry32, edgeUp, peakOf, rmsOf, overlapPeak, TL_FREQ, TL_FX, refCurve, interpLog, bandMask, tlProcess };
+root.DSP = DSP;
+if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
+})(typeof self !== 'undefined' ? self : globalThis);
+
+</script>
+<script>
+/* Shell: shared audio context, storage, theme, tabs. */
+const App = (function () {
+'use strict';
+const VERSION = '2.0.0';
+const SHELL_KEY = 'listening-shell-v1';
+const modules = [];
+const ALL_TABS = ['lh', 'tl'];
+/** Tabs that exist in this build (the single-purpose builds contain one panel and no tab bar). */
+function tabsPresent(){ return ALL_TABS.filter(t => document.getElementById('panel-' + t)); }
+
+/** Strict element lookup: a missing element is a bug and must be loud, never silently replaced. */
+function el(id){
+  const e = document.getElementById(id);
+  if (!e) throw new Error('画面要素 #' + id + ' が見つかりません');
+  return e;
+}
+const store = {
+  get(key){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(key, value){ try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; } }
+};
+const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v)) ? '—' : v.toFixed(d).replace('-', '−');
+const sgn = (v, d = 0) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d);
+const db = v => 20 * Math.log10(Math.max(v, 1e-30));
+
+/** Numeric field: every valid keystroke is stored immediately; invalid text is never stored and is reverted on blur. */
+function bindNumber(input, o){
+  const say = t => { if (o.msg) o.msg.textContent = t; };
+  input.addEventListener('input', () => {
+    const raw = input.value.trim(), v = Number(raw);
+    if (raw === '' || !Number.isFinite(v) || v < o.min || v > o.max){
+      input.setAttribute('aria-invalid', 'true');
+      say(o.label + '：' + o.min + '〜' + o.max + ' の数値を入力してください（まだ反映していません）。');
+      return;
+    }
+    input.removeAttribute('aria-invalid'); say('');
+    if (v !== o.get()){ o.set(v); }
+  });
+  input.addEventListener('change', () => {
+    if (input.getAttribute('aria-invalid') === 'true'){
+      input.value = String(o.get());
+      input.removeAttribute('aria-invalid');
+      say(o.label + '：範囲外だったため、元の値 ' + o.get() + ' に戻しました。');
+    }
+  });
+}
+
+const audio = {
+  ctx: null, fs: 48000, offline: false,
+  create(){
+    if (this.ctx) return this.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { this.ctx = new AC(); this.fs = this.ctx.sampleRate; } catch (e) { this.ctx = null; }
+    return this.ctx;
+  },
+  ensureRunning(){
+    const c = this.create();
+    if (!c) return false;
+    if (this.offline) return true;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+    if (c.state !== 'running'){ const p = c.resume(); if (p && p.catch) p.catch(() => {}); }
+    return true;
+  },
+  newBuffer(data){
+    let b;
+    try { b = new AudioBuffer({ length: data.length, numberOfChannels: 1, sampleRate: this.fs }); }
+    catch (e) { b = this.ctx.createBuffer(1, data.length, this.fs); }
+    if (b.copyToChannel) b.copyToChannel(data, 0); else b.getChannelData(0).set(data);
+    return b;
+  },
+  /** Test hook: render through another real context (e.g. OfflineAudioContext) with the unchanged engine code. */
+  useContext(c){
+    stopAll();
+    this.ctx = c; this.fs = c.sampleRate;
+    this.offline = (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext);
+  }
+};
+
+let shell = { tab: 'lh', theme: 'light' };
+function loadShell(){
+  const s = store.get(SHELL_KEY) || {};
+  const legacyLh = store.get('lh-listening-v4-range') || store.get('lh-listening-v3-2khz') || store.get('lh-listening-v2') || store.get('lh-listening-v1') || {};
+  const legacyTl = store.get('tl-listening-v1') || {};
+  const themes = ['light', 'dark', 'black'];
+  let theme = [s.theme, legacyLh.theme, legacyTl.theme].find(t => themes.includes(t));
+  if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  shell = { tab: s.tab === 'tl' ? 'tl' : 'lh', theme };   // the saved tab is only used by the two-tab build
+}
+function applyTheme(){
+  document.documentElement.dataset.theme = shell.theme;
+  document.querySelectorAll('#seg-theme button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === shell.theme)));
+}
+function stopAll(){ for (const m of modules) { try { m.mod.stop(); } catch (e) { /* keep stopping the others */ } } }
+function showTab(name, focus){
+  const tabs = tabsPresent();
+  if (!tabs.includes(name)) name = tabs[0];
+  stopAll();
+  if (tabs.length > 1){ shell.tab = name; store.set(SHELL_KEY, shell); }
+  for (const t of tabs){
+    const on = t === name, tab = document.getElementById('tab-' + t);
+    if (tab){ tab.setAttribute('aria-selected', String(on)); tab.tabIndex = on ? 0 : -1; if (on && focus) tab.focus(); }
+    el('panel-' + t).hidden = !on;
+  }
+  const m = modules.find(x => x.name === name);
+  if (m && m.ok && m.mod.show) { try { m.mod.show(); } catch (e) { showError(e); } }
+}
+function showError(e){
+  const box = document.getElementById('app-error');
+  const text = '起動または処理でエラーが発生しました：' + (e && e.message ? e.message : String(e));
+  if (box){ box.hidden = false; box.textContent = text; }
+  if (window.console) console.error(e);
+}
+function busy(on){ const b = document.getElementById('busy'); if (b) b.hidden = !on; }
+function register(name, mod){ modules.push({ name, mod, ok: false }); api[name] = mod; }
+function start(){
+  loadShell(); applyTheme();
+  audio.create();
+  el('seg-theme').addEventListener('click', e => {
+    const b = e.target.closest('button[data-theme]'); if (!b) return;
+    shell.theme = b.dataset.theme; applyTheme(); store.set(SHELL_KEY, shell);
+    for (const m of modules) if (m.ok && m.mod.themeChanged) m.mod.themeChanged();
+  });
+  const tabs = tabsPresent().filter(t => document.getElementById('tab-' + t));
+  for (const t of tabs){
+    el('tab-' + t).addEventListener('click', () => showTab(t, false));
+    el('tab-' + t).addEventListener('keydown', e => {
+      const i = tabs.indexOf(t);
+      let j = -1;
+      if (e.key === 'ArrowRight') j = (i + 1) % tabs.length; else if (e.key === 'ArrowLeft') j = (i + tabs.length - 1) % tabs.length;
+      else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = tabs.length - 1;
+      if (j >= 0){ e.preventDefault(); showTab(tabs[j], true); }
+    });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') stopAll(); });
+  window.addEventListener('pagehide', stopAll);
+  for (const m of modules){
+    try { m.mod.init(); m.ok = true; } catch (e) { showError(e); }
+  }
+  const hash = (location.hash || '').replace('#', '');
+  showTab(hash === 'tl' || hash === 'lh' ? hash : shell.tab, false);
+}
+const api = { VERSION, el, store, fmt, sgn, db, bindNumber, audio, register, start, busy, showError, stopAll, showTab, get shell(){ return shell; } };
+return api;
+})();
+window.__app = App;
+
+</script>
+
+<script>
+/* TL: airborne sound insulation (Dr / Rr grade curve, band TL values) applied to a source. */
+App.register('tl', (function () {
+'use strict';
+const D = DSP, el = App.el, fmt = App.fmt, sgn = App.sgn, db = App.db;
+
+const KEY = 'tl-listening-v2', OLD_KEY = 'tl-listening-v1';
+const FREQ = D.TL_FREQ, FX = D.TL_FX;      // nominal labels / exact octave-step frequencies used in all calculations
+const GRADES = [30, 35, 40, 45, 50, 55, 60, 65, 70];
+const OFFSETS = [-10, -5, 0, 5, 10];
+const RANGES = ['125,2000', '125,4000', '63,8000', '31.5,8000', '16,8000'];
+const DEF_LO = 125, DEF_HI = 2000;             // range where the grade curve is defined
+const NORM_PEAK = 0.25;                        // -12 dBFS, applied once when a source is loaded
+const MAX_SECONDS = 30, CEIL = Math.pow(10, -1 / 20);
+const XFADE = 0.08, DRY_RAMP = 1.5, DRY_START_DB = -40, FADE = 0.05;
+const VOL_MIN = -60, VOL_MAX = 0, VOL_STEP = 5;
+const PADS = [0, -10, -20, -30];
+const TYPING_MS = 500;
+
+/* ---------- settings ---------- */
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+function defaults(){
+  return { v: 2, mode: 'ref', grade: 50, range: '125,2000', values: FX.map(f => Math.max(0, Math.round(D.refCurve(f, 50) * 10) / 10)),
+    room: { on: false, S: 10, A: 10 }, pad: 0, vol: -10 };
+}
+function sanitize(s){
+  const o = defaults();
+  if (!s || typeof s !== 'object') return o;
+  if (s.mode === 'ref' || s.mode === 'custom') o.mode = s.mode;
+  if (GRADES.includes(Number(s.grade))) o.grade = Number(s.grade);
+  if (RANGES.includes(s.range)) o.range = s.range;
+  if (Array.isArray(s.values) && s.values.length === FREQ.length && s.values.every(v => isNum(v) && v >= 0 && v <= 120)) o.values = s.values.slice();
+  if (s.room && typeof s.room === 'object'){
+    o.room.on = s.room.on === true;
+    if (isNum(s.room.S) && s.room.S >= 1 && s.room.S <= 200) o.room.S = s.room.S;
+    if (isNum(s.room.A) && s.room.A >= 1 && s.room.A <= 200) o.room.A = s.room.A;
+  }
+  if (PADS.includes(s.pad)) o.pad = s.pad;
+  if (isNum(s.vol)) o.vol = Math.min(VOL_MAX, Math.max(VOL_MIN, Math.round(s.vol / VOL_STEP) * VOL_STEP));
+  return o;
+}
+function loadSettings(){
+  const cur = App.store.get(KEY);
+  if (cur) return sanitize(cur);
+  const old = App.store.get(OLD_KEY);          // v1: { theme, range, mode, grade, values }; read only, never deleted
+  return old ? sanitize({ mode: old.mode, grade: old.grade, range: old.range, values: old.values }) : defaults();
+}
+let S = defaults();
+function save(){ App.store.set(KEY, S); }
+
+/* ---------- derived ---------- */
+function rangeOf(){ const p = S.range.split(',').map(Number); return { lo: p[0], hi: p[1], fxLo: FX[FREQ.indexOf(p[0])], fxHi: FX[FREQ.indexOf(p[1])] }; }
+function bandIdx(){ const r = rangeOf(); return FREQ.map((f, i) => i).filter(i => FREQ[i] >= r.lo && FREQ[i] <= r.hi); }
+function roomDb(){ return S.room.on ? 10 * Math.log10(S.room.A / S.room.S) : 0; }
+/** Attenuation (dB) at the in-range band centres for offset 0, before the 0 dB floor. */
+function curve(){
+  const idx = bandIdx(), r = roomDb();
+  return { x: idx.map(i => FX[i]), y: idx.map(i => (S.mode === 'custom' ? S.values[i] : D.refCurve(FX[i], S.grade)) + r), idx };
+}
+function condName(c){
+  if (c === 'dry') return '原音（壁なし）';
+  if (S.mode === 'ref') return c === 0 ? '等級 ' + S.grade + ' の基準曲線' : '基準曲線 ' + sgn(c) + ' dB（等級 ' + (S.grade + c) + ' 相当）';
+  return c === 0 ? '入力値どおり' : '入力値 ' + sgn(c) + ' dB';
+}
+const hz = f => (f >= 1000 ? (f / 1000) + ' k' : String(f)) + ' Hz';
+
+/* ---------- source ---------- */
+let source = null, srcInfo = '', srcToken = 0;
+function normalize(a){
+  const pk = D.peakOf(a);
+  if (!(pk > 0) || !Number.isFinite(pk)) throw new Error('無音、または数値として読めない音声です。');
+  const g = NORM_PEAK / pk;
+  for (let i = 0; i < a.length; i++) a[i] *= g;
+  return 20 * Math.log10(g);
+}
+function makeNoise(){
+  const fs = App.audio.fs, a = new Float32Array(fs * 8), b = [0, 0, 0, 0, 0, 0, 0];
+  let seed = 13421;
+  for (let i = 0; i < a.length; i++){
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    const w = seed / 2147483648 - 1;
+    b[0] = .99886 * b[0] + w * .0555179; b[1] = .99332 * b[1] + w * .0750759; b[2] = .969 * b[2] + w * .153852;
+    b[3] = .8665 * b[3] + w * .3104856; b[4] = .55 * b[4] + w * .5329522; b[5] = -.7616 * b[5] - w * .016898;
+    a[i] = (b[0] + b[1] + b[2] + b[3] + b[4] + b[5] + b[6] + w * .5362) * .11;
+    b[6] = w * .115926;
+  }
+  normalize(a);
+  return a;
+}
+function setNoiseSource(){
+  source = makeNoise();
+  srcInfo = 'ピンクノイズ（8 秒・ループ、ピーク −12 dBFS、' + App.audio.fs + ' Hz）';
+  el('tl-src-info').classList.remove('err'); say('tl-src-info', srcInfo);
+}
+function useNoise(){
+  srcToken++;
+  stop();
+  setNoiseSource();
+  invalidate(false);
+}
+async function loadFile(f){
+  const token = ++srcToken, info = el('tl-src-info');
+  info.classList.remove('err'); info.textContent = '読み込み中…';
+  try {
+    if (f.size > 100 * 1024 * 1024) throw new Error('100 MB 以下の音声を選んでください。');
+    const ctx = App.audio.create();
+    if (!ctx) throw new Error('このブラウザは Web Audio に対応していません。');
+    const arr = await f.arrayBuffer();
+    const ab = await new Promise((res, rej) => { const p = ctx.decodeAudioData(arr, res, rej); if (p && typeof p.then === 'function') p.then(res, rej); });
+    if (token !== srcToken) return;                          // a newer source was chosen meanwhile
+    const rate = ab.sampleRate, n = Math.min(ab.length, Math.round(rate * MAX_SECONDS));
+    if (n < rate * 0.2) throw new Error('音声が短すぎます（0.2 秒以上必要）。');
+    const a = new Float32Array(n);
+    for (let c = 0; c < ab.numberOfChannels; c++){ const d = ab.getChannelData(c); for (let i = 0; i < n; i++) a[i] += d[i] / ab.numberOfChannels; }
+    const gainDb = normalize(a);
+    stop();
+    source = a;
+    srcInfo = f.name + '：' + (n / rate).toFixed(1) + ' 秒を使用' + (ab.length > n ? '（全 ' + (ab.length / rate).toFixed(1) + ' 秒の先頭）' : '') +
+      '／' + ab.numberOfChannels + ' ch → モノラル／ピークを −12 dBFS に正規化（' + sgn(gainDb, 1) + ' dB）／' + rate + ' Hz';
+    invalidate(false);
+    info.classList.remove('err'); info.textContent = srcInfo;
+  } catch (e){
+    if (token !== srcToken) return;
+    info.classList.add('err');
+    info.textContent = '読み込めませんでした（音源は変更していません）：' + (e && e.message ? e.message : '音声ファイルとして解釈できません。') + (source ? '　現在の音源：' + srcInfo : '');
+  }
+}
+
+/* ---------- processing (Worker; falls back to the main thread) ---------- */
+let proc = null, gen = 0, worker = null, procTimer = 0, pendingPrep = null;
+function killWorker(){ if (worker){ const w = worker; worker = null; try { w.terminate(); } catch (e) { /* gone */ } if (w.cancelJob) w.cancelJob(); } }
+function runProcess(job){
+  return new Promise((resolve, reject) => {
+    let w = null;
+    try {
+      const code = el('dsp').textContent + '\nonmessage=e=>{try{const d=e.data,r=DSP.tlProcess(d.input,d.sr,d.x,d.y,d.offsets,d.lo,d.hi);postMessage(r);}catch(err){postMessage({error:String(err&&err.message||err)});}};';
+      const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+      w = new Worker(url); URL.revokeObjectURL(url);
+    } catch (e) { w = null; }
+    if (!w){                                                  // e.g. Workers blocked: compute here (UI pauses briefly)
+      try { resolve(D.tlProcess(job.input, job.sr, job.x, job.y, job.offsets, job.lo, job.hi)); } catch (e) { reject(e); }
+      return;
+    }
+    killWorker(); worker = w;
+    w.cancelJob = () => reject(new Error('cancelled'));
+    w.onmessage = e => { if (worker === w) worker = null; w.terminate(); if (e.data && e.data.error) reject(new Error(e.data.error)); else resolve(e.data); };
+    w.onerror = e => { if (worker === w) worker = null; w.terminate(); reject(new Error(e.message || 'Worker error')); };
+    w.postMessage(job);
+  });
+}
+/** Build all conditions from the current source and curve. Resolves false when superseded or cancelled.
+    Callers arriving while a job for the same generation is running share that job. */
+function prepare(){
+  if (proc) return Promise.resolve(true);
+  if (!source) return Promise.resolve(false);
+  if (pendingPrep && pendingPrep.gen === gen) return pendingPrep.promise;
+  const promise = doPrepare(gen);
+  pendingPrep = { gen, promise };
+  return promise;
+}
+async function doPrepare(myGen){
+  const c = curve(), r = rangeOf();
+  App.busy(true); renderTransport('処理中…');
+  try {
+    const res = await runProcess({ input: source, sr: App.audio.fs, x: c.x, y: c.y, offsets: OFFSETS, lo: r.fxLo, hi: r.fxHi });
+    if (myGen !== gen) return false;
+    if (res.empty) throw new Error('この音源には、選んだ帯域の成分がありません。');
+    const wet = {};
+    for (const o of OFFSETS) wet[String(o)] = App.audio.newBuffer(res.variants[String(o)]);
+    proc = { dry: App.audio.newBuffer(res.dry), wet, stats: res.stats, peak: res.peak, dryPeak: res.dryPeak,
+      safe: Math.min(1, CEIL / res.peak), dur: res.dry.length / App.audio.fs, data: { dry: res.dry, variants: res.variants } };
+    App.busy(false); renderResult(); renderTransport();
+    return true;
+  } catch (e){
+    if (myGen !== gen) return false;
+    App.busy(false); proc = null;
+    say('tl-status', '処理できませんでした：' + (e && e.message ? e.message : String(e)));
+    renderTransport();
+    return false;
+  }
+}
+/** Curve / range / source changed: drop the processed audio; optionally resume playback with the new condition. */
+let resumePending = false;          // playback was interrupted by a condition change and should continue afterwards
+function invalidate(resume, delay){
+  resumePending = !!resume && (playing || resumePending);
+  haltVoices();
+  gen++; killWorker(); proc = null; pendingPrep = null; App.busy(false);
+  clearTimeout(procTimer);
+  renderChart(); renderResult(); renderTransport();
+  if (!source) return;
+  const req = playReq;
+  procTimer = setTimeout(async () => {
+    procTimer = 0;
+    const ok = await prepare();
+    if (ok && resumePending && req === playReq){ resumePending = false; startPlayback(); }
+  }, delay === undefined ? 60 : delay);
+}
+
+/* ---------- audio engine ---------- */
+let graph = null, voices = [], playing = false, cond = 0, epoch = 0, playReq = 0;
+function getGraph(){
+  const c = App.audio.ctx;
+  if (!c) return null;
+  if (!graph || graph.ctx !== c){
+    const master = c.createGain();
+    master.gain.value = Math.pow(10, S.vol / 20);
+    master.connect(c.destination);
+    graph = { ctx: c, master };
+  }
+  return graph;
+}
+function rampValue(r, t){
+  if (t < r.t0) return 0;
+  if (t >= r.t1) return r.v1;
+  const u = (t - r.t0) / (r.t1 - r.t0);
+  return r.type === 'exp' ? r.v0 * Math.pow(r.v1 / r.v0, u) : r.v0 + (r.v1 - r.v0) * u;
+}
+function retire(v, now, end){
+  try {
+    const g = v.g.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(rampValue(v.ramp, now), now);
+    g.linearRampToValueAtTime(0, end);
+    v.s.stop(end + 0.02);
+  } catch (e) { /* already stopped */ }
+}
+function condTarget(c){ return proc.safe * (c === 'dry' ? Math.pow(10, S.pad / 20) : 1); }
+/** Start the current condition at the shared loop position and cross-fade from whatever is sounding. */
+function swap(){
+  if (!playing || !proc) return;
+  const g = getGraph(), ctx = g.ctx, now = ctx.currentTime, t = now + 0.02, dur = proc.dur;
+  const pos = (((t - epoch) % dur) + dur) % dur;
+  const s = ctx.createBufferSource(), gn = ctx.createGain(), target = condTarget(cond);
+  s.buffer = cond === 'dry' ? proc.dry : proc.wet[String(cond)]; s.loop = true;
+  s.connect(gn); gn.connect(g.master);
+  gn.gain.value = 0; gn.gain.setValueAtTime(0, now);
+  let ramp;
+  if (cond === 'dry'){              // never jump to the loud original: rise from -40 dB over 1.5 s
+    const v0 = target * Math.pow(10, DRY_START_DB / 20);
+    gn.gain.setValueAtTime(v0, t); gn.gain.exponentialRampToValueAtTime(target, t + DRY_RAMP);
+    ramp = { type: 'exp', t0: t, t1: t + DRY_RAMP, v0, v1: target };
+  } else {
+    gn.gain.linearRampToValueAtTime(target, t + XFADE);
+    ramp = { type: 'lin', t0: now, t1: t + XFADE, v0: 0, v1: target };
+  }
+  s.start(t, pos);
+  const old = voices;
+  voices = [{ s, g: gn, ramp }];
+  for (const v of old) retire(v, now, t + XFADE);
+}
+function startPlayback(){
+  if (!proc) return false;
+  if (!App.audio.ensureRunning()){ say('tl-status', 'この表示画面では音声を使えません。HTML を保存して Safari または Chrome で開いてください。'); return false; }
+  const g = getGraph();
+  if (!playing){ playing = true; epoch = g.ctx.currentTime + 0.02; }
+  swap(); renderResult(); renderTransport();
+  return true;
+}
+async function play(){
+  const req = ++playReq;
+  resumePending = false;
+  if (playing) return;
+  App.audio.ensureRunning();                                  // inside the user gesture
+  if (!source) setNoiseSource();
+  const ok = await prepare();
+  if (!ok || req !== playReq) return;                         // stopped or superseded while processing
+  startPlayback();
+}
+function stop(){ resumePending = false; haltVoices(); }     // user stop: also cancels a pending resume
+function haltVoices(){
+  playReq++;                                                  // cancels a play that is still waiting for processing
+  if (playing || voices.length){
+    const c = App.audio.ctx;
+    if (c){ const now = c.currentTime; for (const v of voices) retire(v, now, now + FADE); }
+  }
+  voices = []; playing = false;
+  renderTransport();
+}
+function setCond(c){
+  cond = c;
+  document.querySelectorAll('#tl-cmp button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cond === String(c))));
+  renderChart(); renderResult(); renderTransport();
+  if (playing) swap();
+}
+function setVol(v){
+  v = Math.min(VOL_MAX, Math.max(VOL_MIN, Math.round(v / VOL_STEP) * VOL_STEP));
+  if (v === S.vol) return;
+  S.vol = v; save();
+  if (graph) graph.master.gain.setTargetAtTime(Math.pow(10, v / 20), graph.ctx.currentTime, 0.03);
+  renderTransport();
+}
+
+/* ---------- rendering ---------- */
+function say(id, text){ el(id).textContent = text || ''; }
+function renderTransport(note){
+  const st = el('tl-state');
+  st.textContent = note || (playing ? '再生中（停止までループ）' : proc ? '停止中（準備完了）' : source ? '停止中' : '音源を用意してください');
+  st.classList.toggle('on', playing); el('tl-dot').classList.toggle('on', playing);
+  el('tl-now').textContent = condName(cond) + (cond === 'dry' && S.pad ? '　※原音を ' + (-S.pad) + ' dB 下げて再生' : '');
+  el('tl-vol').textContent = sgn(S.vol) + ' dB';
+  el('tl-vol-down').disabled = S.vol <= VOL_MIN; el('tl-vol-up').disabled = S.vol >= VOL_MAX;
+}
+function renderCmp(){
+  document.querySelectorAll('#tl-cmp button').forEach(b => {
+    const c = b.dataset.cond;
+    b.setAttribute('aria-pressed', String(c === String(cond)));
+    if (c === 'dry') return;
+    const o = Number(c);
+    if (S.mode === 'ref') b.innerHTML = (o === 0 ? '基準' : sgn(o) + ' dB') + '<small>等級 ' + (S.grade + o) + (o === 0 ? '' : ' 相当') + '</small>';
+    else b.innerHTML = (o === 0 ? '入力値' : sgn(o) + ' dB') + '<small>' + (o === 0 ? 'そのまま' : '平行移動') + '</small>';
+  });
+}
+function renderResult(){
+  const res = el('tl-result'), tbl = el('tl-stats');
+  if (!proc){ res.textContent = source ? '「▶ 再生」で、この条件を音に適用します。' : '音源を用意して再生してください。'; tbl.innerHTML = ''; return; }
+  let h = '<thead><tr><th>条件</th><th>低下量 dB</th><th>A 特性 dB</th></tr></thead><tbody>';
+  h += '<tr class="' + (cond === 'dry' ? 'on' : '') + '"><td>原音（壁なし）</td><td>0.0</td><td>0.0</td></tr>';
+  for (const o of OFFSETS){
+    const s = proc.stats[String(o)];
+    h += '<tr class="' + (cond === o ? 'on' : '') + '"><td>' + (o === 0 ? (S.mode === 'ref' ? '基準（等級 ' + S.grade + '）' : '入力値') : sgn(o) + ' dB' + (S.mode === 'ref' ? '（等級 ' + (S.grade + o) + ' 相当）' : '')) + '</td><td>' + fmt(s.dZ) + '</td><td>' + fmt(s.dA) + '</td></tr>';
+  }
+  tbl.innerHTML = h + '</tbody>';
+  let t, note = '';
+  if (cond === 'dry') t = '原音です（選んだ帯域に制限した元の音）。';
+  else { const s = proc.stats[String(cond)]; t = 'この条件の音は、原音より ' + fmt(s.dZ) + ' dB 小さい（A 特性では ' + fmt(s.dA) + ' dB）。'; }
+  if (S.pad) note += '原音だけ ' + (-S.pad) + ' dB 下げて再生する設定です。聞こえる差は、実際より ' + (-S.pad) + ' dB 小さくなります。';
+  if (proc.safe < 1) note += '全条件共通のピーク保護 ' + fmt(db(proc.safe)) + ' dB を掛けています（条件間の差は変わりません）。';
+  res.textContent = t;
+  say('tl-status', note);
+}
+function renderBands(){
+  const box = el('tl-bands'), c = curve(), custom = S.mode === 'custom', msg = el('tl-band-msg');
+  box.textContent = '';
+  for (const i of c.idx){
+    const f = FREQ[i], l = document.createElement('label'), a = document.createElement('input');
+    if (!custom && (f < DEF_LO || f > DEF_HI)) l.className = 'outside';
+    l.textContent = hz(f) + (!custom && (f < DEF_LO || f > DEF_HI) ? '（外挿）' : '');
+    a.type = 'number'; a.min = '0'; a.max = '120'; a.step = '0.1'; a.inputMode = 'decimal'; a.id = 'tl-b' + i;
+    a.value = custom ? S.values[i] : Math.max(0, D.refCurve(FX[i], S.grade)).toFixed(1);
+    a.disabled = !custom; a.setAttribute('aria-label', hz(f) + ' の値 dB');
+    if (custom) App.bindNumber(a, { min: 0, max: 120, label: hz(f), msg, get: () => S.values[i], set: v => { S.values[i] = v; save(); invalidate(true, TYPING_MS); } });
+    l.appendChild(a); box.appendChild(l);
+  }
+  el('tl-grade-row').hidden = custom; el('tl-fill-row').hidden = !custom;
+  el('tl-fill').textContent = '等級 ' + S.grade + ' の基準曲線の値を入力欄に写す';
+  const ext = c.idx.some(i => FREQ[i] < DEF_LO || FREQ[i] > DEF_HI);
+  el('tl-curve-note').textContent = custom
+    ? '入力した帯域の値だけを使います（Dr／Rr の等級とは表示しません）。帯域の間は対数周波数軸で補間します。負になる値は 0 dB に制限します。'
+    : ext ? '点線の帯域は基準曲線の定義範囲（125 Hz〜2 kHz）の外です。傾きの延長・水平延長による参考外挿で、実際の壁の性能予測ではありません。'
+      : '基準曲線の定義範囲（125 Hz〜2 kHz）だけを鳴らします。外挿はしていません。';
+}
+function renderChart(){
+  const c = curve(), off = cond === 'dry' ? 0 : cond, W = 520, x0 = 36, x1 = 508, yT = 14, yB = 186;
+  const X = f => x0 + (x1 - x0) * Math.log(f / 11.3) / Math.log(11314 / 11.3), Y = v => yB - Math.max(0, Math.min(100, v)) / 100 * (yB - yT);
+  let s = '<rect class="zone" x="' + X(DEF_LO / Math.SQRT2) + '" y="' + yT + '" width="' + (X(DEF_HI * Math.SQRT2) - X(DEF_LO / Math.SQRT2)) + '" height="' + (yB - yT) + '"/>';
+  for (let v = 0; v <= 100; v += 20) s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text x="' + (x0 - 5) + '" y="' + (Y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  for (const f of FREQ) s += '<text x="' + X(f) + '" y="' + (yB + 14) + '" text-anchor="middle">' + (f >= 1000 ? f / 1000 + 'k' : f) + '</text>';
+  s += '<text x="' + X(500) + '" y="' + (yT + 11) + '" text-anchor="middle">基準曲線の定義範囲</text><text x="' + (W - 12) + '" y="' + (yB + 28) + '" text-anchor="end">Hz</text><text x="4" y="10">dB</text>';
+  const custom = S.mode === 'custom', y = c.y.map(v => Math.max(0, v + off));
+  c.idx.forEach((bi, j) => {
+    const f = FREQ[bi];
+    if (j > 0){
+      const dash = !custom && (f > DEF_HI || FREQ[c.idx[j - 1]] < DEF_LO) ? ' dash' : '';
+      s += '<line class="curve' + dash + '" style="stroke-width:2.5" x1="' + X(FREQ[c.idx[j - 1]]) + '" y1="' + Y(y[j - 1]) + '" x2="' + X(f) + '" y2="' + Y(y[j]) + '"/>';
+    }
+    s += '<circle class="dot" cx="' + X(f) + '" cy="' + Y(y[j]) + '" r="3"/><text x="' + X(f) + '" y="' + (Y(y[j]) - 7) + '" text-anchor="middle">' + y[j].toFixed(y[j] % 1 ? 1 : 0) + '</text>';
+  });
+  el('tl-chart').innerHTML = s;
+  el('tl-chart').setAttribute('aria-label', '適用する減衰量：' + c.idx.map((bi, j) => hz(FREQ[bi]) + ' ' + y[j].toFixed(1) + ' dB').join('、'));
+}
+function renderRoom(){
+  const r = roomDb();
+  el('tl-room-S').disabled = el('tl-room-A').disabled = !S.room.on;
+  say('tl-room-out', S.room.on ? '10 log10(A/S) = ' + sgn(r, 1) + ' dB を全帯域の値に加えて、室間音圧レベル差 D の目安として適用します（グラフに反映）。' : '換算しません（A/S = 1：入力値をそのまま減衰量として適用）。');
+}
+function setVal(input, v){ if (document.activeElement !== input){ input.value = v; input.removeAttribute('aria-invalid'); } }
+function syncInputs(){
+  document.querySelectorAll('#tl-seg-mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  el('tl-grade').value = String(S.grade); el('tl-range').value = S.range; el('tl-pad').value = String(S.pad);
+  el('tl-room-on').checked = S.room.on; setVal(el('tl-room-S'), S.room.S); setVal(el('tl-room-A'), S.room.A);
+}
+function renderAll(){ syncInputs(); renderBands(); renderCmp(); renderRoom(); renderChart(); renderResult(); renderTransport(); }
+
+/* ---------- events ---------- */
+function bind(){
+  for (const g of GRADES) el('tl-grade').add(new Option(String(g), String(g)));
+  el('tl-noise').addEventListener('click', useNoise);
+  el('tl-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadFile(f); });
+  el('tl-seg-mode').addEventListener('click', e => {
+    const b = e.target.closest('button[data-mode]'); if (!b || b.dataset.mode === S.mode) return;
+    S.mode = b.dataset.mode; save(); syncInputs(); renderBands(); renderCmp(); invalidate(true);
+  });
+  el('tl-grade').addEventListener('change', e => { const g = Number(e.target.value); if (!GRADES.includes(g)) return; S.grade = g; save(); renderBands(); renderCmp(); invalidate(true); });
+  el('tl-fill').addEventListener('click', () => { S.values = FX.map(f => Math.max(0, Math.round(D.refCurve(f, S.grade) * 10) / 10)); save(); renderBands(); invalidate(true); });
+  el('tl-range').addEventListener('change', e => { if (!RANGES.includes(e.target.value)) return; S.range = e.target.value; save(); renderBands(); invalidate(true); });
+  el('tl-room-on').addEventListener('change', e => { S.room.on = e.target.checked; save(); renderRoom(); invalidate(true); });
+  App.bindNumber(el('tl-room-S'), { min: 1, max: 200, label: '壁の面積 S', msg: el('tl-room-out'), get: () => S.room.S, set: v => { S.room.S = v; save(); renderRoom(); invalidate(true, TYPING_MS); } });
+  App.bindNumber(el('tl-room-A'), { min: 1, max: 200, label: '等価吸音面積 A', msg: el('tl-room-out'), get: () => S.room.A, set: v => { S.room.A = v; save(); renderRoom(); invalidate(true, TYPING_MS); } });
+  el('tl-cmp').addEventListener('click', e => { const b = e.target.closest('button[data-cond]'); if (!b) return; setCond(b.dataset.cond === 'dry' ? 'dry' : Number(b.dataset.cond)); });
+  el('tl-pad').addEventListener('change', e => { const v = Number(e.target.value); if (!PADS.includes(v)) return; S.pad = v; save(); renderResult(); renderTransport(); if (playing && cond === 'dry') swap(); });
+  el('tl-play').addEventListener('click', play);
+  el('tl-stop').addEventListener('click', stop);
+  el('tl-vol-down').addEventListener('click', () => setVol(S.vol - VOL_STEP));
+  el('tl-vol-up').addEventListener('click', () => setVol(S.vol + VOL_STEP));
+}
+
+return {
+  init(){ S = loadSettings(); bind(); renderAll(); },
+  show(){ renderAll(); },
+  stop,
+  get S(){ return S; }, get proc(){ return proc; }, get playing(){ return playing; }, get cond(){ return cond; }, get source(){ return source; },
+  get voices(){ return voices.length; }, get srcInfo(){ return srcInfo; }, get graph(){ return getGraph(); },
+  FREQ, OFFSETS, KEY, curve, prepare, play, startPlayback, setCond, setVol, useNoise, invalidate, sanitize, defaults
+};
+})());
+
+</script>
+<script>
+App.start();
+</script>
+</body>
+</html>
