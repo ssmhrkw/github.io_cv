@@ -21,6 +21,8 @@ const store = {
 const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v)) ? '—' : v.toFixed(d).replace('-', '−');
 const sgn = (v, d = 0) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d);
 const db = v => 20 * Math.log10(Math.max(v, 1e-30));
+/** Text that did not originate in this page (file names, stored strings) must pass through here before it is put into HTML. */
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /** Numeric field: every valid keystroke is stored immediately; invalid text is never stored and is reverted on blur. */
 function bindNumber(input, o){
@@ -139,7 +141,10 @@ function start(){
   const hash = (location.hash || '').replace('#', '');
   showTab(hash === 'tl' || hash === 'lh' ? hash : shell.tab, false);
 }
-const api = { VERSION, el, store, fmt, sgn, db, bindNumber, audio, register, start, busy, showError, stopAll, showTab, get shell(){ return shell; } };
+/** Chart scale used for every level-versus-frequency chart: one octave = 15 mm and 10 dB = 20 mm on paper
+    (the format used for building-acoustics test reports), i.e. 10 dB is 4/3 of an octave. OCT is the octave width in SVG units. */
+const CHART = { OCT: 36, RATIO: 20 / 15 };
+const api = { VERSION, el, store, fmt, sgn, db, esc, CHART, bindNumber, audio, register, start, busy, showError, stopAll, showTab, get shell(){ return shell; } };
 return api;
 })();
 window.__app = App;

@@ -220,7 +220,7 @@ function tlProcess(input, sr, x, y, offsets, lo, hi){
       peakDb: 20 * Math.log10(Math.max(w.peak, 1e-30))
     };
   }
-  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, bands, empty: !(dry.lev.z > 0) };
+  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, bands, dryMs: { z: dry.lev.z / (n * L), a: dry.lev.a / (n * L) }, empty: !(dry.lev.z > 0) };
 }
 
 const DSP = { P0, G10, d1LP, d1HP, butterLP, butterHP, sosMag, normalizeAt, bandpassSOS, aWeightSOS, sosFilter, filtfilt, fastMaxDb,

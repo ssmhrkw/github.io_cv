@@ -188,3 +188,8 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
 .lg-tgt{width:9px;height:9px;border:1.5px solid var(--ink);transform:rotate(45deg);margin:0 6px;background:var(--surface)}
 .lg-ana{width:9px;height:9px;border:0;border-radius:50%;background:var(--fill);margin:0 6px}
 .lg-bg{width:9px;height:11px;border:0;background:var(--muted);opacity:.55;margin:0 6px}
+
+.keys{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;margin:.5rem 0;font-size:.8rem;color:var(--muted)}
+.keys dt{font-family:var(--font-num);color:var(--ink);font-weight:700;white-space:nowrap}
+.keys dd{margin:0}
+.wip{background:var(--warn);color:var(--bg);font-weight:700;border-radius:6px;padding:.5rem .75rem;margin:0;font-size:.9rem}

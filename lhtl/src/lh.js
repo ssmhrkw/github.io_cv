@@ -340,7 +340,7 @@ function getGraph(){
     master.gain.value = levelLin();
     master.connect(c.destination);
     graph = { ctx: c, master };
-    quietAt = 0;
+    quietAt = 0; gainEff = S.level; gainPending = null; settleAt = 0;
   }
   return graph;
 }
@@ -353,6 +353,8 @@ function rampTo(v, now, to, dur){
   v.v0 = cur; v.v1 = to; v.t0 = now; v.t1 = now + dur;
 }
 let quietAt = 0;                   // context time after which no faded-out or left-over voice can still sound
+let gainEff = 0, gainPending = null; // level the shared gain really has (lower bound) / an increase waiting for quietAt
+let settleAt = 0;                   // after a decrease: no new voice (checked against the new, lower level) starts before the gain is down
 function holdUntil(t){ if (t > quietAt) quietAt = t; }
 function fadeOutVoice(v, now){ rampTo(v, now, 0, FADE); holdUntil(now + FADE + 0.01); try { v.src.stop(now + FADE + 0.01); } catch (e) { /* already stopped */ } }
 function stopVoices(now){
@@ -433,7 +435,7 @@ function play(G, LA){
   for (const v of V.imps) fadeOutVoice(v, now);      // old impacts are silent by now + FADE; new ones start at now + GAP or later
   V.imps = [];
   if (V.cal){ fadeOutVoice(V.cal, now); V.cal = null; }
-  const start = now + GAP;
+  const start = Math.max(now + GAP, settleAt);
   let t0, tEnd;
   if (LA === null){
     if (V.bg){ fadeOutVoice(V.bg, now); V.bg = null; }
@@ -524,7 +526,6 @@ function setLevel(L){
   L = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(L / LEVEL_STEP) * LEVEL_STEP));
   if (L === S.level) return;
   let note = '';
-  const up = L > S.level;
   if (playing && !playableAt(playing.G, playing.LA, L)){
     stopAll();
     note = '出力レベルを上げると再生中の条件が上限（−1 dBFS）を超えるため、再生を止めました。';
@@ -533,11 +534,16 @@ function setLevel(L){
   if (graph){
     // The shared gain may only rise once every voice that is fading out (stop, cell switch, live edit) is silent;
     // those voices belong to an earlier, possibly louder condition and are not covered by the check above.
-    // A decrease is applied at once.
-    // Voices created after this point are checked against the new level before they start.
-    const p = graph.master.gain, now = graph.ctx.currentTime, t = up ? Math.max(now + 0.01, quietAt + 0.005) : now + 0.01;
-    p.cancelScheduledValues(now);     // drops a change that has not begun yet; one already under way simply continues until t
-    p.setTargetAtTime(levelLin(), t, 0.02);
+    // "Rise" is judged against the gain that is really in effect (gainEff), not against the last requested level:
+    // after stop, "+" (deferred) followed by a smaller "-" is still a rise for the voices that are fading out.
+    // gainEff is the lowest level the gain may already have reached, so anything above it is treated as a rise.
+    const p = graph.master.gain, now = graph.ctx.currentTime;
+    if (gainPending && now >= gainPending.at){ gainEff = gainPending.level; gainPending = null; }
+    const rising = L > gainEff, t = rising ? Math.max(now + 0.01, quietAt + 0.005) : now + 0.01;
+    p.cancelScheduledValues(now);     // drops a change that has not begun yet; one already under way continues until t
+    p.setTargetAtTime(levelLin(), t, rising ? 0.02 : 0.008);
+    if (rising) gainPending = { level: L, at: t };
+    else { gainEff = L; gainPending = null; settleAt = Math.max(settleAt, t + 0.115); }   // 14 time constants: a 60 dB drop has less than 0.1 % of the old gain left
   }
   renderMatrix(); renderReadout(); renderTransport(); renderRangeLine();
   say('lh-over', note);
@@ -636,7 +642,7 @@ function renderBandLine(){
   const imp = S.mode === 'custom'
     ? '63・125・250・500 Hz（指定値の4帯域のみ）'
     : '63・125・250・500 Hz' + (extra.length ? ' ＋ ' + extra.map(bandText).join('・') + '（参考外挿）' : '（評価範囲のみ）');
-  const bgt = (S.bgBand === 'b4' ? '63〜500 Hz の4帯域内（約 45〜710 Hz）' : '広帯域 約 22 Hz〜11 kHz（衝撃音の帯域選択とは独立）') + (bgSource === 'wav' && bgWav ? '／音源：録音「' + bgWav.name + '」' : '／音源：合成ノイズ');
+  const bgt = (S.bgBand === 'b4' ? '63〜500 Hz の4帯域内（約 45〜710 Hz）' : '広帯域 約 22 Hz〜11 kHz（衝撃音の帯域選択とは独立）') + (bgSource === 'wav' && bgWav ? '／音源：録音「' + App.esc(bgWav.name) + '」' : '／音源：合成ノイズ');
   el('lh-bandline').innerHTML = '<span><b>衝撃音の帯域：</b>' + imp + '</span><span><b>暗騒音の帯域：</b>' + bgt + '</span>';
   el('lh-grade-box').hidden = S.mode === 'custom'; el('lh-custom-box').hidden = S.mode !== 'custom';
 }
@@ -697,10 +703,12 @@ function drawChart(G, imp, bgb, bands){
   const refAt = (g, b) => ref50(b) + g - 50, tgt = G === null ? null : bands.map(b => target50(b) + G - 50);
   const all = [].concat(...fam.map(g => bands.map(b => refAt(g, b))), imp || [], bgb || [], tgt || []);
   const lo = Math.max(0, Math.floor((Math.min(...all) - 4) / 10) * 10), hi = Math.ceil((Math.max(...all) + 4) / 10) * 10;
-  const x0 = 34, x1 = 312, yT = 8, yB = 206, gw = (x1 - x0) / bands.length;
-  const y = v => yB - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (yB - yT), cx = j => x0 + gw * (j + 0.5);
+  // fixed scale: one octave = OW, 10 dB = OW * 4/3; bands sit at their true octave positions (a skipped band leaves a gap)
+  const OW = App.CHART.OCT, DH = OW * App.CHART.RATIO, x0 = 36, yT = 14, minX = Math.min(...bands.map(b => b.x)), nOct = Math.max(...bands.map(b => b.x)) - minX + 1;
+  const x1 = x0 + nOct * OW, yB = yT + (hi - lo) / 10 * DH, Wt = x1 + 50, Ht = yB + 24;
+  const y = v => yB - (Math.max(lo, Math.min(hi, v)) - lo) / 10 * DH, cx = j => x0 + (bands[j].x - minX + 0.5) * OW;
   let s = '';
-  for (let v = lo; v <= hi; v += (hi - lo > 100 ? 20 : 10)){
+  for (let v = lo; v <= hi; v += 10){
     s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + y(v) + '" y2="' + y(v) + '"/><text x="' + (x0 - 5) + '" y="' + (y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
   }
   bands.forEach((b, j) => {
@@ -718,9 +726,10 @@ function drawChart(G, imp, bgb, bands){
     s += '<rect class="tgt" x="' + (cx(j) - 5) + '" y="' + (y(t) - 5) + '" width="10" height="10" transform="rotate(45 ' + cx(j) + ' ' + y(t) + ')"><title>' + b.label + ' Hz 目標値 ' + t.toFixed(1) + ' dB</title></rect>';
     s += '<circle class="ana" cx="' + cx(j) + '" cy="' + y(imp[j]) + '" r="3.3"><title>' + b.label + ' Hz 生成波形の分析値 L_Fmax ' + imp[j].toFixed(1) + ' dB</title></circle>';
   });
-  s += '<text x="4" y="' + (yT + 4) + '">dB</text><text x="' + (x1 + 44) + '" y="' + (yB + 14) + '" text-anchor="end">Hz</text>';
+  s += '<text x="4" y="10">dB</text><text x="' + (Wt - 4) + '" y="' + (yB + 14) + '" text-anchor="end">Hz</text>';
   const svg = el('lh-ro-chart');
   svg.innerHTML = s;
+  svg.setAttribute('viewBox', '0 0 ' + Wt + ' ' + Ht); svg.style.maxWidth = Math.round(Wt * 1.3) + 'px';
   svg.setAttribute('aria-label', (G === null ? '暗騒音のみ' : gradeName(G) + ' の帯域レベル：' + bands.map((b, j) => b.label + ' Hz 目標 ' + tgt[j].toFixed(0) + '、分析値 ' + imp[j].toFixed(1) + ' dB').join('；')) + (bgb ? '。暗騒音：' + bands.map((b, j) => b.label + ' Hz ' + bgb[j].toFixed(0) + ' dB').join('、') : ''));
 }
 /** Set a field's value unless the user is typing in it (never overwrite text that is being edited). */
@@ -907,10 +916,10 @@ async function loadWav(file){
   }
 }
 
-let bgWavToken = 0, bgWavId = 0;
+let bgWavToken = 0, bgWavId = 0, bgIntent = 0;   // bgIntent: bumped by every explicit choice of the background source
 /** Load a recording as the background. Nothing is changed unless the whole file was read and prepared successfully. */
 async function loadBgWav(file){
-  const st = el('lh-bg-status'), token = ++bgWavToken;
+  const st = el('lh-bg-status'), token = ++bgWavToken, intent = ++bgIntent;
   st.classList.remove('err'); st.textContent = '読み込み中…';
   try {
     if (file.size > 200 * 1024 * 1024) throw new Error('200 MB 以下のファイルを選んでください。');
@@ -935,6 +944,12 @@ async function loadBgWav(file){
     for (let i = 0; i < xf; i++){ const u = (i + 0.5) / xf * Math.PI / 2; loopData[i] = mono[i] * Math.sin(u) + mono[N + i] * Math.cos(u); }   // seam: what follows the loop end fades into its start
     bgWav = { id: ++bgWavId, name: file.name, data: loopData, dur: N / fs,
       info: file.name + '：' + (N / fs).toFixed(1) + ' s をループ（全 ' + (ab.length / fs).toFixed(1) + ' s、継ぎ目は ' + (xf / fs).toFixed(2) + ' s のクロスフェード）／' + ab.numberOfChannels + ' ch → モノラル／' + fs + ' Hz／元の A 特性実効値 ' + fmt(aRmsDb(loopData, fs)) + ' dBFS' };
+    if (intent !== bgIntent && bgSource !== 'wav'){
+      // The user picked the synthetic noise while this file was loading: keep that choice, only make the recording available.
+      syncInputs();
+      st.textContent = '「' + file.name + '」を読み込みました。読み込み中に暗騒音の音源が選び直されたため、切り替えていません。「録音（WAV）」を選ぶと使えます。';
+      return;
+    }
     bgSource = 'wav'; bgNote = '';
     requestRebuild(0, false, true);
   } catch (err){
@@ -1021,6 +1036,7 @@ function bind(){
   }));
   el('lh-wav').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadWav(f); });
   el('lh-bgwav').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadBgWav(f); });
+  document.querySelectorAll('input[name="lh-bgsrc"]').forEach(r => r.addEventListener('click', () => { bgIntent++; }));   // also when it is already selected
   document.querySelectorAll('input[name="lh-bgsrc"]').forEach(r => r.addEventListener('change', e => {
     bgSource = (e.target.value === 'wav' && bgWav) ? 'wav' : 'synth'; bgNote = ''; el('lh-bg-status').textContent = '';
     renderBandLine(); requestRebuild(60, false, true);

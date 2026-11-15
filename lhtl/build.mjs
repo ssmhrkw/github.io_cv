@@ -4,7 +4,9 @@
 //   dist/tl-listening.html     airborne insulation (Dr / Rr / TL) only
 // All three share the same code and the same saved settings.
 import fs from 'node:fs';
-const VERSION = '2.1.0';
+const VERSION = '2.2.1';
+// WIP=1 node build.mjs  ->  adds a visible "work in progress" bar and marks the title (for copies that are published before a fix is verified).
+const WIP = process.env.WIP ? '<p class="wip" id="wip" role="note">作業中の版（WIP）です。検証が終わっていない変更を含みます。</p>' : '';
 const r = f => fs.readFileSync(new URL('./src/' + f, import.meta.url), 'utf8');
 const parts = { '/*__CSS__*/': r('style.css'), '/*__DSP__*/': r('dsp.js'), '/*__SHELL__*/': r('shell.js'), '/*__LH__*/': r('lh.js'), '/*__TL__*/': r('tl.js') };
 if (/<\/script>/i.test(Object.values(parts).join(''))) throw new Error('a source part contains </script>');
@@ -17,7 +19,7 @@ fs.mkdirSync(new URL('./dist/', import.meta.url), { recursive: true });
 for (const [v, o] of Object.entries(variants)){
   let html = r('index.template.html').replace(/<!--IF:(\w+)-->([\s\S]*?)<!--\/IF:\1-->/g, (m, tag, body) => (v === 'both' || tag === v) ? body : '');
   for (const [k, text] of Object.entries(parts)) html = html.replace(k, () => text);
-  html = html.split('__VERSION__').join(VERSION).replace('__TITLE__', o.title).replace('__H1__', o.h1);
+  html = html.split('__VERSION__').join(VERSION + (WIP ? '-WIP' : '')).replace('__TITLE__', (WIP ? '［WIP］' : '') + o.title).replace('__H1__', o.h1).replace('<!--WIP-->', WIP);
   if (v !== 'both') html = html.replace(/ role="tabpanel" aria-labelledby="tab-\w+"/g, ' role="region" aria-label="' + o.h1 + '"');
   if (/__\w+__|\/\*__|<!--\/?IF/.test(html)) throw new Error('unresolved placeholder in ' + o.file);
   fs.writeFileSync(new URL('./dist/' + o.file, import.meta.url), html);

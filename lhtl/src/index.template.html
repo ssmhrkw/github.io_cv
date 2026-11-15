@@ -6,6 +6,8 @@
 <title>__TITLE__</title>
 <meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
 <meta name="app-version" content="__VERSION__">
+<!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
 /*__CSS__*/
 </style>
@@ -34,7 +36,7 @@
   </div><!--/IF:both-->
 
   <p class="notice" id="app-error" role="alert" hidden></p>
-  <p class="notice"><b>はじめに：</b>端末の音量を小さくしてから始めてください。画面の dB はモデル上の計算値で、耳元の音圧（dB SPL）ではありません。添付プレビューで音が出ないときは、この HTML を保存して Safari／Chrome で開いてください。</p>
+  <!--WIP--><p class="notice"><b>はじめに：</b>これは試聴用のモデルです。実際の建物の遮音性能や、耳元の音圧を保証するものではありません。端末の音量を小さくしてから始めてください。画面の dB はモデル上の計算値で、耳元の音圧（dB SPL）ではありません。添付プレビューで音が出ないときは、この HTML を保存して Safari／Chrome で開いてください。</p>
 
   <main id="main">
 <!--IF:lh-->  <!-- ======================= LH ======================= -->
@@ -101,9 +103,14 @@
           <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
           <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
           <div class="msg" id="lh-over" role="status"></div>
-          <p class="hint">斜線のセルは、いまの出力レベルではデジタル出力の上限（−1 dBFS）を超えるため再生しません。「≤−20」は「出力レベルを −20 dB 以下にすると再生できる」という意味です（音を 20 dB 上げ下げする指定ではありません）。</p>
+          <dl class="keys" id="lh-keys">
+            <dt>▶</dt><dd>押すと、その行（衝撃音）と列（暗騒音）の組み合わせを再生します。</dd>
+            <dt>≤−20</dt><dd>斜線のセル。いまの出力レベルではデジタル出力の上限（−1 dBFS）を超えるので再生しません。画面下の出力レベルを −20 dB 以下にすると再生できます（音を 20 dB 動かす指定ではありません）。</dd>
+            <dt>Δ12</dt><dd>下のチェックを入れたときだけ表示。衝撃音が暗騒音より A 特性で 12 dB 上、という目安です。等級の差でも音量の操作量でもありません。</dd>
+            <dt>＋ −</dt><dd>画面下の出力レベル。全部の組み合わせを同じだけ大きく・小さくします。</dd>
+          </dl>
           <label class="check"><input type="checkbox" id="lh-nums"><span>セルに Δ（衝撃音の参考 L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>、dB）を表示</span></label>
-          <p class="hint">Δ は「衝撃音が暗騒音より A 特性で何 dB 上か」の目安です。等級の差でも、音量の操作量でもありません。衝撃音は最大値（F、125 ms）、暗騒音は時間平均なので、Δ が 0 でも衝撃音は聞こえます。</p>
+          <p class="hint">Δ は、衝撃音が最大値（F、125 ms）、暗騒音が時間平均なので、0 でも衝撃音は聞こえます。</p>
         </section>
       </div>
 
@@ -119,7 +126,7 @@
           <dl class="nums" id="lh-ro-nums"></dl>
           <p class="msg err" id="lh-ro-warn" role="status"></p>
           <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
-          <p class="hint">縦軸は 1/1 オクターブ帯域レベル（dB re 20 µPa、モデル上の値）、横軸は帯域の中心周波数です。◇は設定から決まる目標、●は実際に作った波形を帯域フィルタで分析した値で、両者が重なっていれば設定どおりの音です。*と破線は評価範囲外の参考外挿で、正式な等級判定には使えません。実際の音圧は端末・音量・校正で決まります。</p>
+          <p class="hint">縦軸は 1/1 オクターブ帯域レベル（dB re 20 µPa、モデル上の値）、横軸は帯域の中心周波数です。目盛りの縮尺は、建築音響の試験報告の図と同じく 10 dB：1 オクターブ ＝ 20：15 です。◇は設定から決まる目標、●は実際に作った波形を帯域フィルタで分析した値で、両者が重なっていれば設定どおりの音です。*と破線は評価範囲外の参考外挿で、正式な等級判定には使えません。実際の音圧は端末・音量・校正で決まります。</p>
           <details id="lh-model">
             <summary>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</summary>
             <dl class="nums" id="lh-model-nums"></dl>
@@ -233,10 +240,14 @@
           <h2 id="tl-h-1"><span class="step">1</span>音源を用意する</h2>
           <div class="row">
             <button type="button" class="btn" id="tl-noise">ピンクノイズを使う</button>
+            <button type="button" class="btn" id="tl-traffic">道路交通騒音（模擬）</button>
+            <button type="button" class="btn" id="tl-rec5">● マイクで 5 秒録音</button>
+            <button type="button" class="btn" id="tl-rec10">● 10 秒録音</button>
             <label class="check" for="tl-file">手元の音声ファイル</label>
             <input type="file" id="tl-file" accept="audio/*">
           </div>
           <p class="msg" id="tl-src-info" role="status"></p>
+          <p class="hint">マイク録音も、ファイルと同じ扱いです（このブラウザの外には出ません。初回にマイクの使用許可を求められます）。録音の大きさは引き継がないので、自分の声が「実際に何 dB だったか」は分かりません。</p>
           <p class="hint">ファイルはこのブラウザ内でだけ処理します。読み込み時に、先頭 30 秒まで・モノラル化（全チャンネルの平均）・ピークを −12 dBFS へ一度だけ正規化します。録音の元の絶対レベルは引き継ぎません。条件ごとの音量正規化はしません。</p>
         </section>
 
@@ -250,9 +261,11 @@
             </div>
           </div>
           <div class="row" id="tl-grade-row">
-            <label class="lbl" for="tl-grade">等級</label>
+            <label class="lbl" for="tl-family">曲線の種類</label>
+            <select id="tl-family"><option value="dr">Dr／Rr 等級（壁・室間）</option><option value="t">T 等級（サッシ）</option></select>
+            <label class="lbl" for="tl-grade" style="min-width:0">等級</label>
             <select id="tl-grade"></select>
-            <span class="hint">等級 50 の基準点：125 Hz = 35、500 Hz = 50、2 kHz = 60 dB（間は対数周波数軸で補間）</span>
+            <span class="hint" id="tl-grade-hint"></span>
           </div>
           <div class="row">
             <label class="lbl" for="tl-range">鳴らす帯域</label>
@@ -270,7 +283,7 @@
           <svg class="chart" id="tl-chart" viewBox="0 0 520 220" role="img" aria-label="適用する減衰量の曲線"></svg>
           <ul class="legend"><li><i class="lg lg-on"></i>いま適用する減衰量（選択中の条件）</li><li><i class="lg lg-fam"></i>等級の基準曲線 30〜70（5 刻み）</li><li><i class="lg lg-dash"></i>定義範囲外（参考外挿）</li></ul>
           <p class="hint" id="tl-curve-note"></p>
-          <p class="hint">上のグラフは<b>壁の条件</b>（縦軸：減衰量 dB、大きいほど遮音が大きい）です。下のグラフは<b>音そのもの</b>の帯域レベルで、別の量です。</p>
+          <p class="hint">上のグラフは<b>壁の条件</b>（縦軸：減衰量 dB、大きいほど遮音が大きい。縮尺は 10 dB：1 オクターブ ＝ 20：15）です。下のグラフは<b>音そのもの</b>の帯域レベルで、別の量です。</p>
           <svg class="chart" id="tl-spec" viewBox="0 0 520 220" role="img" aria-label="音のスペクトル"></svg>
           <p class="hint" id="tl-spec-note"></p>
           <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
@@ -302,6 +315,14 @@
           <p class="big" id="tl-result" role="status">音源を用意して再生してください。</p>
           <div class="tbl-wrap"><table class="t" id="tl-stats"></table></div>
           <p class="hint">「低下量」は、いまの音源・帯域で、原音に対して遮音後の音が全体で何 dB 小さくなるかの計算値です（10 dB 小さいと、およそ半分の大きさに感じるのが目安）。条件ごとの自動音量調整はしていないので、聞こえる差がそのまま低下量です。</p>
+          <div class="row">
+            <label class="lbl" for="tl-srclevel">音源の大きさ（想定）</label>
+            <select id="tl-srclevel"><option value="60">60 dB(A)：ふつうの会話</option><option value="70">70 dB(A)：大きめの声・テレビ</option><option value="80">80 dB(A)：大声・交通量の多い道路沿い</option><option value="90">90 dB(A)：ピアノなどの楽器</option></select>
+            <label class="lbl" for="tl-bg" style="min-width:0">受音側の暗騒音</label>
+            <select id="tl-bg"><option value="0">なし</option><option value="20">20 dB(A)</option><option value="30">30 dB(A)</option><option value="40">40 dB(A)</option><option value="50">50 dB(A)</option></select>
+          </div>
+          <p class="msg" id="tl-est" role="status"></p>
+          <p class="hint">暗騒音はピンクノイズで、音源を上の想定レベルとみなしたときの相対的な大きさで重ねます（原音・遮音後のどちらを聴いていても同じ大きさで鳴り続けます）。</p>
           <div class="row">
             <label class="lbl" for="tl-pad">原音の再生レベル</label>
             <select id="tl-pad">
@@ -349,7 +370,7 @@
     </div>
   </section>
 <!--/IF:tl-->  </main>
-  <footer>v__VERSION__ ・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+  <footer>v__VERSION__ ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
 </div>
 <div class="busy" id="busy" role="status" hidden>計算中…</div>
 

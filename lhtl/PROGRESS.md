@@ -77,3 +77,19 @@
 - [x] 報告3件修正（lh.js quietAt/holdUntil、tl.js 入れ子mix+kill段、dsp.js measure()）tests/10 29/29。全体 381/381。WIP-2 作成。
 - [ ] 残り: REPORT.md を v2.1.0 に更新、screenshots 再取得（node tests/screenshots.mjs && node tests/montage.mjs）、最終zip（tools/pack.sh lh-tl-listening-v2.1.0-project）
 - [x] REPORT 13章、スクリーンショット更新、最終zip /home/claude/deliver/lh-tl-listening-v2.1.0-project.zip
+
+## v2.1.1（v2.1.0 に対する報告3件＋5・7）— 進行中
+(1) lh.js setLevel: gainEff/gainPending で「実効ゲインに対する上げ」を判定 (2) bandline の innerHTML に録音名 → App.esc、CSP meta 追加 (3) bgIntent で読込中の暗騒音音源の選び直しを尊重
+(5) tests/11 でグラフの値と描画波形の対応を検証 (7) 免責の常時表示、WIP=1 ビルドで帯を表示
+試験: tests/11-reported-3.mjs → 全スイート（2〜3回に分けて各10分未満）→ pack lh-tl-listening-v2.1.1-project
+- [x] v2.1.1 完了: 428/428、REPORT 14章、最終zip /home/claude/deliver/lh-tl-listening-v2.1.1-project.zip
+
+## v2.1.2 — グラフの縮尺を 10 dB : 1 オクターブ = 20 : 15 に統一（App.CHART、lh.js drawChart、tl.js renderChart/renderSpec）。tests/12-chart-scale.mjs。原典未確認と明記。
+- [x] v2.1.2 完了: 444/444、REPORT 15章、/home/claude/deliver/lh-tl-listening-v2.1.2-project.zip
+- 次の候補（未着手・ユーザーと相談中）: マイク録音(Rec)をTL音源に、T等級サッシ、LL軽量床衝撃音、聞き分けクイズ
+
+## v2.2.0 進行中: TL に (A) マイク録音 record() (B) 受音側暗騒音 S.bg/S.srcLevel + 推定表示 (C) T等級 S.family='t' refAt()/defHi()。tests/13-v220.mjs。LL・クイズ・NCは未着手。
+- [x] v2.2.0 完了: 457/457、REPORT 16章、/home/claude/deliver/lh-tl-listening-v2.2.0-project.zip。残り: LL、クイズ、NC（未着手）、T等級線・縮尺の原典照合
+
+## v2.2.1 進行中: (1) tl.js record を stop/タブ切替で中止(recGen, recStream) (2) updateBg を常駐1ボイス化 (3) lh.js setLevel 下げは τ=8ms＋settleAt まで新規発音を待つ。tests/14-reported-4.mjs
+- [x] v2.2.1 完了: 478/478、REPORT 17章、/home/claude/deliver/lh-tl-listening-v2.2.1-project.zip
