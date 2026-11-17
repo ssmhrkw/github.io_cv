@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 name="$1"; out="/home/claude/deliver/wip/$name.zip"
 rm -rf tests/out/wav tests/out/broken-missing-field.html
 rm -f "$out"
-zip -qr "$out" STATUS.md PROGRESS.md CHANGELOG.md REPORT.md build.mjs tools src tests shots dist orig -x "node_modules/*"
+zip -qr "$out" STATUS.md PROGRESS.md CHANGELOG.md REPORT.md build.mjs tools src tests study shots dist orig -x "node_modules/*"
 unzip -tq "$out"
 echo "files: $(unzip -l "$out" | tail -1 | awk '{print $2}')  size: $(du -h "$out" | cut -f1)"
 for f in lh-tl-listening.html lh-listening.html tl-listening.html; do

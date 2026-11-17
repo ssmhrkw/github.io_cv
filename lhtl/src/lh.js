@@ -20,7 +20,11 @@ const BG_LEVELS = [null, 20, 30, 40, 50, 60, 70];
 const K_REF = 126;                 // uncalibrated: model dB (peak) that maps to 0 dBFS at output level 0 dB
 const CAL_DBFS = -20;
 const CEIL = Math.pow(10, -1 / 20); // digital peak ceiling, -1 dBFS
-const LEVEL_MIN = -40, LEVEL_MAX = 20, LEVEL_STEP = 5;
+/* Output level (master gain, the same for every condition). v2.3.0: range −40…+60 dB, new default +20 dB.
+   +60 is the highest 5 dB step at which the quietest impact condition (LH-30, 63–500 Hz, no background, uncalibrated)
+   still stays below −1 dBFS (its limit is +60.9 dB); every added band only lowers that limit, so above +60 no impact
+   condition could be played (study/headroom-probe.mjs, REPORT.md ch. 18). The −1 dBFS check per condition is unchanged. */
+const LEVEL_MIN = -40, LEVEL_MAX = 60, LEVEL_STEP = 5, LEVEL_DEFAULT = 20;
 const QUIET_DBFS = -90;            // below this rms a signal is at the 16-bit quantisation floor
 const TRIPLE_OFFSETS = [0, 1, 2], RUN_INTERVAL = 1.9, RUN_LOOKAHEAD = 3, RUN_TICK_MS = 250;
 const LEAD = 0.8, FADE = 0.05, GAP = 0.08, BG_FADE_IN = 0.15;
@@ -33,7 +37,7 @@ function defaults(){
   const ref50 = {}, off = {};
   BANDS.forEach((b, i) => { ref50[b.label] = REF65[i] - 15; off[b.label] = 0; });
   return { v: 5, mode: 'grade', add: { '16': false, '31.5': false, '1k': false, '2k': false }, custom4: [88, 78, 71, 65], ref50, off,
-    pattern: 'single', T: 0.7, slope: -5, bgBand: 'wide', nums: false, level: 0, cal: {} };
+    pattern: 'single', T: 0.7, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {} };
 }
 function sanitize(s){
   const o = defaults();
@@ -137,7 +141,7 @@ function synthBand(b, fs, T, N){
   const k = b.label + ':' + fs + ':' + T;
   if (rawCache.has(k)) return rawCache.get(k);
   const rnd = D.mulberry32(20261109 + 7919 * b.i), decay = Math.log(1000) / T;
-  const r = Math.exp(-decay / fs), na = 0.004 * fs, nf = Math.round(0.05 * fs);
+  const r = Math.exp(-decay / fs), na = 0.004 * fs, nf = Math.round(0.05 * fs), low = b.fc < LOW_FC, La = low ? lowAttackLen(b, fs) : 0;
   let x = new Float64Array(N);
   for (let m = 0; m < b.modes; m++){
     const f = b.fc * Math.pow(G10, (0.1 + 0.8 * rnd()) - 0.5);
@@ -147,19 +151,40 @@ function synthBand(b, fs, T, N){
     for (let n = 0; n < N; n++){ x[n] += im; const t = re * cr - im * ci; im = re * ci + im * cr; re = t; }
   }
   for (let n = 0; n < N; n++){
-    let e = 1 - Math.exp(-n / na);
+    let e = low ? blackmanRise(n, La) : 1 - Math.exp(-n / na);
     if (n > N - nf) e *= 0.5 - 0.5 * Math.cos(Math.PI * (N - n) / nf);
     x[n] *= e;
   }
-  if (b.fc < 50){   // keep the very-low-frequency attack from spilling into higher bands
-    const z = D.filtfilt(x, bandSOS(b, fs), Math.round(fs));
-    const edge = Math.min(Math.round(fs * 0.2), Math.floor(N / 3));
-    for (let n = 0; n < edge; n++){ const w = 0.5 - 0.5 * Math.cos(Math.PI * n / edge); z[n] *= w; z[N - 1 - n] *= w; }
-    x = z;
-  }
+  if (low) lowTail(x, fs);
   if (rawCache.size > 24) rawCache.clear();
   rawCache.set(k, x);
   return x;
+}
+/** Onset of a band below 50 Hz (v2.3.0; study/onset-study.mjs, REPORT.md ch. 18).
+    v2.2.1 band-limited the low band with a zero-phase filter and then faded its first 200 ms in (raised cosine), which
+    made 16 / 31.5 Hz swell up late (−6 dB of the envelope reached only after 54–76 ms at 16 Hz, 83–95 ms at 31.5 Hz).
+    Now the modal sum itself rises with a Blackman attack of LOW_ATTACK_PERIODS periods of the band centre and is not
+    filtered afterwards (causal: nothing before the strike). Over T = 0.5–2 s this keeps the spill into the next band up
+    at least 7 dB (16 Hz) / 5 dB (31.5 Hz) below that band's target and the spill into bands two or more octaves up at
+    least 29 dB below — both better than v2.2.1 at T = 0.5 s (2.5 dB / 35 dB) — while the 31.5 Hz band rises 8–13 dB
+    earlier at 25 ms. Shorter attacks were rejected because the 16 Hz spill then reaches the 31.5 Hz target and the
+    combined fit fails (1.5 periods Hann: −0.2 dB margin, fit error 0.32 dB).
+    An octave band cannot rise arbitrarily fast: the zero-phase 1/1-octave impulse response is 54 ms (16 Hz) / 27 ms
+    (31.5 Hz) wide to −6 dB on each side. Tail: the fixed 200 ms fade at the end of the buffer is kept as before. */
+const LOW_ATTACK_PERIODS = 2, LOW_TAIL_S = 0.2, LOW_FC = 50;
+function lowAttackLen(b, fs){ return Math.round(LOW_ATTACK_PERIODS * fs / b.fc); }
+function blackmanRise(n, L){ if (n >= L) return 1; const u = n / L; return 0.42 - 0.5 * Math.cos(Math.PI * u) + 0.08 * Math.cos(2 * Math.PI * u); }
+function lowTail(z, fs){
+  const N = z.length, tail = Math.min(Math.round(fs * LOW_TAIL_S), Math.floor(N / 3));
+  for (let n = 0; n < tail; n++) z[N - 1 - n] *= 0.5 - 0.5 * Math.cos(Math.PI * n / tail);
+  return z;
+}
+/** Recording: the zero-phase band filter leaves a pre-echo of the low band before the strike. It is faded in with the
+    same Blackman rise, placed so that it ends at the detected onset (the strike itself is not faded) and zeroed before. */
+function lowHead(z, at, L){
+  for (let n = 0; n < at && n < z.length; n++) z[n] = 0;
+  for (let n = 0; n < L && at + n < z.length; n++) z[at + n] *= blackmanRise(n, L);
+  return z;
 }
 function synthBands(fs, T, bands){
   if (bands[0].fc < 20 && T < 0.5) throw new Error('16 Hz 帯を含む合成音では T を 0.5 秒以上にしてください。');
@@ -215,19 +240,30 @@ function buildImpact(){
   if (bands[bands.length - 1].fc * Math.sqrt(G10) >= fs / 2 * 0.98) throw new Error('この再生サンプリング周波数（' + fs + ' Hz）では選択した帯域の上端を扱えません。');
   const raw = (source === 'wav' && wav) ? wav.bands : synthBands(fs, S.T, bands);
   const fit = fitBands(raw, bands.map(target50), fs, bands);
-  const K = calKAll(), N = raw[0].length, dig = new Float32Array(N);
+  const K = calKAll(), N = raw[0].length, dig = new Float32Array(N), gds = [];
   for (let j = 0; j < raw.length; j++){
     const gd = fit.gains[j] / (P0 * Math.pow(10, K[bands[j].i] / 20)), x = raw[j];
+    gds.push(gd);
     for (let n = 0; n < N; n++) dig[n] += gd * x[n];
   }
   const runCount = Math.ceil(N / fs / RUN_INTERVAL) + 1;
-  const peaks = {
-    single: D.peakOf(dig),
-    triple: D.overlapPeak(dig, TRIPLE_OFFSETS.map(o => Math.round(o * fs))),
-    run: D.overlapPeak(dig, Array.from({ length: runCount }, (_, i) => Math.round(i * RUN_INTERVAL * fs)))
-  };
+  const offs = { single: [0], triple: TRIPLE_OFFSETS.map(o => Math.round(o * fs)), run: Array.from({ length: runCount }, (_, i) => Math.round(i * RUN_INTERVAL * fs)) };
+  const peakSet = y => ({ single: D.peakOf(y), triple: D.overlapPeak(y, offs.triple), run: D.overlapPeak(y, offs.run) });
+  const peaks = peakSet(dig);
+  // How much of the digital peak is owed to the bands below 50 Hz: peaks of each such band alone and of the sound
+  // without them (information only; what is played is always the whole sound).
+  const lowShare = bands.map((b, j) => ({ b, j })).filter(o => o.b.fc < LOW_FC).map(({ b, j }) => {
+    const alone = new Float32Array(N), x = raw[j]; for (let n = 0; n < N; n++) alone[n] = gds[j] * x[n];
+    return { label: b.label, alone: peakSet(alone) };
+  });
+  let withoutLow = null;
+  if (lowShare.length){
+    const y = Float32Array.from(dig);
+    for (let j = 0; j < raw.length; j++) if (bands[j].fc < LOW_FC){ const x = raw[j]; for (let n = 0; n < N; n++) y[n] -= gds[j] * x[n]; }
+    withoutLow = peakSet(y);
+  }
   const LAsum = 10 * Math.log10(bands.reduce((a, b, j) => a + Math.pow(10, (fit.bandFmax[j] + D.aDb(b.fc)) / 10), 0));
-  return { bands, bandFmax: fit.bandFmax, LAF: fit.LAF, LAsum, err: fit.err, dig, peaks, dur: N / fs, buffer: null, fs };
+  return { bands, bandFmax: fit.bandFmax, LAF: fit.LAF, LAsum, err: fit.err, dig, peaks, lowShare, withoutLow, dur: N / fs, buffer: null, fs };
 }
 
 /* ---------- background noise ---------- */
@@ -594,6 +630,16 @@ function renderTransport(){
   el('lh-now').textContent = V.cal ? BANDS[V.cal.i].label + ' Hz 帯域ノイズ' : cellName(p.G, p.LA);
   el('lh-level').textContent = sgn(S.level) + ' dB';
   el('lh-level-down').disabled = S.level <= LEVEL_MIN; el('lh-level-up').disabled = S.level >= LEVEL_MAX;
+  const cap = el('lh-level-cap'), q = V.cal ? null : p;
+  if (!q || !impact || !bg) cap.textContent = '';
+  else {
+    const need = neededLevel(q.G, q.LA);
+    cap.innerHTML = '';
+    const k = document.createElement('small'); k.textContent = 'この条件の上限 ';
+    const v = document.createElement('b'); v.textContent = need === null ? '再生不可' : sgn(need) + ' dB';
+    cap.append(k, v);
+    cap.title = cellName(q.G, q.LA) + '：' + patternName() + 'でピークが −1 dBFS に収まる最大の出力レベル（5 dB 刻み）';
+  }
 }
 function heatPct(info, G, LA){
   if (G === null) return 0;
@@ -655,6 +701,12 @@ function renderRangeLine(){
   if (okG.length < GRADES.length || !playable(top, 70)){
     t += all === null ? gradeName(top) + ' はこの条件では上限を超えるため再生できません。'
       : gradeName(top) + ' ＋暗騒音 70 まで全部を比べるには出力レベルを ' + sgn(all) + ' dB にします。全条件が同じだけ小さくなり、そのとき暗騒音 20 dB(A) のデジタル出力は約 ' + fmt(db(bg.rms * gradeGain(20)) + all, 0) + ' dBFS です。';
+  }
+  t += ' 出力レベルは全条件共通です。静かな条件を大きくするほど、大きな条件（' + gradeName(top) + ' など）は上限を超えて再生できなくなります（同じ波形なら等級 5 dB ごとにピークも 5 dB 変わります）。';
+  if (impact.lowShare.length && impact.withoutLow){
+    const p = S.pattern, whole = impact.peaks[p], lows = impact.lowShare.map(o => o.label + ' Hz 帯だけで ' + fmt(db(o.alone[p]), 1) + ' dBFS').join('、');
+    const gain = db(whole / impact.withoutLow[p]);
+    if (gain >= 3) t += ' デジタルピークの大半は 50 Hz 未満の帯域が占めています（' + gradeName(50) + '・出力 0 dB で全体 ' + fmt(db(whole), 1) + ' dBFS、' + lows + '、それらを除くと ' + fmt(db(impact.withoutLow[p]), 1) + ' dBFS）。その分だけ出力レベルの上限が約 ' + fmt(gain, 0) + ' dB 低くなります。小型スピーカーではこの帯域はほとんど再生されないため、聞こえる帯域の音量は上がりません。';
   }
   say('lh-rangeline', t);
 }
@@ -794,7 +846,7 @@ function sourceStatus(){
   const bad = impact && !(impact.err <= 0.25);
   const e = impact ? '、合わせ込み誤差 ' + fmt(impact.err, 2) + ' dB' + (bad ? '：目標の帯域レベルに合わせられないため、衝撃音は再生しません' : '') : '';
   st.classList.toggle('err', !!bad);
-  st.textContent = (source === 'wav' && wav) ? '録音：' + wav.name + '（' + wav.dur.toFixed(2) + ' s を使用' + e + '）' : '合成音（T = ' + S.T + ' s' + e + '）';
+  st.textContent = (source === 'wav' && wav) ? '録音：' + wav.name + '（' + wav.dur.toFixed(2) + ' s を使用' + e + '）' + (wav.preShort ? '。衝撃の前の余白が短いため、低域帯（50 Hz 未満）の立ち上がりを一部削っています。衝撃の 0.1 s 以上前から録音すると削らずに済みます。' : '') : '合成音（T = ' + S.T + ' s' + e + '）';
 }
 function syncInputs(){
   document.querySelectorAll('#lh-seg-mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
@@ -867,7 +919,13 @@ function extractImpact(ab, name, bands){
   let best = 0, idx = 0;
   for (let n = 0; n < y.length; n++){ const a = Math.abs(y[n]); if (a > best){ best = a; idx = n; } }
   if (!(best > 0) || !Number.isFinite(best)) throw new Error('信号が入っていません。');
-  const i0 = Math.max(0, idx - Math.round(0.08 * sr)), len = Math.min(x.length - i0, Math.round(3 * sr));
+  // Onset: first sample within 0.3 s before the maximum that reaches −20 dB of it. With a band below 50 Hz the cut
+  // starts early enough that its head window lies entirely before the onset, so the impact itself is not faded.
+  let iOn = idx;
+  for (let n = Math.max(0, idx - Math.round(0.3 * sr)); n <= idx; n++) if (Math.abs(y[n]) >= 0.1 * best){ iOn = n; break; }
+  const lows = bands.filter(b => b.fc < LOW_FC), headMax = lows.length ? Math.max(...lows.map(b => lowAttackLen(b, sr))) : 0;
+  const i0 = Math.max(0, Math.min(idx - Math.round(0.08 * sr), iOn - headMax - Math.round(0.005 * sr))), len = Math.min(x.length - i0, Math.round(3 * sr));
+  const preShort = lows.length > 0 && iOn - i0 < headMax;
   const minLen = Math.max(0.3, 8 / bands[0].fc);            // at least 8 periods of the lowest band
   if (len < Math.round(minLen * sr)) throw new Error(bandText(bands[0]) + ' 帯を合わせ込むには、最大の衝撃の直前から ' + (Math.ceil(minLen * 100) / 100).toFixed(2) + ' s 以上の録音が必要です（この録音で使える長さは ' + (len / sr).toFixed(2) + ' s）。');
   const seg = new Float64Array(len);
@@ -880,11 +938,11 @@ function extractImpact(ab, name, bands){
   }
   const pad = Math.round(0.3 * sr);
   const out = bands.map(b => {
-    const z = D.filtfilt(seg, bandSOS(b, sr), b.fc < 50 ? Math.round(sr) : pad);
-    if (b.fc < 50){ const edge = Math.min(Math.round(sr * 0.2), Math.floor(z.length / 3)); for (let n = 0; n < edge; n++){ const w = 0.5 - 0.5 * Math.cos(Math.PI * n / edge); z[n] *= w; z[z.length - 1 - n] *= w; } }
+    const z = D.filtfilt(seg, bandSOS(b, sr), b.fc < LOW_FC ? Math.round(sr) : pad);
+    if (b.fc < LOW_FC){ const L = Math.max(1, Math.min(lowAttackLen(b, sr), iOn - i0)); lowHead(z, iOn - i0 - L, L); lowTail(z, sr); }
     return z;
   });
-  return { name, bands: out, dur: len / sr, originalBuffer: ab, channels: ab.numberOfChannels };
+  return { name, bands: out, dur: len / sr, originalBuffer: ab, channels: ab.numberOfChannels, onset: (iOn - i0) / sr, preShort };
 }
 let wavToken = 0;
 let intentEpoch = 0;                // bumped whenever the user changes the impact condition (mode, bands, source, values, new file)
@@ -1015,11 +1073,14 @@ function bind(){
   cal.addEventListener('click', e => { const b = e.target.closest('button[data-cal]'); if (b) playCal(Number(b.dataset.cal)); });
   cal.addEventListener('input', e => {
     const mm = /^lh-cal(\d)$/.exec(e.target.id || ''); if (!mm) return;
-    const b = BANDS[Number(mm[1])], raw = e.target.value.trim(), v = Number(raw);
+    const b = BANDS[Number(mm[1])], raw = e.target.value.trim(), v = Number(raw), wasCal = calibrated();
     if (raw === ''){ delete S.cal[b.label]; e.target.removeAttribute('aria-invalid'); say('lh-cal-msg', ''); }
     else if (!Number.isFinite(v) || v < 0 || v > 140){ e.target.setAttribute('aria-invalid', 'true'); say('lh-cal-msg', b.label + ' Hz：0〜140 の数値を入力してください（まだ反映していません）。'); return; }
     else { S.cal[b.label] = v; e.target.removeAttribute('aria-invalid'); say('lh-cal-msg', ''); }
     save(); requestRebuild(TYPING_MS);
+    // With a calibration, 0 dB means "model dB = dB at the listening position". A positive output level carried over
+    // from the uncalibrated use (default +20 dB) would play that much louder than calibrated, so it is lowered to 0 dB.
+    if (!wasCal && calibrated() && S.level > 0){ const was = S.level; setLevel(0); say('lh-cal-msg', '校正値を入れたので、出力レベルを ' + sgn(was) + ' dB から 0 dB（校正どおり）に下げました。'); }
   });
   cal.addEventListener('change', e => {
     const mm = /^lh-cal(\d)$/.exec(e.target.id || ''); if (!mm || e.target.getAttribute('aria-invalid') !== 'true') return;
@@ -1052,9 +1113,9 @@ return {
   stop(){ stopAll(); },
   /* test / inspection hooks (real objects, no stand-ins) */
   get S(){ return S; }, get impact(){ return impact; }, get bg(){ return bg; }, get playing(){ return playing; }, get dirty(){ return dirty; },
-  get selected(){ return selected; }, get bgSource(){ return bgSource; }, get bgWav(){ return bgWav; }, get voices(){ return { imps: V.imps.length, bg: !!V.bg, cal: !!V.cal }; }, get buildError(){ return buildError; }, get graph(){ return getGraph(); },
+  get selected(){ return selected; }, get wav(){ return wav; }, get bgSource(){ return bgSource; }, get bgWav(){ return bgWav; }, get voices(){ return { imps: V.imps.length, bg: !!V.bg, cal: !!V.cal }; }, get buildError(){ return buildError; }, get graph(){ return getGraph(); },
   BANDS, REF65, GRADES, BG_LEVELS, K_REF, CEIL, RUN_INTERVAL, TRIPLE_OFFSETS, KEY, FADE, GAP, liveUpdate,
-  activeBands, calKAll, cellPeak, cellInfo, maxLevelFor, neededLevel, playable, play, playCal, stopAll, setLevel, select, rebuildNow, requestRebuild,
+  LEVEL_MIN, LEVEL_MAX, LEVEL_DEFAULT, LOW_ATTACK_PERIODS, lowAttackLen, activeBands, calKAll, cellPeak, cellInfo, maxLevelFor, neededLevel, playable, play, playCal, stopAll, setLevel, select, rebuildNow, requestRebuild,
   runTick, sanitize, migrate, defaults, extractImpact, synthBands, fitBands, buildCalNoise
 };
 })());

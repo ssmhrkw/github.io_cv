@@ -4,7 +4,7 @@
 //   dist/tl-listening.html     airborne insulation (Dr / Rr / TL) only
 // All three share the same code and the same saved settings.
 import fs from 'node:fs';
-const VERSION = '2.2.1';
+const VERSION = '2.3.0';
 // WIP=1 node build.mjs  ->  adds a visible "work in progress" bar and marks the title (for copies that are published before a fix is verified).
 const WIP = process.env.WIP ? '<p class="wip" id="wip" role="note">作業中の版（WIP）です。検証が終わっていない変更を含みます。</p>' : '';
 const r = f => fs.readFileSync(new URL('./src/' + f, import.meta.url), 'utf8');

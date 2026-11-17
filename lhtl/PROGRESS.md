@@ -93,3 +93,10 @@
 
 ## v2.2.1 進行中: (1) tl.js record を stop/タブ切替で中止(recGen, recStream) (2) updateBg を常駐1ボイス化 (3) lh.js setLevel 下げは τ=8ms＋settleAt まで新規発音を待つ。tests/14-reported-4.mjs
 - [x] v2.2.1 完了: 478/478、REPORT 17章、/home/claude/deliver/lh-tl-listening-v2.2.1-project.zip
+
+## v2.3.0（2026-11-17）低域の立ち上がりと出力レベル — 完了
+- [x] 方式比較 study/onset-study.mjs（SWEEP=1 で窓長の掃引）。採用：50 Hz 未満は Blackman 2 周期の立ち上がり、帯域フィルタなし、末尾 200 ms は従来どおり。
+- [x] WAV：打撃の始まり検出、切り出しを 2 周期＋5 ms 前まで広げ、窓は打撃の始まりで終わる。preShort の表示。
+- [x] LEVEL_MAX 60、LEVEL_DEFAULT 20、上限表示 #lh-level-cap、範囲説明、最初の校正で 0 dB へ。
+- [x] tests/15-v230.mjs、helpers の open() は既定で 0 dB に設定（{ level: null } で無効）。全 523/523。
+- [x] REPORT 18章、CHANGELOG、STATUS。ZIP: deliver/lh-tl-listening-v2.3.0-project.zip

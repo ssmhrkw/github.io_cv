@@ -150,6 +150,8 @@ table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
 .stepper .tp-lbl small{display:block;font-size:.68rem}
 .stepper button{width:40px;height:40px;border-radius:50%;font-size:1.15rem;font-weight:700;line-height:1}
 .stepper output{min-width:4.4rem;text-align:center;font-weight:700}
+.stepper .tp-cap{font-size:.72rem;color:var(--muted);line-height:1.25;max-width:9.5rem}
+.stepper .tp-cap b{color:var(--ink)}
 .tp-btns{display:flex;gap:8px}
 .busy{position:fixed;right:14px;top:14px;z-index:30;background:var(--ink);color:var(--bg);font-size:.82rem;padding:.4rem .8rem;border-radius:999px}
 footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}

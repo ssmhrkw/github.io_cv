@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>遮音の聴き比べ（Dr／Rr・TL）</title>
 <meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
-<meta name="app-version" content="2.2.1">
+<meta name="app-version" content="2.3.0">
 <!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
@@ -161,6 +161,8 @@ table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
 .stepper .tp-lbl small{display:block;font-size:.68rem}
 .stepper button{width:40px;height:40px;border-radius:50%;font-size:1.15rem;font-weight:700;line-height:1}
 .stepper output{min-width:4.4rem;text-align:center;font-weight:700}
+.stepper .tp-cap{font-size:.72rem;color:var(--muted);line-height:1.25;max-width:9.5rem}
+.stepper .tp-cap b{color:var(--ink)}
 .tp-btns{display:flex;gap:8px}
 .busy{position:fixed;right:14px;top:14px;z-index:30;background:var(--ink);color:var(--bg);font-size:.82rem;padding:.4rem .8rem;border-radius:999px}
 footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
@@ -369,7 +371,7 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
     </div>
   </section>
   </main>
-  <footer>v2.2.1 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+  <footer>v2.3.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
 </div>
 <div class="busy" id="busy" role="status" hidden>計算中…</div>
 
@@ -610,7 +612,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
 /* Shell: shared audio context, storage, theme, tabs. */
 const App = (function () {
 'use strict';
-const VERSION = '2.2.1';
+const VERSION = '2.3.0';
 const SHELL_KEY = 'listening-shell-v1';
 const modules = [];
 const ALL_TABS = ['lh', 'tl'];
