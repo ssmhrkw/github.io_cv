@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>遮音の聴き比べ（Dr／Rr・TL）</title>
 <meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
-<meta name="app-version" content="2.3.0">
+<meta name="app-version" content="2.4.0">
 <!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
@@ -207,6 +207,10 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
 .keys dd{margin:0}
 .wip{background:var(--warn);color:var(--bg);font-weight:700;border-radius:6px;padding:.5rem .75rem;margin:0;font-size:.9rem}
 
+.outpanel{border:1px solid var(--line);border-radius:10px;padding:.5rem .75rem;margin:.5rem 0}
+.outpanel input[type=number]{width:5.5rem}
+.outpanel .nums{margin:.25rem 0}
+
 </style>
 </head>
 <body>
@@ -371,7 +375,7 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
     </div>
   </section>
   </main>
-  <footer>v2.3.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+  <footer>v2.4.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
 </div>
 <div class="busy" id="busy" role="status" hidden>計算中…</div>
 
@@ -612,7 +616,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
 /* Shell: shared audio context, storage, theme, tabs. */
 const App = (function () {
 'use strict';
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 const SHELL_KEY = 'listening-shell-v1';
 const modules = [];
 const ALL_TABS = ['lh', 'tl'];

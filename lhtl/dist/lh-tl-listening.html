@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>床衝撃音・遮音の聴き比べ（LH／Dr・Rr・TL）</title>
 <meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
-<meta name="app-version" content="2.3.0">
+<meta name="app-version" content="2.4.0">
 <!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
@@ -207,6 +207,10 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
 .keys dd{margin:0}
 .wip{background:var(--warn);color:var(--bg);font-weight:700;border-radius:6px;padding:.5rem .75rem;margin:0;font-size:.9rem}
 
+.outpanel{border:1px solid var(--line);border-radius:10px;padding:.5rem .75rem;margin:.5rem 0}
+.outpanel input[type=number]{width:5.5rem}
+.outpanel .nums{margin:.25rem 0}
+
 </style>
 </head>
 <body>
@@ -275,6 +279,14 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
             <p class="msg" id="lh-custom-msg" role="status"></p>
           </div>
           <div class="row">
+            <span class="lbl">合成音のつくり方</span>
+            <div class="seg" id="lh-seg-synth" role="group" aria-label="合成音のつくり方">
+              <button type="button" data-synth="common" aria-pressed="true">共通加振（v2.4.0）</button>
+              <button type="button" data-synth="legacy" aria-pressed="false">旧方式（v2.3.0・比較用）</button>
+            </div>
+          </div>
+          <p class="hint" id="lh-synth-note">共通加振：全帯域に同じ時刻・同じ力波形（t·e<sup>−t/10 ms</sup>）を与え、静止状態から鳴り始める減衰振動の和です。旧方式：帯域ごとに位相がばらばらな減衰正弦波で、50 Hz 未満は 2 周期かけて立ち上がります。どちらも合成後の波形を解析して帯域ごとの L<sub>Fmax</sub> を同じ目標値に合わせ、出力レベルも共通です（切り替えても音量をそろえ直しません）。どちらも試聴用のモデルで、標準衝撃源を再現したものではありません。録音 WAV には影響しません。</p>
+          <div class="row">
             <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
             <select id="lh-bgband">
               <option value="wide">広帯域（約 22 Hz〜11 kHz）</option>
@@ -298,6 +310,18 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
             </div>
           </div>
           <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
+          <div class="outpanel" id="lh-outpanel" role="group" aria-labelledby="lh-out-lbl">
+            <div class="row">
+              <label class="lbl" id="lh-out-lbl" for="lh-level-num">出力レベル（全条件共通）</label>
+              <input type="number" id="lh-level-num" min="-40" max="60" step="5" inputmode="numeric"><span class="hint">dB（−40〜+60、5 dB 刻み）</span>
+            </div>
+            <dl class="nums" id="lh-out-nums"></dl>
+            <div class="row">
+              <button type="button" class="btn" id="lh-level-fit">この条件の上限に設定</button>
+              <button type="button" class="btn" id="lh-level-reset">初期出力 +20 dB に戻す</button>
+            </div>
+            <p class="msg" id="lh-out-msg" role="status"></p>
+          </div>
           <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
           <div class="msg" id="lh-over" role="status"></div>
           <dl class="keys" id="lh-keys">
@@ -422,6 +446,7 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
         <output id="lh-level" aria-live="polite">0 dB</output>
         <button type="button" id="lh-level-up" aria-label="出力レベルを 5 dB 上げる">＋</button>
         <span class="tp-cap" id="lh-level-cap" aria-live="polite"></span>
+        <span class="tp-cap" id="lh-level-peak"></span>
       </div>
       <div class="tp-btns">
         <button type="button" class="btn primary" id="lh-play">▶ <span class="long">選択中を</span>再生</button>
@@ -568,7 +593,7 @@ footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
     </div>
   </section>
   </main>
-  <footer>v2.3.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+  <footer>v2.4.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
 </div>
 <div class="busy" id="busy" role="status" hidden>計算中…</div>
 
@@ -809,7 +834,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
 /* Shell: shared audio context, storage, theme, tabs. */
 const App = (function () {
 'use strict';
-const VERSION = '2.3.0';
+const VERSION = '2.4.0';
 const SHELL_KEY = 'listening-shell-v1';
 const modules = [];
 const ALL_TABS = ['lh', 'tl'];
@@ -998,7 +1023,7 @@ function defaults(){
   const ref50 = {}, off = {};
   BANDS.forEach((b, i) => { ref50[b.label] = REF65[i] - 15; off[b.label] = 0; });
   return { v: 5, mode: 'grade', add: { '16': false, '31.5': false, '1k': false, '2k': false }, custom4: [88, 78, 71, 65], ref50, off,
-    pattern: 'single', T: 0.7, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {} };
+    pattern: 'single', T: 0.7, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {}, synth: 'common' };
 }
 function sanitize(s){
   const o = defaults();
@@ -1016,6 +1041,7 @@ function sanitize(s){
   if ([-3, -5, -8].includes(s.slope)) o.slope = s.slope;
   if (s.bgBand === 'b4' || s.bgBand === 'wide') o.bgBand = s.bgBand;
   if (typeof s.nums === 'boolean') o.nums = s.nums;
+  if (s.synth === 'legacy' || s.synth === 'common') o.synth = s.synth;
   if (isNum(s.level)) o.level = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(s.level / LEVEL_STEP) * LEVEL_STEP));
   if (o.mode === 'grade' && o.add['16'] && o.T < 0.5) o.T = 0.5;
   return o;
@@ -1044,9 +1070,12 @@ function migrate(old){
   else if (Array.isArray(old.cal)) ['63', '125', '250', '500', '1k', '2k'].forEach((lab, i) => { if (isNum(old.cal[i])) s.cal[lab] = old.cal[i]; });
   return s;                                                // outputMode (compare / audition) no longer exists
 }
+/** Where the output level came from when the page opened: 'saved' (a stored setting; may differ from the default) or
+    'default'. Only used to explain the value; a stored level is never changed by itself. */
+let levelOrigin = 'default';
 function loadSettings(){
   const cur = App.store.get(KEY);
-  if (cur) return sanitize(cur);
+  if (cur){ if (isNum(cur.level)) levelOrigin = 'saved'; return sanitize(cur); }
   for (const k of OLD_KEYS){ const old = App.store.get(k); if (old) return sanitize(migrate(old)); }
   return defaults();
 }
@@ -1097,16 +1126,66 @@ function bandSOS(b, fs){
   if (!sosCache.has(k)) sosCache.set(k, D.bandpassSOS(b.fc, fs));
   return sosCache.get(k);
 }
-/** One band of the modal impact model. The random seed depends only on the band, so adding a band never changes the others. */
-function synthBand(b, fs, T, N){
-  const k = b.label + ':' + fs + ':' + T;
+/** Modes of one band: frequency and amplitude from a seed that depends only on the band (adding a band never changes
+    the others). The third draw (initial phase) is used only by the legacy model; it is drawn in both so that the modes
+    of both models are identical. Frequencies are spread over ±0.4 octave around the band centre, amplitudes 0.6–1.4. */
+function bandModes(b){
+  const rnd = D.mulberry32(20261109 + 7919 * b.i), out = [];
+  for (let m = 0; m < b.modes; m++){ const f = b.fc * Math.pow(G10, (0.1 + 0.8 * rnd()) - 0.5), amp = 0.6 + 0.8 * rnd(), ph = 2 * Math.PI * rnd(); out.push({ f, amp, ph }); }
+  return out;
+}
+/* Common-excitation model (v2.4.0, default; study/common-excitation-study.mjs, REPORT.md ch. 19).
+   One force pulse acts at t = 0 on every band. Each mode is a causal damped oscillator starting from rest:
+   h(t) = a·e^(−σt)·sin(2πft), σ = ln(1000)/T, a > 0 (all modes respond with the same sign, as at the driving point;
+   with random signs the modes partly cancel at first and the band swells up later, which is what v2.3.0 suffered from).
+   Input: p(t) ∝ t·e^(−t/τ), τ = EXC_TAU — smooth, causal, no spectral zeros, falling 12 dB/octave above
+   1/(2πτ) ≈ 16 Hz. Each band is then passed through a causal 2nd-order Butterworth high-pass at fc/2 (EXC_HP_ORDER).
+   Causes and why: (1) T is the same in every band, so the 16 Hz modes have a low Q and their resonance skirt spills
+   upwards; with a very short pulse the 16 Hz band reaches 8.8 dB above the 63 Hz target and the band fit fails. The
+   falling pulse spectrum suppresses this. (2) The same low-frequency force drives the high modes quasi-statically
+   (below resonance a mode follows the force), which puts a copy of the pulse into every band; with 1 k / 2 kHz this
+   spilled downwards and the fit failed by 5–6 dB. The high-pass one octave below each band removes that. (3) Flat-topped
+   finite pulses (Hann ≥ 2 ms) have spectral zeros that leave whole bands empty and were rejected.
+   τ = 10 ms with the 2nd-order high-pass is the combination that kept every spill margin ≥ 0.4 dB and every band fit
+   below 0.01 dB for T = 0.5 / 0.7 / 2 s and all band sets in the study. No fade is applied at the start; the 50 ms fade
+   at the end only closes the buffer. This is a listening model, not a model of a standard impact source. */
+const EXC_TAU = 0.010, EXC_LEN = 12, EXC_HP_ORDER = 2;     // pulse truncated at 12 τ (below −100 dB of its maximum)
+const excCache = new Map();
+function excitation(fs){
+  if (excCache.has(fs)) return excCache.get(fs);
+  const L = Math.round(EXC_LEN * EXC_TAU * fs), p = new Float64Array(L); let sum = 0;
+  for (let n = 0; n < L; n++){ const t = (n + 0.5) / fs; p[n] = t * Math.exp(-t / EXC_TAU); sum += p[n]; }
+  for (let n = 0; n < L; n++) p[n] /= sum;
+  excCache.set(fs, p);
+  return p;
+}
+function synthBandCommon(b, fs, T, N){
+  const k = 'common:' + b.label + ':' + fs + ':' + T;
   if (rawCache.has(k)) return rawCache.get(k);
-  const rnd = D.mulberry32(20261109 + 7919 * b.i), decay = Math.log(1000) / T;
+  const sig = Math.log(1000) / T, r = Math.exp(-sig / fs), p = excitation(fs), nf = Math.round(0.05 * fs);
+  let x = new Float64Array(N);
+  for (const { f, amp } of bandModes(b)){
+    // impulse-invariant two-pole resonator: y[n] = 2r·cos(w)·y[n−1] − r²·y[n−2] + a·r·sin(w)·p[n−1], zero initial state
+    const w = 2 * Math.PI * f / fs, a1 = 2 * r * Math.cos(w), a2 = -r * r, g = amp * r * Math.sin(w);
+    let y1 = 0, y2 = 0;
+    for (let n = 0; n < N; n++){ const u = n >= 1 && n <= p.length ? p[n - 1] : 0, y = a1 * y1 + a2 * y2 + g * u; x[n] += y; y2 = y1; y1 = y; }
+  }
+  x = Float64Array.from(D.sosFilter(x, D.butterHP(b.fc / 2, fs, EXC_HP_ORDER)));
+  for (let n = N - nf; n < N; n++) x[n] *= 0.5 - 0.5 * Math.cos(Math.PI * (N - n) / nf);
+  if (rawCache.size > 48) rawCache.clear();
+  rawCache.set(k, x);
+  return x;
+}
+/** v2.3.0 model, kept for comparison (S.synth === 'legacy'): each band is an independent sum of decaying sines with
+    random initial phases, and rises with its own attack (4 ms exponential; below 50 Hz a Blackman rise of 2 periods). */
+function synthBandLegacy(b, fs, T, N){
+  const k = 'legacy:' + b.label + ':' + fs + ':' + T;
+  if (rawCache.has(k)) return rawCache.get(k);
+  const decay = Math.log(1000) / T;
   const r = Math.exp(-decay / fs), na = 0.004 * fs, nf = Math.round(0.05 * fs), low = b.fc < LOW_FC, La = low ? lowAttackLen(b, fs) : 0;
   let x = new Float64Array(N);
-  for (let m = 0; m < b.modes; m++){
-    const f = b.fc * Math.pow(G10, (0.1 + 0.8 * rnd()) - 0.5);
-    const amp = 0.6 + 0.8 * rnd(), ph = 2 * Math.PI * rnd(), w = 2 * Math.PI * f / fs;
+  for (const { f, amp, ph } of bandModes(b)){
+    const w = 2 * Math.PI * f / fs;
     const cr = r * Math.cos(w), ci = r * Math.sin(w);
     let re = amp * Math.cos(ph), im = amp * Math.sin(ph);
     for (let n = 0; n < N; n++){ x[n] += im; const t = re * cr - im * ci; im = re * ci + im * cr; re = t; }
@@ -1117,7 +1196,7 @@ function synthBand(b, fs, T, N){
     x[n] *= e;
   }
   if (low) lowTail(x, fs);
-  if (rawCache.size > 24) rawCache.clear();
+  if (rawCache.size > 48) rawCache.clear();
   rawCache.set(k, x);
   return x;
 }
@@ -1150,7 +1229,8 @@ function lowHead(z, at, L){
 function synthBands(fs, T, bands){
   if (bands[0].fc < 20 && T < 0.5) throw new Error('16 Hz 帯を含む合成音では T を 0.5 秒以上にしてください。');
   const dur = Math.min(4, 0.15 + 2.2 * T), N = Math.round(dur * fs);
-  return bands.map(b => synthBand(b, fs, T, N));
+  const fn = S.synth === 'legacy' ? synthBandLegacy : synthBandCommon;
+  return bands.map(b => fn(b, fs, T, N));
 }
 const tailCache = new Map();
 /** Samples to analyse after the end of a signal so that the octave filter and the F time weighting have passed their
@@ -1224,7 +1304,7 @@ function buildImpact(){
     withoutLow = peakSet(y);
   }
   const LAsum = 10 * Math.log10(bands.reduce((a, b, j) => a + Math.pow(10, (fit.bandFmax[j] + D.aDb(b.fc)) / 10), 0));
-  return { bands, bandFmax: fit.bandFmax, LAF: fit.LAF, LAsum, err: fit.err, dig, peaks, lowShare, withoutLow, dur: N / fs, buffer: null, fs };
+  return { bands, bandFmax: fit.bandFmax, LAF: fit.LAF, LAsum, err: fit.err, dig, gd: gds, peaks, lowShare, withoutLow, dur: N / fs, buffer: null, fs };
 }
 
 /* ---------- background noise ---------- */
@@ -1527,7 +1607,7 @@ function setLevel(L){
     stopAll();
     note = '出力レベルを上げると再生中の条件が上限（−1 dBFS）を超えるため、再生を止めました。';
   }
-  S.level = L; save();
+  S.level = L; levelOrigin = 'set'; save();
   if (graph){
     // The shared gain may only rise once every voice that is fading out (stop, cell switch, live edit) is silent;
     // those voices belong to an earlier, possibly louder condition and are not covered by the check above.
@@ -1601,6 +1681,47 @@ function renderTransport(){
     cap.append(k, v);
     cap.title = cellName(q.G, q.LA) + '：' + patternName() + 'でピークが −1 dBFS に収まる最大の出力レベル（5 dB 刻み）';
   }
+  const pk = el('lh-level-peak');
+  if (!q || !impact || !bg) pk.textContent = '';
+  else { pk.innerHTML = ''; const k = document.createElement('small'), v = document.createElement('b'); k.textContent = 'ピーク '; v.textContent = peakText(q.G, q.LA); pk.append(k, v); }
+  renderOutPanel();
+}
+/** Output peak of a condition at the current output level, as shown to the user. */
+function peakAtLevel(G, LA){ return db(cellPeak(G, LA)) + S.level; }
+function peakText(G, LA){ const v = peakAtLevel(G, LA); return Number.isFinite(v) ? fmt(v, 1) + ' dBFS' : '—'; }
+/** Conditions in the table that the current level does not allow (for the messages after an explicit level change). */
+function overSummary(){
+  let n = 0, total = 0, quietImpact = null, quietBg = null;
+  for (const G of GRADES.concat([null])) for (const LA of BG_LEVELS){
+    if (G === null && LA === null) continue;
+    total++;
+    if (!playable(G, LA)){
+      n++;
+      if (LA === null && (quietImpact === null || G < quietImpact)) quietImpact = G;
+      if (G === null && (quietBg === null || LA < quietBg)) quietBg = LA;
+    }
+  }
+  const parts = [];
+  if (quietImpact !== null) parts.push('暗騒音なしでは ' + gradeName(quietImpact) + ' 以上');
+  if (quietBg !== null) parts.push('暗騒音のみでは ' + quietBg + ' dB(A) 以上');
+  return { n, total, quietImpact, quietBg, text: n === 0 ? '表のすべての条件が再生できます。' : 'この出力では、表の ' + total + ' 条件のうち ' + n + ' 条件' + (parts.length ? '（' + parts.join('、') + '）' : '') + 'が上限（−1 dBFS）を超えるので再生できません。' };
+}
+function renderOutPanel(){
+  const num = el('lh-level-num');
+  if (document.activeElement !== num) setVal(num, S.level);
+  const q = selected, d = el('lh-out-nums'), ok = !!impact && !!bg && !V.cal;
+  const need = ok ? neededLevel(q.G, q.LA) : null;
+  const origin = levelOrigin === 'saved'
+    ? (S.level === LEVEL_DEFAULT ? '保存された設定（初期値と同じ）' : '保存された設定の値です。初期値 ' + sgn(LEVEL_DEFAULT) + ' dB は新しく使う場合だけで、保存値は変えていません。')
+    : levelOrigin === 'set' ? '設定した値' : '初期値';
+  const rows = [['いまの出力レベル', sgn(S.level) + ' dB（' + origin + '）'], ['選択中の条件', ok ? cellName(q.G, q.LA) + '・' + patternName() : '—'],
+    ['この条件の上限', !ok ? '—' : need === null ? '再生不可' : sgn(need) + ' dB'],
+    ['この出力でのピーク（衝撃音＋暗騒音）', !ok ? '—' : peakText(q.G, q.LA) + (playable(q.G, q.LA) ? '（上限 −1 dBFS）' : '（上限超過・再生しません）')]];
+  d.textContent = '';
+  for (const [k, v] of rows){ const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; d.append(dt, dd); }
+  el('lh-level-fit').disabled = !ok || need === null || need === S.level;
+  el('lh-level-fit').title = '押したときだけ、選択中の条件がちょうど −1 dBFS 以下に収まる 5 dB 刻みの最大値にします。条件を切り替えても自動では変わりません。';
+  el('lh-level-reset').disabled = S.level === LEVEL_DEFAULT;
 }
 function heatPct(info, G, LA){
   if (G === null) return 0;
@@ -1816,6 +1937,7 @@ function syncInputs(){
   el('lh-bgband').value = S.bgBand;
   document.querySelectorAll('#lh-seg-pattern button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === S.pattern)));
   el('lh-nums').checked = S.nums;
+  document.querySelectorAll('#lh-seg-synth button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.synth === S.synth)));
   setVal(el('lh-T'), S.T); el('lh-T').disabled = source === 'wav';
   el('lh-slope').value = String(S.slope);
   el('lh-src-synth').checked = source === 'synth'; el('lh-src-wav').checked = source === 'wav'; el('lh-src-wav').disabled = !wav;
@@ -2026,6 +2148,24 @@ function bind(){
   el('lh-stop').addEventListener('click', stopAll);
   el('lh-level-down').addEventListener('click', () => setLevel(S.level - LEVEL_STEP));
   el('lh-level-up').addEventListener('click', () => setLevel(S.level + LEVEL_STEP));
+  el('lh-level-num').addEventListener('change', e => {
+    const raw = e.target.value.trim(), v = Number(raw);
+    if (raw === '' || !Number.isFinite(v)){ e.target.setAttribute('aria-invalid', 'true'); say('lh-out-msg', '出力レベルは数値（−40〜+60）で入れてください。変更していません。'); e.target.value = String(S.level); return; }
+    e.target.removeAttribute('aria-invalid');
+    const L = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(v / LEVEL_STEP) * LEVEL_STEP));
+    setLevel(L); e.target.value = String(S.level);   // shows the value in effect even while the box has focus
+    say('lh-out-msg', (L !== v ? '−40〜+60 dB・5 dB 刻みなので ' + sgn(L) + ' dB にしました。' : '') + overSummary().text);
+  });
+  el('lh-level-fit').addEventListener('click', () => {
+    const q = selected, need = neededLevel(q.G, q.LA); if (need === null) return;
+    setLevel(need);
+    say('lh-out-msg', '出力レベルを ' + sgn(need) + ' dB（' + cellName(q.G, q.LA) + '・' + patternName() + 'の上限）にしました。' + overSummary().text);
+  });
+  el('lh-level-reset').addEventListener('click', () => { setLevel(LEVEL_DEFAULT); say('lh-out-msg', '出力レベルを初期値 ' + sgn(LEVEL_DEFAULT) + ' dB にしました。' + overSummary().text); });
+  el('lh-seg-synth').addEventListener('click', e => {
+    const b = e.target.closest('button[data-synth]'); if (!b || (b.dataset.synth !== 'common' && b.dataset.synth !== 'legacy') || b.dataset.synth === S.synth) return;
+    S.synth = b.dataset.synth; save(); syncInputs(); requestRebuild(0, false, true);
+  });
   App.bindNumber(el('lh-T'), { min: 0.2, max: 2, label: '減衰時間 T', msg: el('lh-src-status'), get: () => S.T,
     set: v => { if (S.mode === 'grade' && S.add['16'] && v < 0.5){ el('lh-T').setAttribute('aria-invalid', 'true'); say('lh-src-status', '16 Hz を含むときは T を 0.5 s 以上にしてください（まだ反映していません）。'); return; } S.T = v; save(); requestRebuild(TYPING_MS, false, true); } });
   el('lh-slope').addEventListener('change', e => { const v = Number(e.target.value); if ([-3, -5, -8].includes(v)){ S.slope = v; save(); requestRebuild(60, false, true); } });
@@ -2076,7 +2216,7 @@ return {
   get S(){ return S; }, get impact(){ return impact; }, get bg(){ return bg; }, get playing(){ return playing; }, get dirty(){ return dirty; },
   get selected(){ return selected; }, get wav(){ return wav; }, get bgSource(){ return bgSource; }, get bgWav(){ return bgWav; }, get voices(){ return { imps: V.imps.length, bg: !!V.bg, cal: !!V.cal }; }, get buildError(){ return buildError; }, get graph(){ return getGraph(); },
   BANDS, REF65, GRADES, BG_LEVELS, K_REF, CEIL, RUN_INTERVAL, TRIPLE_OFFSETS, KEY, FADE, GAP, liveUpdate,
-  LEVEL_MIN, LEVEL_MAX, LEVEL_DEFAULT, LOW_ATTACK_PERIODS, lowAttackLen, activeBands, calKAll, cellPeak, cellInfo, maxLevelFor, neededLevel, playable, play, playCal, stopAll, setLevel, select, rebuildNow, requestRebuild,
+  LEVEL_MIN, LEVEL_MAX, LEVEL_DEFAULT, LOW_ATTACK_PERIODS, lowAttackLen, EXC_TAU, EXC_HP_ORDER, excitation, synthBandCommon, synthBandLegacy, peakAtLevel, overSummary, get levelOrigin(){ return levelOrigin; }, activeBands, calKAll, cellPeak, cellInfo, maxLevelFor, neededLevel, playable, play, playCal, stopAll, setLevel, select, rebuildNow, requestRebuild,
   runTick, sanitize, migrate, defaults, extractImpact, synthBands, fitBands, buildCalNoise
 };
 })());
