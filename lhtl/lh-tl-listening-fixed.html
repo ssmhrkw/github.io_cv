@@ -1,0 +1,2977 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>床衝撃音・遮音の聴き比べ（LH／Dr・Rr・TL）</title>
+<meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
+<meta name="app-version" content="2.4.0">
+<!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<style>
+/* Colours follow NIPPON COLORS (https://nipponcolors.com): 白練 #FCFAF2, 胡粉 #FFFFFB, 墨 #1C1C1C, 黒 #080808, 呂 #0C0C0C,
+   消炭 #434343, 藍墨茶 #373C38, 白鼠 #BDC0BA, 銀鼠 #91989F, 藍 #0D5661, 浅葱 #33A6B8, 白群 #78C2C4, 山吹 #FFB11B. */
+:root{
+  color-scheme:light;
+  --bg:#FCFAF2; --surface:#FFFFFB; --ink:#1C1C1C; --muted:#434343; --line:#BDC0BA; --ctl:#434343;
+  --accent:#0D5661; --fill:#0D5661; --on-fill:#FFFFFB; --warn:#8A4B00; --warn-bg:#FFF1DB;
+  --font-ui:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo","Noto Sans JP",system-ui,sans-serif;
+  --font-num:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#1C1C1C; --surface:#373C38; --ink:#FFFFFB; --muted:#BDC0BA; --line:#91989F; --ctl:#BDC0BA;
+  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+}
+:root[data-theme="black"]{
+  color-scheme:dark;
+  --bg:#080808; --surface:#0C0C0C; --ink:#FFFFFB; --muted:#BDC0BA; --line:#434343; --ctl:#91989F;
+  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.6;
+  padding:16px max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:14px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-size:1.4rem;letter-spacing:.02em}
+h2{font-size:1.02rem;display:flex;align-items:center;gap:.5rem}
+p{margin:.35rem 0}
+a{color:var(--accent)}
+sub{font-size:.72em}
+[hidden]{display:none !important}
+.num,output{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--surface);padding:6px 10px;z-index:20}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
+.lead{color:var(--muted);max-width:68ch;font-size:.9rem}
+.hint{font-size:.8rem;color:var(--muted);max-width:78ch}
+.notice{font-size:.84rem;background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:6px;padding:.5rem .75rem;margin:0}
+.notice b{color:var(--warn)}
+.err{color:var(--warn);font-weight:700}
+
+/* controls */
+button,select,input{font:inherit;color:var(--ink)}
+.btn,.seg button,.tabs button,.stepper button{border:1px solid var(--ctl);background:var(--surface);color:var(--ink);cursor:pointer;touch-action:manipulation;min-height:38px}
+.btn{border-radius:999px;padding:.4rem .95rem;font-size:.9rem}
+.btn.primary{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+.btn.stop{font-weight:700}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.seg{display:inline-flex;flex-wrap:wrap;border-radius:12px;overflow:hidden;border:1px solid var(--ctl);background:var(--surface)}
+.seg button{border:0;border-radius:0;padding:.4rem .85rem;font-size:.88rem}
+.seg button + button{border-left:1px solid var(--ctl)}
+.seg button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);font-weight:700}
+:is(button,select,input,summary,a,[tabindex]):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type="number"],select{background:var(--bg);border:1px solid var(--ctl);border-radius:6px;padding:.3rem .45rem;font-size:.9rem;min-height:36px}
+input[type="number"]{font-family:var(--font-num);width:5.4rem}
+select{max-width:100%;min-width:0;text-overflow:ellipsis}
+.row > select{flex:0 1 auto}
+input[aria-invalid="true"]{border-color:var(--warn);outline:2px solid var(--warn);outline-offset:1px}
+input[type="file"]{font-size:.84rem;max-width:100%}
+input[type="checkbox"],input[type="radio"]{width:1.15rem;height:1.15rem;accent-color:var(--fill)}
+.check{display:inline-flex;gap:.4rem;align-items:center;font-size:.9rem;min-height:36px}
+.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:.5rem 0;border:0;padding:0;min-width:0}
+.lbl{font-size:.84rem;color:var(--muted);min-width:7.2em;padding:0}
+.chipfix{font-family:var(--font-num);font-size:.84rem;border:1px solid var(--line);border-radius:6px;padding:.1rem .45rem;background:var(--bg)}
+.msg{font-size:.84rem;min-height:1.2em;margin:.25rem 0}
+
+/* tabs */
+.tabs{display:flex;gap:6px;border-bottom:2px solid var(--ctl)}
+.tabs button{border-radius:10px 10px 0 0;border-bottom:0;padding:.55rem 1rem;font-size:.95rem;margin-bottom:-2px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+
+/* layout */
+.grid2{display:grid;gap:14px;grid-template-columns:minmax(0,1fr);align-items:start}
+@media (min-width:980px){.grid2{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}}
+.col{display:grid;gap:14px;min-width:0}
+.card,details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+details{padding:0 16px}
+details[open]{padding-bottom:12px}
+summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem}
+details p,details li{font-size:.85rem}
+details ol,details ul{margin:.4rem 0;padding-left:1.3rem}
+.step{display:inline-grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--fill);color:var(--on-fill);font-family:var(--font-num);font-size:.85rem;flex:none}
+.bandline{font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:.45rem .65rem;background:var(--bg);margin:.6rem 0 .3rem}
+.bandline b{font-weight:700}
+.bandline span{display:block}
+
+/* LH matrix: always fits the width (no horizontal scrolling) */
+.matrix{display:grid;grid-template-columns:minmax(3.4rem,auto) repeat(7,minmax(0,1fr));gap:3px;margin-top:.5rem}
+.mrow{display:contents}
+.mh{font-size:.74rem;color:var(--muted);display:flex;flex-direction:column;justify-content:center;line-height:1.25;padding:2px 3px;min-width:0}
+.mh b{color:var(--ink);font-size:.86rem;font-family:var(--font-num)}
+.mh.col{align-items:center;text-align:center}
+.mh.span{grid-column:2 / -1;align-items:center;font-size:.8rem;border-bottom:1px solid var(--line);padding-bottom:3px}
+.mh.sep,.cell.sep{margin-top:6px}
+.cell{min-height:40px;min-width:0;border:1px solid var(--ctl);border-radius:7px;background:var(--surface);color:var(--ink);cursor:pointer;
+  font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:.84rem;padding:2px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.cell.sel{outline:2px solid var(--ink);outline-offset:1px}
+.cell.playing{outline:3px solid var(--accent);outline-offset:1px;font-weight:700}
+.cell.playing::after{content:"";position:absolute;right:4px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--ink);animation:pulse 1s ease-in-out infinite}
+.cell.over{cursor:not-allowed;color:var(--muted);border-style:dashed;
+  background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--muted) 22%,transparent) 5px 6px),var(--bg)}
+.cell.blank{visibility:hidden}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cell.playing::after,.dot.on{animation:none}}
+@media (max-width:520px){.cell{font-size:.74rem;min-height:42px}.mh b{font-size:.78rem}.card,details{padding-left:11px;padding-right:11px}}
+
+/* readout */
+.ro-title{font-size:1.1rem;font-weight:700}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart text{fill:var(--muted);font-family:var(--font-num);font-size:10px}
+.chart .bar-imp{fill:var(--fill)}
+.chart .bar-bg{fill:var(--muted);opacity:.55}
+.chart .curve{stroke:var(--ink);stroke-width:1.5;fill:none}
+.chart .curve.dash{stroke-dasharray:5 4}
+.chart .dot{fill:var(--ink)}
+.chart .zone{fill:var(--fill);opacity:.1}
+.nums{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;margin:.4rem 0;font-size:.86rem}
+.nums dt{color:var(--muted)}
+.nums dd{margin:0;text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.tbl-wrap{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:.8rem}
+table.t th,table.t td{padding:3px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left;color:var(--muted);font-weight:400}
+table.t td{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+table.t input[type="number"]{width:4.6rem}
+table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
+.formula{font-family:var(--font-num);font-size:.8rem;background:var(--bg);border-radius:6px;padding:.4rem .55rem;overflow-wrap:anywhere;white-space:normal}
+.big{font-size:1.05rem;font-weight:700;margin:.3rem 0}
+.bands{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin:.5rem 0}
+.bands label{display:grid;gap:2px;font-size:.8rem;color:var(--muted)}
+.bands input{width:100%}
+.bands label.outside{border-top:3px dashed var(--ctl);padding-top:3px}
+.cmp{display:flex;flex-wrap:wrap;gap:6px;margin:.5rem 0}
+.cmp button{flex:1 1 5.2rem;border-radius:10px;padding:.45rem .4rem;font-size:.86rem;line-height:1.25}
+.cmp button small{display:block;font-size:.72rem;opacity:.85;font-weight:400}
+.cmp button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
+.cmp .dry{flex-basis:100%}
+
+/* sticky transport: state, level and stop are always visible */
+.transport{position:sticky;bottom:0;z-index:10;margin-top:14px;background:var(--surface);border:2px solid var(--ctl);border-bottom:0;border-radius:14px 14px 0 0;
+  padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;box-shadow:0 -4px 14px rgba(0,0,0,.18)}
+.tp-state{display:flex;gap:.55rem;align-items:center;min-width:0;flex:1 1 15rem}
+.dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);flex:none}
+.dot.on{background:var(--accent);border-color:var(--accent);animation:pulse 1s ease-in-out infinite}
+.tp-kicker{font-size:.72rem;color:var(--muted);letter-spacing:.06em}
+.tp-kicker.on{color:var(--accent);font-weight:700}
+.tp-title{font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper .tp-lbl{font-size:.78rem;color:var(--muted);line-height:1.2}
+.stepper .tp-lbl small{display:block;font-size:.68rem}
+.stepper button{width:40px;height:40px;border-radius:50%;font-size:1.15rem;font-weight:700;line-height:1}
+.stepper output{min-width:4.4rem;text-align:center;font-weight:700}
+.stepper .tp-cap{font-size:.72rem;color:var(--muted);line-height:1.25;max-width:9.5rem}
+.stepper .tp-cap b{color:var(--ink)}
+.tp-btns{display:flex;gap:8px}
+.busy{position:fixed;right:14px;top:14px;z-index:30;background:var(--ink);color:var(--bg);font-size:.82rem;padding:.4rem .8rem;border-radius:999px}
+footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
+
+@media (max-width:600px){
+  body{font-size:14.5px;padding-top:10px}
+  .tabs button{padding:.45rem .6rem;font-size:.86rem}
+  .transport{gap:6px 10px;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px))}
+  .tp-state{order:1;flex:1 1 7rem}
+  .tp-btns{order:2;gap:6px}
+  .tp-btns .btn{padding:.35rem .7rem}
+  .tp-btns .long{display:none}
+  .stepper{order:3;flex:1 1 100%;justify-content:flex-end}
+  .stepper .tp-lbl{margin-right:auto}
+  .stepper .tp-lbl small{display:inline;margin-left:.4em}
+  .stepper button{width:36px;height:36px}
+  .tp-title{font-size:.88rem}
+}
+
+/* charts: families of grade curves, targets, analysed values */
+.chart text{font-size:11px}
+.chart .fam{stroke:var(--muted);stroke-width:1;opacity:.6;fill:none}
+.chart .fam.dash{stroke-dasharray:4 3}
+.chart .fam.on{stroke:var(--ink);stroke-width:2.8;opacity:1}
+.chart .famlab{font-size:9.5px;fill:var(--muted)}
+.chart .famlab.on{fill:var(--ink);font-weight:700;font-size:11px}
+.chart .tgt{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.chart .ana{fill:var(--fill);stroke:var(--surface);stroke-width:.8}
+.chart .offl{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:2 2}
+.legend{list-style:none;margin:.3rem 0;padding:0;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:.78rem;color:var(--muted)}
+.legend li{display:inline-block}
+.legend .lg{vertical-align:middle;margin-right:6px}
+.lg{display:inline-block;width:22px;height:0;border-top:2.8px solid var(--ink);flex:none}
+.lg-fam{border-top:1px solid var(--muted)}
+.lg-dash{border-top:1.5px dashed var(--muted)}
+.lg-tgt{width:9px;height:9px;border:1.5px solid var(--ink);transform:rotate(45deg);margin:0 6px;background:var(--surface)}
+.lg-ana{width:9px;height:9px;border:0;border-radius:50%;background:var(--fill);margin:0 6px}
+.lg-bg{width:9px;height:11px;border:0;background:var(--muted);opacity:.55;margin:0 6px}
+
+.keys{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;margin:.5rem 0;font-size:.8rem;color:var(--muted)}
+.keys dt{font-family:var(--font-num);color:var(--ink);font-weight:700;white-space:nowrap}
+.keys dd{margin:0}
+.wip{background:var(--warn);color:var(--bg);font-weight:700;border-radius:6px;padding:.5rem .75rem;margin:0;font-size:.9rem}
+
+.outpanel{border:1px solid var(--line);border-radius:10px;padding:.5rem .75rem;margin:.5rem 0}
+.outpanel input[type=number]{width:5.5rem}
+.outpanel .nums{margin:.25rem 0}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">本文へ移動</a>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>床衝撃音・遮音の聴き比べ</h1>
+      <p class="lead">等級曲線や入力値どおりに整形した音を、同じ条件で切り替えて比べる参考試聴です。音声の生成・読み込み・処理はすべてこのブラウザ内で行い、外部へ送信しません。</p>
+    </div>
+    <div>
+      <div class="seg" id="seg-theme" role="group" aria-label="配色">
+        <button type="button" data-theme="light" aria-pressed="true">Light</button>
+        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-theme="black" aria-pressed="false">Black</button>
+      </div>
+      <div class="hint">配色：<a href="https://nipponcolors.com/" target="_blank" rel="noopener noreferrer">NIPPON COLORS</a>（白練・墨・黒 ほか）</div>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="試聴の種類">
+    <button type="button" role="tab" id="tab-lh" aria-controls="panel-lh" aria-selected="true">床衝撃音（LH）</button>
+    <button type="button" role="tab" id="tab-tl" aria-controls="panel-tl" aria-selected="false" tabindex="-1">壁の遮音（Dr／Rr・TL）</button>
+  </div>
+
+  <p class="notice" id="app-error" role="alert" hidden></p>
+  <p class="notice">遮音性能を聴き比べるための試聴モデルです。測定や等級判定には使えません。<br>
+    画面の dB はモデル上の計算値です。耳元の大きさは端末と音量設定で決まります。<br>
+    端末の音量を小さくしてから再生し、少しずつ上げてください。</p>
+
+  <main id="main">
+  <!-- ======================= LH ======================= -->
+  <section id="panel-lh" role="tabpanel" aria-labelledby="tab-lh">
+    <div class="grid2">
+      <div class="col">
+        <section class="card" aria-labelledby="lh-h-1">
+          <h2 id="lh-h-1"><span class="step">1</span>衝撃音の条件と帯域を選ぶ</h2>
+          <div class="row">
+            <span class="lbl">衝撃音の条件</span>
+            <div class="seg" id="lh-seg-mode" role="group" aria-label="衝撃音の条件">
+              <button type="button" data-mode="grade" aria-pressed="true">LH等級曲線</button>
+              <button type="button" data-mode="custom" aria-pressed="false">指定値（63〜500 Hz）</button>
+            </div>
+          </div>
+          <div id="lh-grade-box">
+            <div class="row">
+              <span class="lbl">基本の帯域</span>
+              <span class="chipfix">63</span><span class="chipfix">125</span><span class="chipfix">250</span><span class="chipfix">500</span>
+              <span class="hint">Hz（重量床衝撃音の評価範囲。常に使用）</span>
+            </div>
+            <fieldset class="row" id="lh-add">
+              <legend class="lbl" style="float:left">帯域を追加（参考）</legend>
+              <label class="check"><input type="checkbox" id="lh-add-0" data-add="16"> 16 Hz</label>
+              <label class="check"><input type="checkbox" id="lh-add-1" data-add="31.5"> 31.5 Hz</label>
+              <label class="check"><input type="checkbox" id="lh-add-2" data-add="1k"> 1 kHz</label>
+              <label class="check"><input type="checkbox" id="lh-add-3" data-add="2k"> 2 kHz</label>
+            </fieldset>
+          </div>
+          <div id="lh-custom-box" hidden>
+            <div class="row" role="group" aria-label="指定値（各オクターブ帯の L Fmax）">
+              <span class="lbl">指定値 L<sub>Fmax</sub> dB</span>
+              <label class="check">63 Hz <input type="number" id="lh-c0" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">125 Hz <input type="number" id="lh-c1" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">250 Hz <input type="number" id="lh-c2" min="0" max="140" step="0.1" inputmode="decimal"></label>
+              <label class="check">500 Hz <input type="number" id="lh-c3" min="0" max="140" step="0.1" inputmode="decimal"></label>
+            </div>
+            <p class="hint">この4帯域だけの合成衝撃音を再生します（0〜140 dB）。下の表の「指定値」行が入力どおり、上下の行は 5 dB ずつ平行移動です。任意の入力値に LH 等級は付きません。</p>
+            <p class="msg" id="lh-custom-msg" role="status"></p>
+          </div>
+          <div class="row">
+            <span class="lbl">合成音のつくり方</span>
+            <div class="seg" id="lh-seg-synth" role="group" aria-label="合成音のつくり方">
+              <button type="button" data-synth="common" aria-pressed="true">共通加振（v2.4.0）</button>
+              <button type="button" data-synth="legacy" aria-pressed="false">旧方式（v2.3.0・比較用）</button>
+            </div>
+          </div>
+          <p class="hint" id="lh-synth-note">共通加振：全帯域に同じ時刻・同じ力波形（t·e<sup>−t/10 ms</sup>）を与え、静止状態から鳴り始める減衰振動の和です。旧方式：帯域ごとに位相がばらばらな減衰正弦波で、50 Hz 未満は 2 周期かけて立ち上がります。どちらも合成後の波形を解析して帯域ごとの L<sub>Fmax</sub> を同じ目標値に合わせ、出力レベルも共通です（切り替えても音量をそろえ直しません）。どちらも試聴用のモデルで、標準衝撃源を再現したものではありません。録音 WAV には影響しません。</p>
+          <div class="row">
+            <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
+            <select id="lh-bgband">
+              <option value="wide">広帯域（約 22 Hz〜11 kHz）</option>
+              <option value="b4">63〜500 Hz の4帯域内のみ</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-sub-delay">サブウーファー補正</label>
+            <input type="range" id="lh-sub-delay" min="0" max="30" step="1" value="0" aria-describedby="lh-sub-help">
+            <output id="lh-sub-value" for="lh-sub-delay">0 ms</output>
+            <button type="button" class="btn" id="lh-sub-click">全帯域同時クリックを再生</button>
+          </div>
+          <p class="hint" id="lh-sub-help">衝撃音の125 Hz以上の帯域を0〜30 ms遅らせます。</p>
+          <p class="msg" id="lh-sub-msg" role="status"></p>
+          <div class="bandline" id="lh-bandline" role="status"></div>
+          <p class="hint" id="lh-rangeline" role="status"></p>
+          <p class="hint">16 Hz・31.5 Hz・1 kHz・2 kHz は規格の評価範囲外です。目標値は逆 A 特性による参考外挿で、内蔵スピーカーや多くのヘッドホンでは 16／31.5 Hz を再生できません。低音が聞こえなくても音量を上げないでください。</p>
+          <p class="hint">参考：<a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A（L 値と逆 A 特性基準曲線）</a></p>
+        </section>
+
+        <section class="card" aria-labelledby="lh-h-2">
+          <h2 id="lh-h-2"><span class="step">2</span>表のセルを押して聴き比べる</h2>
+          <div class="row">
+            <span class="lbl">打撃の回数</span>
+            <div class="seg" id="lh-seg-pattern" role="group" aria-label="打撃の回数">
+              <button type="button" data-p="single" aria-pressed="true">単発</button>
+              <button type="button" data-p="triple" aria-pressed="false">3回（1 秒間隔）</button>
+              <button type="button" data-p="run" aria-pressed="false">連続（1.9 秒間隔・停止まで）</button>
+            </div>
+          </div>
+          <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
+          <div class="outpanel" id="lh-outpanel" role="group" aria-labelledby="lh-out-lbl">
+            <div class="row">
+              <label class="lbl" id="lh-out-lbl" for="lh-level-num">出力レベル（全条件共通）</label>
+              <input type="number" id="lh-level-num" min="-40" max="60" step="5" inputmode="numeric"><span class="hint">dB（−40〜+60、5 dB 刻み）</span>
+            </div>
+            <dl class="nums" id="lh-out-nums"></dl>
+            <div class="row">
+              <button type="button" class="btn" id="lh-level-fit">この条件の上限に設定</button>
+              <button type="button" class="btn" id="lh-level-reset">共通基準の音量に戻す</button>
+            </div>
+            <p class="msg" id="lh-out-msg" role="status"></p>
+          </div>
+          <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
+          <div class="msg" id="lh-over" role="status"></div>
+          <label class="check"><input type="checkbox" id="lh-nums"><span>セルに Δ（衝撃音の参考 L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>、dB）を表示</span></label>
+          <p class="hint">Δ は、衝撃音が最大値（F、125 ms）、暗騒音が時間平均なので、0 でも衝撃音は聞こえます。</p>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="lh-ro-title">
+          <div class="hint">選択中の条件</div>
+          <div class="ro-title" id="lh-ro-title">—</div>
+          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 226" role="img" aria-label="等級曲線と帯域レベル"></svg>
+          <ul class="legend" id="lh-ro-legend">
+            <li><i class="lg lg-on"></i>選択中の曲線（基準値）</li><li><i class="lg lg-fam"></i>ほかの等級（5 dB 刻み）</li><li><i class="lg lg-dash"></i>評価範囲外（参考外挿）</li>
+            <li><i class="lg lg-tgt"></i>目標値（基準値＋オフセット）</li><li><i class="lg lg-ana"></i>生成した波形の分析値 L<sub>Fmax</sub></li><li><i class="lg lg-bg"></i>暗騒音の帯域レベル L<sub>eq</sub></li>
+          </ul>
+          <dl class="nums" id="lh-ro-nums"></dl>
+          <p class="msg err" id="lh-ro-warn" role="status"></p>
+          <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
+          <p class="hint">縦軸は 1/1 オクターブ帯域レベル（dB re 20 µPa、モデル上の値）、横軸は帯域の中心周波数です。目盛りの縮尺は、建築音響の試験報告の図と同じく 10 dB：1 オクターブ ＝ 20：15 です。◇は設定から決まる目標、●は実際に作った波形を帯域フィルタで分析した値で、両者が重なっていれば設定どおりの音です。*と破線は評価範囲外の参考外挿で、正式な等級判定には使えません。実際の音圧は端末・音量・校正で決まります。</p>
+          <details id="lh-model">
+            <summary>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</summary>
+            <dl class="nums" id="lh-model-nums"></dl>
+            <p>① は、このページが作った衝撃音<b>1 発</b>の波形（全帯域の合成）に A 特性フィルタと時間重み付け特性 F（時定数 125 ms）を掛け、その最大値を取った計算値です。② は、帯域ごとの L<sub>Fmax</sub> に A 補正値を足してエネルギー合算した値で、各帯域の最大が同時に起こると仮定した別の量です。帯域ごとの最大値の時刻や波形が違えば ① は変わるので、基準曲線だけからは ① は決まりません（この波形での値です）。</p><p>どちらも出力レベル・暗騒音・連続打撃の重なり・校正を<b>含みません</b>。規格に定める測定条件での値ではなく、LH 等級の数字とも別の量です。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
+          </details>
+        </section>
+
+        <details id="lh-d-source">
+          <summary>音源（合成音／録音 WAV）</summary>
+          <div class="row" role="radiogroup" aria-label="音源">
+            <label class="check"><input type="radio" name="lh-src" id="lh-src-synth" value="synth" checked> 合成音</label>
+            <label class="check"><input type="radio" name="lh-src" id="lh-src-wav" value="wav" disabled> 録音（WAV）</label>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-T">減衰時間 T（60 dB 減衰・合成音）</label>
+            <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal"><span class="hint">s（0.2〜2、初期値 0.7。16 Hz を含むときは 0.5 以上）</span>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-wav">加振音の録音を読み込む</label>
+            <input type="file" id="lh-wav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+          </div>
+          <p class="hint">ファイルはこのブラウザ内でだけ処理します。再生側のサンプリング周波数に変換し、複数チャンネルは第 1 チャンネルを使い、最大の衝撃の前後 3 秒を切り出して、帯域ごとに L<sub>Fmax</sub> を目標値へ合わせ込みます。録音の暗騒音も一緒に拡大されるので S/N のよい録音を使ってください。</p>
+          <p class="msg" id="lh-src-status" role="status"></p>
+        </details>
+
+        <details id="lh-d-curve">
+          <summary>等級曲線の基準値と帯域ごとのオフセット</summary>
+          <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。<b>再生中に値を変えると、止めずに新しい音へ切り替わります</b>（入力が止まって約 0.5 秒後。止まっているときは鳴りません）。</p>
+          <div class="tbl-wrap"><table class="t" id="lh-tbl-curve"></table></div>
+          <p class="msg" id="lh-curve-msg" role="status"></p>
+          <div class="row"><button type="button" class="btn" id="lh-curve-reset">初期値に戻す</button></div>
+        </details>
+
+        <details id="lh-d-bg">
+          <summary>暗騒音（合成ノイズ／録音 WAV）</summary>
+          <div class="row" role="radiogroup" aria-label="暗騒音の音源">
+            <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-synth" value="synth" checked> 合成ノイズ</label>
+            <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-wav" value="wav" disabled> 録音（WAV）</label>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-slope">合成ノイズの傾き</label>
+            <select id="lh-slope">
+              <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
+              <option value="-3">−3 dB/oct（ピンクノイズ）</option>
+              <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
+            </select>
+          </div>
+          <div class="row">
+            <label class="lbl" for="lh-bgwav">暗騒音の録音を読み込む</label>
+            <input type="file" id="lh-bgwav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+          </div>
+          <p class="msg" id="lh-bg-status" role="status"></p>
+          <p class="hint">どちらの音源も、上で選んだ暗騒音の帯域の中で、A 特性の時間平均レベル（モデル L<sub>Aeq</sub>）が表の列の値（20〜70 dB(A)）になるよう、全体を一律に増減して鳴らします。録音は元の dBFS を使いません（録音レベルと実際の音圧の関係は校正なしでは分からないため）。スペクトルの形は録音のままなので、合成ノイズとは「同じ L<sub>Aeq</sub> で音色が違う」比較になります。</p>
+          <p class="hint">録音はこのブラウザ内でだけ処理します。2 秒以上が必要で、先頭 30 秒までを使い、モノラル化（全チャンネルの平均）、再生側のサンプリング周波数へ変換、継ぎ目をクロスフェードしてループにします。録音自体は保存しないので、ページを開き直すと合成ノイズに戻ります。</p>
+        </details>
+
+        <details id="lh-d-cal">
+          <summary>校正（騒音計がある場合）<span class="hint" id="lh-chip-cal"></span></summary>
+          <ol>
+            <li>受聴位置に騒音計を置き、端末の音量を決めます（校正後は変えません）。</li>
+            <li>帯域の「再生」で −20 dBFS のオクターブバンドノイズを流します。<b>出力レベルの設定に関係なく −20 dBFS で出ます。</b>音量を下げてから押してください。</li>
+            <li>Z 特性・1/1 オクターブの L<sub>eq</sub>（10 s 以上）を入力します。</li>
+          </ol>
+          <p class="hint">1 帯域だけでも使えます（未入力の帯域は補間、外側は端の値）。校正時は出力レベル 0 dB がモデル上の dB に対応します。出力レベルを動かすと、その分だけ校正からずれます。</p>
+          <div class="tbl-wrap"><table class="t" id="lh-tbl-cal"></table></div>
+          <p class="msg" id="lh-cal-msg" role="status"></p>
+          <div class="row"><button type="button" class="btn" id="lh-cal-clear">校正値をクリア</button></div>
+        </details>
+
+        <details id="lh-d-method">
+          <summary>計算方法と参考資料</summary>
+          <p><b>基準曲線</b>：LH-65 を 63／125／250／500 Hz で 88／78／71／65 dB とし、等級は 5 dB 刻みで平行移動します（JIS A 1419-2:2000 の L 曲線）。重量床衝撃音の評価対象はこの 4 帯域です。</p>
+          <p><b>追加帯域（参考外挿）</b>：L 曲線は逆 A 特性を整数に丸めた形なので、追加帯域も同じ規則 C(f) = 62 − A(f)（LH-65、整数に丸め）で決めます。A(f) は厳密中心周波数 f<sub>m</sub> = 1000·10<sup>0.3x</sup> Hz で評価した値（16 Hz：−56.7、31.5 Hz：−39.4、1 kHz：0、2 kHz：+1.2 dB）で、LH-65 の基準値は 16 Hz：119、31.5 Hz：101、1 kHz：62、2 kHz：61 dB です。画面の帯域名は公称中心周波数、フィルタと計算は厳密中心周波数で統一しています。これらは規格の評価値ではありません。</p>
+          <p><b>衝撃音（合成）</b>：帯域ごとに減衰正弦波（16〜2k Hz に対し 8／8／8／12／20／30／40／50 本、周波数は帯域内で乱数・種は帯域ごとに固定）を重ねます。帯域を追加しても他の帯域の波形は変わりません。全等級で同じ波形を使い、等級の違いはレベルだけです。実際の衝撃源や建物の再現ではありません。</p>
+          <div class="formula">p<sub>b</sub>(t) = Σ a<sub>k</sub> (1 − e<sup>−t/τ</sup>) e<sup>−6.91 t/T</sup> sin(2π f<sub>k</sub> t + φ<sub>k</sub>)、τ = 4 ms</div>
+          <p><b>合わせ込み</b>：合成した音を 1/1 オクターブ（Butterworth HP 36 次 × LP 36 次、帯域端は IEC 61260-1:2014 の基数 10）で分析し、時間重み付け特性 F（125 ms、IEC 61672-1:2013）の最大値 L<sub>Fmax</sub> が目標に一致するまで帯域ゲインを反復補正します。</p>
+          <p><b>音量の決め方</b>：デジタル信号 = モデル音圧 ÷ (20 µPa × 10<sup>K/20</sup>) × 出力レベル。未校正時は K = 126 dB（出力レベル 0 dB のとき、モデル上 126 dB のピークが 0 dBFS）。この換算は帯域やセルを変えても変わりません。上限 −1 dBFS を超える組み合わせは再生せず、自動で全体を下げることもしません。打撃の重なりは実際の波形を重ねてピークを求めます。</p>
+          <p><b>参考資料</b></p>
+          <ul>
+            <li><a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A：L 値と逆 A 特性基準曲線</a></li>
+            <li><a href="https://www.onosokki.co.jp/HP-WK/c_support/newreport/noise/souon_12.htm" target="_blank" rel="noopener noreferrer">小野測器：A 特性の周波数重み付け補正値</a></li>
+          </ul>
+          <p class="hint">規格の現行版と適用範囲は原典で確認してください。</p>
+        </details>
+      </div>
+    </div>
+
+    <div class="transport" id="lh-transport" role="region" aria-label="再生操作（床衝撃音）">
+      <div class="tp-state">
+        <span class="dot" id="lh-dot" aria-hidden="true"></span>
+        <div><div class="tp-kicker" id="lh-state" role="status">停止中</div><div class="tp-title" id="lh-now">—</div></div>
+      </div>
+      <div class="stepper" role="group" aria-label="出力レベル（全条件共通）">
+        <span class="tp-lbl">出力レベル<small>全条件共通</small></span>
+        <button type="button" id="lh-level-down" aria-label="出力レベルを 5 dB 下げる">−</button>
+        <output id="lh-level" aria-live="polite">0 dB</output>
+        <button type="button" id="lh-level-up" aria-label="出力レベルを 5 dB 上げる">＋</button>
+        <span class="tp-cap" id="lh-level-cap" aria-live="polite"></span>
+        <span class="tp-cap" id="lh-level-peak"></span>
+      </div>
+      <div class="tp-btns">
+        <button type="button" class="btn primary" id="lh-play">▶ <span class="long">選択中を</span>再生</button>
+        <button type="button" class="btn stop" id="lh-stop">■ 停止</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= TL ======================= -->
+  <section id="panel-tl" role="tabpanel" aria-labelledby="tab-tl" hidden>
+    <div class="grid2">
+      <div class="col">
+        <section class="card" aria-labelledby="tl-h-1">
+          <h2 id="tl-h-1"><span class="step">1</span>音源を用意する</h2>
+          <div class="row">
+            <button type="button" class="btn" id="tl-noise">ピンクノイズを使う</button>
+            <button type="button" class="btn" id="tl-traffic">道路交通騒音（模擬）</button>
+            <button type="button" class="btn" id="tl-rec5">● マイクで 5 秒録音</button>
+            <button type="button" class="btn" id="tl-rec10">● 10 秒録音</button>
+            <label class="check" for="tl-file">手元の音声ファイル</label>
+            <input type="file" id="tl-file" accept="audio/*">
+          </div>
+          <p class="msg" id="tl-src-info" role="status"></p>
+          <p class="hint">マイク録音も、ファイルと同じ扱いです（このブラウザの外には出ません。初回にマイクの使用許可を求められます）。録音の大きさは引き継がないので、自分の声が「実際に何 dB だったか」は分かりません。</p>
+          <p class="hint">ファイルはこのブラウザ内でだけ処理します。読み込み時に、先頭 30 秒まで・モノラル化（全チャンネルの平均）・ピークを −12 dBFS へ一度だけ正規化します。録音の元の絶対レベルは引き継ぎません。条件ごとの音量正規化はしません。</p>
+        </section>
+
+        <section class="card" aria-labelledby="tl-h-2">
+          <h2 id="tl-h-2"><span class="step">2</span>壁の遮音条件を決める</h2>
+          <div class="row">
+            <span class="lbl">条件の種類</span>
+            <div class="seg" id="tl-seg-mode" role="group" aria-label="条件の種類">
+              <button type="button" data-mode="ref" aria-pressed="true">Dr／Rr 等級の基準曲線</button>
+              <button type="button" data-mode="custom" aria-pressed="false">帯域別の値を入力（TL 実測値など）</button>
+            </div>
+          </div>
+          <div class="row" id="tl-grade-row">
+            <label class="lbl" for="tl-family">曲線の種類</label>
+            <select id="tl-family"><option value="dr">Dr／Rr 等級（壁・室間）</option><option value="t">T 等級（サッシ）</option></select>
+            <label class="lbl" for="tl-grade" style="min-width:0">等級</label>
+            <select id="tl-grade"></select>
+            <span class="hint" id="tl-grade-hint"></span>
+          </div>
+          <div class="row">
+            <label class="lbl" for="tl-range">鳴らす帯域</label>
+            <select id="tl-range">
+              <option value="125,2000">125 Hz〜2 kHz（基準曲線の定義範囲・外挿なし）</option>
+              <option value="125,4000">125 Hz〜4 kHz（2 kHz 超は水平延長・参考外挿）</option>
+              <option value="63,8000">63 Hz〜8 kHz（低域は傾きを延長・参考外挿）</option>
+              <option value="31.5,8000">31.5 Hz〜8 kHz（参考外挿）</option>
+              <option value="16,8000">16 Hz〜8 kHz（参考外挿）</option>
+            </select>
+          </div>
+          <div class="bands" id="tl-bands" role="group" aria-label="帯域別の減衰量 dB"></div>
+          <div class="row" id="tl-fill-row" hidden><button type="button" class="btn" id="tl-fill">基準曲線の値を入力欄に写す</button></div>
+          <p class="msg" id="tl-band-msg" role="status"></p>
+          <svg class="chart" id="tl-chart" viewBox="0 0 520 220" role="img" aria-label="適用する減衰量の曲線"></svg>
+          <ul class="legend"><li><i class="lg lg-on"></i>いま適用する減衰量（選択中の条件）</li><li><i class="lg lg-fam"></i>等級の基準曲線 30〜70（5 刻み）</li><li><i class="lg lg-dash"></i>定義範囲外（参考外挿）</li></ul>
+          <p class="hint" id="tl-curve-note"></p>
+          <p class="hint">上のグラフは<b>壁の条件</b>（縦軸：減衰量 dB、大きいほど遮音が大きい。縮尺は 10 dB：1 オクターブ ＝ 20：15）です。下のグラフは<b>音そのもの</b>の帯域レベルで、別の量です。</p>
+          <svg class="chart" id="tl-spec" viewBox="0 0 520 220" role="img" aria-label="音のスペクトル"></svg>
+          <p class="hint" id="tl-spec-note"></p>
+          <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
+          <details id="tl-d-room">
+            <summary>室条件で換算する（任意）：D = R + 10 log<sub>10</sub>(A/S)</summary>
+            <p>入力値が部材の音響透過損失 R（TL）のとき、受音室の等価吸音面積 A と壁の面積 S から室間音圧レベル差 D の目安へ換算します。全帯域に同じ補正を加える簡易換算で、側路伝搬・隙間・A の周波数特性は含みません。使わないときは A/S = 1（D = R）として、入力値をそのまま減衰量にします。</p>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="tl-room-on"> 換算する</label>
+              <label class="check">壁の面積 S <input type="number" id="tl-room-S" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+              <label class="check">等価吸音面積 A <input type="number" id="tl-room-A" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+            </div>
+            <p class="msg" id="tl-room-out" role="status"></p>
+          </details>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card" aria-labelledby="tl-h-3">
+          <h2 id="tl-h-3"><span class="step">3</span>同じ位置で切り替えて聴く</h2>
+          <p class="hint">下の「▶ 再生」で停止までループします。ボタンで条件を切り替えても再生位置は変わりません。数値が大きいほど遮音が大きく、音は小さくなります。</p>
+          <div class="cmp" id="tl-cmp" role="group" aria-label="聴く条件">
+            <button type="button" class="btn dry" data-cond="dry" aria-pressed="false">原音（壁なし）<small>選んだ帯域に制限した元の音</small></button>
+            <button type="button" class="btn" data-cond="-10" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="-5" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="0" aria-pressed="true"></button>
+            <button type="button" class="btn" data-cond="5" aria-pressed="false"></button>
+            <button type="button" class="btn" data-cond="10" aria-pressed="false"></button>
+          </div>
+          <p class="big" id="tl-result" role="status">音源を用意して再生してください。</p>
+          <div class="tbl-wrap"><table class="t" id="tl-stats"></table></div>
+          <p class="hint">「低下量」は、いまの音源・帯域で、原音に対して遮音後の音が全体で何 dB 小さくなるかの計算値です（10 dB 小さいと、およそ半分の大きさに感じるのが目安）。条件ごとの自動音量調整はしていないので、聞こえる差がそのまま低下量です。</p>
+          <div class="row">
+            <label class="lbl" for="tl-srclevel">音源の大きさ（想定）</label>
+            <select id="tl-srclevel"><option value="60">60 dB(A)：ふつうの会話</option><option value="70">70 dB(A)：大きめの声・テレビ</option><option value="80">80 dB(A)：大声・交通量の多い道路沿い</option><option value="90">90 dB(A)：ピアノなどの楽器</option></select>
+            <label class="lbl" for="tl-bg" style="min-width:0">受音側の暗騒音</label>
+            <select id="tl-bg"><option value="0">なし</option><option value="20">20 dB(A)</option><option value="30">30 dB(A)</option><option value="40">40 dB(A)</option><option value="50">50 dB(A)</option></select>
+          </div>
+          <p class="msg" id="tl-est" role="status"></p>
+          <p class="hint">暗騒音はピンクノイズで、音源を上の想定レベルとみなしたときの相対的な大きさで重ねます（原音・遮音後のどちらを聴いていても同じ大きさで鳴り続けます）。</p>
+          <div class="row">
+            <label class="lbl" for="tl-pad">原音の再生レベル</label>
+            <select id="tl-pad">
+              <option value="0">実際の差のまま（0 dB）</option>
+              <option value="-10">原音だけ 10 dB 下げる</option>
+              <option value="-20">原音だけ 20 dB 下げる</option>
+              <option value="-30">原音だけ 30 dB 下げる</option>
+            </select>
+          </div>
+          <p class="hint">条件の切り替えは約 0.02 秒で終わります（同じ再生位置のまま、10 ms のクロスフェード）。原音に戻すと実際の差の分だけ一気に大きくなるので、遮音後の音に合わせて端末の音量を上げないでください。心配なときは「原音だけ下げる」を使えます。その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
+          <p class="msg" id="tl-status" role="status"></p>
+        </section>
+
+        <details id="tl-d-method">
+          <summary>根拠・試聴モデル・参考資料</summary>
+          <p><b>基準曲線</b>：Dr（室間音圧レベル差等級）と Rr（音響透過損失等級）の基準曲線は共通ですが、評価する対象が違います。このページは曲線や入力値の数値を、振幅倍率 10<sup>−値/20</sup> としてそのまま音に掛けます。実測の空間平均値や規格の等級を保証するものではありません。</p>
+          <p><b>外挿</b>：基準曲線の定義範囲は 125 Hz〜2 kHz です。それより低い側は 500 Hz 以下と同じ 7.5 dB/oct の傾きを延長、高い側は 2 kHz の値を水平に延長した参考値で、実際の壁の性能予測ではありません（実際の壁は共鳴透過やコインシデンスで大きく変わります）。</p>
+          <p><b>TL と室間音圧レベル差</b>：R（TL）と D は同じ量ではありません。換算を使わない場合は A/S = 1 の直接透過だけを仮定しています。実際の建物では側路伝搬や隙間により、室間音圧レベル差は部材の値より 1〜2 ランク（5〜10 dB）程度下がるのが一般的とされています。</p>
+          <p><b>周波数</b>：画面の帯域名は公称中心周波数（16、31.5、63 Hz …）、計算には 1 kHz から正確に 1 オクターブずつ離れた周波数（15.625、31.25、62.5 Hz …）を使います。このため 125 Hz より下は 1 オクターブごとに正確に 7.5 dB 下がります。</p>
+          <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは、旧音と新音の開始・終了を揃えた 10 ms のクロスフェード（相補的な二乗余弦）です。すべての条件は同じ信号をゼロ位相で整形したものなので、切り替え中の音量は一方からもう一方へ単調に移り、一時的な低下や超過は起きません。再生開始時だけ、原音は 0.2 秒かけて立ち上げます。</p>
+          <ul>
+            <li><a href="https://www.chiyoda-ute.co.jp/data/syaon_rank.html" target="_blank" rel="noopener noreferrer">チヨダウーテ：遮音等級 Dr・Rr と基準曲線</a></li>
+            <li><a href="https://www.jtccm.or.jp/sites/default/files/books_pdf/2008/Vol44,No6,2008.pdf#page=43" target="_blank" rel="noopener noreferrer">建材試験センター：Dr／Rr の説明（p.41）</a></li>
+            <li><a href="https://www.melcoairtec.co.jp/info/interception/index.html" target="_blank" rel="noopener noreferrer">透過損失と室間音圧レベル差の関係</a></li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
+    <div class="transport" id="tl-transport" role="region" aria-label="再生操作（遮音）">
+      <div class="tp-state">
+        <span class="dot" id="tl-dot" aria-hidden="true"></span>
+        <div><div class="tp-kicker" id="tl-state" role="status">停止中</div><div class="tp-title" id="tl-now">—</div></div>
+      </div>
+      <div class="stepper" role="group" aria-label="音量（全条件共通）">
+        <span class="tp-lbl">音量<small>全条件共通</small></span>
+        <button type="button" id="tl-vol-down" aria-label="音量を 5 dB 下げる">−</button>
+        <output id="tl-vol" aria-live="polite">−10 dB</output>
+        <button type="button" id="tl-vol-up" aria-label="音量を 5 dB 上げる">＋</button>
+      </div>
+      <div class="tp-btns">
+        <button type="button" class="btn primary" id="tl-play">▶ 再生</button>
+        <button type="button" class="btn stop" id="tl-stop">■ 停止</button>
+      </div>
+    </div>
+  </section>
+  </main>
+  <footer>v2.4.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+</div>
+<div class="busy" id="busy" role="status" hidden>計算中…</div>
+
+<script id="dsp">
+/* Shared DSP. Runs in the page, in a Worker (TL processing) and in Node (unit tests). No DOM access. */
+(function (root) {
+'use strict';
+const P0 = 2e-5;
+const G10 = Math.pow(10, 0.3);                       // IEC 61260-1:2014 base-ten octave ratio
+
+/* ---------- IIR sections ---------- */
+function d1LP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: K / a0, b1: K / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function d1HP(fc, fs){ const K = Math.tan(Math.PI * fc / fs), a0 = 1 + K; return { b0: 1 / a0, b1: -1 / a0, b2: 0, a1: (K - 1) / a0, a2: 0 }; }
+function rbjLP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 - c) / 2 / a0, b1: (1 - c) / a0, b2: (1 - c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function rbjHP(fc, fs, Q){
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), s = Math.sin(w0), al = s / (2 * Q), a0 = 1 + al;
+  return { b0: (1 + c) / 2 / a0, b1: -(1 + c) / a0, b2: (1 + c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0 };
+}
+function butterQ(n, k){ return 1 / (2 * Math.sin((2 * k + 1) * Math.PI / (2 * n))); }
+function butterLP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjLP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1LP(fc, fs)); return s; }
+function butterHP(fc, fs, n){ const s = []; for (let k = 0; k < Math.floor(n / 2); k++) s.push(rbjHP(fc, fs, butterQ(n, k))); if (n % 2) s.push(d1HP(fc, fs)); return s; }
+function sosMag(sections, fs, f){
+  const w = 2 * Math.PI * f / fs, c1 = Math.cos(w), s1 = -Math.sin(w), c2 = Math.cos(2 * w), s2 = -Math.sin(2 * w);
+  let Nr = 1, Ni = 0, Dr = 1, Di = 0;
+  for (const q of sections){
+    const nr = q.b0 + q.b1 * c1 + q.b2 * c2, ni = q.b1 * s1 + q.b2 * s2;
+    const dr = 1 + q.a1 * c1 + q.a2 * c2, di = q.a1 * s1 + q.a2 * s2;
+    let t = Nr * nr - Ni * ni; Ni = Nr * ni + Ni * nr; Nr = t;
+    t = Dr * dr - Di * di; Di = Dr * di + Di * dr; Dr = t;
+  }
+  return Math.hypot(Nr, Ni) / Math.hypot(Dr, Di);
+}
+function normalizeAt(sections, fs, f){
+  const h = sosMag(sections, fs, f);
+  if (!(h > 0)) return sections;
+  const g = Math.pow(1 / h, 1 / sections.length);
+  for (const q of sections){ q.b0 *= g; q.b1 *= g; q.b2 *= g; }
+  return sections;
+}
+/** Octave band-pass: Butterworth HP(f1) x LP(f2), order n each; edges fc*G^(-1/2), fc*G^(1/2). */
+const BP_ORDER = 36;
+function bandpassSOS(fc, fs, n){
+  n = n || BP_ORDER;
+  const g = Math.sqrt(G10);
+  return normalizeAt(butterHP(fc / g, fs, n).concat(butterLP(fc * g, fs, n)), fs, fc);
+}
+/** A-weighting (IEC 61672-1:2013 Annex E poles), pre-warped bilinear first-order sections, 0 dB at 1 kHz. */
+function aWeightSOS(fs){
+  const f1 = 20.598997, f2 = 107.65265, f3 = 737.86223, f4 = 12194.217;
+  const s = [d1HP(f1, fs), d1HP(f1, fs), d1HP(f2, fs), d1HP(f3, fs), d1LP(Math.min(f4, 0.45 * fs), fs), d1LP(Math.min(f4, 0.45 * fs), fs)];
+  return normalizeAt(s, fs, 1000);
+}
+function sosFilter(x, sections){
+  const y = Float64Array.from(x);
+  for (const q of sections){
+    let s1 = 0, s2 = 0;
+    const b0 = q.b0, b1 = q.b1, b2 = q.b2, a1 = q.a1, a2 = q.a2;
+    for (let n = 0; n < y.length; n++){
+      const w = y[n] - a1 * s1 - a2 * s2;
+      y[n] = b0 * w + b1 * s1 + b2 * s2;
+      s2 = s1; s1 = w;
+    }
+  }
+  return y;
+}
+function reverseInPlace(a){ for (let i = 0, j = a.length - 1; i < j; i++, j--){ const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function filtfilt(x, sections, pad){
+  const y = new Float64Array(x.length + 2 * pad);
+  y.set(x, pad);
+  let z = sosFilter(y, sections);
+  z = sosFilter(reverseInPlace(z), sections);
+  reverseInPlace(z);
+  return z.subarray(pad, pad + x.length).slice();
+}
+/** Maximum of F time-weighted level (tau = 0.125 s), dB re 20 uPa. */
+function fastMaxDb(x, fs){
+  const al = 1 - Math.exp(-1 / (fs * 0.125));
+  let s = 0, m = 0;
+  for (let n = 0; n < x.length; n++){ s += al * (x[n] * x[n] - s); if (s > m) m = s; }
+  return 10 * Math.log10(Math.max(m, 1e-30) / (P0 * P0));
+}
+/** A-weighting gain (linear) from IEC 61672-1:2013 eq. E.6 (A1000 = -2.00 dB). */
+function aLin(f){
+  const f2 = f * f;
+  const ra = (12194.217 * 12194.217 * f2 * f2) /
+    ((f2 + 20.598997 * 20.598997) * Math.sqrt((f2 + 107.65265 * 107.65265) * (f2 + 737.86223 * 737.86223)) * (f2 + 12194.217 * 12194.217));
+  return ra * Math.pow(10, 2.0 / 20);
+}
+function aDb(f){ return 20 * Math.log10(aLin(f)); }
+
+/* ---------- FFT ---------- */
+function fftInPlace(re, im, inverse){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){ let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = 2 * Math.PI / len * (inverse ? 1 : -1), wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let j = 0; j < h; j++){
+        const p = i + j, q = p + h;
+        const br = re[q] * cr - im[q] * ci, bi = re[q] * ci + im[q] * cr;
+        re[q] = re[p] - br; im[q] = im[p] - bi;
+        re[p] += br; im[p] += bi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+  if (inverse){ for (let i = 0; i < n; i++){ re[i] /= n; im[i] /= n; } }
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+/** Log-frequency raised-cosine edge: 0 below lo, 1 above hi. */
+function edgeUp(f, lo, hi){
+  if (f <= lo) return 0; if (f >= hi) return 1;
+  const u = Math.log(f / lo) / Math.log(hi / lo);
+  return 0.5 - 0.5 * Math.cos(Math.PI * u);
+}
+/** Largest |sample|. A NaN or infinite sample yields Infinity, so every level guard that uses the peak refuses it. */
+function peakOf(a){ let p = 0; for (let i = 0; i < a.length; i++){ const v = Math.abs(a[i]); if (!(v <= 1e300)) return Infinity; if (v > p) p = v; } return p; }
+function allFinite(a){ for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i])) return false; return true; }
+function rmsOf(a){ let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / Math.max(1, a.length)); }
+/** Peak of the sum of copies of x started at the given sample offsets (exact overlap peak). */
+function overlapPeak(x, offsets){
+  if (offsets.length <= 1) return peakOf(x);
+  const last = offsets[offsets.length - 1], y = new Float64Array(last + x.length);
+  for (const o of offsets) for (let n = 0; n < x.length; n++) y[o + n] += x[n];
+  return peakOf(y);
+}
+
+/* ---------- airborne insulation (TL / Dr / Rr) ---------- */
+const TL_FREQ = [16, 31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000];   // nominal octave centres
+/** Frequencies used for the curve, interpolation and band edges: exact octave steps from 1 kHz (15.625 ... 8000 Hz),
+    so that each octave below 125 Hz is exactly 7.5 dB lower. Labels on screen use the nominal values above. */
+const TL_FX = TL_FREQ.map((f, i) => 1000 * Math.pow(2, i - 6));
+/** Dr / Rr grade curve. Defined 125 Hz - 2 kHz (grade g: 125 Hz = g-15, 500 Hz = g, 2 kHz = g+10, log-f interpolation).
+    Outside that range the same slopes are continued (low) / held flat (high): listening-only extrapolation. */
+function refCurve(f, g){ return f <= 500 ? g + 7.5 * Math.log2(f / 500) : f <= 2000 ? g + 5 * Math.log2(f / 500) : g + 10; }
+/** Piecewise-linear over log f through (x[i], y[i]); held flat outside the end points. */
+function interpLog(f, x, y){
+  if (f <= x[0]) return y[0];
+  for (let i = 1; i < x.length; i++) if (f <= x[i]) return y[i - 1] + (y[i] - y[i - 1]) * Math.log(f / x[i - 1]) / Math.log(x[i] / x[i - 1]);
+  return y[y.length - 1];
+}
+/** 1 inside the octave bands lo..hi (band edges lo/sqrt2 .. hi*sqrt2), raised-cosine to 0 a quarter octave outside. */
+function bandMask(f, lo, hi){
+  if (!(f > 0)) return 0;
+  const e1 = lo / Math.SQRT2, e2 = hi * Math.SQRT2, q = Math.pow(2, 0.25);
+  return edgeUp(f, e1 / q, e1) * (1 - edgeUp(f, e2, e2 * q));
+}
+/** Apply attenuation curves to a mono signal with a zero-phase FFT gain.
+    x/y: band centres and attenuation (dB) for offset 0; offsets: list of dB shifts; attenuation is floored at 0 dB.
+    Returns the band-limited dry signal, one wet signal per offset, the overall peak and level statistics. */
+function tlProcess(input, sr, x, y, offsets, lo, hi){
+  let n = 1; while (n < input.length) n *= 2;
+  const re = new Float64Array(n), im = new Float64Array(n);
+  re.set(input); fftInPlace(re, im, false);
+  const half = n >> 1, mask = new Float64Array(half + 1), att = new Float64Array(half + 1), aw = new Float64Array(half + 1);
+  for (let k = 0; k <= half; k++){
+    const f = k * sr / n;
+    mask[k] = bandMask(f, lo, hi);
+    att[k] = f > 0 ? interpLog(f, x, y) : 0;
+    aw[k] = f > 0 ? aLin(f) : 0;
+  }
+  const bandOf = new Int16Array(half + 1).fill(-1);          // octave band (index into x) that each bin belongs to
+  for (let k = 1; k <= half; k++){ const f = k * sr / n; for (let b = 0; b < x.length; b++) if (f >= x[b] / Math.SQRT2 && f < x[b] * Math.SQRT2){ bandOf[k] = b; break; } }
+  const nfade = Math.max(1, Math.round(sr * 0.02)), L = input.length;
+  /** Shape the spectrum, return the played buffer (L samples, 20 ms fades at both ends). */
+  const render = (gainOf) => {
+    const r = new Float64Array(n), i = new Float64Array(n);
+    for (let k = 0; k <= half; k++){
+      const g = mask[k] * gainOf(k);
+      if (g === 0) continue;
+      r[k] = re[k] * g; i[k] = im[k] * g;
+      if (k > 0 && k < half){ r[n - k] = r[k]; i[n - k] = -i[k]; }
+    }
+    fftInPlace(r, i, true);
+    const out = new Float32Array(L);
+    let peak = 0;
+    for (let m = 0; m < L; m++){
+      const fade = Math.min(1, m / nfade, (L - 1 - m) / nfade);
+      out[m] = r[m] * fade;
+      const v = Math.abs(out[m]); if (!(v <= 1e300)) peak = Infinity; else if (v > peak) peak = v;
+    }
+    return { out, peak, lev: measure(out) };
+  };
+  /** Levels of a played buffer itself: overall power (Z), A-weighted power and octave-band powers. Zero-phase shaping
+      spreads a short sound beyond its original length; what is cut off or faded there is not played, so it must not be
+      counted. Measuring the finished buffer keeps the displayed reduction equal to the reduction that is heard. */
+  function measure(out){
+    const r = new Float64Array(n), i = new Float64Array(n), bp = new Float64Array(x.length);
+    r.set(out); fftInPlace(r, i, false);
+    let z = 0, a = 0;
+    for (let k = 1; k <= half; k++){
+      const p = (r[k] * r[k] + i[k] * i[k]) * (k === half ? 1 : 2);
+      z += p; a += p * aw[k] * aw[k];
+      if (bandOf[k] >= 0) bp[bandOf[k]] += p;
+    }
+    return { z, a, bands: Array.from(bp, v => 10 * Math.log10(Math.max(v, 1e-300))) };
+  }
+  const dry = render(() => 1);
+  const variants = {}, stats = {}, bands = { dry: dry.lev.bands, variants: {} };
+  let peak = dry.peak;
+  for (const off of offsets){
+    const w = render(k => Math.pow(10, -Math.max(0, att[k] + off) / 20));
+    variants[String(off)] = w.out; bands.variants[String(off)] = w.lev.bands;
+    peak = Math.max(peak, w.peak);
+    stats[String(off)] = {
+      dZ: 10 * Math.log10(Math.max(dry.lev.z, 1e-300) / Math.max(w.lev.z, 1e-300)),
+      dA: 10 * Math.log10(Math.max(dry.lev.a, 1e-300) / Math.max(w.lev.a, 1e-300)),
+      peakDb: 20 * Math.log10(Math.max(w.peak, 1e-30))
+    };
+  }
+  return { dry: dry.out, variants, peak, dryPeak: dry.peak, stats, bands, dryMs: { z: dry.lev.z / (n * L), a: dry.lev.a / (n * L) }, empty: !(dry.lev.z > 0) };
+}
+
+const DSP = { P0, G10, d1LP, d1HP, butterLP, butterHP, sosMag, normalizeAt, bandpassSOS, aWeightSOS, sosFilter, filtfilt, fastMaxDb,
+  aLin, aDb, fftInPlace, mulberry32, edgeUp, peakOf, allFinite, rmsOf, overlapPeak, TL_FREQ, TL_FX, refCurve, interpLog, bandMask, tlProcess };
+root.DSP = DSP;
+if (typeof module !== 'undefined' && module.exports) module.exports = DSP;
+})(typeof self !== 'undefined' ? self : globalThis);
+
+</script>
+<script>
+/* Shell: shared audio context, storage, theme, tabs. */
+const App = (function () {
+'use strict';
+const VERSION = '2.4.0';
+const SHELL_KEY = 'listening-shell-v1';
+const modules = [];
+const ALL_TABS = ['lh', 'tl'];
+/** Tabs that exist in this build (the single-purpose builds contain one panel and no tab bar). */
+function tabsPresent(){ return ALL_TABS.filter(t => document.getElementById('panel-' + t)); }
+
+/** Strict element lookup: a missing element is a bug and must be loud, never silently replaced. */
+function el(id){
+  const e = document.getElementById(id);
+  if (!e) throw new Error('画面要素 #' + id + ' が見つかりません');
+  return e;
+}
+const store = {
+  get(key){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(key, value){ try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (e) { return false; } }
+};
+const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v)) ? '—' : v.toFixed(d).replace('-', '−');
+const sgn = (v, d = 0) => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d);
+const db = v => 20 * Math.log10(Math.max(v, 1e-30));
+/** Text that did not originate in this page (file names, stored strings) must pass through here before it is put into HTML. */
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/** Numeric field: every valid keystroke is stored immediately; invalid text is never stored and is reverted on blur. */
+function bindNumber(input, o){
+  const say = t => { if (o.msg) o.msg.textContent = t; };
+  input.addEventListener('input', () => {
+    const raw = input.value.trim(), v = Number(raw);
+    if (raw === '' || !Number.isFinite(v) || v < o.min || v > o.max){
+      input.setAttribute('aria-invalid', 'true');
+      say(o.label + '：' + o.min + '〜' + o.max + ' の数値を入力してください（まだ反映していません）。');
+      return;
+    }
+    input.removeAttribute('aria-invalid'); say('');
+    if (v !== o.get()){ o.set(v); }
+  });
+  input.addEventListener('change', () => {
+    if (input.getAttribute('aria-invalid') === 'true'){
+      input.value = String(o.get());
+      input.removeAttribute('aria-invalid');
+      say(o.label + '：範囲外だったため、元の値 ' + o.get() + ' に戻しました。');
+    }
+  });
+}
+
+const audio = {
+  ctx: null, fs: 48000, offline: false,
+  create(){
+    if (this.ctx) return this.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { this.ctx = new AC(); this.fs = this.ctx.sampleRate; } catch (e) { this.ctx = null; }
+    return this.ctx;
+  },
+  startDelay: 0.15,
+  createLimiter(c){
+    const limiter = c.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.05;
+    return limiter;
+  },
+  async ensureRunning(){
+    const c = this.create();
+    if (!c) return false;
+    if (this.offline || c.state === 'closed') return c.state === 'running';
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+    if (c.state === 'running') return true;
+    let timer;
+    try {
+      // Browsers may leave resume pending when playback permission is withheld.
+      const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(false), 2000); });
+      const resumed = await Promise.race([c.resume().then(() => true), timeout]);
+      return resumed && c.state === 'running';
+    } catch (e) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+  newBuffer(data){
+    let b;
+    try { b = new AudioBuffer({ length: data.length, numberOfChannels: 1, sampleRate: this.fs }); }
+    catch (e) { b = this.ctx.createBuffer(1, data.length, this.fs); }
+    if (b.copyToChannel) b.copyToChannel(data, 0); else b.getChannelData(0).set(data);
+    return b;
+  },
+  /** Test hook: render through another real context (e.g. OfflineAudioContext) with the unchanged engine code. */
+  useContext(c){
+    stopAll();
+    this.ctx = c; this.fs = c.sampleRate;
+    this.offline = (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext);
+  }
+};
+
+let shell = { tab: 'lh', theme: 'light' };
+function loadShell(){
+  const s = store.get(SHELL_KEY) || {};
+  const legacyLh = store.get('lh-listening-v4-range') || store.get('lh-listening-v3-2khz') || store.get('lh-listening-v2') || store.get('lh-listening-v1') || {};
+  const legacyTl = store.get('tl-listening-v1') || {};
+  const themes = ['light', 'dark', 'black'];
+  let theme = [s.theme, legacyLh.theme, legacyTl.theme].find(t => themes.includes(t));
+  if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  shell = { tab: s.tab === 'tl' ? 'tl' : 'lh', theme };   // the saved tab is only used by the two-tab build
+}
+function applyTheme(){
+  document.documentElement.dataset.theme = shell.theme;
+  document.querySelectorAll('#seg-theme button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === shell.theme)));
+}
+function stopAll(){ for (const m of modules) { try { m.mod.stop(); } catch (e) { /* keep stopping the others */ } } }
+function showTab(name, focus){
+  const tabs = tabsPresent();
+  if (!tabs.includes(name)) name = tabs[0];
+  stopAll();
+  if (tabs.length > 1){ shell.tab = name; store.set(SHELL_KEY, shell); }
+  for (const t of tabs){
+    const on = t === name, tab = document.getElementById('tab-' + t);
+    if (tab){ tab.setAttribute('aria-selected', String(on)); tab.tabIndex = on ? 0 : -1; if (on && focus) tab.focus(); }
+    el('panel-' + t).hidden = !on;
+  }
+  const m = modules.find(x => x.name === name);
+  if (m && m.ok && m.mod.show) { try { m.mod.show(); } catch (e) { showError(e); } }
+}
+function showError(e){
+  const box = document.getElementById('app-error');
+  const text = '起動または処理でエラーが発生しました：' + (e && e.message ? e.message : String(e));
+  if (box){ box.hidden = false; box.textContent = text; }
+  if (window.console) console.error(e);
+}
+function busy(on){ const b = document.getElementById('busy'); if (b) b.hidden = !on; }
+function register(name, mod){ modules.push({ name, mod, ok: false }); api[name] = mod; }
+function start(){
+  loadShell(); applyTheme();
+  audio.create();
+  el('seg-theme').addEventListener('click', e => {
+    const b = e.target.closest('button[data-theme]'); if (!b) return;
+    shell.theme = b.dataset.theme; applyTheme(); store.set(SHELL_KEY, shell);
+    for (const m of modules) if (m.ok && m.mod.themeChanged) m.mod.themeChanged();
+  });
+  const tabs = tabsPresent().filter(t => document.getElementById('tab-' + t));
+  for (const t of tabs){
+    el('tab-' + t).addEventListener('click', () => showTab(t, false));
+    el('tab-' + t).addEventListener('keydown', e => {
+      const i = tabs.indexOf(t);
+      let j = -1;
+      if (e.key === 'ArrowRight') j = (i + 1) % tabs.length; else if (e.key === 'ArrowLeft') j = (i + tabs.length - 1) % tabs.length;
+      else if (e.key === 'Home') j = 0; else if (e.key === 'End') j = tabs.length - 1;
+      if (j >= 0){ e.preventDefault(); showTab(tabs[j], true); }
+    });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') stopAll(); });
+  window.addEventListener('pagehide', stopAll);
+  for (const m of modules){
+    try { m.mod.init(); m.ok = true; } catch (e) { showError(e); }
+  }
+  const hash = (location.hash || '').replace('#', '');
+  showTab(hash === 'tl' || hash === 'lh' ? hash : shell.tab, false);
+}
+/** Chart scale used for every level-versus-frequency chart: one octave = 15 mm and 10 dB = 20 mm on paper
+    (the format used for building-acoustics test reports), i.e. 10 dB is 4/3 of an octave. OCT is the octave width in SVG units. */
+const CHART = { OCT: 36, RATIO: 20 / 15 };
+const api = { VERSION, el, store, fmt, sgn, db, esc, CHART, bindNumber, audio, register, start, busy, showError, stopAll, showTab, get shell(){ return shell; } };
+return api;
+})();
+window.__app = App;
+
+</script>
+<script>
+/* LH: heavy floor impact sound listening. */
+App.register('lh', (function () {
+'use strict';
+const D = DSP, P0 = D.P0, G10 = D.G10, el = App.el, fmt = App.fmt, sgn = App.sgn, db = App.db;
+
+/* ---------- constants ---------- */
+const KEY = 'lh-listening-v6', LEGACY_LEVEL_DEFAULT = 20;
+const OLD_KEYS = ['lh-listening-v4-range', 'lh-listening-v3-2khz', 'lh-listening-v2', 'lh-listening-v1'];
+const BANDS = [
+  { label: '16', x: -6, modes: 8, add: true }, { label: '31.5', x: -5, modes: 8, add: true },
+  { label: '63', x: -4, modes: 8 }, { label: '125', x: -3, modes: 12 }, { label: '250', x: -2, modes: 20 }, { label: '500', x: -1, modes: 30 },
+  { label: '1k', x: 0, modes: 40, add: true }, { label: '2k', x: 1, modes: 50, add: true }
+];
+BANDS.forEach((b, i) => { b.i = i; b.fc = 1000 * Math.pow(G10, b.x); });          // exact (base-ten) centre frequency
+const ADD_LABELS = BANDS.filter(b => b.add).map(b => b.label);
+/** LH-65 reference: C(f) = round(62 - A(f_exact)); reproduces 88/78/71/65/62 and extends it with the same rounding. */
+const REF65 = BANDS.map(b => Math.round(62 - D.aDb(b.fc)));
+const GRADES = [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
+const BG_LEVELS = [null, 20, 30, 40, 50, 60, 70];
+const K_REF = 126;                 // uncalibrated: model dB (peak) that maps to 0 dBFS at output level 0 dB
+const CAL_DBFS = -20;
+const CEIL = Math.pow(10, -1 / 20); // digital peak ceiling, -1 dBFS
+/* Output level (master gain, the same for every condition). v2.3.0: range −40…+60 dB, new default +20 dB.
+   +60 is the highest 5 dB step at which the quietest impact condition (LH-30, 63–500 Hz, no background, uncalibrated)
+   still stays below −1 dBFS (its limit is +60.9 dB); every added band only lowers that limit, so above +60 no impact
+   condition could be played (study/headroom-probe.mjs, REPORT.md ch. 18). The −1 dBFS check per condition is unchanged. */
+const LEVEL_MIN = -40, LEVEL_MAX = 60, LEVEL_STEP = 5, LEVEL_DEFAULT = 30;
+const QUIET_DBFS = -90;            // below this rms a signal is at the 16-bit quantisation floor
+const TRIPLE_OFFSETS = [0, 1, 2], RUN_INTERVAL = 1.9, RUN_LOOKAHEAD = 3, RUN_TICK_MS = 250;
+const FADE = 0.05, GAP = 0.08, BG_FADE_IN = 0.15;
+const PATTERNS = ['single', 'triple', 'run'];
+const TYPING_MS = 500;            // rebuild delay while a number is being typed
+
+/* ---------- settings ---------- */
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+function defaults(){
+  const ref50 = {}, off = {};
+  BANDS.forEach((b, i) => { ref50[b.label] = REF65[i] - 15; off[b.label] = 0; });
+  return { v: 6, mode: 'grade', add: { '16': false, '31.5': false, '1k': false, '2k': false }, custom4: [88, 78, 71, 65], ref50, off,
+    pattern: 'single', T: 0.7, subDelayMs: 0, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {}, synth: 'common' };
+}
+function sanitize(s){
+  const o = defaults();
+  if (!s || typeof s !== 'object') return o;
+  if (s.mode === 'custom' || s.mode === 'grade') o.mode = s.mode;
+  if (s.add && typeof s.add === 'object') for (const k of ADD_LABELS) o.add[k] = s.add[k] === true;
+  if (Array.isArray(s.custom4) && s.custom4.length === 4 && s.custom4.every(v => isNum(v) && v >= 0 && v <= 140)) o.custom4 = s.custom4.slice();
+  for (const b of BANDS){
+    if (s.ref50 && isNum(s.ref50[b.label]) && s.ref50[b.label] >= 0 && s.ref50[b.label] <= 140) o.ref50[b.label] = s.ref50[b.label];
+    if (s.off && isNum(s.off[b.label]) && s.off[b.label] <= 0 && s.off[b.label] >= -60) o.off[b.label] = s.off[b.label];
+    if (s.cal && isNum(s.cal[b.label]) && s.cal[b.label] >= 0 && s.cal[b.label] <= 140) o.cal[b.label] = s.cal[b.label];
+  }
+  if (PATTERNS.includes(s.pattern)) o.pattern = s.pattern;
+  if (isNum(s.subDelayMs)) o.subDelayMs = Math.min(30, Math.max(0, Math.round(s.subDelayMs)));
+  if (isNum(s.T)) o.T = Math.min(2, Math.max(0.2, s.T));
+  if ([-3, -5, -8].includes(s.slope)) o.slope = s.slope;
+  if (s.bgBand === 'b4' || s.bgBand === 'wide') o.bgBand = s.bgBand;
+  if (typeof s.nums === 'boolean') o.nums = s.nums;
+  if (s.synth === 'legacy' || s.synth === 'common') o.synth = s.synth;
+  if (isNum(s.level)) o.level = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(s.level / LEVEL_STEP) * LEVEL_STEP));
+  if (o.mode === 'grade' && o.add['16'] && o.T < 0.5) o.T = 0.5;
+  return o;
+}
+/** Convert settings saved by earlier versions (v1 - v4). Old keys are only read, never deleted. */
+function migrate(old){
+  const s = defaults();
+  if (!old || typeof old !== 'object') return s;
+  const range = old.range;
+  s.mode = range === 'custom4' ? 'custom' : 'grade';
+  if (range === 'custom4') s.bgBand = 'b4';
+  s.add['1k'] = range !== 'custom4';                       // v1 - v4 always included 1 kHz in the grade modes
+  s.add['31.5'] = range === 'extended' || range === 'wide';
+  s.add['16'] = range === 'wide';
+  if (Array.isArray(old.custom4)) s.custom4 = old.custom4;
+  ['63', '125', '250', '500'].forEach((lab, i) => {
+    if (Array.isArray(old.curve) && isNum(old.curve[i])) s.ref50[lab] = old.curve[i];
+    if (Array.isArray(old.off) && isNum(old.off[i])) s.off[lab] = Math.min(0, old.off[i]);
+  });
+  if (Array.isArray(old.ext) && isNum(old.ext[0]) && !(old.ext[0] === -10 && old.ext[1] === -20)){
+    s.ref50['1k'] = s.ref50['500'] + old.ext[0];
+    if (isNum(old.ext[1])) s.ref50['2k'] = s.ref50['500'] + old.ext[1];
+  }
+  s.pattern = old.pattern; s.T = old.T; s.slope = old.slope; s.nums = old.nums;
+  if (old.calMap && typeof old.calMap === 'object') s.cal = Object.assign({}, old.calMap);
+  else if (Array.isArray(old.cal)) ['63', '125', '250', '500', '1k', '2k'].forEach((lab, i) => { if (isNum(old.cal[i])) s.cal[lab] = old.cal[i]; });
+  if (Object.keys(s.cal).length) s.level = LEGACY_LEVEL_DEFAULT;
+  return s;                                                // outputMode (compare / audition) no longer exists
+}
+/** Where the output level came from when the page opened: 'saved' (a stored setting; may differ from the default) or
+    'default'. Only used to explain the value; a stored level is never changed by itself. */
+let levelOrigin = 'default';
+function loadSettings(){
+  const cur = App.store.get(KEY);
+  if (cur){ if (isNum(cur.level)) levelOrigin = 'saved'; return sanitize(cur); }
+  const previous = App.store.get('lh-listening-v5');
+  if (previous){
+    const migrated = sanitize(previous);
+    const hadCalibration = Object.keys(migrated.cal).length > 0;
+    if (hadCalibration && !isNum(previous.level)) migrated.level = LEGACY_LEVEL_DEFAULT;
+    if (!hadCalibration && migrated.level === LEGACY_LEVEL_DEFAULT) migrated.level = LEVEL_DEFAULT;
+    if (isNum(previous.level) && (hadCalibration || previous.level !== LEGACY_LEVEL_DEFAULT)) levelOrigin = 'saved';
+    return migrated;
+  }
+  for (const k of OLD_KEYS){ const old = App.store.get(k); if (old) return sanitize(migrate(old)); }
+  return defaults();
+}
+let S = defaults();
+function save(){ App.store.set(KEY, S); }
+
+/* ---------- derived state ---------- */
+let source = 'synth', wav = null;
+let impact = null, bg = null, buildError = null, dirty = true;
+let selected = { G: 50, LA: 30 };
+let playing = null;                // { G, LA } while something sounds
+
+function activeBands(){ return BANDS.filter(b => S.mode === 'custom' ? !b.add : (!b.add || S.add[b.label])); }
+function calibrated(){ return BANDS.some(b => isNum(S.cal[b.label])); }
+/** K (dB SPL at 0 dBFS) for all eight bands; measured bands exactly, others interpolated over band index, ends held. */
+function calKAll(){
+  const idx = BANDS.filter(b => isNum(S.cal[b.label])).map(b => b.i);
+  if (!idx.length) return BANDS.map(() => K_REF);
+  return BANDS.map(b => {
+    const m = j => S.cal[BANDS[j].label] - CAL_DBFS;
+    if (idx.includes(b.i)) return m(b.i);
+    let lo = -1, hi = -1;
+    for (const j of idx){ if (j < b.i) lo = j; if (j > b.i && hi < 0) hi = j; }
+    if (lo < 0) return m(hi);
+    if (hi < 0) return m(lo);
+    return m(lo) + (m(hi) - m(lo)) * (b.i - lo) / (hi - lo);
+  });
+}
+function kAtF(K, f){
+  const x = Math.log(f / BANDS[0].fc) / Math.log(G10);
+  if (x <= 0) return K[0];
+  if (x >= K.length - 1) return K[K.length - 1];
+  const i = Math.floor(x), u = x - i;
+  return K[i] + (K[i + 1] - K[i]) * u;
+}
+function ref50(b){ return S.mode === 'custom' ? S.custom4[b.i - 2] - 15 : S.ref50[b.label]; }
+function target50(b){ return S.mode === 'custom' ? ref50(b) : S.ref50[b.label] + S.off[b.label]; }
+function gradeName(G){ return S.mode === 'custom' ? (G === 65 ? '指定値' : '指定値 ' + sgn(G - 65) + ' dB') : 'LH-' + G; }
+function cellName(G, LA){
+  return G === null ? '暗騒音のみ ' + LA + ' dB(A)' : gradeName(G) + (LA === null ? '（暗騒音なし）' : ' ＋ 暗騒音 ' + LA + ' dB(A)');
+}
+const keyOf = (G, LA) => (G === null ? 'bg' : G) + '|' + (LA === null ? 'none' : LA);
+
+/* ---------- impact sound ---------- */
+const rawCache = new Map(), sosCache = new Map();
+function bandSOS(b, fs){
+  const k = b.label + ':' + fs;
+  if (!sosCache.has(k)) sosCache.set(k, D.bandpassSOS(b.fc, fs));
+  return sosCache.get(k);
+}
+/** Modes of one band: frequency and amplitude from a seed that depends only on the band (adding a band never changes
+    the others). The third draw (initial phase) is used only by the legacy model; it is drawn in both so that the modes
+    of both models are identical. Frequencies are spread over ±0.4 octave around the band centre, amplitudes 0.6–1.4. */
+function bandModes(b){
+  const rnd = D.mulberry32(20261109 + 7919 * b.i), out = [];
+  for (let m = 0; m < b.modes; m++){ const f = b.fc * Math.pow(G10, (0.1 + 0.8 * rnd()) - 0.5), amp = 0.6 + 0.8 * rnd(), ph = 2 * Math.PI * rnd(); out.push({ f, amp, ph }); }
+  return out;
+}
+/* Common-excitation model (v2.4.0, default; study/common-excitation-study.mjs, REPORT.md ch. 19).
+   One force pulse acts at t = 0 on every band. Each mode is a causal damped oscillator starting from rest:
+   h(t) = a·e^(−σt)·sin(2πft), σ = ln(1000)/T, a > 0 (all modes respond with the same sign, as at the driving point;
+   with random signs the modes partly cancel at first and the band swells up later, which is what v2.3.0 suffered from).
+   Input: p(t) ∝ t·e^(−t/τ), τ = EXC_TAU — smooth, causal, no spectral zeros, falling 12 dB/octave above
+   1/(2πτ) ≈ 16 Hz. Each band is then passed through a causal 2nd-order Butterworth high-pass at fc/2 (EXC_HP_ORDER).
+   Causes and why: (1) T is the same in every band, so the 16 Hz modes have a low Q and their resonance skirt spills
+   upwards; with a very short pulse the 16 Hz band reaches 8.8 dB above the 63 Hz target and the band fit fails. The
+   falling pulse spectrum suppresses this. (2) The same low-frequency force drives the high modes quasi-statically
+   (below resonance a mode follows the force), which puts a copy of the pulse into every band; with 1 k / 2 kHz this
+   spilled downwards and the fit failed by 5–6 dB. The high-pass one octave below each band removes that. (3) Flat-topped
+   finite pulses (Hann ≥ 2 ms) have spectral zeros that leave whole bands empty and were rejected.
+   τ = 10 ms with the 2nd-order high-pass is the combination that kept every spill margin ≥ 0.4 dB and every band fit
+   below 0.01 dB for T = 0.5 / 0.7 / 2 s and all band sets in the study. No fade is applied at the start; the 50 ms fade
+   at the end only closes the buffer. This is a listening model, not a model of a standard impact source. */
+const EXC_TAU = 0.010, EXC_LEN = 12, EXC_HP_ORDER = 2;     // pulse truncated at 12 τ (below −100 dB of its maximum)
+const excCache = new Map();
+function excitation(fs){
+  if (excCache.has(fs)) return excCache.get(fs);
+  const L = Math.round(EXC_LEN * EXC_TAU * fs), p = new Float64Array(L); let sum = 0;
+  for (let n = 0; n < L; n++){ const t = (n + 0.5) / fs; p[n] = t * Math.exp(-t / EXC_TAU); sum += p[n]; }
+  for (let n = 0; n < L; n++) p[n] /= sum;
+  excCache.set(fs, p);
+  return p;
+}
+function synthBandCommon(b, fs, T, N){
+  const k = 'common:' + b.label + ':' + fs + ':' + T;
+  if (rawCache.has(k)) return rawCache.get(k);
+  const sig = Math.log(1000) / T, r = Math.exp(-sig / fs), p = excitation(fs), nf = Math.round(0.05 * fs);
+  let x = new Float64Array(N);
+  for (const { f, amp } of bandModes(b)){
+    // impulse-invariant two-pole resonator: y[n] = 2r·cos(w)·y[n−1] − r²·y[n−2] + a·r·sin(w)·p[n−1], zero initial state
+    const w = 2 * Math.PI * f / fs, a1 = 2 * r * Math.cos(w), a2 = -r * r, g = amp * r * Math.sin(w);
+    let y1 = 0, y2 = 0;
+    for (let n = 0; n < N; n++){ const u = n >= 1 && n <= p.length ? p[n - 1] : 0, y = a1 * y1 + a2 * y2 + g * u; x[n] += y; y2 = y1; y1 = y; }
+  }
+  x = Float64Array.from(D.sosFilter(x, D.butterHP(b.fc / 2, fs, EXC_HP_ORDER)));
+  for (let n = N - nf; n < N; n++) x[n] *= 0.5 - 0.5 * Math.cos(Math.PI * (N - n) / nf);
+  if (rawCache.size > 48) rawCache.clear();
+  rawCache.set(k, x);
+  return x;
+}
+/** v2.3.0 model, kept for comparison (S.synth === 'legacy'): each band is an independent sum of decaying sines with
+    random initial phases, and rises with its own attack (4 ms exponential; below 50 Hz a Blackman rise of 2 periods). */
+function synthBandLegacy(b, fs, T, N){
+  const k = 'legacy:' + b.label + ':' + fs + ':' + T;
+  if (rawCache.has(k)) return rawCache.get(k);
+  const decay = Math.log(1000) / T;
+  const r = Math.exp(-decay / fs), na = 0.004 * fs, nf = Math.round(0.05 * fs), low = b.fc < LOW_FC, La = low ? lowAttackLen(b, fs) : 0;
+  let x = new Float64Array(N);
+  for (const { f, amp, ph } of bandModes(b)){
+    const w = 2 * Math.PI * f / fs;
+    const cr = r * Math.cos(w), ci = r * Math.sin(w);
+    let re = amp * Math.cos(ph), im = amp * Math.sin(ph);
+    for (let n = 0; n < N; n++){ x[n] += im; const t = re * cr - im * ci; im = re * ci + im * cr; re = t; }
+  }
+  for (let n = 0; n < N; n++){
+    let e = low ? blackmanRise(n, La) : 1 - Math.exp(-n / na);
+    if (n > N - nf) e *= 0.5 - 0.5 * Math.cos(Math.PI * (N - n) / nf);
+    x[n] *= e;
+  }
+  if (low) lowTail(x, fs);
+  if (rawCache.size > 48) rawCache.clear();
+  rawCache.set(k, x);
+  return x;
+}
+/** Onset of a band below 50 Hz (v2.3.0; study/onset-study.mjs, REPORT.md ch. 18).
+    v2.2.1 band-limited the low band with a zero-phase filter and then faded its first 200 ms in (raised cosine), which
+    made 16 / 31.5 Hz swell up late (−6 dB of the envelope reached only after 54–76 ms at 16 Hz, 83–95 ms at 31.5 Hz).
+    Now the modal sum itself rises with a Blackman attack of LOW_ATTACK_PERIODS periods of the band centre and is not
+    filtered afterwards (causal: nothing before the strike). Over T = 0.5–2 s this keeps the spill into the next band up
+    at least 7 dB (16 Hz) / 5 dB (31.5 Hz) below that band's target and the spill into bands two or more octaves up at
+    least 29 dB below — both better than v2.2.1 at T = 0.5 s (2.5 dB / 35 dB) — while the 31.5 Hz band rises 8–13 dB
+    earlier at 25 ms. Shorter attacks were rejected because the 16 Hz spill then reaches the 31.5 Hz target and the
+    combined fit fails (1.5 periods Hann: −0.2 dB margin, fit error 0.32 dB).
+    An octave band cannot rise arbitrarily fast: the zero-phase 1/1-octave impulse response is 54 ms (16 Hz) / 27 ms
+    (31.5 Hz) wide to −6 dB on each side. Tail: the fixed 200 ms fade at the end of the buffer is kept as before. */
+const LOW_ATTACK_PERIODS = 2, LOW_TAIL_S = 0.2, LOW_FC = 50;
+function lowAttackLen(b, fs){ return Math.round(LOW_ATTACK_PERIODS * fs / b.fc); }
+function blackmanRise(n, L){ if (n >= L) return 1; const u = n / L; return 0.42 - 0.5 * Math.cos(Math.PI * u) + 0.08 * Math.cos(2 * Math.PI * u); }
+function lowTail(z, fs){
+  const N = z.length, tail = Math.min(Math.round(fs * LOW_TAIL_S), Math.floor(N / 3));
+  for (let n = 0; n < tail; n++) z[N - 1 - n] *= 0.5 - 0.5 * Math.cos(Math.PI * n / tail);
+  return z;
+}
+/** Recording: the zero-phase band filter leaves a pre-echo of the low band before the strike. It is faded in with the
+    same Blackman rise, placed so that it ends at the detected onset (the strike itself is not faded) and zeroed before. */
+function lowHead(z, at, L){
+  for (let n = 0; n < at && n < z.length; n++) z[n] = 0;
+  for (let n = 0; n < L && at + n < z.length; n++) z[at + n] *= blackmanRise(n, L);
+  return z;
+}
+function synthBands(fs, T, bands, model = S.synth){
+  if (bands[0].fc < 20 && T < 0.5) throw new Error('16 Hz 帯を含む合成音では T を 0.5 秒以上にしてください。');
+  const dur = Math.min(4, 0.15 + 2.2 * T), N = Math.round(dur * fs);
+  const fn = model === 'legacy' ? synthBandLegacy : synthBandCommon;
+  return bands.map(b => fn(b, fs, T, N));
+}
+const tailCache = new Map();
+/** Samples to analyse after the end of a signal so that the octave filter and the F time weighting have passed their
+    maximum: the time at which the F-weighted impulse response of the band filter has fallen 10 dB below its own maximum.
+    (A 16 Hz octave filter keeps rising for several tenths of a second after a short signal has already ended.) */
+function bandTail(b, fs){
+  const k = b.label + ':' + fs;
+  if (tailCache.has(k)) return tailCache.get(k);
+  const N = Math.round(fs * 6), x = new Float64Array(N);
+  x[0] = 1;
+  const y = D.sosFilter(x, bandSOS(b, fs)), al = 1 - Math.exp(-1 / (fs * 0.125)), lev = new Float64Array(N);
+  let acc = 0, m = 0;
+  for (let n = 0; n < N; n++){ acc += al * (y[n] * y[n] - acc); lev[n] = acc; if (acc > m) m = acc; }
+  let last = N - 1;
+  while (last > 0 && lev[last] < m / 10) last--;
+  const t = last + Math.round(0.05 * fs);
+  tailCache.set(k, t);
+  return t;
+}
+/** Scale band components so that the 1/1-octave L_Fmax of their sum hits the targets (Pa domain).
+    The analysis runs on the sum followed by silence, so the level is the true maximum, not the value at the last sample. */
+function fitBands(raw, targets, fs, bands){
+  const nb = raw.length, N = raw[0].length;
+  const sos = bands.map(b => bandSOS(b, fs)), tails = bands.map(b => bandTail(b, fs)), sosA = D.aWeightSOS(fs);
+  const M = N + Math.max(Math.round(0.5 * fs), ...tails);
+  const g = raw.map((x, b) => Math.pow(10, (targets[b] - D.fastMaxDb(x, fs)) / 20));
+  const sum = new Float64Array(M);
+  const mix = () => { sum.fill(0); for (let b = 0; b < nb; b++){ const gb = g[b], x = raw[b]; for (let n = 0; n < N; n++) sum[n] += gb * x[n]; } };
+  const analyze = () => sos.map((q, b) => D.fastMaxDb(D.sosFilter(sum.subarray(0, N + tails[b]), q), fs));
+  for (let it = 0; it < 24; it++){
+    mix();
+    const band = analyze();
+    let maxErr = 0;
+    for (let b = 0; b < nb; b++){
+      const e = targets[b] - band[b];
+      maxErr = Math.max(maxErr, Math.abs(e));
+      g[b] = Math.max(1e-9, g[b] * Math.pow(10, e / 20));
+    }
+    if (!(maxErr >= 0.02)) break;
+  }
+  mix();
+  const band = analyze();
+  const err = Math.max(...targets.map((t, b) => Math.abs(t - band[b])));
+  return { gains: g, bandFmax: band, LAF: D.fastMaxDb(D.sosFilter(sum.subarray(0, N + Math.round(0.5 * fs)), sosA), fs), err: Number.isFinite(err) ? err : Infinity };
+}
+function subDelaySamples(fs, delayMs){ return Math.round(fs * delayMs / 1000); }
+function mixImpactBand(out, samples, gain, band, fs, delayMs){
+  const offset = band.fc >= 125 ? subDelaySamples(fs, delayMs) : 0;
+  for (let n = 0; n < samples.length; n++) out[n + offset] += gain * samples[n];
+}
+function buildImpact(){
+  const fs = App.audio.fs, bands = activeBands();
+  if (bands[bands.length - 1].fc * Math.sqrt(G10) >= fs / 2 * 0.98) throw new Error('この再生サンプリング周波数（' + fs + ' Hz）では選択した帯域の上端を扱えません。');
+  const raw = (source === 'wav' && wav) ? wav.bands : synthBands(fs, S.T, bands);
+  const fit = fitBands(raw, bands.map(target50), fs, bands);
+  const K = calKAll(), N = raw[0].length + subDelaySamples(fs, S.subDelayMs), dig = new Float32Array(N), gds = [];
+  for (let j = 0; j < raw.length; j++){
+    const gd = fit.gains[j] / (P0 * Math.pow(10, K[bands[j].i] / 20)), x = raw[j];
+    gds.push(gd);
+    mixImpactBand(dig, x, gd, bands[j], fs, S.subDelayMs);
+  }
+  const runCount = Math.ceil(N / fs / RUN_INTERVAL) + 1;
+  const offs = { single: [0], triple: TRIPLE_OFFSETS.map(o => Math.round(o * fs)), run: Array.from({ length: runCount }, (_, i) => Math.round(i * RUN_INTERVAL * fs)) };
+  const peakSet = y => ({ single: D.peakOf(y), triple: D.overlapPeak(y, offs.triple), run: D.overlapPeak(y, offs.run) });
+  const peaks = peakSet(dig);
+  // How much of the digital peak is owed to the bands below 50 Hz: peaks of each such band alone and of the sound
+  // without them (information only; what is played is always the whole sound).
+  const lowShare = bands.map((b, j) => ({ b, j })).filter(o => o.b.fc < LOW_FC).map(({ b, j }) => {
+    const alone = new Float32Array(N), x = raw[j]; for (let n = 0; n < x.length; n++) alone[n] = gds[j] * x[n];
+    return { label: b.label, alone: peakSet(alone) };
+  });
+  let withoutLow = null;
+  if (lowShare.length){
+    const y = Float32Array.from(dig);
+    for (let j = 0; j < raw.length; j++) if (bands[j].fc < LOW_FC){ const x = raw[j]; for (let n = 0; n < x.length; n++) y[n] -= gds[j] * x[n]; }
+    withoutLow = peakSet(y);
+  }
+  const LAsum = 10 * Math.log10(bands.reduce((a, b, j) => a + Math.pow(10, (fit.bandFmax[j] + D.aDb(b.fc)) / 10), 0));
+  return { bands, bandFmax: fit.bandFmax, LAF: fit.LAF, LAsum, err: fit.err, dig, gd: gds, peaks, lowShare, withoutLow, dur: N / fs, buffer: null, fs };
+}
+
+/* ---------- background noise ---------- */
+function bgWindow(f){
+  if (S.bgBand === 'b4'){ const lo = BANDS[2].fc, hi = BANDS[5].fc; return D.edgeUp(f, lo / Math.sqrt(G10), lo) * (1 - D.edgeUp(f, hi, hi * Math.sqrt(G10))); }
+  return D.edgeUp(f, 18, 28) * (1 - D.edgeUp(f, 9000, 14000));
+}
+let bgSource = 'synth', bgWav = null, bgNote = '';
+/** Background noise at model L_Aeq = 50 dB. Synthetic: random-phase noise with the chosen slope. Recorded: the loaded
+    loop with its own spectrum. Either way the A-weighted mean level inside the background band is set to the column value
+    by one overall gain; the shape of the spectrum is not altered (apart from the band limits and, when calibrated, K(f)). */
+function buildBg(){
+  const fs = App.audio.fs, bands = activeBands(), K = calKAll(), useWav = bgSource === 'wav' && !!bgWav;
+  const N = useWav ? bgWav.data.length : 1 << Math.ceil(Math.log2(fs * 10)), half = N >> 1;
+  const re = new Float64Array(N), im = new Float64Array(N), psd = new Float64Array(half);
+  if (useWav){ re.set(bgWav.data); D.fftInPlace(re, im, false); }
+  let msA = 0, allA = 0;
+  for (let k = 1; k < half; k++){
+    const f = k * fs / N, w = bgWindow(f);
+    if (useWav){ const a0 = D.aLin(f); allA += (re[k] * re[k] + im[k] * im[k]) * a0 * a0; }
+    if (w <= 0) continue;
+    psd[k] = (useWav ? re[k] * re[k] + im[k] * im[k] : Math.pow(10, ((S.slope - 3) / 10) * Math.log2(f / 1000))) * w;
+    const a = D.aLin(f);
+    msA += psd[k] * a * a;
+  }
+  msA *= 2 / (N * N);
+  // Less than 0.01 % of the recording's A-weighted energy lies in the selected band: scaling that residue up to the
+  // column level would only amplify the recording's own noise floor.
+  if (useWav && !(msA > allA * 2 / (N * N) * 1e-4)){ bgSource = 'synth'; bgNote = '録音のエネルギーが、選んだ暗騒音の帯域にほとんどないため（A 特性で全体の 0.01 % 未満）、合成ノイズに戻しました。'; return buildBg(); }
+  const sc = Math.sqrt(P0 * P0 * 1e5 / msA);           // model LAeq = 50 dB
+  const band = bands.map(b => {
+    const lo = b.fc / Math.sqrt(G10), hi = b.fc * Math.sqrt(G10);
+    let m = 0;
+    for (let k = Math.ceil(lo * N / fs); k <= Math.floor(hi * N / fs) && k < half; k++) m += psd[k];
+    return 10 * Math.log10(Math.max(1e-30, m * 2 / (N * N) * sc * sc) / (P0 * P0));
+  });
+  const rnd = D.mulberry32(7);
+  re[0] = 0; im[0] = 0; re[half] = 0; im[half] = 0;
+  for (let k = 1; k < half; k++){
+    const ph = 2 * Math.PI * rnd();
+    if (psd[k] <= 0){ re[k] = im[k] = re[N - k] = im[N - k] = 0; continue; }
+    const kk = sc / (P0 * Math.pow(10, kAtF(K, k * fs / N) / 20));
+    if (useWav){ const g = kk * Math.sqrt(bgWindow(k * fs / N)); re[k] *= g; im[k] *= g; }
+    else { const amp = kk * Math.sqrt(psd[k]); re[k] = amp * Math.cos(ph); im[k] = amp * Math.sin(ph); }
+    re[N - k] = re[k]; im[N - k] = -im[k];
+  }
+  D.fftInPlace(re, im, true);
+  const dig = new Float32Array(N);
+  for (let n = 0; n < N; n++) dig[n] = re[n];
+  return { dig, peak: D.peakOf(dig), rms: D.rmsOf(dig), band, buffer: null, fs, key: bgKey(), src: useWav ? 'wav' : 'synth' };
+}
+function bgKey(){ return JSON.stringify([App.audio.fs, S.slope, S.bgBand, calKAll(), activeBands().map(b => b.label), bgSource === 'wav' && bgWav ? bgWav.id : 0]); }
+/** Octave-band noise at CAL_DBFS (rms) for calibration, digital domain. */
+function buildCalNoise(fs, fc){
+  const N = 1 << Math.ceil(Math.log2(fs * 3)), half = N >> 1;
+  const re = new Float64Array(N), im = new Float64Array(N);
+  const lo = fc / Math.sqrt(G10), hi = fc * Math.sqrt(G10), t = Math.pow(2, 0.08);
+  const rnd = D.mulberry32(Math.round(fc));
+  let ms = 0;
+  for (let k = 1; k < half; k++){
+    const f = k * fs / N;
+    const w = D.edgeUp(f, lo, lo * t) * (1 - D.edgeUp(f, hi / t, hi));
+    if (w <= 0) continue;
+    const m = Math.sqrt(w / f), ph = 2 * Math.PI * rnd();
+    re[k] = m * Math.cos(ph); im[k] = m * Math.sin(ph); re[N - k] = re[k]; im[N - k] = -im[k];
+    ms += 2 * m * m / (N * N);
+  }
+  D.fftInPlace(re, im, true);
+  const sc = Math.pow(10, CAL_DBFS / 20) / Math.sqrt(ms);
+  const out = new Float32Array(N);
+  for (let n = 0; n < N; n++) out[n] = re[n] * sc;
+  return out;
+}
+
+// Use the same digital reference for every cell, pattern, source and subwoofer setting.
+let reference = null;
+function listeningReference(fs){
+  if (reference && reference.fs === fs) return reference;
+  const base = defaults(), bands = BANDS.filter(b => !b.add);
+  const raw = synthBands(fs, base.T, bands, 'common');
+  const fit = fitBands(raw, bands.map(b => base.ref50[b.label]), fs, bands);
+  const signal = new Float32Array(raw[0].length);
+  const scale = P0 * Math.pow(10, K_REF / 20);
+  for (let j = 0; j < bands.length; j++){
+    mixImpactBand(signal, raw[j], fit.gains[j] / scale, bands[j], fs, 0);
+  }
+  const peak55 = D.peakOf(signal) * gradeGain(55);
+  const target = Math.pow(10, -2 / 20), gain = target / peak55;
+  reference = { fs, gainDb: db(gain), signal, outputTrim: null, pending: null };
+  return reference;
+}
+// Measure the browser's compressor response once for this reference and sample rate.
+// The resulting output gain is shared by the whole table, even after a source or level change.
+async function prepareListeningOutput(ref){
+  if (ref.outputTrim !== null) return ref.outputTrim;
+  if (!ref.pending){
+    ref.pending = (async () => {
+      const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      const c = new Offline(1, ref.signal.length + Math.ceil((App.audio.startDelay + 0.1) * ref.fs), ref.fs);
+      const buffer = c.createBuffer(1, ref.signal.length, ref.fs);
+      buffer.getChannelData(0).set(ref.signal);
+      const src = c.createBufferSource(), master = c.createGain(), limiter = App.audio.createLimiter(c);
+      src.buffer = buffer;
+      master.gain.value = gradeGain(55) * Math.pow(10, ref.gainDb / 20);
+      src.connect(master); master.connect(limiter); limiter.connect(c.destination);
+      src.start(App.audio.startDelay);
+      const rendered = await c.startRendering();
+      const peak = D.peakOf(rendered.getChannelData(0));
+      if (!(peak > 0 && Number.isFinite(peak))) throw new Error('基準音の出力を確認できません。');
+      ref.outputTrim = Math.pow(10, -2 / 20) / peak;
+      ref.signal = null;
+      return ref.outputTrim;
+    })().finally(() => { ref.pending = null; });
+  }
+  return ref.pending;
+}
+function outputGainDb(L = S.level){
+  return calibrated() ? L : listeningReference(App.audio.fs).gainDb + L - LEVEL_DEFAULT;
+}
+const levelLin = (L = S.level) => Math.pow(10, outputGainDb(L) / 20);
+const gradeGain = G => Math.pow(10, (G - 50) / 20);
+function cellPeak(G, LA){      // upper bound of the digital peak at output level 0 dB
+  if (!impact || !bg) return Infinity;
+  return (G === null ? 0 : impact.peaks[S.pattern] * gradeGain(G)) + (LA === null ? 0 : bg.peak * gradeGain(LA));
+}
+function maxLevelFor(G, LA){ return db(CEIL / cellPeak(G, LA)); }
+function playableAt(G, LA, L){ return !calibrated() || L <= maxLevelFor(G, LA) + 1e-9; }
+function playable(G, LA){ return playableAt(G, LA, S.level); }
+/** Highest 5 dB step at which the cell fits, or null when it does not fit even at the minimum level. */
+function neededLevel(G, LA){
+  const L = Math.min(LEVEL_MAX, Math.floor((maxLevelFor(G, LA) + 1e-9) / LEVEL_STEP) * LEVEL_STEP);
+  return L < LEVEL_MIN ? null : L;
+}
+function cellInfo(G, LA){
+  const LAF = G === null ? null : impact.LAF + (G - 50);
+  return { LAF, dLA: (LAF !== null && LA !== null) ? LAF - LA : null,
+    impPeakDb: G === null ? null : db(impact.peaks[S.pattern] * gradeGain(G)) + outputGainDb(),
+    bgRmsDb: LA === null ? null : db(bg.rms * gradeGain(LA)) + outputGainDb(),
+    peakDb: db(cellPeak(G, LA)) + outputGainDb(), playable: playable(G, LA), needed: neededLevel(G, LA) };
+}
+
+/* ---------- audio engine ---------- */
+let graph = null;
+const V = { imps: [], bg: null, cal: null };
+let playToken = 0, endTimer = 0, loopTimer = 0, loop = null, session = null;
+
+function getGraph(){
+  const c = App.audio.ctx;
+  if (!c) return null;
+  if (!graph || graph.ctx !== c){
+    const listeningMaster = c.createGain(), calMaster = c.createGain(), limiter = App.audio.createLimiter(c);
+    const output = c.createGain();
+    listeningMaster.connect(limiter);
+    limiter.connect(output);
+    output.connect(c.destination);
+    calMaster.connect(c.destination);
+    graph = { ctx: c, listeningMaster, calMaster, limiter, output, master: null };
+    quietAt = 0;
+  }
+  if (reference && reference.fs === c.sampleRate && reference.outputTrim !== null){
+    graph.output.gain.value = reference.outputTrim;
+  }
+  const master = calibrated() ? graph.calMaster : graph.listeningMaster;
+  if (graph.master !== master){
+    graph.master = master;
+    master.gain.cancelScheduledValues(c.currentTime);
+    master.gain.setValueAtTime(levelLin(), c.currentTime);
+    gainEff = S.level; gainPending = null;
+  }
+  return graph;
+}
+/* Every voice gain is a known linear ramp (v0 at t0 -> v1 at t1), so its value at any time is computed here and never
+   read back from the AudioParam (no reliance on AudioParam.value or cancelAndHoldAtTime). */
+function gainAt(v, t){ return v.t1 > v.t0 ? v.v0 + (v.v1 - v.v0) * Math.min(1, Math.max(0, (t - v.t0) / (v.t1 - v.t0))) : v.v1; }
+function rampTo(v, now, to, dur){
+  const cur = gainAt(v, now);
+  try { const g = v.gain.gain; g.cancelScheduledValues(now); g.setValueAtTime(cur, now); g.linearRampToValueAtTime(to, now + dur); } catch (e) { /* node gone */ }
+  v.v0 = cur; v.v1 = to; v.t0 = now; v.t1 = now + dur;
+}
+let quietAt = 0;                   // context time after which no faded-out or left-over voice can still sound
+let gainEff = 0, gainPending = null; // level the shared gain really has (lower bound) / an increase waiting for quietAt
+function holdUntil(t){ if (t > quietAt) quietAt = t; }
+function fadeOutVoice(v, now){ rampTo(v, now, 0, FADE); holdUntil(now + FADE + 0.01); try { v.src.stop(now + FADE + 0.01); } catch (e) { /* already stopped */ } }
+function stopVoices(now){
+  for (const v of V.imps) fadeOutVoice(v, now);
+  V.imps = [];
+  if (V.bg){ fadeOutVoice(V.bg, now); V.bg = null; }
+  if (V.cal){ fadeOutVoice(V.cal, now); V.cal = null; }
+}
+function cancelTimers(){
+  clearTimeout(endTimer); endTimer = 0;
+  clearTimeout(loopTimer); loopTimer = 0; loop = null;
+}
+function stopAll(){
+  playToken++;                      // invalidates every pending timer, loop tick and deferred "rebuild then play"
+  cancelTimers(); session = null;
+  const c = App.audio.ctx;
+  if (c) stopVoices(c.currentTime);
+  setPlaying(null);
+}
+function startImpactAt(g, t, gl, buffer = impact.buffer, destination = g.master){
+  const src = g.ctx.createBufferSource(), gain = g.ctx.createGain();
+  src.buffer = buffer; gain.gain.value = gl;
+  src.connect(gain); gain.connect(destination);
+  const v = { src, gain, v0: gl, v1: gl, t0: 0, t1: 0, start: t };
+  V.imps.push(v);
+  src.onended = () => {
+    const i = V.imps.indexOf(v);
+    if (i >= 0) V.imps.splice(i, 1);
+    try { src.disconnect(); gain.disconnect(); } catch (e) { /* already disconnected */ }
+  };
+  src.start(t);
+}
+// A short burst in every octave, with identical onset before the subwoofer correction.
+function buildSubClick(fs, delayMs){
+  const lengths = BANDS.map(b => Math.ceil(4 * fs / b.fc));
+  const out = new Float32Array(Math.max(...lengths) + subDelaySamples(fs, delayMs));
+  const gain = 0.15 / BANDS.length;
+  BANDS.forEach((band, j) => {
+    const pulse = new Float32Array(lengths[j]);
+    for (let n = 0; n < pulse.length; n++){
+      const envelope = (1 - n / pulse.length) ** 3;
+      pulse[n] = Math.sin(2 * Math.PI * band.fc * n / fs) * envelope;
+    }
+    mixImpactBand(out, pulse, gain, band, fs, delayMs);
+  });
+  return out;
+}
+async function playSubClick(){
+  stopAll();
+  const token = playToken, ready = await App.audio.ensureRunning();
+  if (token !== playToken) return;
+  if (!ready){ say('lh-sub-msg', '音声を開始できませんでした。'); return; }
+  const g = getGraph(), buffer = App.audio.newBuffer(buildSubClick(g.ctx.sampleRate, S.subDelayMs));
+  say('lh-sub-msg', '');
+  startImpactAt(g, g.ctx.currentTime + App.audio.startDelay, 1, buffer, g.limiter);
+}
+function startBg(g, LA, start, offset, fadeIn){
+  const src = g.ctx.createBufferSource(), gain = g.ctx.createGain(), target = gradeGain(LA);
+  src.buffer = bg.buffer; src.loop = true;
+  gain.gain.value = 0;
+  gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(target, start + fadeIn);
+  src.connect(gain); gain.connect(g.master);
+  src.start(start, offset);
+  V.bg = { src, gain, v0: 0, v1: target, t0: start, t1: start + fadeIn, start, offset, buf: bg.buffer };
+}
+function runTick(){
+  const L = loop, g = graph;
+  if (!L || !g || L.token !== playToken) return;
+  const now = g.ctx.currentTime;
+  // After a throttled/suspended tab, skip missed beats rather than burst-play them.
+  if (L.next < now + 0.02) L.next += Math.ceil((now + 0.02 - L.next) / RUN_INTERVAL) * RUN_INTERVAL;
+  while (L.next < now + RUN_LOOKAHEAD){ startImpactAt(g, L.next, L.gl); L.next += RUN_INTERVAL; }
+  loopTimer = setTimeout(runTick, RUN_TICK_MS);
+}
+function armEnd(token, tEnd, now){
+  clearTimeout(endTimer);
+  endTimer = setTimeout(() => {
+    if (token !== playToken) return;
+    const c = App.audio.ctx;
+    if (c && V.bg){ fadeOutVoice(V.bg, c.currentTime); V.bg = null; }
+    session = null;
+    setPlaying(null);
+  }, Math.max(0, (tEnd - now) * 1000));
+}
+async function play(G, LA){
+  // The continuous pattern of this very cell is already running: pressing it again changes nothing.
+  if (playing && session && S.pattern === 'run' && playing.G === G && playing.LA === LA && loop && loop.token === playToken && !dirty && App.audio.ctx?.state === 'running') return true;
+  playToken++;
+  const token = playToken;
+  cancelTimers();
+  if (!impact || !bg){ stopAll(); say('lh-over', buildError || '音源を計算できていません。'); return false; }
+  if (G !== null && !(impact.err <= 0.25)){
+    stopAll(); say('lh-over', '帯域レベルを目標に合わせ込めなかったため再生しません（誤差 ' + fmt(impact.err, 2) + ' dB）。帯域・減衰時間・録音を見直してください。'); return false;
+  }
+  if (!playable(G, LA)){ stopAll(); showOver(G, LA); return false; }
+  const ready = await App.audio.ensureRunning();
+  if (token !== playToken) return false;
+  if (!ready){
+    stopAll(); say('lh-over', 'この表示画面では音声を使えません。HTML を保存して Safari または Chrome で開いてください。'); return false;
+  }
+  if (!calibrated()){
+    try {
+      await prepareListeningOutput(listeningReference(App.audio.fs));
+    } catch (e) {
+      if (token === playToken){ stopAll(); say('lh-over', '基準音の出力を確認できません。もう一度再生してください。'); }
+      return false;
+    }
+    if (token !== playToken) return false;
+    if (!App.audio.offline && App.audio.ctx.state !== 'running'){
+      stopAll(); say('lh-over', '音声を開始できません。再生ボタンをもう一度押してください。'); return false;
+    }
+  }
+  const g = getGraph(), ctx = g.ctx;
+  if (!impact.buffer) impact.buffer = App.audio.newBuffer(impact.dig);
+  if (!bg.buffer) bg.buffer = App.audio.newBuffer(bg.dig);
+  const now = ctx.currentTime;
+  for (const v of V.imps) fadeOutVoice(v, now);      // old impacts are silent by now + FADE; new ones start at now + GAP or later
+  V.imps = [];
+  if (V.cal){ fadeOutVoice(V.cal, now); V.cal = null; }
+  const t0 = now + App.audio.startDelay;
+  let tEnd;
+  if (LA === null){
+    if (V.bg){ fadeOutVoice(V.bg, now); V.bg = null; }
+  } else if (V.bg && V.bg.buf === bg.buffer){
+    rampTo(V.bg, t0, gradeGain(LA), FADE);           // same noise keeps running: only its level moves (no gap, same position)
+  } else {
+    if (V.bg) fadeOutVoice(V.bg, now);
+    startBg(g, LA, t0, App.audio.offline ? 0 : Math.random() * bg.buffer.duration * 0.9, BG_FADE_IN);
+  }
+  session = { G, LA, times: [] };
+  if (G !== null){
+    const gl = gradeGain(G);
+    if (S.pattern === 'run'){ loop = { token, next: t0, gl }; runTick(); }
+    else {
+      session.times = (S.pattern === 'triple' ? TRIPLE_OFFSETS : [0]).map(o => t0 + o);
+      for (const t of session.times) startImpactAt(g, t, gl);
+      tEnd = session.times[session.times.length - 1] + impact.dur + (LA !== null ? 0.4 : 0);
+    }
+  } else if (S.pattern !== 'run') tEnd = t0 + 4;
+  if (tEnd !== undefined){ session.tEnd = tEnd; armEnd(token, tEnd, now); }
+  say('lh-over', '');
+  setPlaying({ G, LA });
+  return true;
+}
+/** Settings were edited while this cell was sounding and the sources have been rebuilt: carry the playback over
+    without a restart. Strikes that have not started yet are re-issued with the new sound at the same times;
+    the background cross-fades to the rebuilt noise at the same loop position. Never starts playback by itself. */
+function liveUpdate(cell){
+  const g = graph;
+  if (!g || !playing || !session) return;
+  const { G, LA } = cell;
+  if (!impact || !bg || (G !== null && !(impact.err <= 0.25)) || !playable(G, LA)){
+    stopAll();
+    say('lh-over', '変更後の条件はいまの出力レベルでは再生できない（または計算できない）ため、再生を止めました。');
+    return;
+  }
+  const ctx = g.ctx, now = ctx.currentTime, token = playToken;
+  if (!impact.buffer) impact.buffer = App.audio.newBuffer(impact.dig);
+  if (!bg.buffer) bg.buffer = App.audio.newBuffer(bg.dig);
+  let bgChanged = false;
+  if (LA !== null && V.bg && V.bg.buf !== bg.buffer){
+    const old = V.bg, t = now + 0.02, d = bg.buffer.duration, pos = ((old.offset + Math.max(0, t - old.start)) % d + d) % d;
+    try { const p = old.gain.gain, cur = gainAt(old, t); p.cancelScheduledValues(t); p.setValueAtTime(cur, t); p.linearRampToValueAtTime(0, t + FADE); old.src.stop(t + FADE + 0.01); } catch (e) { /* gone */ }
+    holdUntil(t + FADE + 0.01);
+    startBg(g, LA, t, pos % (old.buf.duration === d ? d : d), FADE);
+    bgChanged = true;
+  }
+  if (G !== null){
+    const gl = gradeGain(G), spacing = S.pattern === 'run' ? RUN_INTERVAL : 1, pending = [];
+    for (const v of V.imps.slice()){
+      if (v.start > now + 0.03){ pending.push(v.start); try { v.src.onended = null; v.src.stop(0); v.src.disconnect(); v.gain.disconnect(); } catch (e) { /* gone */ } V.imps.splice(V.imps.indexOf(v), 1); }
+      else if (bgChanged || impact.dur > spacing) fadeOutVoice(v, now);   // otherwise the sounding strike simply rings out
+      else holdUntil(v.start + (v.src.buffer ? v.src.buffer.duration : 0) + 0.01);   // it is the old sound: no level increase until it has ended
+    }
+    pending.sort((x, y) => x - y);
+    if (S.pattern === 'run' && loop && loop.token === token){
+      loop.gl = gl; if (pending.length) loop.next = pending[0];
+      clearTimeout(loopTimer); runTick();
+    } else {
+      for (const t of pending) startImpactAt(g, t, gl);
+      const last = session.times.length ? session.times[session.times.length - 1] : now;
+      session.tEnd = last + impact.dur + (LA !== null ? 0.4 : 0);
+      armEnd(token, session.tEnd, now);
+    }
+  }
+  setPlaying({ G, LA });
+}
+async function playCal(i){
+  const was = V.cal && V.cal.i === i;
+  stopAll();
+  if (!was){
+    const token = playToken, ready = await App.audio.ensureRunning();
+    if (token !== playToken) return;
+    if (!ready){ say('lh-cal-msg', 'この表示画面では音声を使えません。'); return; }
+    const g = getGraph(), ctx = g.ctx, start = ctx.currentTime + GAP, fs = App.audio.fs;
+    const src = ctx.createBufferSource(), gain = ctx.createGain();
+    src.buffer = App.audio.newBuffer(buildCalNoise(fs, BANDS[i].fc)); src.loop = true;
+    gain.gain.value = 0;
+    gain.gain.setValueAtTime(0, start); gain.gain.linearRampToValueAtTime(1, start + 0.3);
+    src.connect(gain); gain.connect(ctx.destination);       // not through the master: always -20 dBFS
+    src.start(start);
+    V.cal = { src, gain, v0: 0, v1: 1, t0: start, t1: start + 0.3, start, i };
+  }
+  updateCalButtons(); renderTransport();
+}
+function setLevel(L){
+  L = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(L / LEVEL_STEP) * LEVEL_STEP));
+  if (L === S.level) return;
+  let note = '';
+  if (playing && !playableAt(playing.G, playing.LA, L)){
+    stopAll();
+    note = '出力レベルを上げると再生中の条件が上限（−1 dBFS）を超えるため、再生を止めました。';
+  }
+  S.level = L; levelOrigin = 'set'; save();
+  if (graph){
+    // The shared gain may only rise once every voice that is fading out (stop, cell switch, live edit) is silent;
+    // those voices belong to an earlier, possibly louder condition and are not covered by the check above.
+    // "Rise" is judged against the gain that is really in effect (gainEff), not against the last requested level:
+    // after stop, "+" (deferred) followed by a smaller "-" is still a rise for the voices that are fading out.
+    // gainEff is the lowest level the gain may already have reached, so anything above it is treated as a rise.
+    const p = getGraph().master.gain, now = graph.ctx.currentTime;
+    if (gainPending && now >= gainPending.at){ gainEff = gainPending.level; gainPending = null; }
+    const rising = L > gainEff, t = rising ? Math.max(now + 0.01, quietAt + 0.005) : now + 0.01;
+    p.cancelScheduledValues(now);     // drops a change that has not begun yet; one already under way continues until t
+    p.setTargetAtTime(levelLin(), t, rising ? 0.02 : 0.008);
+    if (rising) gainPending = { level: L, at: t };
+    else { gainEff = L; gainPending = null; }
+  }
+  renderMatrix(); renderReadout(); renderTransport(); renderRangeLine();
+  say('lh-over', note);
+}
+
+/* ---------- rebuild scheduling: one job, always from the latest settings ----------
+   live = true: an edit of the sound itself. If something is playing it keeps playing and is carried over to the new
+   sound when the rebuild is done; if nothing is playing, nothing starts. */
+let rebuildTimer = 0, afterPlay = null, keepLive = null;
+function requestRebuild(delay, thenPlay, live){
+  if (live && playing && session && !V.cal) keepLive = { G: playing.G, LA: playing.LA, token: playToken };
+  else { keepLive = null; stopAll(); }
+  dirty = true; App.busy(true);
+  afterPlay = thenPlay ? { token: playToken, G: selected.G, LA: selected.LA } : null;
+  renderTransport();
+  clearTimeout(rebuildTimer);
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = 0;
+    const k = keepLive, a = afterPlay; keepLive = null; afterPlay = null;
+    rebuildNow();
+    if (k && k.token === playToken && playing) liveUpdate(k);
+    else if (a && a.token === playToken) play(a.G, a.LA);
+  }, delay === undefined ? 60 : delay);
+}
+function rebuildNow(){
+  clearTimeout(rebuildTimer); rebuildTimer = 0;
+  try { impact = buildImpact(); if (!bg || bg.key !== bgKey()) bg = buildBg(); buildError = null; }
+  catch (e) { impact = null; bg = null; buildError = (e && e.message) ? e.message : String(e); }
+  // Warm the shared reference while the user selects a cell. Playback reports a failed retry.
+  if (impact && !calibrated()) prepareListeningOutput(listeningReference(App.audio.fs)).catch(() => {});
+  dirty = false; App.busy(false);
+  renderAll();
+}
+
+/* ---------- rendering ---------- */
+function say(id, text){ el(id).textContent = text || ''; }
+function setPlaying(p){
+  playing = p;
+  document.querySelectorAll('#lh-matrix .cell.playing').forEach(c => c.classList.remove('playing'));
+  if (p){ const c = cellEl(p.G, p.LA); if (c) c.classList.add('playing'); }
+  updateCalButtons(); renderTransport();
+}
+function cellEl(G, LA){ return document.querySelector('#lh-matrix .cell[data-key="' + keyOf(G, LA) + '"]'); }
+const patternName = () => ({ single: '単発', triple: '3回', run: '連続' })[S.pattern];
+function renderTransport(){
+  const st = el('lh-state'), on = !!playing || !!V.cal;
+  st.textContent = V.cal ? '校正信号を再生中（−20 dBFS）' : playing ? '再生中（' + (playing.G === null ? (S.pattern === 'run' ? '暗騒音のみ・停止まで' : '暗騒音のみ・4 秒') : patternName()) + '）' : dirty ? '計算中…' : '停止中';
+  st.classList.toggle('on', on); el('lh-dot').classList.toggle('on', on);
+  const p = playing || selected;
+  el('lh-now').textContent = V.cal ? BANDS[V.cal.i].label + ' Hz 帯域ノイズ' : cellName(p.G, p.LA);
+  el('lh-level').textContent = sgn(S.level) + ' dB';
+  el('lh-level-down').disabled = S.level <= LEVEL_MIN; el('lh-level-up').disabled = S.level >= LEVEL_MAX;
+  const cap = el('lh-level-cap'), q = V.cal ? null : p;
+  if (!calibrated() || !q || !impact || !bg) cap.textContent = '';
+  else {
+    const need = neededLevel(q.G, q.LA);
+    cap.innerHTML = '';
+    const k = document.createElement('small'); k.textContent = 'この条件の上限 ';
+    const v = document.createElement('b'); v.textContent = need === null ? '再生不可' : sgn(need) + ' dB';
+    cap.append(k, v);
+    cap.title = cellName(q.G, q.LA) + '：' + patternName() + 'でピークが −1 dBFS に収まる最大の出力レベル（5 dB 刻み）';
+  }
+  const pk = el('lh-level-peak');
+  if (!q || !impact || !bg) pk.textContent = calibrated() ? '' : '圧縮前ピーク';
+  else { pk.innerHTML = ''; const k = document.createElement('small'), v = document.createElement('b'); k.textContent = 'ピーク '; v.textContent = peakText(q.G, q.LA); pk.append(k, v); }
+  renderOutPanel();
+}
+/** Output peak of a condition at the current output level, as shown to the user. */
+function peakAtLevel(G, LA){ return db(cellPeak(G, LA)) + outputGainDb(); }
+function peakText(G, LA){ const v = peakAtLevel(G, LA); return Number.isFinite(v) ? fmt(v, 1) + ' dBFS' : '—'; }
+/** Conditions in the table that the current level does not allow (for the messages after an explicit level change). */
+function overSummary(){
+  let n = 0, total = 0, quietImpact = null, quietBg = null;
+  for (const G of GRADES.concat([null])) for (const LA of BG_LEVELS){
+    if (G === null && LA === null) continue;
+    total++;
+    if (!playable(G, LA)){
+      n++;
+      if (LA === null && (quietImpact === null || G < quietImpact)) quietImpact = G;
+      if (G === null && (quietBg === null || LA < quietBg)) quietBg = LA;
+    }
+  }
+  if (!calibrated()) return { n, total, quietImpact, quietBg, text: '全' + total + 'セルを再生できます。' };
+  const parts = [];
+  if (quietImpact !== null) parts.push('暗騒音なしでは ' + gradeName(quietImpact) + ' 以上');
+  if (quietBg !== null) parts.push('暗騒音のみでは ' + quietBg + ' dB(A) 以上');
+  return { n, total, quietImpact, quietBg, text: n === 0 ? '表のすべての条件が再生できます。' : 'この出力では、表の ' + total + ' 条件のうち ' + n + ' 条件' + (parts.length ? '（' + parts.join('、') + '）' : '') + 'が上限（−1 dBFS）を超えるので再生できません。' };
+}
+function renderOutPanel(){
+  const num = el('lh-level-num');
+  if (document.activeElement !== num) setVal(num, S.level);
+  const q = selected, d = el('lh-out-nums'), ok = !!impact && !!bg && !V.cal;
+  const need = ok ? neededLevel(q.G, q.LA) : null;
+  const origin = levelOrigin === 'saved'
+    ? (S.level === LEGACY_LEVEL_DEFAULT ? '保存された設定（初期値と同じ）' : '保存された設定の値です。初期値 ' + sgn(LEGACY_LEVEL_DEFAULT) + ' dB は新しく使う場合だけで、保存値は変えていません。')
+    : levelOrigin === 'set' ? '設定した値' : '初期値';
+  const rows = calibrated() ? [['いまの出力レベル', sgn(S.level) + ' dB（' + origin + '）'], ['選択中の条件', ok ? cellName(q.G, q.LA) + '・' + patternName() : '—'],
+    ['この条件の上限', !ok ? '—' : need === null ? '再生不可' : sgn(need) + ' dB'],
+    ['この出力でのピーク（衝撃音＋暗騒音）', !ok ? '—' : peakText(q.G, q.LA) + (playable(q.G, q.LA) ? '（上限 −1 dBFS）' : '（上限超過・再生しません）')]] : [
+    ['共通基準ゲイン', fmt(listeningReference(App.audio.fs).gainDb, 2) + ' dB（LH-55 単発）'],
+    ['基準からの音量調整', sgn(S.level - LEVEL_DEFAULT) + ' dB'],
+    ['選択セルの圧縮前ピーク', ok ? peakText(q.G, q.LA) : '—']
+  ];
+  d.textContent = '';
+  for (const [k, v] of rows){ const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; d.append(dt, dd); }
+  el('lh-level-fit').hidden = !calibrated();
+  el('lh-level-fit').disabled = !calibrated() || !ok || need === null || need === S.level;
+  el('lh-level-fit').title = '押したときだけ、選択中の条件がちょうど −1 dBFS 以下に収まる 5 dB 刻みの最大値にします。条件を切り替えても自動では変わりません。';
+  const reset = el('lh-level-reset');
+  const defaultDb = calibrated() ? LEGACY_LEVEL_DEFAULT : LEVEL_DEFAULT;
+  reset.disabled = S.level === defaultDb;
+  reset.textContent = calibrated() ? "初期出力 +20 dB に戻す" : '共通基準の音量に戻す';
+}
+function heatPct(info, G, LA){
+  if (G === null) return 0;
+  if (LA === null) return Math.min(1, Math.max(0, (info.LAF - 25) / 70)) * 35;
+  return Math.min(1, Math.max(0, (info.dLA + 10) / 60)) * 55;
+}
+function renderMatrix(){
+  const m = el('lh-matrix'), hadFocus = m.contains(document.activeElement);
+  m.textContent = '';
+  const add = (tag, cls, html) => { const e = document.createElement(tag); e.className = cls; if (html !== undefined) e.innerHTML = html; m.appendChild(e); return e; };
+  add('div', 'mh', ''); add('div', 'mh span', '<span>暗騒音（モデル L<sub>Aeq</sub>、dB(A)）</span>');
+  add('div', 'mh', S.mode === 'custom' ? '<span>指定値<br>からの差</span>' : '<span>等級</span>');
+  for (const LA of BG_LEVELS) add('div', 'mh col', '<b>' + (LA === null ? 'なし' : LA) + '</b>');
+  const ok = !!impact && !!bg;
+  for (const G of GRADES.concat([null])){
+    const sep = G === null ? ' sep' : '';
+    add('div', 'mh' + sep, G === null ? '<b style="font-family:var(--font-ui)">暗騒音<br>のみ</b>' : '<b>' + (S.mode === 'custom' ? (G === 65 ? '指定値' : sgn(G - 65) + ' dB') : 'LH-' + G) + '</b>');
+    for (const LA of BG_LEVELS){
+      const c = add('button', 'cell' + sep);
+      c.type = 'button'; c.tabIndex = -1;
+      if (G === null && LA === null){ c.classList.add('blank'); c.disabled = true; c.setAttribute('aria-hidden', 'true'); continue; }
+      c.dataset.key = keyOf(G, LA); c.dataset.g = G === null ? '' : String(G); c.dataset.la = LA === null ? '' : String(LA);
+      const name = cellName(G, LA);
+      if (!ok){ c.classList.add('over'); c.textContent = '—'; c.setAttribute('aria-disabled', 'true'); c.setAttribute('aria-label', name + '：計算できていません'); continue; }
+      const info = cellInfo(G, LA);
+      if (!info.playable){
+        c.classList.add('over'); c.setAttribute('aria-disabled', 'true');
+        c.textContent = info.needed === null ? '×' : '≤' + sgn(info.needed).replace('±', '');
+        c.setAttribute('aria-label', name + '：いまの出力レベルでは再生できません' + (info.needed === null ? '' : '（出力レベル ' + sgn(info.needed) + ' dB 以下で再生可）'));
+      } else {
+        const pct = heatPct(info, G, LA);
+        if (pct > 0) c.style.background = 'color-mix(in oklab, var(--fill) ' + pct.toFixed(0) + '%, var(--surface))';
+        c.textContent = (S.nums && info.dLA !== null) ? 'Δ' + fmt(info.dLA, 0) : '▶';
+        c.setAttribute('aria-label', name + ' を再生' + (info.dLA !== null ? '（ΔLA ' + sgn(info.dLA) + ' dB）' : ''));
+      }
+      if (selected.G === G && selected.LA === LA){ c.classList.add('sel'); c.tabIndex = 0; c.setAttribute('aria-pressed', 'true'); }
+      else c.setAttribute('aria-pressed', 'false');
+      if (playing && playing.G === G && playing.LA === LA) c.classList.add('playing');
+    }
+  }
+  if (hadFocus){ const c = cellEl(selected.G, selected.LA); if (c) c.focus(); }
+}
+function bandText(b){ return b.label.replace('k', ' k') + ' Hz'; }
+function renderBandLine(){
+  const bands = activeBands(), extra = bands.filter(b => b.add);
+  const imp = S.mode === 'custom'
+    ? '63・125・250・500 Hz（指定値の4帯域のみ）'
+    : '63・125・250・500 Hz' + (extra.length ? ' ＋ ' + extra.map(bandText).join('・') + '（参考外挿）' : '（評価範囲のみ）');
+  const bgt = (S.bgBand === 'b4' ? '63〜500 Hz の4帯域内（約 45〜710 Hz）' : '広帯域 約 22 Hz〜11 kHz（衝撃音の帯域選択とは独立）') + (bgSource === 'wav' && bgWav ? '／音源：録音「' + App.esc(bgWav.name) + '」' : '／音源：合成ノイズ');
+  el('lh-bandline').innerHTML = '<span><b>衝撃音の帯域：</b>' + imp + '</span><span><b>暗騒音の帯域：</b>' + bgt + '</span>';
+  el('lh-grade-box').hidden = S.mode === 'custom'; el('lh-custom-box').hidden = S.mode !== 'custom';
+}
+function renderRangeLine(){
+  if (!impact || !bg){ say('lh-rangeline', buildError ? '計算できません：' + buildError : ''); return; }
+  let t = '全セルに共通のゲインを使います。大きな音では圧縮がかかり、等級間の音量差が小さくなることがあります。';
+  if (calibrated()){
+    const okG = GRADES.filter(G => playable(G, null)), top = GRADES[GRADES.length - 1], all = neededLevel(top, 70);
+    t = 'いまの出力レベル（' + sgn(S.level) + ' dB）で再生できる衝撃音：';
+    t += okG.length === GRADES.length ? 'すべて（' + gradeName(GRADES[0]) + '〜' + gradeName(top) + '）。'
+      : okG.length ? gradeName(okG[0]) + '〜' + gradeName(okG[okG.length - 1]) + '。' : 'なし。';
+    if (okG.length < GRADES.length || !playable(top, 70)){
+      t += all === null ? gradeName(top) + ' はこの条件では上限を超えるため再生できません。'
+        : gradeName(top) + ' ＋暗騒音 70 まで全部を比べるには出力レベルを ' + sgn(all) + ' dB にします。全条件が同じだけ小さくなり、そのとき暗騒音 20 dB(A) のデジタル出力は約 ' + fmt(db(bg.rms * gradeGain(20)) + all, 0) + ' dBFS です。';
+    }
+    t += ' 出力レベルは全条件共通です。静かな条件を大きくするほど、大きな条件（' + gradeName(top) + ' など）は上限を超えて再生できなくなります（同じ波形なら等級 5 dB ごとにピークも 5 dB 変わります）。';
+  }
+  if (impact.lowShare.length && impact.withoutLow){
+    const p = S.pattern, whole = impact.peaks[p], lows = impact.lowShare.map(o => o.label + ' Hz 帯だけで ' + fmt(db(o.alone[p]), 1) + ' dBFS').join('、');
+    const gain = db(whole / impact.withoutLow[p]);
+    if (gain >= 3) t += ' デジタルピークの大半は 50 Hz 未満の帯域が占めています（' + gradeName(50) + '・出力 0 dB で全体 ' + fmt(db(whole), 1) + ' dBFS、' + lows + '、それらを除くと ' + fmt(db(impact.withoutLow[p]), 1) + ' dBFS）。その分だけ出力レベルの上限が約 ' + fmt(gain, 0) + ' dB 低くなります。小型スピーカーではこの帯域はほとんど再生されないため、聞こえる帯域の音量は上がりません。';
+  }
+  say('lh-rangeline', t);
+}
+function renderReadout(){
+  const { G, LA } = selected;
+  el('lh-ro-title').textContent = cellName(G, LA);
+  const nums = el('lh-ro-nums'), warn = el('lh-ro-warn'), model = el('lh-model-nums');
+  if (!impact || !bg){
+    el('lh-ro-chart').innerHTML = ''; nums.innerHTML = ''; el('lh-ro-table').innerHTML = ''; model.innerHTML = '';
+    warn.textContent = buildError ? '計算できません：' + buildError : ''; return;
+  }
+  const info = cellInfo(G, LA), bands = impact.bands;
+  const imp = G === null ? null : impact.bandFmax.map(v => v + G - 50);
+  const bgb = LA === null ? null : bg.band.map(v => v + LA - 50);
+  drawChart(G, imp, bgb, bands);
+  const cal = calibrated(), rows = [];
+  rows.push(['再生', info.playable ? '可' : '不可（上限 −1 dBFS 超過）']);
+  if (G !== null) rows.push([cal ? '衝撃音のデジタル出力（ピーク）' : '衝撃音の圧縮前ピーク', (info.impPeakDb > 0 ? '+' : '') + fmt(info.impPeakDb) + ' dBFS' + (cal && info.impPeakDb > -1 ? '（上限超過）' : '')]);
+  if (LA !== null) rows.push(['暗騒音のデジタル出力（実効値）', fmt(info.bgRmsDb) + ' dBFS']);
+  rows.push(['出力レベル（全条件共通）', (cal ? sgn(S.level) : fmt(outputGainDb(), 2)) + ' dB']);
+  rows.push(['音量の基準', cal ? (S.level === 0 ? '校正済み：モデル dB ≒ 受聴位置の dB' : '校正値から ' + sgn(S.level) + ' dB ずらして再生') : 'LH-55 単発を基準に全セル共通']);
+  nums.innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+  let h = '<thead><tr><th>帯域 Hz</th>' + bands.map(b => '<th>' + b.label + (b.add ? '*' : '') + '</th>').join('') + '</tr></thead><tbody>';
+  if (imp) h += '<tr><td>衝撃音 L<sub>Fmax</sub></td>' + imp.map(v => '<td>' + fmt(v, 0) + '</td>').join('') + '</tr>';
+  if (bgb) h += '<tr><td>暗騒音 L<sub>eq</sub></td>' + bgb.map(v => '<td>' + fmt(v, 0) + '</td>').join('') + '</tr>';
+  if (imp && bgb) h += '<tr><td>差</td>' + imp.map((v, b) => '<td>' + sgn(v - bgb[b]) + '</td>').join('') + '</tr>';
+  el('lh-ro-table').innerHTML = h + '</tbody>' + (bands.some(b => b.add) ? '<caption class="hint" style="caption-side:bottom;text-align:left">* 評価範囲外の追加帯域（参考外挿）</caption>' : '');
+  let w = '';
+  if (!info.playable) w = info.needed === null ? 'この条件はデジタル出力の上限を超えるため再生できません。' : 'この条件を再生するには出力レベルを ' + sgn(info.needed) + ' dB 以下にします（全条件が同じだけ小さくなります）。';
+  else if (LA !== null && info.bgRmsDb < QUIET_DBFS) w = '暗騒音のデジタル出力が ' + fmt(info.bgRmsDb, 0) + ' dBFS です。16 bit 出力の量子化雑音（約 −96 dBFS）に近く、ほぼ無音になります。端末の音量を上げずに、出力レベルを上げる（大きい等級は再生不可になります）か、暗騒音の大きい列で比べてください。';
+  warn.textContent = w;
+  const mrows = [];
+  if (G !== null){
+    mrows.push(['① 波形から求めた参考 L<sub>A,Fmax</sub>（衝撃音 1 発）', fmt(info.LAF) + ' dB']);
+    mrows.push(['② 帯域別 L<sub>Fmax</sub> ＋ A 補正のエネルギー合算（' + impact.bands.map(b => b.label).join('・') + ' Hz）', fmt(impact.LAsum + G - 50) + ' dB']);
+    mrows.push(['②−①', sgn(impact.LAsum - impact.LAF, 1) + ' dB']);
+  }
+  if (LA !== null) mrows.push(['モデル暗騒音 L<sub>Aeq</sub>', fmt(LA) + ' dB']);
+  if (info.dLA !== null) mrows.push(['Δ ＝ ① − 暗騒音 L<sub>Aeq</sub>（表のセルの Δ）', sgn(info.dLA, 1) + ' dB']);
+  mrows.push(['帯域の合わせ込み誤差（最大）', fmt(impact.err, 2) + ' dB']);
+  model.innerHTML = mrows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+}
+function drawChart(G, imp, bgb, bands){
+  const custom = S.mode === 'custom', fam = [70, 65, 60, 55, 50, 45, 40, 35, 30];
+  if (G !== null && !fam.includes(G)) fam.push(G);
+  const refAt = (g, b) => ref50(b) + g - 50, tgt = G === null ? null : bands.map(b => target50(b) + G - 50);
+  const all = [].concat(...fam.map(g => bands.map(b => refAt(g, b))), imp || [], bgb || [], tgt || []);
+  const lo = Math.max(0, Math.floor((Math.min(...all) - 4) / 10) * 10), hi = Math.ceil((Math.max(...all) + 4) / 10) * 10;
+  // fixed scale: one octave = OW, 10 dB = OW * 4/3; bands sit at their true octave positions (a skipped band leaves a gap)
+  const OW = App.CHART.OCT, DH = OW * App.CHART.RATIO, x0 = 36, yT = 14, minX = Math.min(...bands.map(b => b.x)), nOct = Math.max(...bands.map(b => b.x)) - minX + 1;
+  const x1 = x0 + nOct * OW, yB = yT + (hi - lo) / 10 * DH, Wt = x1 + 50, Ht = yB + 24;
+  const y = v => yB - (Math.max(lo, Math.min(hi, v)) - lo) / 10 * DH, cx = j => x0 + (bands[j].x - minX + 0.5) * OW;
+  let s = '';
+  for (let v = lo; v <= hi; v += 10){
+    s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + y(v) + '" y2="' + y(v) + '"/><text x="' + (x0 - 5) + '" y="' + (y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  }
+  bands.forEach((b, j) => {
+    if (bgb) s += '<rect class="bar-bg" x="' + (cx(j) - 5) + '" y="' + y(bgb[j]) + '" width="10" height="' + Math.max(0, yB - y(bgb[j])) + '"><title>暗騒音 ' + b.label + ' Hz L_eq ' + bgb[j].toFixed(1) + ' dB</title></rect>';
+    s += '<text x="' + cx(j) + '" y="' + (yB + 14) + '" text-anchor="middle">' + b.label + (b.add ? '*' : '') + '</text>';
+  });
+  for (const g of fam){
+    const on = g === G ? ' on' : '';
+    bands.forEach((b, j) => { if (j > 0) s += '<line class="fam' + on + ((b.add || bands[j - 1].add) && !custom ? ' dash' : '') + '" x1="' + cx(j - 1) + '" y1="' + y(refAt(g, bands[j - 1])) + '" x2="' + cx(j) + '" y2="' + y(refAt(g, b)) + '"/>'; });
+    s += '<text class="famlab' + on + '" x="' + (cx(bands.length - 1) + 7) + '" y="' + (y(refAt(g, bands[bands.length - 1])) + 3.5) + '">' + (custom ? (g === 65 ? '指定値' : sgn(g - 65)) : 'LH-' + g) + '</text>';
+  }
+  if (G !== null) bands.forEach((b, j) => {
+    const r = refAt(G, b), t = tgt[j];
+    if (Math.abs(r - t) > 0.05) s += '<line class="offl" x1="' + cx(j) + '" y1="' + y(r) + '" x2="' + cx(j) + '" y2="' + y(t) + '"><title>' + b.label + ' Hz オフセット ' + (t - r).toFixed(1) + ' dB</title></line>';
+    s += '<rect class="tgt" x="' + (cx(j) - 5) + '" y="' + (y(t) - 5) + '" width="10" height="10" transform="rotate(45 ' + cx(j) + ' ' + y(t) + ')"><title>' + b.label + ' Hz 目標値 ' + t.toFixed(1) + ' dB</title></rect>';
+    s += '<circle class="ana" cx="' + cx(j) + '" cy="' + y(imp[j]) + '" r="3.3"><title>' + b.label + ' Hz 生成波形の分析値 L_Fmax ' + imp[j].toFixed(1) + ' dB</title></circle>';
+  });
+  s += '<text x="4" y="10">dB</text><text x="' + (Wt - 4) + '" y="' + (yB + 14) + '" text-anchor="end">Hz</text>';
+  const svg = el('lh-ro-chart');
+  svg.innerHTML = s;
+  svg.setAttribute('viewBox', '0 0 ' + Wt + ' ' + Ht); svg.style.maxWidth = Math.round(Wt * 1.3) + 'px';
+  svg.setAttribute('aria-label', (G === null ? '暗騒音のみ' : gradeName(G) + ' の帯域レベル：' + bands.map((b, j) => b.label + ' Hz 目標 ' + tgt[j].toFixed(0) + '、分析値 ' + imp[j].toFixed(1) + ' dB').join('；')) + (bgb ? '。暗騒音：' + bands.map((b, j) => b.label + ' Hz ' + bgb[j].toFixed(0) + ' dB').join('、') : ''));
+}
+/** Set a field's value unless the user is typing in it (never overwrite text that is being edited). */
+function setVal(input, v){ if (document.activeElement !== input){ input.value = v; input.removeAttribute('aria-invalid'); } }
+function buildCurveTable(){
+  let h = '<thead><tr><th>帯域 Hz</th><th>LH-50 基準値 dB</th><th>オフセット dB</th><th>LH-65 換算</th></tr></thead><tbody>';
+  for (const b of BANDS){
+    h += '<tr><td>' + b.label + (b.add ? '（追加・参考外挿）' : '') + '</td>' +
+      '<td><input type="number" id="lh-cv' + b.i + '" min="0" max="140" step="1" inputmode="decimal" aria-label="' + b.label + ' Hz の LH-50 基準値"></td>' +
+      '<td><input type="number" id="lh-of' + b.i + '" min="-60" max="0" step="1" inputmode="decimal" aria-label="' + b.label + ' Hz のオフセット"></td>' +
+      '<td id="lh-r65-' + b.i + '"></td></tr>';
+  }
+  el('lh-tbl-curve').innerHTML = h + '</tbody>';
+  const msg = el('lh-curve-msg');
+  for (const b of BANDS){
+    App.bindNumber(el('lh-cv' + b.i), { min: 0, max: 140, label: b.label + ' Hz の基準値', msg, get: () => S.ref50[b.label],
+      set: v => { S.ref50[b.label] = v; save(); el('lh-r65-' + b.i).textContent = fmt(v + 15, 0); requestRebuild(TYPING_MS, false, true); } });
+    App.bindNumber(el('lh-of' + b.i), { min: -60, max: 0, label: b.label + ' Hz のオフセット', msg, get: () => S.off[b.label],
+      set: v => { S.off[b.label] = v; save(); requestRebuild(TYPING_MS, false, true); } });
+  }
+}
+function updateCurveTable(){
+  for (const b of BANDS){
+    const cv = el('lh-cv' + b.i), of = el('lh-of' + b.i);
+    setVal(cv, S.ref50[b.label]); setVal(of, S.off[b.label]);
+    cv.disabled = of.disabled = S.mode === 'custom';
+    el('lh-r65-' + b.i).textContent = fmt(S.ref50[b.label] + 15, 0);
+  }
+  if (S.mode === 'custom') say('lh-curve-msg', '「指定値」の条件では、この表は使いません。');
+  else if (el('lh-curve-msg').textContent.indexOf('この表は使いません') >= 0) say('lh-curve-msg', '');
+}
+function buildCalTable(){
+  let h = '<thead><tr><th>帯域 Hz</th><th>信号</th><th>測定 L<sub>eq</sub> dB</th><th>K dB</th></tr></thead><tbody>';
+  for (const b of BANDS){
+    h += '<tr><td>' + b.label + '</td><td><button type="button" class="btn" data-cal="' + b.i + '" aria-pressed="false">再生</button></td>' +
+      '<td><input type="number" step="0.1" min="0" max="140" inputmode="decimal" id="lh-cal' + b.i + '" aria-label="' + b.label + ' Hz の測定値"></td>' +
+      '<td id="lh-k' + b.i + '"></td></tr>';
+  }
+  el('lh-tbl-cal').innerHTML = h + '</tbody>';
+}
+function updateCalButtons(){
+  document.querySelectorAll('#lh-tbl-cal button[data-cal]').forEach(b => {
+    const on = !!V.cal && V.cal.i === Number(b.dataset.cal);
+    b.textContent = on ? '停止' : '再生'; b.setAttribute('aria-pressed', String(on));
+  });
+}
+function updateCal(){
+  const K = calKAll(), any = calibrated();
+  for (const b of BANDS){
+    const v = S.cal[b.label];
+    setVal(el('lh-cal' + b.i), isNum(v) ? v : '');
+    el('lh-k' + b.i).textContent = K[b.i].toFixed(1) + (!isNum(v) && any ? '（補間）' : '');
+  }
+  updateCalButtons();
+  const n = BANDS.filter(b => isNum(S.cal[b.label])).length;
+  el('lh-chip-cal').textContent = n ? '　校正値あり（' + n + ' 帯域）' : '　未校正';
+}
+function sourceStatus(){
+  const st = el('lh-src-status');
+  st.classList.remove('err');
+  if (buildError){ st.classList.add('err'); st.textContent = buildError; return; }
+  const bad = impact && !(impact.err <= 0.25);
+  const e = impact ? '、合わせ込み誤差 ' + fmt(impact.err, 2) + ' dB' + (bad ? '：目標の帯域レベルに合わせられないため、衝撃音は再生しません' : '') : '';
+  st.classList.toggle('err', !!bad);
+  st.textContent = (source === 'wav' && wav) ? '録音：' + wav.name + '（' + wav.dur.toFixed(2) + ' s を使用' + e + '）' + (wav.preShort ? '。衝撃の前の余白が短いため、低域帯（50 Hz 未満）の立ち上がりを一部削っています。衝撃の 0.1 s 以上前から録音すると削らずに済みます。' : '') : '合成音（T = ' + S.T + ' s' + e + '）';
+}
+function syncInputs(){
+  document.querySelectorAll('#lh-seg-mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  document.querySelectorAll('#lh-add input[data-add]').forEach(c => { c.checked = !!S.add[c.dataset.add]; });
+  for (let i = 0; i < 4; i++) setVal(el('lh-c' + i), S.custom4[i]);
+  el('lh-sub-delay').value = String(S.subDelayMs);
+  el('lh-sub-value').value = S.subDelayMs + ' ms';
+  el('lh-bgband').value = S.bgBand;
+  document.querySelectorAll('#lh-seg-pattern button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === S.pattern)));
+  el('lh-nums').checked = S.nums;
+  document.querySelectorAll('#lh-seg-synth button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.synth === S.synth)));
+  setVal(el('lh-T'), S.T); el('lh-T').disabled = source === 'wav';
+  el('lh-slope').value = String(S.slope);
+  el('lh-src-synth').checked = source === 'synth'; el('lh-src-wav').checked = source === 'wav'; el('lh-src-wav').disabled = !wav;
+  el('lh-bgsrc-synth').checked = bgSource !== 'wav'; el('lh-bgsrc-wav').checked = bgSource === 'wav'; el('lh-bgsrc-wav').disabled = !bgWav; el('lh-slope').disabled = bgSource === 'wav';
+}
+function renderAll(){
+  syncInputs(); renderBandLine(); renderMatrix(); renderReadout(); renderRangeLine(); updateCurveTable(); updateCal(); sourceStatus(); bgStatus(); renderTransport();
+}
+
+/* ---------- actions ---------- */
+function showOver(G, LA){
+  const box = el('lh-over'), need = neededLevel(G, LA);
+  box.textContent = '';
+  const t = document.createElement('span');
+  t.textContent = cellName(G, LA) + ' は、いまの出力レベル（' + sgn(S.level) + ' dB）ではデジタル出力の上限を超えるため再生しません。';
+  box.appendChild(t);
+  if (need === null){ t.textContent += 'この条件は最小の出力レベルでも上限を超えます。'; return; }
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn'; b.id = 'lh-over-btn';
+  b.textContent = '出力レベルを ' + sgn(need) + ' dB に下げて再生（全条件が ' + (S.level - need) + ' dB 小さくなります）';
+  b.addEventListener('click', () => { setLevel(need); play(G, LA); });
+  box.appendChild(document.createTextNode(' ')); box.appendChild(b);
+}
+function select(G, LA){
+  selected = { G, LA };
+  document.querySelectorAll('#lh-matrix .cell').forEach(c => { const on = c.dataset.key === keyOf(G, LA); c.classList.toggle('sel', on); c.tabIndex = on ? 0 : -1; if (c.dataset.key) c.setAttribute('aria-pressed', String(on)); });
+  say('lh-over', '');
+  renderReadout(); renderTransport();
+}
+async function playSelected(){
+  if (!dirty && impact && bg) return play(selected.G, selected.LA);
+  stopAll();
+  const token = playToken, ready = await App.audio.ensureRunning();
+  if (token !== playToken) return false;
+  if (!ready){ say('lh-over', '音声を開始できません。再生ボタンをもう一度押してください。'); return false; }
+  requestRebuild(0, true);
+}
+function setMode(mode){
+  if (mode === S.mode) return;
+  intentEpoch++;
+  S.mode = mode;
+  if (mode === 'custom'){ source = 'synth'; selected = { G: 65, LA: selected.LA }; }
+  else if (S.add['16'] && S.T < 0.5) S.T = 0.5;
+  if (!GRADES.includes(selected.G) && selected.G !== null) selected.G = 50;
+  save(); const lost = reextractWav(); requestRebuild(60); renderBandLine(); syncInputs(); say('lh-over', lost);
+}
+/** Re-extract the loaded recording for the current bands. Returns a note when the recording had to be dropped. */
+function reextractWav(){
+  if (wav && wav.originalBuffer && S.mode !== 'custom'){
+    try { wav = extractImpact(wav.originalBuffer, wav.name, gradeBands()); }
+    catch (e) { wav = null; source = 'synth'; return '録音をこの帯域で使えないため、合成音に戻しました：' + (e && e.message ? e.message : ''); }
+  }
+  return '';
+}
+function gradeBands(){ return BANDS.filter(b => !b.add || S.add[b.label]); }
+function extractImpact(ab, name, bands){
+  const sr = ab.sampleRate, x = ab.getChannelData(0);
+  bands = bands || gradeBands();
+  if (!D.allFinite(x)) throw new Error('数値として読めないサンプル（NaN／∞）が含まれています。');
+  if (sr !== App.audio.fs) throw new Error('サンプリング周波数が再生側と一致しません（' + sr + ' Hz）。');
+  if (x.length < sr * 0.3) throw new Error('録音が短すぎます（0.3 s 以上必要）。');
+  const fLo = bands[0].fc, fHi = bands[bands.length - 1].fc;
+  const pre = D.butterHP(Math.max(8, fLo / Math.sqrt(G10)), sr, 2).concat(D.butterLP(Math.min(sr * 0.45, fHi * Math.sqrt(G10)), sr, 2));
+  const y = D.sosFilter(x, pre);
+  let best = 0, idx = 0;
+  for (let n = 0; n < y.length; n++){ const a = Math.abs(y[n]); if (a > best){ best = a; idx = n; } }
+  if (!(best > 0) || !Number.isFinite(best)) throw new Error('信号が入っていません。');
+  // Onset: first sample within 0.3 s before the maximum that reaches −20 dB of it. With a band below 50 Hz the cut
+  // starts early enough that its head window lies entirely before the onset, so the impact itself is not faded.
+  let iOn = idx;
+  for (let n = Math.max(0, idx - Math.round(0.3 * sr)); n <= idx; n++) if (Math.abs(y[n]) >= 0.1 * best){ iOn = n; break; }
+  const lows = bands.filter(b => b.fc < LOW_FC), headMax = lows.length ? Math.max(...lows.map(b => lowAttackLen(b, sr))) : 0;
+  const i0 = Math.max(0, Math.min(idx - Math.round(0.08 * sr), iOn - headMax - Math.round(0.005 * sr))), len = Math.min(x.length - i0, Math.round(3 * sr));
+  const preShort = lows.length > 0 && iOn - i0 < headMax;
+  const minLen = Math.max(0.3, 8 / bands[0].fc);            // at least 8 periods of the lowest band
+  if (len < Math.round(minLen * sr)) throw new Error(bandText(bands[0]) + ' 帯を合わせ込むには、最大の衝撃の直前から ' + (Math.ceil(minLen * 100) / 100).toFixed(2) + ' s 以上の録音が必要です（この録音で使える長さは ' + (len / sr).toFixed(2) + ' s）。');
+  const seg = new Float64Array(len);
+  const nIn = Math.round(0.005 * sr), nOut = Math.min(Math.round(0.3 * sr), Math.floor(len / 3));
+  for (let n = 0; n < len; n++){
+    let e = 1;
+    if (n < nIn) e = 0.5 - 0.5 * Math.cos(Math.PI * n / nIn);
+    if (n > len - nOut) e *= 0.5 - 0.5 * Math.cos(Math.PI * (len - n) / nOut);
+    seg[n] = x[i0 + n] * e;
+  }
+  const pad = Math.round(0.3 * sr);
+  const out = bands.map(b => {
+    const z = D.filtfilt(seg, bandSOS(b, sr), b.fc < LOW_FC ? Math.round(sr) : pad);
+    if (b.fc < LOW_FC){ const L = Math.max(1, Math.min(lowAttackLen(b, sr), iOn - i0)); lowHead(z, iOn - i0 - L, L); lowTail(z, sr); }
+    return z;
+  });
+  return { name, bands: out, dur: len / sr, originalBuffer: ab, channels: ab.numberOfChannels, onset: (iOn - i0) / sr, preShort };
+}
+let wavToken = 0;
+let intentEpoch = 0;                // bumped whenever the user changes the impact condition (mode, bands, source, values, new file)
+async function loadWav(file){
+  const st = el('lh-src-status'), token = ++wavToken, epoch = ++intentEpoch;
+  st.classList.remove('err'); st.textContent = '読み込み中…';
+  try {
+    if (file.size > 200 * 1024 * 1024) throw new Error('200 MB 以下のファイルを選んでください。');
+    const ctx = App.audio.create();
+    if (!ctx) throw new Error('このブラウザは Web Audio に対応していません。');
+    const arr = await file.arrayBuffer();
+    const ab = await new Promise((res, rej) => { const p = ctx.decodeAudioData(arr, res, rej); if (p && typeof p.then === 'function') p.then(res, rej); });
+    if (token !== wavToken) return;                         // a newer file was chosen meanwhile
+    const next = extractImpact(ab, file.name, gradeBands());  // throws: mode, source and saved settings stay untouched
+    wav = next;
+    if (epoch !== intentEpoch && (S.mode === 'custom' || source !== 'wav')){
+      // The user chose another condition while the file was loading: keep that choice, only make the recording available.
+      syncInputs();
+      st.textContent = '「' + file.name + '」を読み込みました。読み込み中に条件が変更されたため、音源は切り替えていません。「録音（WAV）」を選ぶと使えます。';
+      return;
+    }
+    if (S.mode === 'custom'){ S.mode = 'grade'; save(); }
+    source = 'wav';
+    requestRebuild(0);
+  } catch (err){
+    if (token !== wavToken) return;
+    st.classList.add('err');
+    st.textContent = '読み込めませんでした（音源と条件は変更していません）：' + (err && err.message ? err.message : '音声ファイルとして解釈できません。');
+  }
+}
+
+let bgWavToken = 0, bgWavId = 0, bgIntent = 0;   // bgIntent: bumped by every explicit choice of the background source
+/** Load a recording as the background. Nothing is changed unless the whole file was read and prepared successfully. */
+async function loadBgWav(file){
+  const st = el('lh-bg-status'), token = ++bgWavToken, intent = ++bgIntent;
+  st.classList.remove('err'); st.textContent = '読み込み中…';
+  try {
+    if (file.size > 200 * 1024 * 1024) throw new Error('200 MB 以下のファイルを選んでください。');
+    const ctx = App.audio.create();
+    if (!ctx) throw new Error('このブラウザは Web Audio に対応していません。');
+    const arr = await file.arrayBuffer();
+    const ab = await new Promise((res, rej) => { const p = ctx.decodeAudioData(arr, res, rej); if (p && typeof p.then === 'function') p.then(res, rej); });
+    if (token !== bgWavToken) return;                       // a newer file was chosen meanwhile
+    const fs = ab.sampleRate, len = Math.min(ab.length, Math.round(fs * 30));
+    if (fs !== App.audio.fs) throw new Error('サンプリング周波数が再生側と一致しません（' + fs + ' Hz）。');
+    if (len < fs * 2) throw new Error('暗騒音の録音は 2 秒以上必要です（この録音は ' + (ab.length / fs).toFixed(2) + ' s）。');
+    const mono = new Float64Array(len);
+    for (let c = 0; c < ab.numberOfChannels; c++){
+      const d = ab.getChannelData(c).subarray(0, len);
+      if (!D.allFinite(d)) throw new Error('数値として読めないサンプル（NaN／∞）が含まれています。');
+      for (let i = 0; i < len; i++) mono[i] += d[i] / ab.numberOfChannels;
+    }
+    if (!(D.peakOf(mono) > 0)) throw new Error('信号が入っていません。');
+    let N = 1; while (N * 2 <= len - Math.round(0.05 * fs)) N *= 2;      // loop length: a power of two, leaving a tail to blend
+    const xf = Math.min(Math.round(0.5 * fs), len - N), loopData = new Float64Array(N);
+    for (let i = 0; i < N; i++) loopData[i] = mono[i];
+    for (let i = 0; i < xf; i++){ const u = (i + 0.5) / xf * Math.PI / 2; loopData[i] = mono[i] * Math.sin(u) + mono[N + i] * Math.cos(u); }   // seam: what follows the loop end fades into its start
+    bgWav = { id: ++bgWavId, name: file.name, data: loopData, dur: N / fs,
+      info: file.name + '：' + (N / fs).toFixed(1) + ' s をループ（全 ' + (ab.length / fs).toFixed(1) + ' s、継ぎ目は ' + (xf / fs).toFixed(2) + ' s のクロスフェード）／' + ab.numberOfChannels + ' ch → モノラル／' + fs + ' Hz／元の A 特性実効値 ' + fmt(aRmsDb(loopData, fs)) + ' dBFS' };
+    if (intent !== bgIntent && bgSource !== 'wav'){
+      // The user picked the synthetic noise while this file was loading: keep that choice, only make the recording available.
+      syncInputs();
+      st.textContent = '「' + file.name + '」を読み込みました。読み込み中に暗騒音の音源が選び直されたため、切り替えていません。「録音（WAV）」を選ぶと使えます。';
+      return;
+    }
+    bgSource = 'wav'; bgNote = '';
+    requestRebuild(0, false, true);
+  } catch (err){
+    if (token !== bgWavToken) return;
+    st.classList.add('err');
+    st.textContent = '読み込めませんでした（暗騒音は変更していません）：' + (err && err.message ? err.message : '音声ファイルとして解釈できません。');
+  }
+}
+function aRmsDb(x, fs){ const y = D.sosFilter(x, D.aWeightSOS(fs)); return 20 * Math.log10(Math.max(D.rmsOf(y), 1e-30)); }
+function bgStatus(){
+  const st = el('lh-bg-status');
+  if (st.textContent.indexOf('読み込めませんでした') === 0 && !bgNote) return;       // keep the reason of a failed load visible
+  st.classList.toggle('err', !!bgNote);
+  st.textContent = bgNote || (bgSource === 'wav' && bgWav ? '録音：' + bgWav.info + '。列の dB(A) になるよう全体を一律に増減して再生します。' : '合成ノイズを使用中。');
+}
+
+/* ---------- events ---------- */
+function bind(){
+  el('lh-seg-mode').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
+  el('lh-add').addEventListener('change', e => {
+    const c = e.target.closest('input[data-add]'); if (!c) return;
+    S.add[c.dataset.add] = c.checked; intentEpoch++;
+    let note = '';
+    if (S.add['16'] && S.T < 0.5){ S.T = 0.5; note = '16 Hz を含むため、減衰時間 T を 0.5 s に変更しました。'; }
+    save(); const lost = reextractWav(); renderBandLine(); requestRebuild(60, false, true); say('lh-over', [note, lost].filter(Boolean).join(' '));
+  });
+  for (let i = 0; i < 4; i++){
+    App.bindNumber(el('lh-c' + i), { min: 0, max: 140, label: BANDS[i + 2].label + ' Hz の指定値', msg: el('lh-custom-msg'), get: () => S.custom4[i],
+      set: v => { S.custom4[i] = v; intentEpoch++; save(); requestRebuild(TYPING_MS, false, true); } });
+  }
+  el('lh-sub-delay').addEventListener('input', e => {
+    S.subDelayMs = Number(e.target.value);
+    el('lh-sub-value').value = S.subDelayMs + ' ms';
+    save(); requestRebuild(120, false, true);
+  });
+  el('lh-sub-click').addEventListener('click', playSubClick);
+  el('lh-bgband').addEventListener('change', e => { S.bgBand = e.target.value === 'b4' ? 'b4' : 'wide'; save(); renderBandLine(); requestRebuild(60, false, true); });
+  el('lh-seg-pattern').addEventListener('click', e => {
+    const b = e.target.closest('button[data-p]'); if (!b || !PATTERNS.includes(b.dataset.p)) return;
+    stopAll(); S.pattern = b.dataset.p; save(); syncInputs(); renderMatrix(); renderReadout(); renderRangeLine(); renderTransport();
+  });
+  el('lh-nums').addEventListener('change', e => { S.nums = e.target.checked; save(); renderMatrix(); });
+  const m = el('lh-matrix');
+  m.addEventListener('click', e => {
+    const c = e.target.closest('.cell'); if (!c || !c.dataset.key) return;
+    select(c.dataset.g === '' ? null : Number(c.dataset.g), c.dataset.la === '' ? null : Number(c.dataset.la));
+    playSelected();
+  });
+  m.addEventListener('keydown', e => {
+    const d = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+    if (!d) return;
+    const rows = GRADES.concat([null]);
+    let r = rows.indexOf(selected.G), c = BG_LEVELS.indexOf(selected.LA);
+    const nr = Math.min(rows.length - 1, Math.max(0, r + d[0])), nc = Math.min(BG_LEVELS.length - 1, Math.max(0, c + d[1]));
+    if (rows[nr] === null && BG_LEVELS[nc] === null) return;
+    e.preventDefault();
+    select(rows[nr], BG_LEVELS[nc]);
+    const t = cellEl(rows[nr], BG_LEVELS[nc]); if (t) t.focus();
+  });
+  el('lh-play').addEventListener('click', playSelected);
+  el('lh-stop').addEventListener('click', stopAll);
+  el('lh-level-down').addEventListener('click', () => setLevel(S.level - LEVEL_STEP));
+  el('lh-level-up').addEventListener('click', () => setLevel(S.level + LEVEL_STEP));
+  el('lh-level-num').addEventListener('change', e => {
+    const raw = e.target.value.trim(), v = Number(raw);
+    if (raw === '' || !Number.isFinite(v)){ e.target.setAttribute('aria-invalid', 'true'); say('lh-out-msg', '出力レベルは数値（−40〜+60）で入れてください。変更していません。'); e.target.value = String(S.level); return; }
+    e.target.removeAttribute('aria-invalid');
+    const L = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, Math.round(v / LEVEL_STEP) * LEVEL_STEP));
+    setLevel(L); e.target.value = String(S.level);   // shows the value in effect even while the box has focus
+    say('lh-out-msg', (L !== v ? '−40〜+60 dB・5 dB 刻みなので ' + sgn(L) + ' dB にしました。' : '') + overSummary().text);
+  });
+  el('lh-level-fit').addEventListener('click', () => {
+    const q = selected, need = neededLevel(q.G, q.LA); if (need === null) return;
+    setLevel(need);
+    say('lh-out-msg', '出力レベルを ' + sgn(need) + ' dB（' + cellName(q.G, q.LA) + '・' + patternName() + 'の上限）にしました。' + overSummary().text);
+  });
+  el('lh-level-reset').addEventListener('click', () => {
+    setLevel(calibrated() ? LEGACY_LEVEL_DEFAULT : LEVEL_DEFAULT);
+    say('lh-out-msg', calibrated() ? '出力レベルを既定の ' + sgn(LEGACY_LEVEL_DEFAULT) + ' dB に戻しました。' : '共通基準の音量に戻しました。');
+  });
+  el('lh-seg-synth').addEventListener('click', e => {
+    const b = e.target.closest('button[data-synth]'); if (!b || (b.dataset.synth !== 'common' && b.dataset.synth !== 'legacy') || b.dataset.synth === S.synth) return;
+    S.synth = b.dataset.synth; save(); syncInputs(); requestRebuild(0, false, true);
+  });
+  App.bindNumber(el('lh-T'), { min: 0.2, max: 2, label: '減衰時間 T', msg: el('lh-src-status'), get: () => S.T,
+    set: v => { if (S.mode === 'grade' && S.add['16'] && v < 0.5){ el('lh-T').setAttribute('aria-invalid', 'true'); say('lh-src-status', '16 Hz を含むときは T を 0.5 s 以上にしてください（まだ反映していません）。'); return; } S.T = v; save(); requestRebuild(TYPING_MS, false, true); } });
+  el('lh-slope').addEventListener('change', e => { const v = Number(e.target.value); if ([-3, -5, -8].includes(v)){ S.slope = v; save(); requestRebuild(60, false, true); } });
+  el('lh-curve-reset').addEventListener('click', () => { const d = defaults(); S.ref50 = d.ref50; S.off = d.off; save(); requestRebuild(60, false, true); });
+  const cal = el('lh-tbl-cal');
+  cal.addEventListener('click', e => { const b = e.target.closest('button[data-cal]'); if (b) playCal(Number(b.dataset.cal)); });
+  cal.addEventListener('input', e => {
+    const mm = /^lh-cal(\d)$/.exec(e.target.id || ''); if (!mm) return;
+    const b = BANDS[Number(mm[1])], raw = e.target.value.trim(), v = Number(raw), wasCal = calibrated();
+    if (raw === ''){ delete S.cal[b.label]; e.target.removeAttribute('aria-invalid'); say('lh-cal-msg', ''); }
+    else if (!Number.isFinite(v) || v < 0 || v > 140){ e.target.setAttribute('aria-invalid', 'true'); say('lh-cal-msg', b.label + ' Hz：0〜140 の数値を入力してください（まだ反映していません）。'); return; }
+    else { S.cal[b.label] = v; e.target.removeAttribute('aria-invalid'); say('lh-cal-msg', ''); }
+    save(); requestRebuild(TYPING_MS);
+    // With a calibration, 0 dB means "model dB = dB at the listening position". A positive output level carried over
+    // from the uncalibrated use (default +20 dB) would play that much louder than calibrated, so it is lowered to 0 dB.
+    if (!wasCal && calibrated() && S.level > 0){ const was = S.level; setLevel(0); say('lh-cal-msg', '校正値を入れたので、出力レベルを ' + sgn(was) + ' dB から 0 dB（校正どおり）に下げました。'); }
+    if (wasCal && !calibrated()) setLevel(LEVEL_DEFAULT);
+  });
+  cal.addEventListener('change', e => {
+    const mm = /^lh-cal(\d)$/.exec(e.target.id || ''); if (!mm || e.target.getAttribute('aria-invalid') !== 'true') return;
+    const b = BANDS[Number(mm[1])];
+    e.target.value = isNum(S.cal[b.label]) ? S.cal[b.label] : ''; e.target.removeAttribute('aria-invalid');
+    say('lh-cal-msg', b.label + ' Hz：範囲外だったため、元の値に戻しました。');
+  });
+  el('lh-cal-clear').addEventListener('click', () => { const wasCal = calibrated(); S.cal = {}; requestRebuild(60); if (wasCal) setLevel(LEVEL_DEFAULT); save(); });
+  document.querySelectorAll('input[name="lh-src"]').forEach(r => r.addEventListener('change', e => {
+    source = (e.target.value === 'wav' && wav) ? 'wav' : 'synth'; intentEpoch++;
+    let lost = '';
+    if (source === 'wav' && S.mode === 'custom'){ S.mode = 'grade'; save(); lost = reextractWav(); }
+    requestRebuild(60); say('lh-over', lost);
+  }));
+  el('lh-wav').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadWav(f); });
+  el('lh-bgwav').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadBgWav(f); });
+  document.querySelectorAll('input[name="lh-bgsrc"]').forEach(r => r.addEventListener('click', () => { bgIntent++; }));   // also when it is already selected
+  document.querySelectorAll('input[name="lh-bgsrc"]').forEach(r => r.addEventListener('change', e => {
+    bgSource = (e.target.value === 'wav' && bgWav) ? 'wav' : 'synth'; bgNote = ''; el('lh-bg-status').textContent = '';
+    renderBandLine(); requestRebuild(60, false, true);
+  }));
+}
+
+let started = false;
+return {
+  init(){ S = loadSettings(); buildCurveTable(); buildCalTable(); bind(); syncInputs(); renderBandLine(); renderMatrix(); updateCurveTable(); updateCal(); renderTransport(); },
+  show(){
+    if (!started || dirty){ started = true; rebuildNow(); }
+  },
+  stop(){ stopAll(); },
+  /* test / inspection hooks (real objects, no stand-ins) */
+  get S(){ return S; }, get impact(){ return impact; }, get bg(){ return bg; }, get playing(){ return playing; }, get dirty(){ return dirty; },
+  get selected(){ return selected; }, get wav(){ return wav; }, get bgSource(){ return bgSource; }, get bgWav(){ return bgWav; }, get voices(){ return { imps: V.imps.length, bg: !!V.bg, cal: !!V.cal }; }, get buildError(){ return buildError; }, get graph(){ return getGraph(); },
+  BANDS, REF65, GRADES, BG_LEVELS, K_REF, CEIL, RUN_INTERVAL, TRIPLE_OFFSETS, KEY, FADE, GAP, liveUpdate,
+  LEVEL_MIN, LEVEL_MAX, LEVEL_DEFAULT, LOW_ATTACK_PERIODS, lowAttackLen, EXC_TAU, EXC_HP_ORDER, excitation, synthBandCommon, synthBandLegacy, peakAtLevel, overSummary, get levelOrigin(){ return levelOrigin; }, activeBands, calKAll, cellPeak, cellInfo, maxLevelFor, neededLevel, playable, play, playCal, stopAll, setLevel, select, rebuildNow, requestRebuild,
+  runTick, sanitize, migrate, defaults, extractImpact, synthBands, fitBands, buildCalNoise
+};
+})());
+
+</script>
+<script>
+/* TL: airborne sound insulation (Dr / Rr grade curve, band TL values) applied to a source. */
+App.register('tl', (function () {
+'use strict';
+const D = DSP, el = App.el, fmt = App.fmt, sgn = App.sgn, db = App.db;
+
+const KEY = 'tl-listening-v2', OLD_KEY = 'tl-listening-v1';
+const FREQ = D.TL_FREQ, FX = D.TL_FX;      // nominal labels / exact octave-step frequencies used in all calculations
+const FAMILIES = { dr: { grades: [30, 35, 40, 45, 50, 55, 60, 65, 70], def: 50, hi: 2000, range: '125,2000' }, t: { grades: [25, 30, 35, 40], def: 30, hi: 4000, range: '125,4000' } };
+const BG_LEVELS = [0, 20, 30, 40, 50], SRC_LEVELS = [60, 70, 80, 90];
+/** Grade curve of the selected family. dr: Dr / Rr (see DSP.refCurve). t: sash grade lines T-1 ... T-4, stored as their
+    500 Hz value 25 / 30 / 35 / 40 dB: flat from 500 Hz to 4 kHz, 5 dB per octave lower below 500 Hz (values not checked against JIS A 4706). */
+function refAt(f, g){ return S.family === 't' ? (f >= 500 ? g : g + 5 * Math.log2(f / 500)) : D.refCurve(f, g); }
+function defHi(){ return FAMILIES[S.family].hi; }
+function gName(g){ return S.family === 't' ? (FAMILIES.t.grades.includes(g) ? 'T-' + (g - 20) / 5 : '等級線 ' + g + ' dB') : '等級 ' + g; }
+const OFFSETS = [-10, -5, 0, 5, 10];
+const RANGES = ['125,2000', '125,4000', '63,8000', '31.5,8000', '16,8000'];
+const DEF_LO = 125;                            // lower end of the range where the grade curves are defined
+const NORM_PEAK = 0.25;                        // -12 dBFS, applied once when a source is loaded
+const MAX_SECONDS = 30, CEIL = Math.pow(10, -1 / 20);
+// Switching: old and new voices cross-fade over the same 10 ms with complementary raised-cosine gains.
+// All conditions are zero-phase versions of one signal (fully coherent), so the sum moves monotonically from one
+// to the other: no dip, no overshoot. 10 ms keeps the switching splatter > 60 dB below even the attenuated signal
+// (tests/study-crossfade.mjs); an abrupt switch is +4 dB above it (audible click).
+const XF = 0.010, LEAD = 0.010, START_FADE = 0.2, STOP_FADE = 0.02;
+const VOL_MIN = -60, VOL_MAX = 0, VOL_STEP = 5;
+const PADS = [0, -10, -20, -30];
+const TYPING_MS = 500;
+
+/* ---------- settings ---------- */
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+function defaults(){
+  return { v: 2, mode: 'ref', grade: 50, range: '125,2000', values: FX.map(f => Math.max(0, Math.round(D.refCurve(f, 50) * 10) / 10)),
+    room: { on: false, S: 10, A: 10 }, pad: 0, vol: -10, family: 'dr', bg: 0, srcLevel: 60 };
+}
+function sanitize(s){
+  const o = defaults();
+  if (!s || typeof s !== 'object') return o;
+  if (s.mode === 'ref' || s.mode === 'custom') o.mode = s.mode;
+  if (s.family === 't') o.family = 't';
+  if (FAMILIES[o.family].grades.includes(Number(s.grade))) o.grade = Number(s.grade); else o.grade = FAMILIES[o.family].def;
+  if (BG_LEVELS.includes(s.bg)) o.bg = s.bg;
+  if (SRC_LEVELS.includes(s.srcLevel)) o.srcLevel = s.srcLevel;
+  if (RANGES.includes(s.range)) o.range = s.range;
+  if (Array.isArray(s.values) && s.values.length === FREQ.length && s.values.every(v => isNum(v) && v >= 0 && v <= 120)) o.values = s.values.slice();
+  if (s.room && typeof s.room === 'object'){
+    o.room.on = s.room.on === true;
+    if (isNum(s.room.S) && s.room.S >= 1 && s.room.S <= 200) o.room.S = s.room.S;
+    if (isNum(s.room.A) && s.room.A >= 1 && s.room.A <= 200) o.room.A = s.room.A;
+  }
+  if (PADS.includes(s.pad)) o.pad = s.pad;
+  if (isNum(s.vol)) o.vol = Math.min(VOL_MAX, Math.max(VOL_MIN, Math.round(s.vol / VOL_STEP) * VOL_STEP));
+  return o;
+}
+function loadSettings(){
+  const cur = App.store.get(KEY);
+  if (cur) return sanitize(cur);
+  const old = App.store.get(OLD_KEY);          // v1: { theme, range, mode, grade, values }; read only, never deleted
+  return old ? sanitize({ mode: old.mode, grade: old.grade, range: old.range, values: old.values }) : defaults();
+}
+let S = defaults();
+function save(){ App.store.set(KEY, S); }
+
+/* ---------- derived ---------- */
+function rangeOf(){ const p = S.range.split(',').map(Number); return { lo: p[0], hi: p[1], fxLo: FX[FREQ.indexOf(p[0])], fxHi: FX[FREQ.indexOf(p[1])] }; }
+function bandIdx(){ const r = rangeOf(); return FREQ.map((f, i) => i).filter(i => FREQ[i] >= r.lo && FREQ[i] <= r.hi); }
+function roomDb(){ return S.room.on ? 10 * Math.log10(S.room.A / S.room.S) : 0; }
+/** Attenuation (dB) at the in-range band centres for offset 0, before the 0 dB floor. */
+function curve(){
+  const idx = bandIdx(), r = roomDb();
+  return { x: idx.map(i => FX[i]), y: idx.map(i => (S.mode === 'custom' ? S.values[i] : refAt(FX[i], S.grade)) + r), idx };
+}
+function condName(c){
+  if (c === 'dry') return '原音（壁なし）';
+  if (S.mode === 'ref') return c === 0 ? gName(S.grade) + ' の基準曲線' : '基準曲線 ' + sgn(c) + ' dB（' + gName(S.grade + c) + ' 相当）';
+  return c === 0 ? '入力値どおり' : '入力値 ' + sgn(c) + ' dB';
+}
+const hz = f => (f >= 1000 ? (f / 1000) + ' k' : String(f)) + ' Hz';
+
+/* ---------- source ---------- */
+let source = null, srcInfo = '', srcToken = 0;
+function normalize(a){
+  const pk = D.peakOf(a);
+  if (!(pk > 0) || !Number.isFinite(pk)) throw new Error('無音、または数値として読めない音声です。');
+  const g = NORM_PEAK / pk;
+  for (let i = 0; i < a.length; i++) a[i] *= g;
+  return 20 * Math.log10(g);
+}
+function makeNoise(){
+  const fs = App.audio.fs, a = new Float32Array(fs * 8), b = [0, 0, 0, 0, 0, 0, 0];
+  let seed = 13421;
+  for (let i = 0; i < a.length; i++){
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    const w = seed / 2147483648 - 1;
+    b[0] = .99886 * b[0] + w * .0555179; b[1] = .99332 * b[1] + w * .0750759; b[2] = .969 * b[2] + w * .153852;
+    b[3] = .8665 * b[3] + w * .3104856; b[4] = .55 * b[4] + w * .5329522; b[5] = -.7616 * b[5] - w * .016898;
+    a[i] = (b[0] + b[1] + b[2] + b[3] + b[4] + b[5] + b[6] + w * .5362) * .11;
+    b[6] = w * .115926;
+  }
+  normalize(a);
+  return a;
+}
+function setNoiseSource(traffic){
+  source = makeNoise();
+  if (traffic){ const a = source, k = 1 - Math.exp(-2 * Math.PI * 300 / App.audio.fs); let y = 0; for (let i = 0; i < a.length; i++){ y += k * (a[i] - y); a[i] = 0.35 * a[i] + y; } normalize(a); }
+  srcInfo = (traffic ? '道路交通騒音の模擬（低音寄りの定常ノイズ。実測スペクトルではありません）' : 'ピンクノイズ') + '（8 秒・ループ、ピーク −12 dBFS、' + App.audio.fs + ' Hz）';
+  el('tl-src-info').classList.remove('err'); say('tl-src-info', srcInfo);
+}
+function useNoise(traffic){
+  srcToken++;
+  stop();
+  setNoiseSource(traffic === true);
+  invalidate(false);
+}
+async function loadFile(f){
+  const token = ++srcToken, info = el('tl-src-info');
+  info.classList.remove('err'); info.textContent = '読み込み中…';
+  try {
+    if (f.size > 100 * 1024 * 1024) throw new Error('100 MB 以下の音声を選んでください。');
+    const ctx = App.audio.create();
+    if (!ctx) throw new Error('このブラウザは Web Audio に対応していません。');
+    const arr = await f.arrayBuffer();
+    const ab = await new Promise((res, rej) => { const p = ctx.decodeAudioData(arr, res, rej); if (p && typeof p.then === 'function') p.then(res, rej); });
+    if (token !== srcToken) return;                          // a newer source was chosen meanwhile
+    const rate = ab.sampleRate, n = Math.min(ab.length, Math.round(rate * MAX_SECONDS));
+    if (n < rate * 0.2) throw new Error('音声が短すぎます（0.2 秒以上必要）。');
+    const a = new Float32Array(n);
+    for (let c = 0; c < ab.numberOfChannels; c++){
+      const d = ab.getChannelData(c);
+      if (!D.allFinite(d.subarray(0, n))) throw new Error('数値として読めないサンプル（NaN／∞）が含まれています。');
+      for (let i = 0; i < n; i++) a[i] += d[i] / ab.numberOfChannels;
+    }
+    const gainDb = normalize(a);
+    const prev = { source, srcInfo };
+    stop();
+    source = a;
+    srcInfo = f.name + '：' + (n / rate).toFixed(1) + ' 秒を使用' + (ab.length > n ? '（全 ' + (ab.length / rate).toFixed(1) + ' 秒の先頭）' : '') +
+      '／' + ab.numberOfChannels + ' ch → モノラル／ピークを −12 dBFS に正規化（' + sgn(gainDb, 1) + ' dB）／' + rate + ' Hz';
+    resetProc();
+    info.classList.remove('err'); info.textContent = srcInfo;
+    const myGen = gen, ok = await prepare();
+    if (!ok && myGen === gen && token === srcToken && prev.source){   // could not be processed: go back to the working source
+      const why = el('tl-status').textContent;
+      source = prev.source; srcInfo = prev.srcInfo;
+      resetProc();
+      info.classList.add('err');
+      info.textContent = '「' + f.name + '」は処理できなかったため、元の音源に戻しました。' + why + '　現在の音源：' + srcInfo;
+      prepare();
+    }
+  } catch (e){
+    if (token !== srcToken) return;
+    info.classList.add('err');
+    info.textContent = '読み込めませんでした（音源は変更していません）：' + (e && e.message ? e.message : '音声ファイルとして解釈できません。') + (source ? '　現在の音源：' + srcInfo : '');
+  }
+}
+
+/** Record from the microphone for a fixed time and use it as the source. Everything stays in this browser. */
+let recBusy = false, recGen = 0, recStream = null;   // recGen: bumped by stop / tab switch, which abandons a running recording
+async function record(seconds){
+  const info = el('tl-src-info');
+  if (recBusy) return;
+  info.classList.remove('err');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined'){
+    info.classList.add('err'); info.textContent = 'この開き方ではマイクを使えません（音源は変更していません）。https で公開したページか、Chrome で開いてください。'; return;
+  }
+  stop();
+  recBusy = true;
+  const token = ++srcToken, rg = ++recGen, live = () => token === srcToken && rg === recGen;
+  let stream = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    recStream = stream;
+    if (!live()) return;                                      // stopped while the permission prompt was open
+    const rec = new MediaRecorder(stream), chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const done = new Promise((res, rej) => { rec.onstop = res; rec.onerror = e => rej(e.error || new Error('録音エラー')); });
+    rec.start();
+    const end = Date.now() + seconds * 1000;
+    while (Date.now() < end && live()){ info.textContent = '● 録音中… あと ' + Math.ceil((end - Date.now()) / 1000) + ' 秒（マイクに向かって話してください。■ 停止で中止）'; await new Promise(r => setTimeout(r, 100)); }
+    if (rec.state !== 'inactive') rec.stop();
+    await done;
+    if (!live()){ info.textContent = '録音を中止しました（音源は変更していません）。' + (source ? '現在の音源：' + srcInfo : ''); return; }   // stop, tab switch or another source
+    await loadFile(new File([new Blob(chunks, { type: rec.mimeType || 'audio/webm' })], 'マイク録音（' + seconds + ' 秒）'));
+  } catch (e){
+    info.classList.add('err');
+    info.textContent = 'マイクで録音できませんでした（音源は変更していません）：' + (e && e.name === 'NotAllowedError' ? 'マイクの使用が許可されませんでした。' : (e && e.message) || String(e)) + (source ? '　現在の音源：' + srcInfo : '');
+  } finally { if (stream) stream.getTracks().forEach(t => t.stop()); recStream = null; recBusy = false; }
+}
+
+/* ---------- processing (Worker; falls back to the main thread) ---------- */
+let proc = null, gen = 0, worker = null, procTimer = 0, pendingPrep = null;
+function killWorker(){ if (worker){ const w = worker; worker = null; try { w.terminate(); } catch (e) { /* gone */ } if (w.cancelJob) w.cancelJob(); } }
+function runProcess(job){
+  return new Promise((resolve, reject) => {
+    let w = null;
+    try {
+      const code = el('dsp').textContent + '\nonmessage=e=>{try{const d=e.data,r=DSP.tlProcess(d.input,d.sr,d.x,d.y,d.offsets,d.lo,d.hi);postMessage(r);}catch(err){postMessage({error:String(err&&err.message||err)});}};';
+      const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+      w = new Worker(url); URL.revokeObjectURL(url);
+    } catch (e) { w = null; }
+    if (!w){                                                  // e.g. Workers blocked: compute here (UI pauses briefly)
+      try { resolve(D.tlProcess(job.input, job.sr, job.x, job.y, job.offsets, job.lo, job.hi)); } catch (e) { reject(e); }
+      return;
+    }
+    killWorker(); worker = w;
+    w.cancelJob = () => reject(new Error('cancelled'));
+    w.onmessage = e => { if (worker === w) worker = null; w.terminate(); if (e.data && e.data.error) reject(new Error(e.data.error)); else resolve(e.data); };
+    w.onerror = e => { if (worker === w) worker = null; w.terminate(); reject(new Error(e.message || 'Worker error')); };
+    w.postMessage(job);
+  });
+}
+/** Build all conditions from the current source and curve. Resolves false when superseded or cancelled.
+    Callers arriving while a job for the same generation is running share that job. */
+function prepare(){
+  if (proc) return Promise.resolve(true);
+  if (!source) return Promise.resolve(false);
+  if (pendingPrep && pendingPrep.gen === gen) return pendingPrep.promise;
+  const promise = doPrepare(gen);
+  pendingPrep = { gen, promise };
+  const done = () => { if (pendingPrep && pendingPrep.promise === promise) pendingPrep = null; };   // a failed job is retried next time
+  promise.then(done, done);
+  return promise;
+}
+async function doPrepare(myGen){
+  const c = curve(), r = rangeOf();
+  App.busy(true); renderTransport('処理中…');
+  try {
+    const res = await runProcess({ input: source, sr: App.audio.fs, x: c.x, y: c.y, offsets: OFFSETS, lo: r.fxLo, hi: r.fxHi });
+    if (myGen !== gen) return false;
+    if (res.empty) throw new Error('この音源には、選んだ帯域の成分がありません。');
+    if (!Number.isFinite(res.peak) || !(res.peak > 0) || !OFFSETS.every(o => Number.isFinite(res.stats[String(o)].dZ))) throw new Error('計算結果に数値として扱えない値が含まれています。');
+    const wet = {};
+    for (const o of OFFSETS) wet[String(o)] = App.audio.newBuffer(res.variants[String(o)]);
+    proc = { dry: App.audio.newBuffer(res.dry), wet, stats: res.stats, peak: res.peak, dryPeak: res.dryPeak,
+      safe: Math.min(1, CEIL / (res.peak + bgWorstPeak(res.dryMs.a))), dryMsA: res.dryMs.a, bands: res.bands, bandIdx: c.idx, dur: res.dry.length / App.audio.fs, data: { dry: res.dry, variants: res.variants } };
+    App.busy(false); renderResult(); renderSpec(); renderTransport();
+    return true;
+  } catch (e){
+    if (myGen !== gen) return false;
+    App.busy(false); proc = null;
+    say('tl-status', '処理できませんでした：' + (e && e.message ? e.message : String(e)));
+    renderTransport();
+    return false;
+  }
+}
+/** Curve / range / source changed: drop the processed audio; optionally resume playback with the new condition. */
+let resumePending = false;          // playback was interrupted by a condition change and should continue afterwards
+/** Drop the processed audio and any running job (the source or the curve changed). */
+function resetProc(){
+  haltVoices();
+  gen++; killWorker(); proc = null; pendingPrep = null; App.busy(false);
+  clearTimeout(procTimer); procTimer = 0;
+  renderChart(); renderSpec(); renderResult(); renderTransport();
+}
+function invalidate(resume, delay){
+  resumePending = !!resume && (playing || resumePending);
+  resetProc();
+  if (!source) return;
+  const req = playReq;
+  procTimer = setTimeout(async () => {
+    procTimer = 0;
+    const ok = await prepare();
+    if (ok && resumePending && req === playReq){ resumePending = false; startPlayback(); }
+  }, delay === undefined ? 60 : delay);
+}
+
+/* ---------- background noise on the receiving side ----------
+   The source is assumed to have the chosen A-weighted level (e.g. conversation 60 dB(A)); the original as played is that
+   level. The background is pink noise set to its own A-weighted level relative to it. It is one independent looping
+   voice: switching conditions never touches it. Its largest possible peak is reserved in the common gain. */
+let bgNoise = null;
+function ensureBgNoise(){
+  if (bgNoise && bgNoise.fs === App.audio.fs) return bgNoise;
+  const fs = App.audio.fs, a = new Float32Array(fs * 8), b = [0, 0, 0]; let seed = 99991;
+  for (let i = 0; i < a.length; i++){ seed = (1664525 * seed + 1013904223) >>> 0; const w = seed / 2147483648 - 1; b[0] = .99765 * b[0] + w * .099046; b[1] = .963 * b[1] + w * .2965164; b[2] = .57 * b[2] + w * 1.0526913; a[i] = (b[0] + b[1] + b[2] + w * .1848) * .05; }
+  const nf = Math.round(fs * 0.02); for (let i = 0; i < nf; i++){ a[i] *= i / nf; a[a.length - 1 - i] *= i / nf; }
+  bgNoise = { fs, data: a, aRms: D.rmsOf(D.sosFilter(a, D.aWeightSOS(fs))), peak: D.peakOf(a), buffer: null };
+  return bgNoise;
+}
+function bgRel(bg, src, dryMsA){ const n = ensureBgNoise(); return Math.sqrt(dryMsA) / n.aRms * Math.pow(10, (bg - src) / 20); }   // gain before the common "safe" factor
+function bgWorstPeak(dryMsA){ return ensureBgNoise().peak * bgRel(Math.max(...BG_LEVELS), Math.min(...SRC_LEVELS), dryMsA); }
+function bgGain(){ return proc && S.bg ? proc.safe * bgRel(S.bg, S.srcLevel, proc.dryMsA) : 0; }
+function updateBg(start){
+  const g = graph && graph.ctx === App.audio.ctx ? graph : null;
+  if (!g) return;
+  const now = g.ctx.currentTime, want = playing ? bgGain() : 0;
+  if (!g.bg){
+    if (!(want > 0)) return;
+    // Created once per context and never replaced: toggling can only move this one gain, so voices cannot pile up.
+    const n = ensureBgNoise(), s = g.ctx.createBufferSource(), gn = g.ctx.createGain();
+    if (!n.buffer) n.buffer = App.audio.newBuffer(n.data);
+    s.buffer = n.buffer; s.loop = true; gn.gain.value = 0; s.connect(gn); gn.connect(g.master); s.start(start ?? now);
+    g.bg = { s, gn };
+  }
+  const p = g.bg.gn.gain;
+  p.cancelScheduledValues(now);       // drop changes that have not begun; the gain then heads for the latest request only
+  p.setTargetAtTime(want, start ?? (now + 0.003), want > 0 ? 0.03 : 0.006);
+}
+
+/* ---------- audio engine ---------- */
+let graph = null, playing = false, cond = 0, epoch = 0, playReq = 0;
+function getGraph(){
+  const c = App.audio.ctx;
+  if (!c) return null;
+  if (!graph || graph.ctx !== c){
+    const master = c.createGain();
+    master.gain.value = Math.pow(10, S.vol / 20);
+    master.connect(App.audio.createLimiter(c)).connect(c.destination);
+    graph = { ctx: c, master, mix: null, live: [], all: new Set(), killEnd: 0 };
+  }
+  return graph;
+}
+function fadeCurve(from, to){
+  const n = 65, c = new Float32Array(n);
+  for (let i = 0; i < n; i++) c[i] = from + (to - from) * (0.5 - 0.5 * Math.cos(Math.PI * i / (n - 1)));
+  return c;
+}
+function fadeParam(param, from, to, t, dur){
+  try { param.setValueCurveAtTime(fadeCurve(from, to), t, dur); }
+  catch (e) { param.setValueAtTime(from, t); param.linearRampToValueAtTime(to, t + dur); }   // very old engines
+}
+/** Round a time up to a whole sample frame, so every voice starts sample-aligned with the shared loop position. */
+function onFrame(t){ const fs = App.audio.fs; return Math.ceil(t * fs - 1e-6) / fs; }
+function condTarget(c){ return proc.safe * (c === 'dry' ? Math.pow(10, S.pad / 20) : 1); }
+/* Switching without queues. Every switch builds  mix_n = (1 - w)·mix_(n-1) + w·newVoice  with one raised-cosine w over
+   [t, t + XF], t = now + LEAD. Each gain parameter receives exactly one automation and is never interrupted, so a new
+   switch never has to wait for an earlier one, however fast they arrive. All conditions are coherent, and the weights
+   of every stage add up to one, so the output stays between the signals involved (no dip, no overshoot).
+   Stop inserts one more stage that fades the whole current mix, including switches that have not started yet. */
+function swap(fade, start){
+  if (!playing || !proc) return;
+  const g = getGraph(), ctx = g.ctx, now = ctx.currentTime, t = start ?? onFrame(Math.max(now + LEAD, g.killEnd)), dur = proc.dur, T = fade || XF;
+  const pos = (((t - epoch) % dur) + dur) % dur;
+  const s = ctx.createBufferSource(), v = ctx.createGain(), mix = ctx.createGain();
+  s.buffer = cond === 'dry' ? proc.dry : proc.wet[String(cond)]; s.loop = true;
+  v.gain.value = 0; fadeParam(v.gain, 0, condTarget(cond), t, T);
+  s.connect(v); v.connect(mix); mix.connect(g.master);
+  if (g.mix){
+    const prev = g.mix, p = ctx.createGain();
+    fadeParam(p.gain, 1, 0, t, T);
+    prev.connect(p); p.connect(mix);
+    try { prev.disconnect(g.master); } catch (e) { /* not connected */ }
+    for (const o of g.live) try { o.stop(t + T + 0.01); } catch (e) { /* ended */ }
+  }
+  s.onended = () => { g.all.delete(s); try { s.disconnect(); v.disconnect(); } catch (e) { /* gone */ } };
+  g.mix = mix; g.live = [s]; g.all.add(s);
+  s.startAt = t;
+  s.start(t, pos);
+}
+async function startPlayback(req = playReq, readiness = App.audio.ensureRunning()){
+  if (!proc) return false;
+  const ready = await readiness;
+  if (req !== playReq || !proc) return false;
+  if (!ready || (!App.audio.offline && App.audio.ctx.state !== 'running')){ say('tl-status', 'この表示画面では音声を使えません。HTML を保存して Safari または Chrome で開いてください。'); return false; }
+  const g = getGraph();
+  if (!playing){
+    playing = true;
+    epoch = onFrame(g.ctx.currentTime + App.audio.startDelay);
+    swap(cond === 'dry' ? START_FADE : XF, epoch);
+    updateBg(epoch);
+  } else {
+    swap();
+    updateBg();
+  }
+  renderResult(); renderTransport();
+  return true;
+}
+async function play(){
+  if (playing){
+    if (App.audio.ctx?.state === 'running') return;
+    haltVoices();
+  }
+  const req = ++playReq;
+  resumePending = false;
+  const readiness = App.audio.ensureRunning();                                  // inside the user gesture
+  if (!source) setNoiseSource();
+  const ok = await prepare();
+  if (!ok || req !== playReq) return;                         // stopped or superseded while processing
+  return startPlayback(req, readiness);
+}
+function stop(){               // user stop or tab switch: also cancels a pending resume and a running recording
+  resumePending = false;
+  if (recBusy){ recGen++; if (recStream) recStream.getTracks().forEach(t => t.stop()); }   // the microphone is released at once
+  haltVoices();
+}
+function haltVoices(){
+  playReq++;                                                  // cancels a play that is still waiting for processing
+  const g = graph && graph.ctx === App.audio.ctx ? graph : null;
+  if (g && g.mix){
+    const ctx = g.ctx, t = ctx.currentTime + 0.003, k = ctx.createGain();
+    fadeParam(k.gain, 1, 0, t, STOP_FADE);                    // fades everything at once, whatever is still scheduled inside
+    g.mix.connect(k); k.connect(g.master);
+    try { g.mix.disconnect(g.master); } catch (e) { /* not connected */ }
+    // A switch that has not started yet is dropped altogether (stop before start: it never sounds), so pressing
+    // "original" and then stop cannot let the loud original through during the fade.
+    for (const o of g.all) try { o.stop(o.startAt > ctx.currentTime ? 0 : t + STOP_FADE + 0.01); } catch (e) { /* ended */ }
+    g.killEnd = t + STOP_FADE + 0.001;                        // the next start waits these few ms, so old and new never add up
+    g.mix = null; g.live = [];
+  }
+  playing = false;
+  updateBg();
+  renderTransport();
+}
+function setCond(c){
+  if (c === cond) return;                                     // pressing the selected condition again changes nothing
+  cond = c;
+  document.querySelectorAll('#tl-cmp button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cond === String(c))));
+  renderChart(); renderSpec(); renderResult(); renderTransport();
+  if (playing) swap();
+}
+function setVol(v){
+  v = Math.min(VOL_MAX, Math.max(VOL_MIN, Math.round(v / VOL_STEP) * VOL_STEP));
+  if (v === S.vol) return;
+  S.vol = v; save();
+  if (graph) graph.master.gain.setTargetAtTime(Math.pow(10, v / 20), graph.ctx.currentTime, 0.03);
+  renderTransport();
+}
+
+/* ---------- rendering ---------- */
+function say(id, text){ el(id).textContent = text || ''; }
+function renderTransport(note){
+  const st = el('tl-state');
+  st.textContent = note || (playing ? '再生中（停止までループ）' : proc ? '停止中（準備完了）' : source ? '停止中' : '音源を用意してください');
+  st.classList.toggle('on', playing); el('tl-dot').classList.toggle('on', playing);
+  el('tl-now').textContent = condName(cond) + (cond === 'dry' && S.pad ? '　※原音を ' + (-S.pad) + ' dB 下げて再生' : '');
+  el('tl-vol').textContent = sgn(S.vol) + ' dB';
+  el('tl-vol-down').disabled = S.vol <= VOL_MIN; el('tl-vol-up').disabled = S.vol >= VOL_MAX;
+}
+function renderCmp(){
+  document.querySelectorAll('#tl-cmp button').forEach(b => {
+    const c = b.dataset.cond;
+    b.setAttribute('aria-pressed', String(c === String(cond)));
+    if (c === 'dry') return;
+    const o = Number(c);
+    if (S.mode === 'ref') b.innerHTML = (o === 0 ? '基準' : sgn(o) + ' dB') + '<small>' + gName(S.grade + o) + (o === 0 ? '' : ' 相当') + '</small>';
+    else b.innerHTML = (o === 0 ? '入力値' : sgn(o) + ' dB') + '<small>' + (o === 0 ? 'そのまま' : '平行移動') + '</small>';
+  });
+}
+function renderResult(){
+  const res = el('tl-result'), tbl = el('tl-stats');
+  if (!proc){ res.textContent = source ? '「▶ 再生」で、この条件を音に適用します。' : '音源を用意して再生してください。'; tbl.innerHTML = ''; return; }
+  let h = '<thead><tr><th>条件</th><th>低下量 dB</th><th>A 特性 dB</th></tr></thead><tbody>';
+  h += '<tr class="' + (cond === 'dry' ? 'on' : '') + '"><td>原音（壁なし）</td><td>0.0</td><td>0.0</td></tr>';
+  for (const o of OFFSETS){
+    const s = proc.stats[String(o)];
+    h += '<tr class="' + (cond === o ? 'on' : '') + '"><td>' + (o === 0 ? (S.mode === 'ref' ? '基準（' + gName(S.grade) + '）' : '入力値') : sgn(o) + ' dB' + (S.mode === 'ref' ? '（' + gName(S.grade + o) + ' 相当）' : '')) + '</td><td>' + fmt(s.dZ) + '</td><td>' + fmt(s.dA) + '</td></tr>';
+  }
+  tbl.innerHTML = h + '</tbody>';
+  let t, note = '';
+  if (cond === 'dry') t = '原音です（選んだ帯域に制限した元の音）。';
+  else { const s = proc.stats[String(cond)]; t = 'この条件の音は、原音より ' + fmt(s.dZ) + ' dB 小さい（A 特性では ' + fmt(s.dA) + ' dB）。'; }
+  if (S.pad) note += '原音だけ ' + (-S.pad) + ' dB 下げて再生する設定です。聞こえる差は、実際より ' + (-S.pad) + ' dB 小さくなります。';
+  if (proc.safe < 1) note += '全条件共通のピーク保護 ' + fmt(db(proc.safe)) + ' dB を掛けています（条件間の差は変わりません）。';
+  res.textContent = t;
+  say('tl-status', note);
+  const lv = S.srcLevel - (cond === 'dry' ? 0 : proc.stats[String(cond)].dA);
+  el('tl-est').textContent = '想定：音源が A 特性で ' + S.srcLevel + ' dB のとき、' + (cond === 'dry' ? '壁がなければ約 ' : 'この条件の向こう側では約 ') + fmt(lv, 0) + ' dB(A)。' + (S.bg ? '暗騒音 ' + S.bg + ' dB(A) より ' + fmt(Math.abs(lv - S.bg), 0) + ' dB ' + (lv >= S.bg ? '大きい（聞こえる目安）。' : '小さい（暗騒音に埋もれやすい目安）。') : '') + '音源の大きさは想定値で、実際の音圧ではありません。';
+}
+function renderBands(){
+  const box = el('tl-bands'), c = curve(), custom = S.mode === 'custom', msg = el('tl-band-msg');
+  box.textContent = '';
+  for (const i of c.idx){
+    const f = FREQ[i], l = document.createElement('label'), a = document.createElement('input');
+    if (!custom && (f < DEF_LO || f > defHi())) l.className = 'outside';
+    l.textContent = hz(f) + (!custom && (f < DEF_LO || f > defHi()) ? '（外挿）' : '');
+    a.type = 'number'; a.min = '0'; a.max = '120'; a.step = '0.1'; a.inputMode = 'decimal'; a.id = 'tl-b' + i;
+    a.value = custom ? S.values[i] : Math.max(0, refAt(FX[i], S.grade)).toFixed(1);
+    a.disabled = !custom; a.setAttribute('aria-label', hz(f) + ' の値 dB');
+    if (custom) App.bindNumber(a, { min: 0, max: 120, label: hz(f), msg, get: () => S.values[i], set: v => { S.values[i] = v; save(); invalidate(true, TYPING_MS); } });
+    l.appendChild(a); box.appendChild(l);
+  }
+  el('tl-grade-row').hidden = custom; el('tl-fill-row').hidden = !custom;
+  el('tl-fill').textContent = gName(S.grade) + ' の基準曲線の値を入力欄に写す';
+  const ext = c.idx.some(i => FREQ[i] < DEF_LO || FREQ[i] > defHi());
+  el('tl-curve-note').textContent = custom
+    ? '入力した帯域の値だけを使います（Dr／Rr の等級とは表示しません）。帯域の間は対数周波数軸で補間します。負になる値は 0 dB に制限します。'
+    : ext ? '点線の帯域は基準曲線の定義範囲（125 Hz〜' + hz(defHi()) + '）の外です。傾きの延長・水平延長による参考外挿で、実際の壁や窓の性能予測ではありません。'
+      : '基準曲線の定義範囲（125 Hz〜' + hz(defHi()) + '）だけを鳴らします。外挿はしていません。';
+  el('tl-grade-hint').textContent = S.family === 't' ? 'サッシの遮音等級線（T-1：500 Hz 以上 25 dB、T-2：30、T-3：35、T-4：40 dB。500 Hz 未満は 1 オクターブごとに 5 dB 低い）。数値は JIS A 4706 の原典と未照合です。' : '等級 50 の基準点：125 Hz = 35、500 Hz = 50、2 kHz = 60 dB（間は対数周波数軸で補間）';
+}
+function renderChart(){
+  const c = curve(), off = cond === 'dry' ? 0 : cond, OW = App.CHART.OCT, DH = OW * App.CHART.RATIO, x0 = 36, yT = 14;
+  const n = c.idx.length, x1 = x0 + n * OW, fx0 = FX[c.idx[0]], fxOf = f => { const i = FREQ.indexOf(f); return i >= 0 ? FX[i] : f; };
+  const top = Math.max(60, Math.ceil((Math.max(...c.y.map(v => v + off), refAt(FX[c.idx[n - 1]], Math.max(...FAMILIES[S.family].grades))) + 2) / 10) * 10);
+  const yB = yT + top / 10 * DH, W = x1 + 34, H = yB + 32;
+  // fixed scale: one octave = OW, 10 dB = OW * 4/3; only the selected bands are drawn
+  const X = f => x0 + (Math.log2(fxOf(f) / fx0) + 0.5) * OW, Y = v => yB - Math.max(0, Math.min(top, v)) / 10 * DH;
+  const zx0 = Math.max(x0, X(DEF_LO / Math.SQRT2)), zx1 = Math.min(x1, X(defHi() * Math.SQRT2));
+  let s = '<rect class="zone" x="' + zx0 + '" y="' + yT + '" width="' + Math.max(0, zx1 - zx0) + '" height="' + (yB - yT) + '"/>';
+  for (let v = 0; v <= top; v += 10) s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text x="' + (x0 - 5) + '" y="' + (Y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  for (const bi of c.idx) s += '<text x="' + X(FREQ[bi]) + '" y="' + (yB + 14) + '" text-anchor="middle">' + (FREQ[bi] >= 1000 ? FREQ[bi] / 1000 + 'k' : FREQ[bi]) + '</text>';
+  s += '<text x="' + (zx0 + zx1) / 2 + '" y="' + (yT + 11) + '" text-anchor="middle">基準曲線の定義範囲</text><text x="' + (W - 4) + '" y="' + (yB + 28) + '" text-anchor="end">Hz</text><text x="4" y="10">dB</text>';
+  const custom = S.mode === 'custom', y = c.y.map(v => Math.max(0, v + off));
+  for (const g of FAMILIES[S.family].grades){                                  // the grade reference curves themselves (no offset, no room term)
+    const on = !custom && cond !== 'dry' && g === S.grade + off && !S.room.on;
+    c.idx.forEach((bi, j) => { if (j > 0) s += '<line class="fam' + (FREQ[bi] > defHi() || FREQ[c.idx[j - 1]] < DEF_LO ? ' dash' : '') + '" x1="' + X(FREQ[c.idx[j - 1]]) + '" y1="' + Y(Math.max(0, refAt(FX[c.idx[j - 1]], g))) + '" x2="' + X(FREQ[bi]) + '" y2="' + Y(Math.max(0, refAt(FX[bi], g))) + '"/>'; });
+    if (!on) s += '<text class="famlab" x="' + (X(FREQ[c.idx[c.idx.length - 1]]) + 7) + '" y="' + (Y(Math.max(0, refAt(FX[c.idx[c.idx.length - 1]], g))) + 3.5) + '">' + (S.family === 't' ? 'T-' + (g - 20) / 5 : g) + '</text>';
+  }
+  c.idx.forEach((bi, j) => {
+    const f = FREQ[bi];
+    if (j > 0){
+      const dash = !custom && (f > defHi() || FREQ[c.idx[j - 1]] < DEF_LO) ? ' dash' : '';
+      s += '<line class="curve' + dash + '" style="stroke-width:2.5" x1="' + X(FREQ[c.idx[j - 1]]) + '" y1="' + Y(y[j - 1]) + '" x2="' + X(f) + '" y2="' + Y(y[j]) + '"/>';
+    }
+    s += '<circle class="dot" cx="' + X(f) + '" cy="' + Y(y[j]) + '" r="3"/><text x="' + X(f) + '" y="' + (Y(y[j]) - 7) + '" text-anchor="middle">' + y[j].toFixed(y[j] % 1 ? 1 : 0) + '</text>';
+  });
+  el('tl-chart').innerHTML = s;
+  el('tl-chart').setAttribute('viewBox', '0 0 ' + W + ' ' + H); el('tl-chart').style.maxWidth = Math.round(W * 1.3) + 'px';
+  el('tl-chart').setAttribute('aria-label', '適用する減衰量：' + c.idx.map((bi, j) => hz(FREQ[bi]) + ' ' + y[j].toFixed(1) + ' dB').join('、'));
+}
+/** Octave-band levels of the actual sound: source vs. what remains behind the selected condition (relative dB). */
+function renderSpec(){
+  const svg = el('tl-spec'), note = el('tl-spec-note');
+  if (!proc || !proc.bands){ svg.innerHTML = ''; svg.setAttribute('viewBox', '0 0 10 1'); svg.setAttribute('aria-label', '音のスペクトル（未計算）'); note.textContent = '「▶ 再生」で音源を処理すると、原音と遮音後の帯域レベルをここに表示します。'; return; }
+  const idx = proc.bandIdx, dry = proc.bands.dry, wet = cond === 'dry' ? null : proc.bands.variants[String(cond)], top = Math.max(...dry);
+  const OW = App.CHART.OCT, DH = OW * App.CHART.RATIO, x0 = 36, yT = 14, gw = OW, x1 = x0 + idx.length * OW;
+  const lo = Math.max(-120, Math.floor((Math.min(...(wet || dry)) - top - 2) / 10) * 10), yB = yT + -lo / 10 * DH, Y = v => yB - (Math.max(lo, Math.min(0, v)) - lo) / 10 * DH;
+  let s = '';
+  for (let v = 0; v >= lo; v -= 10) s += '<line class="grid" x1="' + x0 + '" x2="' + x1 + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text x="' + (x0 - 5) + '" y="' + (Y(v) + 3.5) + '" text-anchor="end">' + v + '</text>';
+  const parts = [];
+  idx.forEach((bi, j) => {
+    const cx = x0 + gw * (j + 0.5), d = dry[j] - top, w = wet ? wet[j] - top : null, bw = Math.min(14, gw / 2 - 3);
+    s += '<rect class="bar-bg" x="' + (cx - bw - 1) + '" y="' + Y(d) + '" width="' + bw + '" height="' + (yB - Y(d)) + '"><title>原音 ' + hz(FREQ[bi]) + ' ' + d.toFixed(1) + ' dB</title></rect>';
+    if (wet) s += '<rect class="bar-imp" x="' + (cx + 1) + '" y="' + Y(w) + '" width="' + bw + '" height="' + (yB - Y(w)) + '"><title>遮音後 ' + hz(FREQ[bi]) + ' ' + w.toFixed(1) + ' dB</title></rect><text x="' + cx + '" y="' + (yB + 26) + '" text-anchor="middle">−' + (d - w).toFixed(0) + '</text>';
+    s += '<text x="' + cx + '" y="' + (yB + 13) + '" text-anchor="middle">' + (FREQ[bi] >= 1000 ? FREQ[bi] / 1000 + 'k' : FREQ[bi]) + '</text>';
+    parts.push(hz(FREQ[bi]) + ' 原音 ' + d.toFixed(0) + (wet ? '、遮音後 ' + w.toFixed(0) : '') + ' dB');
+  });
+  s += '<text x="4" y="10">dB</text><text x="' + (x1 + 6) + '" y="' + (yB + 13) + '" text-anchor="end">Hz</text>' + (wet ? '<text x="' + (x0 - 5) + '" y="' + (yB + 26) + '" text-anchor="end">差</text>' : '');
+  svg.setAttribute('viewBox', '0 0 ' + (x1 + 34) + ' ' + (yB + 34)); svg.style.maxWidth = Math.round((x1 + 34) * 1.3) + 'px';
+  svg.innerHTML = s; svg.setAttribute('aria-label', '音の帯域レベル（原音の最大帯域を 0 dB とした相対値）：' + parts.join('；'));
+  note.textContent = 'いまの音源の 1/1 オクターブ帯域レベルです（原音の最大帯域を 0 dB とした相対値。実際の音圧ではありません）。灰色＝原音、濃い色＝' + (wet ? condName(cond) + ' の遮音後。下段の数字は帯域ごとの差で、上のグラフの減衰量に対応します。' : '（原音を選択中のため遮音後は表示していません）。');
+}
+function renderRoom(){
+  const r = roomDb();
+  el('tl-room-S').disabled = el('tl-room-A').disabled = !S.room.on;
+  say('tl-room-out', S.room.on ? '10 log10(A/S) = ' + sgn(r, 1) + ' dB を全帯域の値に加えて、室間音圧レベル差 D の目安として適用します（グラフに反映）。' : '換算しません（A/S = 1：入力値をそのまま減衰量として適用）。');
+}
+function setVal(input, v){ if (document.activeElement !== input){ input.value = v; input.removeAttribute('aria-invalid'); } }
+function syncInputs(){
+  document.querySelectorAll('#tl-seg-mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  el('tl-family').value = S.family; el('tl-grade').value = String(S.grade); el('tl-range').value = S.range; el('tl-pad').value = String(S.pad);
+  el('tl-bg').value = String(S.bg); el('tl-srclevel').value = String(S.srcLevel);
+  el('tl-room-on').checked = S.room.on; setVal(el('tl-room-S'), S.room.S); setVal(el('tl-room-A'), S.room.A);
+}
+function renderAll(){ syncInputs(); renderBands(); renderCmp(); renderRoom(); renderChart(); renderSpec(); renderResult(); renderTransport(); }
+
+/* ---------- events ---------- */
+function fillGrades(){ const sel = el('tl-grade'); sel.textContent = ''; for (const g of FAMILIES[S.family].grades) sel.add(new Option(S.family === 't' ? 'T-' + (g - 20) / 5 : String(g), String(g))); sel.value = String(S.grade); }
+function bind(){
+  fillGrades();
+  el('tl-family').addEventListener('change', e => { S.family = e.target.value === 't' ? 't' : 'dr'; S.grade = FAMILIES[S.family].def; S.range = FAMILIES[S.family].range; save(); fillGrades(); syncInputs(); renderBands(); renderCmp(); invalidate(true); });
+  el('tl-traffic').addEventListener('click', () => useNoise(true));
+  el('tl-rec5').addEventListener('click', () => record(5)); el('tl-rec10').addEventListener('click', () => record(10));
+  el('tl-bg').addEventListener('change', e => { const v = Number(e.target.value); if (BG_LEVELS.includes(v)){ S.bg = v; save(); updateBg(); renderResult(); } });
+  el('tl-srclevel').addEventListener('change', e => { const v = Number(e.target.value); if (SRC_LEVELS.includes(v)){ S.srcLevel = v; save(); updateBg(); renderResult(); } });
+  el('tl-noise').addEventListener('click', useNoise);
+  el('tl-file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) loadFile(f); });
+  el('tl-seg-mode').addEventListener('click', e => {
+    const b = e.target.closest('button[data-mode]'); if (!b || b.dataset.mode === S.mode) return;
+    S.mode = b.dataset.mode; save(); syncInputs(); renderBands(); renderCmp(); invalidate(true);
+  });
+  el('tl-grade').addEventListener('change', e => { const g = Number(e.target.value); if (!FAMILIES[S.family].grades.includes(g)) return; S.grade = g; save(); renderBands(); renderCmp(); invalidate(true); });
+  el('tl-fill').addEventListener('click', () => { S.values = FX.map(f => Math.max(0, Math.round(refAt(f, S.grade) * 10) / 10)); save(); renderBands(); invalidate(true); });
+  el('tl-range').addEventListener('change', e => { if (!RANGES.includes(e.target.value)) return; S.range = e.target.value; save(); renderBands(); invalidate(true); });
+  el('tl-room-on').addEventListener('change', e => { S.room.on = e.target.checked; save(); renderRoom(); invalidate(true); });
+  App.bindNumber(el('tl-room-S'), { min: 1, max: 200, label: '壁の面積 S', msg: el('tl-room-out'), get: () => S.room.S, set: v => { S.room.S = v; save(); renderRoom(); invalidate(true, TYPING_MS); } });
+  App.bindNumber(el('tl-room-A'), { min: 1, max: 200, label: '等価吸音面積 A', msg: el('tl-room-out'), get: () => S.room.A, set: v => { S.room.A = v; save(); renderRoom(); invalidate(true, TYPING_MS); } });
+  el('tl-cmp').addEventListener('click', e => { const b = e.target.closest('button[data-cond]'); if (!b) return; setCond(b.dataset.cond === 'dry' ? 'dry' : Number(b.dataset.cond)); });
+  el('tl-pad').addEventListener('change', e => { const v = Number(e.target.value); if (!PADS.includes(v)) return; S.pad = v; save(); renderResult(); renderTransport(); if (playing && cond === 'dry') swap(); });
+  el('tl-play').addEventListener('click', play);
+  el('tl-stop').addEventListener('click', stop);
+  el('tl-vol-down').addEventListener('click', () => setVol(S.vol - VOL_STEP));
+  el('tl-vol-up').addEventListener('click', () => setVol(S.vol + VOL_STEP));
+}
+
+return {
+  init(){ S = loadSettings(); bind(); renderAll(); },
+  record, get bgInfo(){ return bgNoise ? { gain: bgGain(), aRms: bgNoise.aRms, peak: bgNoise.peak, data: bgNoise.data } : null; },
+  show(){ renderAll(); },
+  stop,
+  get S(){ return S; }, get proc(){ return proc; }, get playing(){ return playing; }, get cond(){ return cond; }, get source(){ return source; },
+  get voices(){ return graph && graph.mix ? graph.live.length : 0; }, get sounding(){ return graph ? graph.all.size : 0; }, XF, LEAD, START_FADE, get srcInfo(){ return srcInfo; }, get graph(){ return getGraph(); },
+  FREQ, OFFSETS, KEY, curve, prepare, play, startPlayback, setCond, setVol, useNoise, invalidate, sanitize, defaults
+};
+})());
+
+</script>
+<script>
+App.start();
+</script>
+</body>
+</html>
