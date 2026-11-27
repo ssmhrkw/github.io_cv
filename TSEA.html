@@ -2,25 +2,232 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>TSEA Web (Single HTML)</title>
 <style>
-:root { color-scheme: light; --fg:#0f172a; --bg:#fff; --muted:#64748b; }
+:root {
+  --fg: var(--ac-text);
+  --bg: var(--ac-bg);
+  --muted: var(--ac-muted);
+}
 *{ box-sizing:border-box }
-html,body{ margin:0; font-family:system-ui,"Noto Sans JP",sans-serif; color:var(--fg); background:var(--bg); }
-header{ padding:12px 16px; border-bottom:1px solid #e2e8f0; }
+html,body{ margin:0; font-family:var(--ac-font); color:var(--fg); background:var(--bg); }
+header{ padding:12px 16px; border-bottom:1px solid var(--ac-border); }
 main{ padding:12px 16px; max-width:980px; margin:0 auto; }
 #controls{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; align-items:end; }
 label{ display:flex; flex-direction:column; font-size:12px; color:var(--muted) }
-input,select,button{ padding:6px 8px; font-size:14px }
+input,select,button{ padding:6px 8px; font-size:1rem }
 #perf{ margin:10px 0; display:flex; gap:16px; color:var(--muted); font-size:13px }
-#plot{ width:100%; height:auto; border:1px solid #e2e8f0; touch-action:none; background:#fff }
-#log{ margin-top:10px; background:#f8fafc; padding:8px; border:1px solid #e2e8f0; max-height:180px; overflow:auto; white-space:pre-wrap }
+#plot{ width:100%; height:auto; border:1px solid var(--ac-border); touch-action:none; border-radius:var(--ac-radius); background:var(--ac-surface) }
+#log{ margin-top:10px; background:var(--ac-surface-alt); padding:8px; border:1px solid var(--ac-border); max-height:180px; overflow:auto; white-space:pre-wrap }
 .small{ font-size:12px; color:var(--muted) }
+#run { background: var(--ac-primary); color: var(--ac-on-primary); border-color: var(--ac-primary); }
+#run:hover { background: var(--ac-primary-hover); }
+#log { border-radius: var(--ac-radius); }
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--bg); color: var(--fg);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--fg); color: var(--bg); font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  select { height: 44px; }
+  .ac-header .ac-home {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  main { margin-inline: 16px; padding-inline: 0; overflow-x: auto; overscroll-behavior-x: contain; }
+  /* Keep the form and log in view while the plot scrolls at its native resolution. */
+  #controls, #perf, #log { position: sticky; left: 0; }
+  #plot {
+    display: block; box-sizing: content-box; width: auto; margin-block: 12px;
+    touch-action: pan-x pan-y;
+  }
+  #controls { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+  #controls :is(input, select, button), #file::file-selector-button { min-height: 44px; }
+  #file { grid-column: 1 / -1; max-width: 100%; }
+  #perf { flex-wrap: wrap; }
+}
 </style>
 </head>
 <body>
-<header><h1>TSEA Web（単一HTML）</h1></header>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
+<header class="ac-header"><h1>TSEA Web（単一HTML）</h1>  <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
+  </header>
 <main>
   <section id="controls">
     <label>fkey<select id="fkey"><option>OB</option><option>TOB</option></select></label>
@@ -241,6 +448,7 @@ function demoMatrices(ns,nf){
 /* ===== 描画（Canvas, ピンチ/ホイールズーム） ===== */
 function attachPlot(canvas){
   const ctx = canvas.getContext("2d");
+  const padX = 40, padY = 20;
   let data = { f:[], y:[] };
   let xRange=null, yRange=null;
 
@@ -252,24 +460,55 @@ function attachPlot(canvas){
     xRange = xRange || [minx,maxx];
     yRange = yRange || [miny,maxy];
   }
-  function sx(x){ const w=canvas.width, pad=40; return ((Math.log10(x)-xRange[0])/(xRange[1]-xRange[0]))*(w-2*pad)+pad; }
-  function sy(y){ const h=canvas.height, pad=20; return (1-((y-yRange[0])/(yRange[1]-yRange[0])))*(h-2*pad)+pad; }
+  function sx(x){ return ((Math.log10(x)-xRange[0])/(xRange[1]-xRange[0]))*(canvas.width-2*padX)+padX; }
+  function sy(y){ return (1-((y-yRange[0])/(yRange[1]-yRange[0])))*(canvas.height-2*padY)+padY; }
 
   function draw(){
+    const w=canvas.width,h=canvas.height;
+    const style=getComputedStyle(canvas);
+    const color=name=>style.getPropertyValue(name).trim();
+    ctx.fillStyle=color('--ac-surface');
+    ctx.fillRect(0,0,w,h);
     if(!data.f.length) return;
     computeRanges();
-    const w=canvas.width,h=canvas.height;
-    ctx.clearRect(0,0,w,h);
-    ctx.strokeStyle="#e2e8f0"; ctx.lineWidth=1; ctx.beginPath();
-    for(let gx=10; gx<=20000; gx*=10){ const X=sx(gx); ctx.moveTo(X,10); ctx.lineTo(X,h-10); }
+    const left=padX, right=w-padX, top=padY, bottom=h-padY;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left,top,right-left,bottom-top);
+    ctx.clip();
+    ctx.strokeStyle=color('--ac-border'); ctx.lineWidth=1; ctx.beginPath();
+    for(let gx=10; gx<=20000; gx*=10){
+      const x=Math.floor(sx(gx))+0.5;
+      ctx.moveTo(x,top);
+      ctx.lineTo(x,bottom);
+    }
     ctx.stroke();
-    ctx.strokeStyle="#111827"; ctx.lineWidth=1.5; ctx.beginPath();
+    ctx.strokeStyle=color('--ac-primary'); ctx.lineWidth=1.5; ctx.beginPath();
     for(let i=0;i<data.f.length;i++){
       const x=sx(data.f[i]), y=sy(data.y[i]);
       if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
     ctx.stroke();
+    ctx.restore();
+
+    ctx.strokeStyle=color('--ac-muted'); ctx.lineWidth=1; ctx.beginPath();
+    ctx.moveTo(left-0.5,top); ctx.lineTo(left-0.5,bottom+0.5); ctx.lineTo(right,bottom+0.5);
+    ctx.stroke();
+    ctx.fillStyle=color('--ac-text');
+    ctx.font='12px ' + color('--ac-font');
+    ctx.textBaseline='top'; ctx.textAlign='left';
+    ctx.fillText('LFmax [dB]',left,2);
+    const hz=logf=>Number((10**logf).toPrecision(6))+' Hz';
+    ctx.fillText(hz(xRange[0]),left,bottom+3);
+    ctx.textAlign='right';
+    ctx.fillText(hz(xRange[1]),right,bottom+3);
+    ctx.textBaseline='middle';
+    ctx.fillText(yRange[0].toFixed(1),left-4,bottom);
+    ctx.fillText(yRange[1].toFixed(1),left-4,top);
   }
+
+  draw();
+  window.addEventListener('ac-theme-change', draw);
 
   canvas.addEventListener('wheel', (ev)=>{
     if(!xRange || !yRange) return;

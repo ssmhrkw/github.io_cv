@@ -2,34 +2,128 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>統合版 音響シミュレーター (Web版) - 最終修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         /* 基本スタイル */
-        body { font-family: 'Meiryo', sans-serif; margin: 0; padding: 10px; font-size: 14px; background-color: #f4f4f4; display: flex; flex-direction: column; gap: 15px; }
+        body { font-family: var(--ac-font); color: var(--ac-text); margin: 0; padding: 10px; font-size: 14px; background-color: var(--ac-bg); display: flex; flex-direction: column; gap: 15px; }
         .column { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-        fieldset { border: 1px solid #ccc; border-radius: 5px; padding: 10px 15px; background-color: #fff; margin: 0; }
+        fieldset { border: 1px solid var(--ac-border); border-radius: var(--ac-radius); padding: 10px 15px; background-color: var(--ac-surface); margin: 0; }
         legend { font-weight: bold; padding: 0 5px; }
-        button { padding: 10px 15px; font-weight: bold; cursor: pointer; border-radius: 5px; border: 1px solid #aaa; background-color: #f0f0f0; }
+        button { padding: 10px 15px; font-weight: bold; cursor: pointer; border-radius: var(--ac-radius); border: 1px solid var(--ac-border); background-color: var(--ac-surface-alt); }
         .button-group { display: flex; gap: 10px; }
         .button-group button { flex-grow: 1; }
-        .prop-label { font-size: 12px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; background-color: #fafafa; padding: 5px; border-radius: 3px; border: 1px solid #eee; }
+        .prop-label { font-size: 12px; white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; background-color: var(--ac-surface-alt); padding: 5px; border-radius: var(--ac-radius); border: 1px solid var(--ac-border); }
         .result-summary-grid { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 5px 15px;}
-        #f0-value { font-size: 1.2em; font-weight: bold; color: #d9534f; }
+        #f0-value { font-size: 1.2em; font-weight: bold; color: var(--ac-danger); }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 12px; }
-        th { background-color: #f2f2f2; text-align: center; }
+        th, td { border: 1px solid var(--ac-border); padding: 6px; text-align: right; font-size: 12px; }
+        th { background-color: var(--ac-surface-alt); text-align: center; }
         .layer-table tbody tr { cursor: pointer; }
-        .layer-table tbody tr:hover { background-color: #f5f5f5; }
-        .layer-table tbody tr.selected { background-color: #d9edf7; }
+        .layer-table tbody tr:hover { background-color: var(--ac-surface-alt); }
+        .layer-table tbody tr.selected { background-color: var(--ac-primary); color: var(--ac-on-primary); }
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; }
-        .modal-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 8px; z-index: 101; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 400px; }
+        .modal-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--ac-surface); padding: 20px; border-radius: var(--ac-radius); z-index: 101; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 400px; }
         .modal-grid { display: grid; grid-template-columns: 100px 1fr; gap: 10px; align-items: center; }
         .modal-buttons { text-align: right; margin-top: 20px; display: flex; gap: 10px; }
         .modal-buttons button { flex-grow: 1; }
-        #formula-container { margin-top: 20px; padding: 15px; background-color: #fff; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; }
+        #formula-container { margin-top: 20px; padding: 15px; background-color: var(--ac-surface); border: 1px solid var(--ac-border); border-radius: var(--ac-radius); font-size: 13px; }
         #formula-container h5 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; }
 
         /* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
@@ -43,15 +137,18 @@
         @media (min-width: 768px) {
             body {
                 flex-direction: row;
+                flex-wrap: wrap;
                 align-items: flex-start;
             }
+            body > .ac-header { flex: 0 0 100%; }
             .input-column {
                 min-width: 420px;
                 width: 420px;
                 flex-shrink: 0;
             }
             .graph-column {
-                flex-grow: 1;
+                flex: 1 1 0;
+                min-width: 0;
             }
             /* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
             /* ★★★ 修正箇所 2: グラフのラッパーに高さを指定 ★★★ */
@@ -60,10 +157,133 @@
                 height: 550px; /* グラフの高さを固定 (この値を調整してお好みの高さにできます) */
             }
         }
-    </style>
+        #calc-button, #modal-ok-btn { background: var(--ac-primary); border-color: var(--ac-primary); color: var(--ac-on-primary); }
+        #calc-button:hover, #modal-ok-btn:hover { background: var(--ac-primary-hover); }
+        /* Chart.js draws its tick labels directly into the canvas using a fixed dark ink. */
+        #stl-chart { background: white; color-scheme: light; border-radius: var(--ac-radius); }
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: #fff; color: #222;
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: #337ab7; color: #fff; font: inherit; cursor: pointer;
+}
+#sample-gate-model-warning { white-space: pre-line; }
+#sample-gate label { display: block; margin-bottom: 16px; }
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  select { height: 44px; }
+  .ac-header .ac-home {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  body { flex-flow: column nowrap; align-items: stretch; }
+  .column { flex: auto; width: 100%; min-width: 0; }
+  fieldset { min-width: 0; }
+  :is(fieldset, .modal-grid) :is(input, select) {
+    box-sizing: border-box; max-width: 100%; min-width: 0; min-height: 44px;
+  }
+  .button-group, .modal-buttons { flex-wrap: wrap; }
+  .button-group button, .modal-buttons button { min-height: 44px; }
+  .layer-table tbody tr { height: 44px; }
+  #sample-gate label { display: flex; align-items: center; gap: .4em; min-height: 44px; }
+  #sample-gate input { font-size: 16px; }
+  .modal-dialog { box-sizing: border-box; max-height: calc(100% - 1rem); overflow: auto; }
+  .modal-grid { grid-template-columns: minmax(0, 6.25rem) minmax(0, 1fr); }
+  .chart-wrapper { height: clamp(240px, 56vw, 380px); }
+  #formula-display, #panel-a-container, #panel-b-container, #summary-table-container { overflow-x: auto; }
+}
+</style>
 </head>
 <body>
-    <div id="layer-modal" class="modal-backdrop">
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message sample-gate-model-warning">
+  <p id="sample-gate-message" tabindex="-1" autofocus>このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <p id="sample-gate-model-warning">1枚の均質単板以外の計算（積層、二重壁）の計算値は、学術的に確立された手法ではなく、あくまで参考値です。
+
+これは「こんなのあったらいいな」という機能で、計算結果の正確性は保証されません。</p>
+  <label><input id="sample-gate-example" type="checkbox" checked> 初期例の二重壁を計算する</label>
+  <form method="dialog"><button type="submit">OK</button></form>
+</dialog>
+<script>
+const sampleGateExampleRequested = new Promise(resolve => {
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.addEventListener('close', () => resolve(document.getElementById('sample-gate-example').checked), { once: true });
+  gate.showModal();
+});
+</script>
+    <header class="ac-header"><h1>積層板・二重壁の遮音計算</h1>
+  <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
+</header>
+<div id="layer-modal" class="modal-backdrop">
         <div class="modal-dialog">
             <h3 id="modal-title">レイヤー編集</h3>
             <div class="modal-grid">
@@ -75,7 +295,7 @@
             </div>
             <div class="modal-buttons">
                 <button id="modal-cancel-btn">キャンセル</button>
-                <button id="modal-ok-btn" style="background-color: #337ab7; color: white;">OK</button>
+                <button id="modal-ok-btn">OK</button>
             </div>
         </div>
     </div>
@@ -110,8 +330,8 @@
             <pre id="prop-b-label" class="prop-label">N/A</pre>
         </fieldset>
         <div class="button-group" style="margin-top: 10px;">
-            <button id="calc-button" style="flex-grow: 1; padding: 12px; background-color: #5cb85c; color: white;">計算実行</button>
-            <button id="export-csv-button" style="flex-grow: 1; background-color: #337ab7; color: white;">CSVエクスポート</button>
+            <button id="calc-button" style="flex-grow: 1; padding: var(--ac-space-3);">計算実行</button>
+            <button id="export-csv-button" style="flex-grow: 1;">CSVエクスポート</button>
         </div>
         <fieldset>
             <legend>結果サマリー</legend>
@@ -181,10 +401,13 @@
     }
 
     // メインの計算実行関数
-    const calculateAll = () => {
+    const calculateAll = ({ warningAccepted = false } = {}) => {
         if (layer_data_a.length === 0 && layer_data_b.length === 0) { alert("計算するレイヤーがありません。"); updateFormulaDisplay('default'); return; }
         const isSingleHomogeneous = (layer_data_a.length === 1 && layer_data_b.length === 0) || (layer_data_a.length === 0 && layer_data_b.length === 1);
-        if (!isSingleHomogeneous) { const confirmation = confirm("【注意】\n1枚の均質単板以外の計算（積層、二重壁）の計算値は、学術的に確立された手法ではなく、あくまで参考値です。\n\nこれは「こんなのあったらいいな」という機能で、計算結果の正確性は保証されません。\n\n計算を続行しますか？"); if (!confirmation) { return; } }
+        if (!isSingleHomogeneous && !warningAccepted) {
+            const warning = document.getElementById('sample-gate-model-warning').textContent;
+            if (!confirm(`【注意】\n${warning}\n\n計算を続行しますか？`)) return;
+        }
         try {
             updatePanelPropertiesDisplay('A'); updatePanelPropertiesDisplay('B');
             const propsA = calculatePanelProperties(layer_data_a); const propsB = calculatePanelProperties(layer_data_b); const is_double_wall = layer_data_a.length > 0 && layer_data_b.length > 0;
@@ -238,12 +461,13 @@
     function exportToCsv() { if (!results_df) { alert("エクスポートする計算結果がありません。"); return; } const headers = Object.keys(results_df); let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n"; const numRows = results_df[headers[0]].length; for (let i = 0; i < numRows; i++) { csvContent += headers.map(h => results_df[h][i].toFixed(2)).join(",") + "\n"; } const encodedUri = encodeURI(csvContent); const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", "acoustic_simulation_results.csv"); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
     
     // 初期化処理
-    document.addEventListener('DOMContentLoaded', () => {
-        Object.keys(MATERIAL_PROPERTIES).forEach(name => ui.modalMatSelect.add(new Option(name, name))); Object.keys(ABSORBENT_PROPERTIES).forEach(name => ui.absorbentSelect.add(new Option(name, name))); ui.absorbentSelect.value = "なし"; ui.calcButton.addEventListener('click', calculateAll); ui.exportCsvButton.addEventListener('click', exportToCsv); ui.absorbentSelect.addEventListener('change', onAbsorbentSelect); ui.modalMatSelect.addEventListener('change', onModalMatChange); ui.modalOkBtn.addEventListener('click', saveLayer); ui.modalCancelBtn.addEventListener('click', closeModal);
+    document.addEventListener('DOMContentLoaded', async () => {
+        Object.keys(MATERIAL_PROPERTIES).forEach(name => ui.modalMatSelect.add(new Option(name, name))); Object.keys(ABSORBENT_PROPERTIES).forEach(name => ui.absorbentSelect.add(new Option(name, name))); ui.absorbentSelect.value = "なし"; ui.calcButton.addEventListener('click', () => calculateAll()); ui.exportCsvButton.addEventListener('click', exportToCsv); ui.absorbentSelect.addEventListener('change', onAbsorbentSelect); ui.modalMatSelect.addEventListener('change', onModalMatChange); ui.modalOkBtn.addEventListener('click', saveLayer); ui.modalCancelBtn.addEventListener('click', closeModal);
         const {rho, E, nu} = MATERIAL_PROPERTIES['コンクリート'];
         layer_data_a.push({mat: 'コンクリート', h: 0.150, rho, E, nu});
         layer_data_b.push({mat: '石こうボード', h: 0.0125, rho: 800, E: 0.18e10, nu: 0.30});
-        updateLayerTree('A'); updateLayerTree('B'); updatePanelPropertiesDisplay('A'); updatePanelPropertiesDisplay('B'); onAbsorbentSelect(); calculateAll();
+        updateLayerTree('A'); updateLayerTree('B'); updatePanelPropertiesDisplay('A'); updatePanelPropertiesDisplay('B'); onAbsorbentSelect();
+        if (await sampleGateExampleRequested) calculateAll({ warningAccepted: true });
     });
 </script>
 </body>

@@ -1,37 +1,118 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>LH等級の聴き比べ</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="重量床衝撃音の等級（LH-30〜LH-80）と暗騒音（20〜50 dB(A)）の組み合わせを聴き比べるページ">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
 /* Layout: instrument panel. Tap matrix (grade x background) on the left, readout and settings column on the right; a single column below 920px. */
-:root{
-  --bg:#eceff3;
-  --surface:#fbfcfd;
-  --ink:#16202c;
-  --muted:#586577;
-  --line:#d3d9e1;
-  --accent:#2456c9;
-  --on-accent:#ffffff;
-  --warn:#9a5400;
-  --warn-bg:#fff1db;
-  --font-ui:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-  --font-num:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+:root {
+  --bg: var(--ac-bg);
+  --surface: var(--ac-surface);
+  --ink: var(--ac-text);
+  --muted: var(--ac-muted);
+  --line: var(--ac-border);
+  --accent: var(--ac-primary);
+  --on-accent: var(--ac-on-primary);
+  --warn: var(--ac-warning);
+  --warn-bg: var(--ac-surface-alt);
+  --font-ui: var(--ac-font);
+  --font-num: var(--ac-mono);
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0f141a; --surface:#161d25; --ink:#e4e9ef; --muted:#8d9aab; --line:#283240;
-    --accent:#7ea2ff; --on-accent:#0c1422; --warn:#f0b45a; --warn-bg:#2a2112;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#0f141a; --surface:#161d25; --ink:#e4e9ef; --muted:#8d9aab; --line:#283240;
-  --accent:#7ea2ff; --on-accent:#0c1422; --warn:#f0b45a; --warn-bg:#2a2112;
-  color-scheme:dark;
-}
+
+
 html{ -webkit-text-size-adjust:100%; }
 body{
   background:var(--bg); color:var(--ink);
@@ -48,7 +129,7 @@ sub{ font-size:.72em; }
 .num{ font-family:var(--font-num); font-variant-numeric:tabular-nums; }
 
 .toolbar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-.seg{ display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+.seg{ display:inline-flex; border:1px solid var(--line); border-radius:var(--ac-radius); overflow:hidden; background:var(--surface); }
 .seg button{
   font:inherit; font-size:.88rem; border:0; background:transparent; color:var(--ink);
   padding:.45rem .95rem; cursor:pointer; touch-action:manipulation;
@@ -57,11 +138,11 @@ sub{ font-size:.72em; }
 .seg button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); }
 .btn{
   font:inherit; font-size:.88rem; border:1px solid var(--line); background:var(--surface); color:var(--ink);
-  border-radius:999px; padding:.45rem .95rem; cursor:pointer; touch-action:manipulation;
+  border-radius:var(--ac-radius); padding:.45rem .95rem; cursor:pointer; touch-action:manipulation;
 }
 .btn:hover,.seg button:hover{ border-color:var(--accent); }
 .btn:focus-visible,.seg button:focus-visible,.cell:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{
-  outline:3px solid var(--accent); outline-offset:2px;
+  outline:3px solid var(--ac-focus); outline-offset:2px;
 }
 .btn.stop{ font-weight:500; }
 .check{ display:inline-flex; gap:.4rem; align-items:center; font-size:.88rem; }
@@ -82,15 +163,16 @@ sub{ font-size:.72em; }
 .mh.row span{ font-size:.7rem; }
 .mh.sep{ border-top:1px solid var(--line); margin-top:4px; padding-top:6px; }
 .cell{
+  --accent:color-mix(in oklab, var(--ac-primary) 42%, var(--ac-surface));
   min-height:46px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink);
   font:inherit; padding:4px 7px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
   cursor:pointer; position:relative; text-align:left; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
   transition:transform .08s ease;
 }
 .cell:active{ transform:scale(.97); }
-.cell .k{ font-size:.66rem; opacity:.8; letter-spacing:.02em; line-height:1.2; }
+.cell .k{ font-size:.66rem; letter-spacing:.02em; line-height:1.2; }
 .cell .v{ font-family:var(--font-num); font-variant-numeric:tabular-nums; font-size:.95rem; font-weight:500; line-height:1.3; }
-.cell.hot{ color:var(--on-accent); border-color:transparent; }
+.cell.hot{ border-color:var(--ac-muted); }
 .cell.sel{ outline:2px solid var(--ink); outline-offset:1px; }
 .cell.playing{ outline:3px solid var(--ink); outline-offset:1px; }
 .cell.playing::after{
@@ -107,7 +189,7 @@ sub{ font-size:.72em; }
 @media (prefers-reduced-motion: reduce){ .cell.playing::after{ animation:none; } .cell{ transition:none; } }
 
 .side{ display:grid; gap:14px; min-width:0; }
-.readout{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:grid; gap:10px; }
+.readout{ background:var(--surface); border:1px solid var(--line); border-radius:var(--ac-radius); padding:14px 16px; display:grid; gap:10px; }
 .ro-state{ font-size:.75rem; color:var(--muted); letter-spacing:.08em; }
 .ro-state.on{ color:var(--accent); font-weight:700; }
 .readout h2{ font-size:1.15rem; font-weight:700; }
@@ -124,12 +206,12 @@ sub{ font-size:.72em; }
 .ro-warn{ font-size:.82rem; color:var(--warn); margin:0; }
 .tbl-wrap{ overflow-x:auto; }
 table.t{ border-collapse:collapse; width:100%; font-size:.8rem; }
-table.t th, table.t td{ padding:3px 5px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
+table.t th, table.t td{ padding:var(--ac-space-1) var(--ac-space-2); text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
 table.t th:first-child, table.t td:first-child{ text-align:left; color:var(--muted); font-weight:400; }
 table.t thead th{ color:var(--muted); font-weight:500; }
 table.t td{ font-family:var(--font-num); font-variant-numeric:tabular-nums; }
 
-details{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:0 16px; }
+details{ background:var(--surface); border:1px solid var(--line); border-radius:var(--ac-radius); padding:0 16px; }
 details[open]{ padding-bottom:14px; }
 summary{ cursor:pointer; padding:12px 0; font-weight:700; font-size:.95rem; list-style-position:inside; }
 details p, details li{ font-size:.86rem; }
@@ -140,22 +222,128 @@ details ol, details ul{ margin:.4rem 0; padding-left:1.3rem; }
 .field label{ color:var(--muted); }
 .row-inline{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 input[type="number"], select{
-  font:inherit; font-family:var(--font-num); font-size:.88rem; color:var(--ink); background:var(--bg);
+  font:inherit; font-family:var(--font-num); font-size:1rem; color:var(--ink); background:var(--surface);
   border:1px solid var(--line); border-radius:6px; padding:.3rem .45rem; width:5.2rem;
 }
 select{ font-family:var(--font-ui); width:auto; }
-input[type="file"]{ font:inherit; font-size:.82rem; max-width:100%; }
+input[type="file"]{ font:inherit; font-size:1rem; max-width:100%; }
 .hint{ font-size:.78rem; color:var(--muted); }
 .status{ font-size:.82rem; color:var(--muted); }
 .status.err{ color:var(--warn); }
 .formula{ font-family:var(--font-num); font-size:.8rem; background:var(--bg); border-radius:6px; padding:.4rem .55rem; overflow-x:auto; white-space:nowrap; }
 .busy{ position:fixed; right:max(16px, env(safe-area-inset-right, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); background:var(--ink); color:var(--bg); font-size:.82rem; padding:.4rem .8rem; border-radius:999px; }
 </style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--accent); color: var(--on-accent); font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style>.ac-header > p { flex-basis: 100%; max-width: none; margin: 0; }</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  select { height: 44px; }
+  .ac-header .ac-home {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .wrap, .side, .readout, .form, .field { grid-template-columns: minmax(0, 1fr); }
+  .matrix {
+    grid-template-columns: 5.4rem repeat(5, minmax(4.75rem, 1fr));
+    overflow-x: auto;
+    padding: 3px;
+  }
+  .seg button, .btn, .check, select, input[type="number"], input::file-selector-button { min-height: 44px; }
+  input:is([type="checkbox"], [type="radio"]) { font-size: 16px; }
+  .field :is(select, input[type="file"]) { box-sizing: border-box; max-width: 100%; }
+}
+</style>
 </head><body>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.addEventListener('keydown', event => event.stopPropagation());
+  gate.showModal();
+}
+</script>
 
 <div class="wrap">
-  <header>
+  <header class="ac-header">
     <h1>LH等級の聴き比べ</h1>
+    <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
     <p>重量床衝撃音の等級（LH-30〜LH-80）と暗騒音（20〜50 dB(A)）の組み合わせを、セルをタップして再生します。衝撃音は各帯域の L<sub>i,Fmax</sub> が等級曲線にちょうど接するように合成しています。</p>
   </header>
 

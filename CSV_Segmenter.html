@@ -9,27 +9,121 @@
     gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
   </script>
   <meta charset="UTF-8" />
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CSV Segmenter (Web) v4.9 (Multi-Zoom)</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     :root {
-      --bg: #faf6ed;
-      --card: #ffffff;
-      --muted: #5b6b7a;
-      --text: #1e293b;
-      --accent: #0b6bcb;
-      --warn: #c77d00;
-      --danger: #c92a2a;
-      --ok: #13795b;
-      --border: #e2e8f0;
-      --soft: #f6f8fb;
+      --bg: var(--ac-bg);
+      --card: var(--ac-surface);
+      --muted: var(--ac-muted);
+      --text: var(--ac-text);
+      --accent: var(--ac-link);
+      --warn: var(--ac-warning);
+      --danger: var(--ac-danger);
+      --ok: var(--ac-success);
+      --border: var(--ac-border);
+      --soft: var(--ac-surface-alt);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0; padding: 0;
-      font-family: "Hiragino Kaku Gothic ProN", "Meiryo", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-family: var(--ac-font);
       color: var(--text);
       background: var(--bg);
       min-height: 100vh;
@@ -37,10 +131,10 @@
     header {
       padding: 18px 20px 10px;
       border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);
+      position: sticky; top: 0; background: var(--ac-surface);
       z-index: 10;
     }
-    header h1 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: #0f2e54; }
+    header h1 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; color: var(--ac-text); }
     header p { margin: 0; font-size: 12px; color: var(--muted); }
     main { padding: 16px; max-width: 1600px; margin: 0 auto; } 
     
@@ -54,40 +148,39 @@
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px; padding: 14px;
+      border-radius: var(--ac-radius); padding: var(--ac-space-4);
       box-shadow: 0 6px 16px rgba(148,163,184,0.15);
       display: flex;
       flex-direction: column;
     }
-    .card h2 { margin: 0 0 10px; font-size: 16px; color: #0f2e54; }
+    .card h2 { margin: 0 0 10px; font-size: 16px; color: var(--ac-text); }
     .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     label { font-size: 12px; color: var(--text); }
     input[type="text"], input[type="number"], select {
-      background: #fff; color: var(--text); border: 1px solid var(--border);
-      border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none;
-      transition: box-shadow .2s ease, border-color .2s ease, background .2s ease;
+      background: var(--ac-surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--ac-radius); padding: 8px 10px; font-size: 16px;
+      transition: box-shadow .2s ease, border-color .2s ease;
     }
     input[type="number"] { width: 100px; }
     button {
       appearance: none; border: 1px solid var(--border); color: var(--text);
-      background: #fff;
-      padding: 8px 12px; font-size: 13px; border-radius: 12px; cursor: pointer;
-      transition: transform 0.05s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      background: var(--ac-surface);
+      padding: var(--ac-space-2) var(--ac-space-3); font-size: 14px; border-radius: var(--ac-radius); cursor: pointer;
+      transition: transform 0.05s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     }
-    button:hover { border-color: #b6c3d2; box-shadow: 0 2px 8px rgba(15,46,84,0.06); }
+    button:hover { border-color: var(--ac-focus); box-shadow: 0 2px 8px rgba(15,46,84,0.06); }
     button:active { transform: translateY(1px); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #0b6bcb; color: #fff; border-color: #0b6bcb; }
-    .btn-green { background: #0b8f6b; color: #fff; border-color: #0b8f6b; }
+    .btn-primary { background: var(--ac-primary); color: var(--ac-on-primary); border-color: var(--ac-primary); }
+    .btn-green { background: var(--ac-surface-alt); color: var(--ac-success); border-color: var(--ac-success); }
     .btn-outline { background: transparent; }
     .muted { color: var(--muted); font-size: 12px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; color: #334155; }
+    .mono { font-family: var(--ac-mono); font-size: 12px; color: var(--ac-text); }
     .help { font-size: 12px; color: var(--muted); }
     .hr { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
     
     .mapping-table { width: 100%; border-collapse: collapse; }
     .mapping-table th, .mapping-table td { border-bottom: 1px dashed var(--border); padding: 6px 8px; font-size: 12px; }
-    .mapping-table th { text-align: left; color: #0f2e54; }
+    .mapping-table th { text-align: left; color: var(--ac-text); }
     
     .plots { 
       display: grid; 
@@ -97,45 +190,171 @@
     }
     .plot-card { 
       background: var(--soft); border: 1px solid var(--border); 
-      border-radius: 12px; padding: 8px; 
+      border-radius: var(--ac-radius); padding: 8px;
       flex-grow: 1;
     }
-    .plot-title { margin: 0 0 6px; font-size: 13px; color: #0f2e54; }
+    .plot-title { margin: 0 0 6px; font-size: 13px; color: var(--ac-text); }
     
     .kpi-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     @media (min-width: 1200px) { .kpi-row { grid-template-columns: repeat(4, 1fr); } }
-    .kpi { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+    .kpi { background: var(--ac-surface); border: 1px solid var(--border); border-radius: var(--ac-radius); padding: 10px; }
     table.metrics { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
     table.metrics th, table.metrics td { border-bottom: 1px solid var(--border); padding: 6px 8px; }
-    table.metrics th { text-align: left; color: #0f2e54; position: sticky; top: 0; background: #fff; z-index: 1; }
+    table.metrics th { text-align: left; color: var(--ac-text); position: sticky; top: 0; background: var(--ac-surface); z-index: 1; }
     table.metrics td, table.metrics th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
-    .status-ok { background: #22c55e; }
-    .status-ng { background: #ef4444; }
+    .status-ok { background: var(--ac-success); }
+    .status-ng { background: var(--ac-danger); }
     
     #autoSegmentControls {
       background: var(--soft); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px;
+      border-radius: var(--ac-radius); padding: 12px;
       display: none; /* 初期状態は非表示 */
       margin-top: 10px;
     }
     #autoSegmentControls .row { justify-content: space-between; }
-    #autoSegmentControls input[type="number"] { width: 120px; font-size: 14px; }
-    #autoSegmentControls h4 { margin: 0 0 10px; color: #0f2e54; }
+    #autoSegmentControls input[type="number"] { width: 120px; font-size: 16px; }
+    #autoSegmentControls h4 { margin: 0 0 10px; color: var(--ac-text); }
     #autoSegmentNav { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     #autoSegmentNav span { font-size: 16px; font-weight: bold; color: var(--accent); }
     
     .help-box {
-        background: #f0f4f8; border: 1px solid #d0d8e0; border-radius: 8px;
-        padding: 8px 10px; font-size: 11px; color: #334155; margin: 5px 0 0;
+        background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+        padding: 8px 10px; font-size: 11px; color: var(--ac-text); margin: 5px 0 0;
     }
-  </style>
+      .btn-primary:hover { background: var(--ac-primary-hover); }
+    button:disabled { cursor: not-allowed; color: var(--ac-muted); background: var(--ac-surface-alt); border-color: var(--ac-border); }
+
+  .js-plotly-plot .svg-container > svg.main-svg:first-of-type { background: var(--ac-surface) !important; }
+  .js-plotly-plot :is(.bglayer rect.bg, .legend rect.bg) { fill: var(--ac-surface) !important; }
+  .js-plotly-plot :is(.cartesianlayer, .infolayer) text {
+    fill: var(--ac-text) !important; font-family: var(--ac-font) !important;
+  }
+  .js-plotly-plot :is(.gridlayer path, .zerolinelayer path) { stroke: var(--ac-border) !important; }
+  .js-plotly-plot .hovertext :is(path, rect) { fill: var(--ac-text) !important; }
+  .js-plotly-plot .hovertext text { fill: var(--ac-surface) !important; }
+  .js-plotly-plot .modebar-group { background: var(--ac-surface) !important; }
+  .js-plotly-plot .modebar-btn path { fill: var(--ac-muted) !important; }
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--card); color: var(--text);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--accent); color: #fff; font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  select { height: 44px; }
+  .ac-header .ac-home {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .kpi-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+  .plots { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+  .plot-card, #mappingArea { min-width: 0; overflow-x: auto; }
+  .card { overflow-wrap: anywhere; }
+  table.metrics { table-layout: auto; }
+  .metrics th, .mapping-table th { white-space: nowrap; }
+  .row > input { max-width: 100%; }
+  #csvUrl { min-width: min(100%, 13rem); }
+  #btnAutoDetect { min-width: min(100%, 12rem); }
+  main :is(button:not(.modebar-btn), select, input), input::file-selector-button { min-height: 44px; }
+  .js-plotly-plot .plotly .modebar {
+    right: 0; display: flex; max-width: 100%; overflow-x: auto;
+  }
+  .js-plotly-plot .plotly .modebar-group { flex: none; }
+  .js-plotly-plot .plotly .modebar-btn {
+    box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0;
+  }
+}
+</style>
 </head>
 <body>
-  <header>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
+  <header class="ac-header">
     <h1>CSV Segmenter (Web) — v4.9 (Multi-Zoom)</h1>
-    <p class="muted"></p>
+    <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
   </header>
 
   <main class="grid grid-3-col">

@@ -2,31 +2,130 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>必要スラブ厚さ かんたん入力｜重量床衝撃音</title>
 <meta name="description" content="質問に答えるだけで、目標の重量床衝撃音等級（LH）を満たすスラブの等価厚を求めます。梁の条件は81通りすべてを計算し、安全側と分布を示します。">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <style>
-:root{
-  --paper:#F1F3F2; --sheet:#FAFBFB; --ink:#1B2540; --ink-soft:#4E5A75; --line:#2F45A3; --line-soft:rgba(47,69,163,.36);
-  --rule:#CBD3E1; --grid:#E0E5EE; --shu:#C23A1E; --pass:rgba(47,69,163,.08); --field:#FFFFFF; --field-line:#AEB8CC; --focus:#2F45A3;
-  --q0:#2F45A3; --q1:#6F80C4; --q2:#A59AAE; --q3:#D8825F; --q4:#C23A1E;
-  color-scheme:light;
+:root {
+  --paper: var(--ac-bg);
+  --sheet: var(--ac-surface);
+  --ink: var(--ac-text);
+  --ink-soft: var(--ac-muted);
+  --line: var(--ac-link);
+  --line-soft: var(--ac-border);
+  --rule: var(--ac-border);
+  --grid: var(--ac-border);
+  --shu: var(--ac-danger);
+  --pass: var(--ac-surface-alt);
+  --field: var(--ac-surface);
+  --field-line: var(--ac-border);
+  --focus: var(--ac-focus);
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --paper:#12264D; --sheet:#152D58; --ink:#EEF2FA; --ink-soft:#B3C1DE; --line:#D3DEF6; --line-soft:rgba(211,222,246,.42);
-    --rule:rgba(211,222,246,.22); --grid:rgba(211,222,246,.11); --shu:#FF8C6B; --pass:rgba(211,222,246,.08); --field:#1A3767; --field-line:rgba(211,222,246,.35); --focus:#FFD27A;
-    --q0:#D3DEF6; --q1:#98AAE2; --q2:#B6A8C2; --q3:#F2B49B; --q4:#FF7A55;
-    color-scheme:dark;
-  }
+/* Chart fills identify the five counts of unsupported edges. */
+:root {
+  --q0: #2f45a3; --q1: #6f80c4; --q2: #a59aae; --q3: #d8825f; --q4: #c23a1e;
+}
+:root[data-theme="dark"] {
+  --q0: #d3def6; --q1: #98aae2; --q2: #b6a8c2; --q3: #f2b49b; --q4: #ff7a55;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.75 "BIZ UDPGothic",system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;font-variant-numeric:tabular-nums}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.75 var(--ac-font);font-variant-numeric:tabular-nums}
 a{color:var(--line);text-underline-offset:2px}
 h1,h2,h3,p{margin:0}
 button,input,select{font:inherit;color:inherit}
@@ -48,12 +147,12 @@ button,input,select{font:inherit;color:inherit}
 /* slides */
 .slide{display:grid;gap:18px;animation:slideIn .32s cubic-bezier(.2,.7,.2,1) both}
 .slide.from-left{animation-name:slideInLeft}
-@keyframes slideIn{from{opacity:0;transform:translateX(42px)}to{opacity:1;transform:none}}
-@keyframes slideInLeft{from{opacity:0;transform:translateX(-42px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{transform:translateX(42px)}to{transform:none}}
+@keyframes slideInLeft{from{transform:translateX(-42px)}to{transform:none}}
 .q{font-size:28px;line-height:1.4;font-weight:700;outline:none}
 .q small{display:block;font-size:15px;font-weight:400;color:var(--ink-soft);margin-top:8px;line-height:1.7}
 .choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.choice{border:1.5px solid var(--line-soft);background:var(--sheet);border-radius:6px;padding:16px 12px;cursor:pointer;text-align:center;font-size:22px;font-weight:700;color:var(--ink)}
+.choice{border:1.5px solid var(--line-soft);background:var(--sheet);border-radius:var(--ac-radius);padding:16px 12px;cursor:pointer;text-align:center;font-size:22px;font-weight:700;color:var(--ink)}
 .choice small{display:block;font-size:12.5px;font-weight:400;color:var(--ink-soft);margin-top:2px}
 .choice:hover{border-color:var(--line)}
 .choice[aria-pressed="true"]{border-color:var(--line);background:var(--pass);box-shadow:inset 0 0 0 1px var(--line)}
@@ -61,15 +160,15 @@ button,input,select{font:inherit;color:inherit}
 .yn .choice{font-size:19px;padding:18px 14px}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field{display:grid;gap:5px;font-size:14px;color:var(--ink-soft);min-width:0}
-.field input{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--field-line);border-radius:5px;background:var(--field);font-size:18px;color:var(--ink)}
+.field input{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--field-line);border-radius:var(--ac-radius);background:var(--field);font-size:18px;color:var(--ink)}
 .field.invalid input{border-color:var(--shu);box-shadow:0 0 0 1px var(--shu)}
 .err{color:var(--shu);font-size:14px}
 .err:empty{display:none}
 .help{font-size:14px;color:var(--ink-soft)}
-.next{justify-self:start;border:0;background:var(--line);color:var(--sheet);padding:11px 26px;border-radius:5px;font-weight:700;cursor:pointer;font-size:16px}
+.next{justify-self:start;border:0;background:var(--ac-primary);color:var(--ac-on-primary);padding:11px 26px;border-radius:var(--ac-radius);font-weight:700;cursor:pointer;font-size:16px}
 .reveal{display:grid;gap:14px;padding-top:4px}
 .mats{display:grid;gap:8px}
-.mat{display:flex;gap:12px;align-items:center;border:1.5px solid var(--line-soft);background:var(--sheet);border-radius:6px;padding:11px 14px;cursor:pointer}
+.mat{display:flex;gap:12px;align-items:center;border:1.5px solid var(--line-soft);background:var(--sheet);border-radius:var(--ac-radius);padding:11px 14px;cursor:pointer}
 .mat input{width:18px;height:18px;accent-color:var(--line);flex:none}
 .mat b{display:block;font-size:16px}
 .mat span{font-size:13px;color:var(--ink-soft)}
@@ -87,12 +186,12 @@ button,input,select{font:inherit;color:inherit}
 .block h2{font-size:19px;font-weight:700}
 .lead{font-size:14.5px;color:var(--ink-soft)}
 table{border-collapse:collapse;width:100%;font-size:15px}
-th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:middle}
+th,td{padding:var(--ac-space-2) var(--ac-space-3);border-bottom:1px solid var(--rule);text-align:left;vertical-align:middle}
 th{font-size:13px;color:var(--ink-soft);font-weight:700}
 td.num{text-align:right;font-weight:700;white-space:nowrap}
 td.num.none{color:var(--shu)}
 tr.safe td{color:var(--shu)}
-.chart{background:var(--sheet);border:1px solid var(--rule);border-radius:2px;padding:6px}
+.chart{background:var(--sheet);border:1px solid var(--rule);border-radius:var(--ac-radius);padding:6px}
 .chart svg{display:block;width:100%;height:auto}
 .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-soft);align-items:center}
 .legend i{display:inline-block;width:12px;height:12px;margin-right:5px;vertical-align:-1px}
@@ -109,8 +208,8 @@ tr.safe td{color:var(--shu)}
 .recap dd{margin:0;flex:1}
 .recap button{border:0;background:none;color:var(--line);cursor:pointer;font-size:14px;text-decoration:underline;text-underline-offset:2px}
 .actions{display:flex;flex-wrap:wrap;gap:10px}
-.btn{border:1px solid var(--line-soft);background:transparent;color:var(--line);padding:8px 14px;border-radius:4px;cursor:pointer;font-size:14.5px;text-decoration:none}
-.btn.primary{background:var(--line);color:var(--sheet);border-color:var(--line)}
+.btn{border:1px solid var(--line-soft);background:transparent;color:var(--line);padding:8px 14px;border-radius:var(--ac-radius);cursor:pointer;font-size:14.5px;text-decoration:none}
+.btn.primary{background:var(--ac-primary);color:var(--ac-on-primary);border-color:var(--ac-primary)}
 .notes{font-size:13.5px;color:var(--ink-soft)}
 .notes ul{margin:6px 0 0;padding-left:1.3em;display:grid;gap:5px}
 .computing{font-size:15px;color:var(--ink-soft)}
@@ -118,22 +217,121 @@ tr.safe td{color:var(--shu)}
 .s-ink{stroke:var(--ink)}.s-line{stroke:var(--line)}.s-grid{stroke:var(--grid)}.s-shu{stroke:var(--shu)}.s-paper{stroke:var(--sheet)}
 .f-ink{fill:var(--ink)}.f-soft{fill:var(--ink-soft)}.f-shu{fill:var(--shu)}.f-paper{fill:var(--sheet)}.f-pass{fill:var(--pass)}.f-none{fill:none}
 .f-q0{fill:var(--q0)}.f-q1{fill:var(--q1)}.f-q2{fill:var(--q2)}.f-q3{fill:var(--q3)}.f-q4{fill:var(--q4)}
-svg text{font-family:"BIZ UDPGothic",system-ui,sans-serif}
+svg text{font-family:var(--ac-font)}
 @media (max-width:620px){
   .page{padding:16px 14px 56px}.q{font-size:23px}.choices{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hero{grid-template-columns:1fr}.hero .big{font-size:48px}.combos{grid-template-columns:1fr}.field input{font-size:17px}
   .recap dt{width:6.5em}
 }
 @media (prefers-reduced-motion:reduce){.slide{animation:none}}
-@media print{body{background:#fff}.progress,.actions,.top a,.slider{display:none!important}}
+@media print{
+  :root { --paper:#fff; --sheet:#fff; --ink:#111; --ink-soft:#303644; --line:#263c7b; --rule:#8992a0; --grid:#c7cbd0; --shu:#932d16; --pass:#f0f2f5; --hatch:#677587; }
+body{background:#fff}.progress,.actions,.top a,.slider{display:none!important}}
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--sheet); color: var(--ink);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--line); color: var(--sheet); font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .ac-header .ac-home { display: inline-flex; align-items: center; min-height: 44px; }
+  #stage { overflow-x: clip; overflow-clip-margin: 4px; }
+  .slide, .block { grid-template-columns: minmax(0, 1fr); }
+  .chart { overflow-x: auto; }
+  .chart svg { min-width: 680px; }
+  .top > a, .actions > a { display: inline-flex; align-items: center; min-height: 44px; }
+  .back, .next, .recap button, .actions button, .field input, .slider input { min-height: 44px; min-width: 44px; }
+  .mat input, .slider input { font-size: 16px; }
+}
 </style>
 </head>
 <body>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
 <div class="page">
-  <div class="top">
+  <header class="top ac-header">
     <h1>必要なスラブ厚さ（かんたん入力）</h1>
     <a href="slab-thickness.html" id="toDetail">詳細入力版</a>
-  </div>
+  <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
+  </header>
 
   <nav class="progress" aria-label="進み具合">
     <button type="button" class="back" id="back">戻る</button>

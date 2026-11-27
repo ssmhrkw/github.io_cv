@@ -2,6 +2,100 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Floor Impact Sound — Layout Planner</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
@@ -9,47 +103,45 @@
   window.MathJax={tex:{inlineMath:[['\\(','\\)'],['$','$']]},svg:{fontCache:'global'}};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ── TOKEN SYSTEM ── */
 :root{
-  --bg:       #f7f8fa;
-  --surface:  #ffffff;
-  --surface2: #f2f4f7;
-  --surface3: #e8ebf0;
-  --border:   #dde1e8;
-  --border2:  #c8cdd8;
+  --bg:       var(--ac-bg);
+  --surface:  var(--ac-surface);
+  --surface2: var(--ac-surface-alt);
+  --surface3: var(--ac-surface-alt);
+  --border:   var(--ac-border);
+  --border2:  var(--ac-border);
 
-  --ink:      #1a1f2e;
-  --ink2:     #4a5068;
-  --ink3:     #8892a4;
+  --ink:      var(--ac-text);
+  --ink2:     var(--ac-text);
+  --ink3:     var(--ac-muted);
 
-  --blue:     #3a7bd5;
-  --blue-bg:  #eef3fc;
-  --blue-bdr: #b8d0f5;
+  --blue:     var(--ac-link);
+  --blue-bg:  var(--ac-surface-alt);
+  --blue-bdr: var(--ac-link);
 
-  --teal:     #1a9e8f;
-  --teal-bg:  #eaf7f5;
-  --teal-bdr: #9edbd4;
+  --teal:     var(--ac-success);
+  --teal-bg:  var(--ac-surface-alt);
+  --teal-bdr: var(--ac-success);
 
-  --amber:    #c47b0a;
-  --amber-bg: #fef7ea;
-  --amber-bdr:#f5d68a;
+  --amber:    var(--ac-warning);
+  --amber-bg: var(--ac-surface-alt);
+  --amber-bdr:var(--ac-warning);
 
-  --red:      #c0392b;
-  --red-bg:   #fdf0ee;
-  --red-bdr:  #f0b8b2;
+  --red:      var(--ac-danger);
+  --red-bg:   var(--ac-surface-alt);
+  --red-bdr:  var(--ac-danger);
 
-  --green:    #1a7f54;
-  --green-bg: #eaf7f0;
-  --green-bdr:#8ed4b4;
+  --green:    var(--ac-success);
+  --green-bg: var(--ac-surface-alt);
+  --green-bdr:var(--ac-success);
 
-  --mono: 'DM Mono', 'Courier New', monospace;
-  --sans: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
-  --r-sm: 5px;
-  --r-md: 8px;
-  --r-lg: 14px;
+  --mono: var(--ac-mono);
+  --sans: var(--ac-font);
+  --r-sm: var(--ac-radius);
+  --r-md: var(--ac-radius);
+  --r-lg: var(--ac-radius);
   --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
   --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.05);
 }
@@ -61,7 +153,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13p
 /* ── HEADER ── */
 header{
   position:sticky;top:0;z-index:100;
-  background:rgba(255,255,255,.95);backdrop-filter:blur(10px);
+  background:var(--ac-surface);
   border-bottom:1px solid var(--border);
   padding:0 20px;
   display:flex;align-items:center;gap:16px;height:54px;
@@ -89,7 +181,7 @@ main{position:relative;z-index:1;display:grid;grid-template-columns:492px 1fr;ga
 /* ── ACCORDION ── */
 .acc{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:8px;overflow:hidden;box-shadow:var(--shadow-sm);transition:border-color .2s}
 .acc:has(details[open]){border-color:var(--border2)}
-.acc summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.07em;color:var(--ink2);text-transform:uppercase;user-select:none;transition:color .15s,background .15s}
+.acc summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.07em;color:var(--ink2);text-transform:uppercase;user-select:none}
 .acc summary:hover{color:var(--ink);background:var(--surface2)}
 .acc summary::-webkit-details-marker,.acc summary::marker{display:none}
 .acc-icon{width:14px;height:14px;flex-shrink:0;color:var(--blue)}
@@ -105,10 +197,10 @@ details[open] .acc-chev{transform:rotate(180deg)}
 input[type="number"],input[type="text"],select{
   width:100%;background:var(--surface);color:var(--ink);
   border:1px solid var(--border);border-radius:var(--r-sm);
-  padding:7px 10px;font-family:var(--mono);font-size:12px;
-  outline:none;transition:border-color .15s,box-shadow .15s;appearance:none
+  padding:7px 10px;font-family:var(--mono);font-size:16px;
+  min-width:0;transition:border-color .15s,box-shadow .15s;appearance:none
 }
-input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(58,123,213,.12)}
+input:focus-visible,select:focus-visible,.rc input:focus-visible + label{outline:2px solid var(--ac-focus);outline-offset:2px}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238892a4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
 .fh{font-family:var(--mono);font-size:9px;color:var(--ink3);line-height:1.45;margin-top:2px}
 
@@ -116,22 +208,22 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .radio-grp{display:flex;gap:6px;flex-wrap:wrap}
 .rc{flex:1;min-width:120px;position:relative}
 .rc input{position:absolute;opacity:0;width:0;height:0}
-.rc label{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:12px;color:var(--ink2);transition:all .15s}
+.rc label{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:12px;color:var(--ink2);transition:border-color .15s,box-shadow .15s}
 .rc label:hover{border-color:var(--border2);background:var(--surface3)}
-.rc-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;transition:all .15s}
+.rc-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;transition:border-color .15s,box-shadow .15s}
 .rc input:checked+label{border-color:var(--blue-bdr);color:var(--blue);background:var(--blue-bg)}
 .rc input:checked+label .rc-dot{background:var(--blue);border-color:var(--blue);box-shadow:0 0 4px rgba(58,123,213,.4)}
 
 /* ── BUTTONS ── */
 .btn-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--ink2);padding:6px 13px;border-radius:var(--r-sm);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:var(--shadow-sm)}
+.btn{appearance:none;min-height:36px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);padding:6px 13px;border-radius:var(--r-sm);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:var(--shadow-sm)}
 .btn:hover{border-color:var(--blue-bdr);color:var(--blue);background:var(--blue-bg);box-shadow:none}
 .btn:active{transform:translateY(1px);box-shadow:none}
-.btn:disabled{opacity:.38;pointer-events:none}
-.btn-p{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:600;box-shadow:0 2px 6px rgba(58,123,213,.3)}
-.btn-p:hover{background:#2d68bb;color:#fff;border-color:#2d68bb}
+.btn:disabled{color:var(--ac-muted);background:var(--ac-surface-alt);border-color:var(--ac-border);pointer-events:none}
+.btn-p{background:var(--ac-primary);color:var(--ac-on-primary);border-color:var(--ac-primary);font-weight:600;box-shadow:0 2px 6px rgba(58,123,213,.3)}
+.btn-p:hover{background:var(--ac-primary-hover);color:var(--ac-on-primary);border-color:var(--ac-primary-hover)}
 .btn-d{border-color:var(--red-bdr);color:var(--red);background:var(--red-bg)}
-.btn-d:hover{background:#fae0dc}
+.btn-d:hover{background:var(--ac-surface-alt);border-color:var(--ac-danger)}
 .btn-ico{width:28px;height:28px;padding:0;justify-content:center;flex-shrink:0}
 
 /* ── PROGRESS ── */
@@ -157,7 +249,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .dtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
 .dtable th{background:var(--surface2);color:var(--ink3);font-weight:500;letter-spacing:.06em;font-size:9px;text-transform:uppercase;padding:6px 8px;border:1px solid var(--border);text-align:center}
 .dtable td{border:1px solid var(--border);padding:4px 6px;text-align:center;color:var(--ink2)}
-.dtable td input{background:transparent;border:none;color:var(--ink);font-family:var(--mono);font-size:11px;width:100%;text-align:center;outline:none;padding:2px}
+.dtable td input{background:transparent;border:none;color:var(--ink);font-family:var(--mono);font-size:16px;width:100%;min-width:0;text-align:center;padding:2px}
 .dtable td input:focus{background:var(--blue-bg);border-radius:2px}
 .dtable tbody tr:hover td{background:var(--surface2)}
 
@@ -179,12 +271,117 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--surface2)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:999px}
+/* The plot's SVG legend overlays a WebGL scene with fixed axes and series colors. */
+.js-plotly-plot :is(.legendtext, .textpoint text, .annotation-text) { fill: #334155 !important; }
+.js-plotly-plot :is(.infolayer, .cartesianlayer) text { font-family: var(--ac-mono) !important; }
+.js-plotly-plot .legend rect.bg { fill: white !important; fill-opacity: 1 !important; }
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: #2d68bb; color: #fff; font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  .ac-header .ac-home { display: inline-flex; align-items: center; min-height: 44px; }
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .ac-header { position: static; }
+  .hdr-logo { max-width: 100%; }
+  main, .plots-grid { grid-template-columns: minmax(0, 1fr); }
+  .fg.c2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+  .fg:is(.c3, .c4) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr)); }
+  .btn, .acc summary, .rc label, .chk, .field :is(input, select), .dtable input { min-height: 44px; }
+  .btn-ico { min-width: 44px; }
+  .dtable { display: block; overflow-x: auto; }
+  .dtable td input { min-width: 8ch; }
+  .formula, .plot-card > div[id] { overflow-x: auto; }
+  input:is([type="checkbox"], [type="radio"]) { font-size: 16px; }
+  .js-plotly-plot .plotly .svg-container .modebar {
+    right: 0; display: flex; max-width: 100%; overflow-x: auto;
+  }
+  .js-plotly-plot .plotly .modebar-group { flex: none; }
+  .js-plotly-plot .plotly .modebar .modebar-btn {
+    box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; min-height: 44px; height: 44px; margin: 0; padding: 0;
+  }
+}
 </style>
 </head>
 <body>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
 
 <!-- ── HEADER ── -->
-<header>
+<header class="ac-header">
   <div class="hdr-logo">
     <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
       <rect x="1" y="1" width="28" height="28" rx="5" fill="#eef3fc" stroke="#b8d0f5" stroke-width="1.5"/>
@@ -194,7 +391,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <circle cx="22" cy="15" r="2" fill="#3a7bd5"/>
     </svg>
     <div>
-      <div class="hdr-title">Floor Impact Acoustics — Layout Planner</div>
+      <h1 class="hdr-title">Floor Impact Acoustics — Layout Planner</h1>
       <div class="hdr-sub">加振点・受音点 配置設計ツール</div>
     </div>
   </div>
@@ -209,7 +406,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="sdot" id="statusDot"></div>
     <span id="statusText">Initializing…</span>
   </div>
-</header>
+  <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
+  </header>
 
 <!-- ── MAIN ── -->
 <main>
@@ -469,9 +674,9 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
 
   <div class="legend-row mt12">
-    <div class="li"><span style="color:#3a7bd5;font-size:15px;font-weight:700;line-height:1">×</span>Microphone</div>
-    <div class="li"><span style="display:inline-block;width:14px;height:8px;border:2px solid #1a9e8f;border-radius:1px"></span>Tapping (520×260 mm, 各点ごとに向き異なる)</div>
-    <div class="li"><span style="width:9px;height:9px;border-radius:50%;background:#c47b0a;display:inline-block"></span>Heavy / JIS-circle</div>
+    <div class="li"><span style="color:var(--blue);font-size:15px;font-weight:700;line-height:1">×</span>Microphone</div>
+    <div class="li"><span style="display:inline-block;width:14px;height:8px;border:2px solid var(--teal);border-radius:1px"></span>Tapping (520×260 mm, 各点ごとに向き異なる)</div>
+    <div class="li"><span style="width:9px;height:9px;border-radius:50%;background:var(--amber);display:inline-block"></span>Heavy / JIS-circle</div>
     <div class="li" style="color:var(--red)">🔴 = node-vicinity warning</div>
     <div class="li" style="color:var(--green)">🟢 = OK</div>
   </div>
@@ -505,7 +710,7 @@ const TAP_W=0.520, TAP_D=0.260, C_SOUND=343;
 
 const PLY_LIGHT={
   paper_bgcolor:'#ffffff', plot_bgcolor:'#f7f8fa',
-  font:{color:'#4a5068', family:"'DM Mono','Courier New',monospace", size:11},
+  font:{color:'#4a5068', family:'ui-monospace, "SFMono-Regular", Consolas, monospace', size:11},
   uirevision:'keep', // preserve camera/zoom across re-renders (Plotly.react)
 };
 
@@ -1249,7 +1454,7 @@ function printReport(st){
   const w=computeWarnings(st);
   const win=window.open('','_blank');
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Acoustic Layout Report</title>
-  <style>body{font-family:'DM Mono',monospace;padding:24px;color:#1a1f2e;font-size:12px}h1{font-size:16px;border-bottom:2px solid #1a1f2e;padding-bottom:4px;margin-bottom:12px}h2{font-size:13px;margin-top:20px;color:#3a7bd5}table{border-collapse:collapse;width:100%;margin-bottom:12px}th,td{border:1px solid #dde1e8;padding:5px 8px;text-align:center}th{background:#f2f4f7;font-size:10px;text-transform:uppercase;letter-spacing:.06em}pre{background:#f7f8fa;padding:10px;border:1px solid #dde1e8;white-space:pre-wrap;font-size:10px}.meta{color:#8892a4;font-size:10px;margin-bottom:16px}</style>
+  <style>body{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;padding:24px;color:#1a1f2e;font-size:12px}h1{font-size:16px;border-bottom:2px solid #1a1f2e;padding-bottom:4px;margin-bottom:12px}h2{font-size:13px;margin-top:20px;color:#3a7bd5}table{border-collapse:collapse;width:100%;margin-bottom:12px}th,td{border:1px solid #dde1e8;padding:5px 8px;text-align:center}th{background:#f2f4f7;font-size:10px;text-transform:uppercase;letter-spacing:.06em}pre{background:#f7f8fa;padding:10px;border:1px solid #dde1e8;white-space:pre-wrap;font-size:10px}.meta{color:#8892a4;font-size:10px;margin-bottom:16px}</style>
   </head><body>
   <h1>Floor Impact Sound — Measurement Layout Report</h1>
   <div class="meta">Std: ${st.std} · Type: ${st.isLight?'Light (Tapping)':'Heavy'} · RT60: ${numVal('rt60')} s · ε: ${numVal('phiEps')} · Room: ${fmt(st.room.Lx)}×${fmt(st.room.Ly)}×${fmt(st.room.Lz)} m · Slab: ${fmt(st.slab.Sx)}×${fmt(st.slab.Sy)} m</div>

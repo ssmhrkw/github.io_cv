@@ -2,31 +2,131 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RT Estimator — Clap Method</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0b0d12; --bg2:#10141e; --bg3:#161c2a;
-  --border:rgba(180,200,255,0.07); --border2:rgba(100,160,255,0.22);
-  --text:#c0cee6; --dim:#4e5f7a; --bright:#e8f0ff;
-  --accent:#4a8fff; --accent2:#7eb8ff;
-  --ok:#34d399; --ok-bg:rgba(52,211,153,0.08);
-  --ng:#f87171; --ng-bg:rgba(248,113,113,0.08);
-  --warn:#fbbf24;
-  --mono:'Space Mono',monospace;
-  --serif:'EB Garamond',Georgia,serif;
-  --jp:'Noto Serif JP',serif;
+:root {
+  --bg: var(--ac-bg);
+  --bg2: var(--ac-surface);
+  --bg3: var(--ac-surface-alt);
+  --border: var(--ac-border);
+  --border2: var(--ac-border);
+  --text: var(--ac-text);
+  --dim: var(--ac-muted);
+  --bright: var(--ac-text);
+  --accent: var(--ac-primary);
+  --accent2: var(--ac-link);
+  --ok: var(--ac-success);
+  --ok-bg: var(--ac-surface-alt);
+  --ng: var(--ac-danger);
+  --ng-bg: var(--ac-surface-alt);
+  --warn: var(--ac-warning);
+  --mono: var(--ac-mono);
+  --serif: var(--ac-font);
+  --jp: var(--ac-font);
 }
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:var(--jp);font-size:15px;line-height:1.7;min-height:100vh}
 
-nav{
+.ac-appbar{
   position:sticky;top:0;z-index:100;
-  background:rgba(11,13,18,0.94);backdrop-filter:blur(14px);
+  background:var(--ac-surface);
   border-bottom:1px solid var(--border);
 }
 .nav-inner{
@@ -35,63 +135,58 @@ nav{
 }
 .nav-brand{display:flex;flex-direction:column;gap:2px}
 .nav-title{font-family:var(--serif);font-size:1.15rem;font-weight:500;color:var(--bright)}
-.nav-sub{font-family:var(--mono);font-size:0.58rem;letter-spacing:0.12em;color:var(--dim);text-transform:uppercase}
+.nav-sub{font-family:var(--mono);font-size:.75rem;letter-spacing:0.12em;color:var(--dim);text-transform:uppercase}
 .nav-actions{display:flex;gap:8px}
 .btn-lang{
-  font-family:var(--mono);font-size:0.62rem;letter-spacing:.12em;
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;
   background:transparent;border:1px solid var(--border2);color:var(--dim);
-  padding:5px 10px;border-radius:3px;cursor:pointer;transition:all .2s;
+  padding:5px 10px;border-radius:var(--ac-radius);cursor:pointer;transition:border-color .2s;
 }
-.btn-lang:hover,.btn-lang.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-lang:hover,.btn-lang.active{background:var(--accent);border-color:var(--accent);color:var(--ac-on-primary)}
 
 main{max-width:1100px;margin:0 auto;padding:24px 24px 60px}
 .grid{display:grid;gap:14px}
 
 .card{
-  background:var(--bg2);border:1px solid var(--border);border-radius:4px;
-  padding:22px;position:relative;overflow:hidden;
-  animation:fadeUp .5s ease both;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--ac-radius);
+  padding:var(--ac-space-5);position:relative;overflow:hidden;
 }
-.card:nth-child(1){animation-delay:.05s}.card:nth-child(2){animation-delay:.1s}
-.card:nth-child(3){animation-delay:.15s}.card:nth-child(4){animation-delay:.2s}
-.card:nth-child(5){animation-delay:.25s}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .card::before{
   content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:linear-gradient(90deg,var(--accent),transparent);opacity:.45;
 }
 .card-title{
-  font-family:var(--mono);font-size:0.62rem;letter-spacing:.28em;text-transform:uppercase;
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.28em;text-transform:uppercase;
   color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:12px;
 }
 .card-title::after{content:'';flex:1;height:1px;background:var(--border2)}
 
 .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px}
 .ctrl-g{display:flex;flex-direction:column;gap:4px}
-.ctrl-lbl{font-family:var(--mono);font-size:0.58rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+.ctrl-lbl{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
 
 button{
-  font-family:var(--mono);font-size:0.68rem;letter-spacing:.05em;
-  padding:8px 15px;border:1px solid var(--border2);border-radius:3px;
-  background:transparent;color:var(--accent2);cursor:pointer;transition:all .18s;white-space:nowrap;
+  font-family:var(--mono);font-size:.875rem;letter-spacing:.03em;
+  padding:8px 15px;border:1px solid var(--border2);border-radius:var(--ac-radius);
+  background:transparent;color:var(--accent2);cursor:pointer;transition:border-color .18s;white-space:nowrap;
 }
-button:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:#fff}
-button:disabled{opacity:.3;cursor:not-allowed}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.primary:hover:not(:disabled){background:#3a7fee}
-button.recording{
-  background:var(--ng);border-color:var(--ng);color:#fff;
+button:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:var(--ac-on-primary)}
+button:disabled{background:var(--bg3);color:var(--dim);cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--ac-on-primary)}
+button.primary:hover:not(:disabled){background:var(--ac-primary-hover)}
+button.recording,button.recording:hover:not(:disabled){
+  background:var(--ng);border-color:var(--ng);color:var(--ac-on-primary);
   animation:prec 1.1s ease-in-out infinite;
 }
 @keyframes prec{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.45)}55%{box-shadow:0 0 0 7px rgba(248,113,113,0)}}
 
 select,input[type="number"]{
-  font-family:var(--mono);font-size:0.68rem;
-  background:var(--bg3);color:var(--text);
-  border:1px solid var(--border2);border-radius:3px;
+  font-family:var(--mono);font-size:1rem;
+  background:var(--ac-surface);color:var(--text);
+  border:1px solid var(--border2);border-radius:var(--ac-radius);
   padding:7px 10px;transition:border-color .18s;
 }
-select:focus,input:focus{outline:none;border-color:var(--accent)}
+select:focus-visible,input:focus-visible{outline:3px solid var(--ac-focus);outline-offset:2px;border-color:var(--ac-focus)}
 
 .check-row{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82rem;color:var(--text)}
 input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
@@ -111,12 +206,12 @@ input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:
 }
 .hint b{color:var(--text)}
 
-audio{width:100%;margin-top:10px;display:none;filter:invert(1) hue-rotate(180deg) brightness(.9)}
+audio{width:100%;margin-top:10px;display:none;color-scheme:inherit}
 
 .file-lbl{
   font-family:var(--mono);font-size:0.65rem;letter-spacing:.08em;
-  padding:7px 14px;border:1px dashed var(--border2);border-radius:3px;
-  color:var(--dim);cursor:pointer;transition:all .2s;display:inline-block;
+  padding:7px 14px;border:1px dashed var(--border2);border-radius:var(--ac-radius);
+  color:var(--dim);cursor:pointer;transition:border-color .2s;display:inline-block;
 }
 .file-lbl:hover{border-color:var(--accent);color:var(--accent)}
 input[type="file"]{display:none}
@@ -130,16 +225,16 @@ input[type="file"]{display:none}
   display:flex;align-items:center;gap:14px;padding:12px 0;
   border-top:1px solid var(--border);margin-top:12px;
 }
-.overall-lbl{font-family:var(--mono);font-size:0.62rem;letter-spacing:.15em;color:var(--dim)}
+.overall-lbl{font-family:var(--mono);font-size:.75rem;letter-spacing:.15em;color:var(--dim)}
 .overall-val{font-family:var(--mono);font-size:1.05rem;font-weight:700}
 .overall-val.ok{color:var(--ok)}.overall-val.ng{color:var(--ng)}
-.overall-note{font-family:var(--mono);font-size:0.62rem;color:var(--dim)}
+.overall-note{font-family:var(--mono);font-size:.75rem;color:var(--dim)}
 
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:0.8rem}
 thead tr{border-bottom:1px solid var(--border2)}
 th{
-  font-family:var(--mono);font-size:0.58rem;letter-spacing:.1em;text-transform:uppercase;
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;
   color:var(--dim);padding:8px 11px;text-align:right;white-space:nowrap;
 }
 th:first-child{text-align:left}
@@ -160,7 +255,7 @@ tr:hover td{background:var(--bg3)}
 
 .decay-bar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
 .manual-panel{
-  background:var(--bg3);border:1px solid var(--border2);border-radius:3px;
+  background:var(--bg3);border:1px solid var(--border2);border-radius:var(--ac-radius);
   padding:14px;margin-top:10px;display:none;
 }
 .manual-panel.vis{display:block}
@@ -168,7 +263,9 @@ tr:hover td{background:var(--bg3)}
 .manual-res{font-family:var(--mono);font-size:0.72rem;color:var(--ok);margin-left:4px}
 .manual-head{font-family:var(--mono);font-size:0.6rem;letter-spacing:.12em;color:var(--accent);margin-bottom:10px}
 
-#wave{width:100%;height:130px;display:block;border-radius:3px;background:var(--bg3)}
+.wave-view{--wave-pre:#7895af;--wave-post:#6d987e;--wave-peak:#750e1c}
+:root[data-theme="dark"] .wave-view{--wave-pre:#577b9b;--wave-post:#538166;--wave-peak:#ffd5d8}
+#wave{width:100%;height:130px;display:block;border-radius:var(--ac-radius);background:var(--ac-surface)}
 .wave-legend{display:flex;gap:16px;margin-top:8px;font-size:0.7rem;color:var(--dim)}
 .leg-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
 
@@ -176,22 +273,135 @@ tr:hover td{background:var(--bg3)}
   main{padding:14px 12px 48px}
   th,td{padding:7px 8px;font-size:.72rem}
 }
+
+#decayPlot .modebar { background: var(--ac-surface) !important; }
+#decayPlot .modebar-btn path { fill: var(--ac-muted) !important; }
+#decayPlot .hovertext path { fill: var(--ac-surface-alt) !important; stroke: var(--ac-border) !important; }
+#decayPlot .hovertext text { fill: var(--ac-text) !important; font-family: var(--ac-font) !important; }
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--bg2); color: var(--text);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--accent2); color: var(--bg); font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .ac-header .ac-home { display: inline-flex; align-items: center; min-height: 44px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  main select { height: 44px; }
+  .ctrl-g, .ctrl-g select { max-width: 100%; }
+  .card:has(> #decayPlot) { overflow-x: auto; }
+  #decayPlot.js-plotly-plot { min-width: 30rem; }
+  .js-plotly-plot .plotly .modebar {
+    right: 0; display: flex; max-width: 100%; overflow-x: auto;
+  }
+  .js-plotly-plot .plotly .modebar-group { flex: none; }
+  .js-plotly-plot .plotly .modebar-btn {
+    box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0;
+  }
+  .wave-legend, .overall-row { flex-wrap: wrap; }
+  .nav-actions button, main button, main select, main input[type="number"],
+  .file-lbl, .check-row { min-height: 44px; min-width: 44px; }
+  .file-lbl { display: inline-flex; align-items: center; }
+  .check-row input { flex: none; font-size: 16px; }
+}
 </style>
 </head>
 <body>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
 
-<nav>
-  <div class="nav-inner">
+<header class="ac-appbar">
+  <div class="nav-inner ac-header">
     <div class="nav-brand">
-      <div class="nav-title">手をたたいて残響時間を推定</div>
+      <h1 class="nav-title">手をたたいて残響時間を推定</h1>
       <div class="nav-sub">RT Estimator &middot; Clap Method &middot; Building Acoustics</div>
     </div>
     <div class="nav-actions">
       <button class="btn-lang active" id="btnJP">JP</button>
       <button class="btn-lang" id="btnEN">EN</button>
     </div>
+  <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
   </div>
-</nav>
+</header>
 
 <main>
 <div class="grid">
@@ -327,13 +537,13 @@ tr:hover td{background:var(--bg3)}
 </section>
 
 <!-- 5) 元波形 -->
-<section class="card">
+<section class="card wave-view">
   <div class="card-title" data-i18n="sec5">5 · 元信号の波形</div>
   <canvas id="wave"></canvas>
   <div class="wave-legend">
-    <span><span class="leg-dot" style="background:#f87171"></span><span data-i18n="lgClap">手拍子検出点</span></span>
-    <span><span class="leg-dot" style="background:#60a5fa"></span><span data-i18n="lgBg">事前暗騒音窓</span></span>
-    <span><span class="leg-dot" style="background:#34d399"></span><span data-i18n="lgPost">直後200ms窓</span></span>
+    <span><span class="leg-dot" style="background:var(--wave-peak)"></span><span data-i18n="lgClap">手拍子検出点</span></span>
+    <span><span class="leg-dot" style="background:var(--wave-pre)"></span><span data-i18n="lgBg">事前暗騒音窓</span></span>
+    <span><span class="leg-dot" style="background:var(--wave-post)"></span><span data-i18n="lgPost">直後200ms窓</span></span>
   </div>
   <p class="hint" style="margin-top:8px" data-i18n="waveNote">
     解析に用いた切り出し範囲の元の波形。赤 = 手拍子検出点、青帯 = 事前暗騒音窓、緑帯 = 直後200ms窓。
@@ -431,6 +641,7 @@ document.getElementById('btnEN').onclick = () => applyLang('en');
 
 /* ── state ── */
 let lastBuffer    = null;   // {fs, data: Float32Array}
+let waveView = null;
 const savedTakes = [];
 let inputId = 0, currentSingle = null, displayed = null;
 let activeTake = null;
@@ -481,6 +692,7 @@ async function decodeToMono(blob){
 }
 
 function clearPlots(){
+  waveView = null;
   document.getElementById('detailBand').innerHTML = '';
   const plot = document.getElementById('decayPlot');
   if(plot.data) Plotly.purge(plot);
@@ -824,7 +1036,8 @@ async function analyze(){
   renderTable();
   renderOverall();
   renderDecayInit();
-  drawWave(x, fs, pi, preStart, preEnd, postN, anaStart);
+  waveView = {x, pi, preStart, preEnd, postN, anaStart};
+  drawWave(waveView);
 
   document.getElementById('manualPanel').classList.toggle('vis', document.getElementById('manualRegress').checked);
   updateDots();
@@ -902,6 +1115,30 @@ function renderOverall(){
 }
 
 /* ── DECAY PLOT ── */
+const fitStyles = {
+  EDT:{token:'muted', dash:'solid'}, T10:{token:'link', dash:'dash'},
+  T20:{token:'success', dash:'dashdot'}, T30:{token:'warning', dash:'dot'}
+};
+
+function decayPlotTemplate(traces){
+  const css = getComputedStyle(document.documentElement);
+  const token = name => css.getPropertyValue('--ac-' + name).trim();
+  const surface = token('surface'), text = token('text'), grid = token('muted');
+  const axis = {color:text, gridcolor:grid, linecolor:grid, zerolinecolor:grid};
+  return {layout:{
+    paper_bgcolor:surface, plot_bgcolor:surface, font:{family:token('font'), color:text},
+    xaxis:axis, yaxis:axis,
+    colorway:traces.map(trace => token(trace.meta)),
+    shapes:Object.entries(fitStyles).map(([name, style]) => {
+      const color = token(style.token);
+      // Shared color tokens use #rrggbb. Keep interval edges opaque and tint only the fill.
+      const rgb = [1,3,5].map(i => parseInt(color.slice(i,i+2),16));
+      return {name, visible:false, layer:'below', fillcolor:`rgba(${rgb},0.10)`,
+        line:{color, width:1, dash:style.dash}};
+    })
+  }};
+}
+
 function renderDecayInit(){
   const fs = lastBuffer?.fs || 48000;
   const detailBand = document.getElementById('detailBand');
@@ -932,34 +1169,26 @@ function renderDecay(fs){
   const y = Array.from(r.decay);
   const z0 = parseFloat(document.getElementById('zoomStart').value) || 0;
   const z1 = parseFloat(document.getElementById('zoomEnd').value)   || (N/fs);
-  const SEG = {
-    EDT:{fill:'rgba(148,163,184,.15)', line:'#94a3b8', dash:'solid'},
-    T10:{fill:'rgba(96,165,250,.15)',  line:'#60a5fa', dash:'dash'},
-    T20:{fill:'rgba(52,211,153,.15)',  line:'#34d399', dash:'dashdot'},
-    T30:{fill:'rgba(251,191,36,.15)',  line:'#fbbf24', dash:'dot'},
-  };
   const shapes=[], traces=[{
-    name:'Schroeder', x:t, y:y, mode:'lines',
-    line:{width:1.5, color:'rgba(200,212,232,0.75)'}
+    name:'Schroeder', x:t, y:y, mode:'lines', meta:'text', line:{width:1.5}
   }];
   for(const key of ['EDT','T10','T20','T30']){
     const f = r.fits[key]; if(!f?.seg) continue;
     const [i0,i1] = f.seg, x0=t[i0], x1=t[Math.max(i1-1,i0)];
-    shapes.push({type:'rect',xref:'x',yref:'paper',x0,x1,y0:0,y1:1,fillcolor:SEG[key].fill,line:{width:0}});
+    shapes.push({type:'rect',xref:'x',yref:'paper',x0,x1,y0:0,y1:1,templateitemname:key,visible:true});
     if(isFinite(f.a)){
       traces.push({
         name:`${key}${isFinite(r[key])?' '+r[key].toFixed(2)+'s':''}`,
         x:[x0,x1], y:[f.a*i0+f.b, f.a*(i1-1)+f.b], mode:'lines',
-        line:{dash:SEG[key].dash, width:2, color:SEG[key].line}
+        meta:fitStyles[key].token, line:{dash:fitStyles[key].dash, width:2}
       });
     }
   }
   const layout = {
-    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(22,28,42,.8)',
-    font:{family:"'Space Mono',monospace", size:11, color:'#4e5f7a'},
+    template:decayPlotTemplate(traces), font:{size:11},
     margin:{l:54,r:16,t:10,b:44},
-    xaxis:{title:'Time [s]', range:[z0,z1], color:'#5a6a84', gridcolor:'rgba(180,200,255,.06)', linecolor:'rgba(180,200,255,.15)'},
-    yaxis:{title:'Level [dB]', range:[-80,3], color:'#5a6a84', gridcolor:'rgba(180,200,255,.06)', linecolor:'rgba(180,200,255,.15)'},
+    xaxis:{title:'Time [s]', range:[z0,z1]},
+    yaxis:{title:'Level [dB]', range:[-80,3]},
     legend:{bgcolor:'rgba(0,0,0,0)', font:{size:10}},
     dragmode: document.getElementById('manualRegress').checked ? 'select' : 'zoom',
     shapes, showlegend:true
@@ -994,21 +1223,29 @@ document.getElementById('btnManualT20Regress').onclick = () => {
 };
 
 /* ── WAVEFORM ── */
-function drawWave(x, fs, pi, preStart, preEnd, postN, anaStart){
+window.addEventListener('ac-theme-change', () => {
+  if(waveView) drawWave(waveView);
+  const plot = document.getElementById('decayPlot');
+  if(plot.data) Plotly.relayout(plot, {template:decayPlotTemplate(plot.data)});
+});
+
+function drawWave({x, pi, preStart, preEnd, postN, anaStart}){
   const cv = document.getElementById('wave');
   const W = cv.width = cv.clientWidth || cv.offsetWidth || 800, H = cv.height = 130;
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#161c2a'; ctx.fillRect(0,0,W,H);
+  const css = getComputedStyle(cv);
+  const color = name => css.getPropertyValue(name).trim();
+  ctx.fillStyle = color('--ac-surface'); ctx.fillRect(0,0,W,H);
   const span = x.length - anaStart;
   const pxOf = idx => Math.round((idx - anaStart) / span * W);
   // BG zone
-  ctx.fillStyle = 'rgba(96,165,250,.1)';
+  ctx.fillStyle = color('--wave-pre');
   ctx.fillRect(pxOf(preStart), 0, pxOf(preEnd)-pxOf(preStart), H);
   // post zone
-  ctx.fillStyle = 'rgba(52,211,153,.1)';
+  ctx.fillStyle = color('--wave-post');
   ctx.fillRect(pxOf(pi), 0, pxOf(pi+postN)-pxOf(pi), H);
   // waveform
-  ctx.strokeStyle = 'rgba(200,212,232,.6)'; ctx.lineWidth = 1; ctx.beginPath();
+  ctx.strokeStyle = color('--ac-text'); ctx.lineWidth = 1; ctx.beginPath();
   for(let p=0; p<W; p++){
     const si = anaStart + Math.round(p*span/W);
     const v  = x[Math.max(0, Math.min(x.length-1, si))];
@@ -1018,7 +1255,7 @@ function drawWave(x, fs, pi, preStart, preEnd, postN, anaStart){
   ctx.stroke();
   // peak line
   const ppx = pxOf(pi);
-  ctx.strokeStyle = '#f87171'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = color('--wave-peak'); ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(ppx,0); ctx.lineTo(ppx,H); ctx.stroke();
 }
 

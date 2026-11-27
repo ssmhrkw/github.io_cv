@@ -2,32 +2,132 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>wav2Fmax — Pro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Space+Mono:wght@400;700&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0b0d12; --bg2:#10141e; --bg3:#161c2a;
-  --border:rgba(180,200,255,0.07); --border2:rgba(100,160,255,0.22);
-  --text:#c0cee6; --dim:#4e5f7a; --bright:#e8f0ff;
-  --accent:#4a8fff; --accent2:#7eb8ff;
-  --ok:#34d399; --ng:#f87171; --warn:#fbbf24;
-  --mono:'Space Mono',monospace;
-  --serif:'EB Garamond',Georgia,serif;
-  --jp:'Noto Serif JP',serif;
+:root {
+  --bg: var(--ac-bg);
+  --bg2: var(--ac-surface);
+  --bg3: var(--ac-surface-alt);
+  --border: var(--ac-border);
+  --border2: var(--ac-border);
+  --text: var(--ac-text);
+  --dim: var(--ac-muted);
+  --bright: var(--ac-text);
+  --accent: var(--ac-link);
+  --accent2: var(--ac-link);
+  --ok: var(--ac-success);
+  --ng: var(--ac-danger);
+  --warn: var(--ac-warning);
+  --mono: var(--ac-mono);
+  --serif: var(--ac-font);
+  --jp: var(--ac-font);
 }
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:var(--jp);font-size:14px;line-height:1.65;min-height:100vh}
 
 /* NAV */
-nav{position:sticky;top:0;z-index:100;background:rgba(11,13,18,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.ac-appbar{position:sticky;top:0;z-index:100;background:var(--ac-surface);border-bottom:1px solid var(--border)}
 .nav-inner{max-width:1280px;margin:0 auto;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .nav-brand{display:flex;flex-direction:column;gap:2px}
 .nav-title{font-family:var(--serif);font-size:1.1rem;font-weight:500;color:var(--bright)}
-.nav-sub{font-family:var(--mono);font-size:0.56rem;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.nav-sub{font-family:var(--mono);font-size:0.75rem;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
 #statusEl{font-family:var(--mono);font-size:0.62rem;color:var(--dim);letter-spacing:.06em}
 
 /* LAYOUT */
@@ -35,10 +135,10 @@ nav{position:sticky;top:0;z-index:100;background:rgba(11,13,18,.94);backdrop-fil
 @media(max-width:900px){.wrap{grid-template-columns:1fr}}
 
 /* CARD */
-.card{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:18px;position:relative;overflow:hidden;animation:fadeUp .5s ease both}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--ac-radius);padding:var(--ac-space-4);position:relative;overflow:hidden;animation:fadeUp .5s ease both}
+@keyframes fadeUp{from{transform:translateY(6px)}to{transform:translateY(0)}}
 .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.45}
-.card-title{font-family:var(--mono);font-size:0.6rem;letter-spacing:.28em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.card-title{font-family:var(--ac-font);font-size:1rem;font-weight:650;letter-spacing:.02em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:10px}
 .card-title::after{content:'';flex:1;height:1px;background:var(--border2)}
 
 /* SIDEBAR */
@@ -50,24 +150,25 @@ nav{position:sticky;top:0;z-index:100;background:rgba(11,13,18,.94);backdrop-fil
 
 /* CONTROLS */
 .ctrl-g{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
-.ctrl-lbl{font-family:var(--mono);font-size:0.56rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
+.ctrl-lbl{font-family:var(--mono);font-size:0.75rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
 .ctrl-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px}
 
-button{font-family:var(--mono);font-size:0.66rem;letter-spacing:.05em;padding:7px 14px;border:1px solid var(--border2);border-radius:3px;background:transparent;color:var(--accent2);cursor:pointer;transition:all .18s;white-space:nowrap}
-button:hover:not(:disabled){background:var(--accent);border-color:var(--accent);color:#fff}
-button:disabled{opacity:.3;cursor:not-allowed}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.primary:hover:not(:disabled){background:#3a7fee}
+button{font-family:var(--ac-font);font-size:0.875rem;letter-spacing:.05em;padding:7px 14px;border:1px solid var(--border2);border-radius:var(--ac-radius);background:transparent;color:var(--accent2);cursor:pointer;transition:border-color .18s;white-space:nowrap}
+button:hover:not(:disabled){background:var(--ac-primary);border-color:var(--ac-primary);color:var(--ac-on-primary)}
+button:disabled{background:var(--ac-surface-alt);color:var(--ac-muted);cursor:not-allowed}
+button.primary{background:var(--ac-primary);border-color:var(--ac-primary);color:var(--ac-on-primary)}
+button.primary:hover:not(:disabled){background:var(--ac-primary-hover)}
 button.danger{border-color:var(--ng);color:var(--ng)}
-button.danger:hover:not(:disabled){background:var(--ng);color:#fff}
-button.processing{background:var(--ng)!important;border-color:var(--ng)!important;color:#fff!important;animation:prec 1s ease-in-out infinite}
+button.danger:hover:not(:disabled){background:var(--ac-surface-alt);color:var(--ng)}
+button.processing{background:var(--ac-surface-alt)!important;border-color:var(--ng)!important;color:var(--ng)!important;animation:prec 1s ease-in-out infinite}
 @keyframes prec{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.4)}55%{box-shadow:0 0 0 6px rgba(248,113,113,0)}}
 
-select,input[type="number"],input[type="text"]{font-family:var(--mono);font-size:0.66rem;background:var(--bg3);color:var(--text);border:1px solid var(--border2);border-radius:3px;padding:6px 9px;transition:border-color .18s;width:100%}
-select:focus,input:focus{outline:none;border-color:var(--accent)}
+select,input[type="number"],input[type="text"]{font-family:var(--ac-font);font-size:16px;background:var(--bg3);color:var(--text);border:1px solid var(--border2);border-radius:var(--ac-radius);padding:6px 9px;transition:border-color .18s;width:100%}
+select:focus-visible,input:focus-visible{outline:2px solid var(--ac-focus);outline-offset:2px;border-color:var(--ac-focus)}
+.file-zone:focus-within{outline:2px solid var(--ac-focus);outline-offset:2px}
 
-.file-zone{border:1px dashed var(--border2);border-radius:3px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
-.file-zone:hover,.file-zone.drag{border-color:var(--accent);background:rgba(74,143,255,.05)}
+.file-zone{border:1px dashed var(--border2);border-radius:var(--ac-radius);padding:14px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.file-zone:hover,.file-zone.drag{border-color:var(--accent);background:var(--ac-surface-alt)}
 .file-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}
 .file-name{font-family:var(--mono);font-size:0.62rem;color:var(--dim);margin-top:6px;word-break:break-all}
 
@@ -79,33 +180,33 @@ input[type="checkbox"]{accent-color:var(--accent);width:13px;height:13px;cursor:
 
 /* TABS */
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
-.tab{font-family:var(--mono);font-size:0.62rem;letter-spacing:.06em;flex:0 0 auto;padding:6px 12px;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--dim);background:transparent;transition:all .18s;white-space:nowrap}
+.tab{font-family:var(--mono);font-size:0.62rem;letter-spacing:.06em;flex:0 0 auto;padding:6px 12px;border:1px solid var(--border2);border-radius:var(--ac-radius);cursor:pointer;color:var(--dim);background:transparent;transition:border-color .18s;white-space:nowrap}
 .tab:hover{border-color:var(--accent);color:var(--accent2)}
-.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab.active{background:var(--ac-primary);border-color:var(--ac-primary);color:var(--ac-on-primary)}
 
 /* TABLE */
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:0.75rem}
 thead tr{border-bottom:1px solid var(--border2)}
-th{font-family:var(--mono);font-size:0.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:7px 10px;text-align:right;white-space:nowrap}
+th{font-family:var(--mono);font-size:0.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:var(--ac-space-2) var(--ac-space-3);text-align:right;white-space:nowrap}
 th:first-child{text-align:left}
-td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--text)}
+td{padding:var(--ac-space-2) var(--ac-space-3);text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;color:var(--text)}
 td:first-child{text-align:left;font-family:var(--mono);font-size:0.68rem;color:var(--accent2)}
 tr:hover td{background:var(--bg3)}
 th.fc-head{cursor:pointer;color:var(--accent2);transition:color .18s}
 th.fc-head:hover{color:var(--accent)}
 
 /* BAND PLOTS */
-.band-plot{height:200px;margin-bottom:10px;border-radius:3px;background:var(--bg3);border:1px solid var(--border)}
+.band-plot{height:200px;margin-bottom:10px;border-radius:var(--ac-radius);background:var(--bg3);border:1px solid var(--border)}
 
 /* SETUP TABLE */
 .setup-table{width:100%;border-collapse:collapse;font-size:0.72rem}
-.setup-table th{font-family:var(--mono);font-size:0.54rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:5px 6px;text-align:left;border-bottom:1px solid var(--border)}
+.setup-table th{font-family:var(--mono);font-size:0.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:5px 6px;text-align:left;border-bottom:1px solid var(--border)}
 .setup-table td{padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
-.setup-table select,.setup-table input{font-size:0.62rem;padding:4px 6px}
+.setup-table select,.setup-table input{font-size:16px;padding:4px 6px}
 
 /* OVERLAY */
-#overlay{position:fixed;inset:0;background:rgba(11,13,18,.8);backdrop-filter:blur(8px);display:none;z-index:9999;align-items:center;justify-content:center;color:var(--text);flex-direction:column;gap:16px}
+#overlay{position:fixed;inset:0;background:color-mix(in srgb, var(--ac-surface) 96%, transparent);backdrop-filter:blur(8px);display:none;z-index:9999;align-items:center;justify-content:center;color:var(--text);flex-direction:column;gap:16px}
 #overlay.vis{display:flex}
 .spinner{width:48px;height:48px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--accent);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -117,19 +218,138 @@ th.fc-head:hover{color:var(--accent)}
 .main-area .card:nth-child(2){animation-delay:.14s}
 
 .hint{font-size:0.75rem;color:var(--dim);line-height:1.8}
+
+.band-plot.js-plotly-plot .modebar-group { background-color: var(--ac-surface) !important; }
+.band-plot.js-plotly-plot .modebar-btn path { fill: var(--ac-muted) !important; }
+.band-plot.js-plotly-plot .modebar-btn:is(:hover, .active) path { fill: var(--ac-link) !important; }
+.band-plot.js-plotly-plot .hovertext :is(path, rect) { fill: var(--ac-text) !important; }
+.band-plot.js-plotly-plot .hovertext text { fill: var(--ac-surface) !important; }
+
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--bg2); color: var(--text);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--accent2); color: var(--bg); font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .ac-header .ac-home { display: inline-flex; align-items: center; min-height: 44px; }
+  .wrap { grid-template-columns: minmax(0, 1fr); padding-inline: 12px; }
+  .nav-brand, #statusEl, #log, #summaryTitle { overflow-wrap: anywhere; }
+  .sidebar select { height: 44px; }
+  .file-zone input { width: 100%; height: 100%; }
+  .check-row, .sidebar button, .sidebar select, .sidebar input[type="number"],
+  .tabs .tab { min-height: 44px; }
+  .sidebar input[type="checkbox"] { font-size: 16px; }
+  .tabs .tab { display: inline-flex; align-items: center; }
+  #setupBody, #plotsWrap { overflow-x: auto; }
+  .setup-table .ck-use { width: 44px; height: 44px; }
+  .setup-table .sel-role { min-width: 9.5em; }
+  .setup-table .num-gain { min-width: 7em; }
+  .fc-head { height: 44px; min-width: 44px; }
+  .band-plot { min-width: 30rem; }
+  .js-plotly-plot .plotly .modebar {
+    right: 0; display: flex; max-width: 100%; overflow-x: auto;
+  }
+  .js-plotly-plot .plotly .modebar-group { flex: none; }
+  .js-plotly-plot .plotly .modebar-btn {
+    box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0;
+  }
+}
 </style>
 </head>
 <body>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
 
-<nav>
-  <div class="nav-inner">
+<header class="ac-appbar">
+  <div class="nav-inner ac-header">
     <div class="nav-brand">
-      <div class="nav-title">wav2Fmax</div>
+      <h1 class="nav-title">wav2Fmax</h1>
       <div class="nav-sub">Octave Band Analysis &middot; Building Acoustics</div>
     </div>
     <div id="statusEl">Ready</div>
+  <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
   </div>
-</nav>
+</header>
 
 <div class="wrap">
 
@@ -689,6 +909,30 @@ processBtn.addEventListener('click', async()=>{
 });
 
 /* ── render channel ── */
+function bandPlotTemplate(){
+  const css = getComputedStyle(document.documentElement);
+  const token = name => css.getPropertyValue('--ac-' + name).trim();
+  const surface = token('surface'), border = token('border'), text = token('text');
+  const axis = {color:text, gridcolor:border, linecolor:border, zerolinecolor:border};
+  return {
+    layout:{
+      paper_bgcolor:surface, plot_bgcolor:surface,
+      font:{family:token('font'), color:text},
+      xaxis:axis, yaxis:axis, yaxis2:axis,
+      colorway:[token('link'), token('success'), token('warning')],
+      annotationdefaults:{bgcolor:surface, font:{color:token('warning')}}
+    },
+    data:{scatter:[{}, {}, {marker:{line:{color:text}}}]}
+  };
+}
+
+window.addEventListener('ac-theme-change', () => {
+  const template = bandPlotTemplate();
+  for(const plot of document.querySelectorAll('#plotsWrap .band-plot')){
+    if(plot.data) Plotly.relayout(plot, {template});
+  }
+});
+
 function renderChannel(job,ch){
   if(!job.results){return;}
   const rec=job.results.results.find(r=>r.channelIndex===ch);
@@ -734,6 +978,7 @@ function renderChannel(job,ch){
   });
 
   const host=document.getElementById('plotsWrap'); host.innerHTML='';
+  const template=bandPlotTemplate();
   for(const f of centers){
     const m=rec.byBand[f]; if(!m) continue;
     const div=document.createElement('div'); div.className='band-plot'; div.id=`band-${Math.round(f)}`; host.appendChild(div);
@@ -744,19 +989,18 @@ function renderChannel(job,ch){
     let kmax=0; for(let k=1;k<m.sFast.length;k++) if(m.sFast[k]>m.sFast[kmax]) kmax=k;
     const tmax=kmax/sr;
     Plotly.react(div,[
-      {x:ds1.x,y:ds1.y,name:'BP signal',mode:'lines',line:{width:1,color:'rgba(96,165,250,.6)'}},
-      {x:ds2.x,y:ds2.y,name:'Lfmax (Fast)',mode:'lines',line:{width:1.5,color:'rgba(52,211,153,.8)'},yaxis:'y2'},
-      {x:[tmax],y:[m.Lfmax],name:'Lfmax',mode:'markers',marker:{symbol:'diamond',size:9,color:'#fbbf24',line:{width:1,color:'#fff'}},yaxis:'y2'}
+      {x:ds1.x,y:ds1.y,name:'BP signal',mode:'lines',line:{width:1}},
+      {x:ds2.x,y:ds2.y,name:'Lfmax (Fast)',mode:'lines',line:{width:1.5},yaxis:'y2'},
+      {x:[tmax],y:[m.Lfmax],name:'Lfmax',mode:'markers',marker:{symbol:'diamond',size:9,line:{width:1}},yaxis:'y2'}
     ],{
-      paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(22,28,42,.9)',
-      font:{family:"'Space Mono',monospace",size:10,color:'#4e5f7a'},
-      title:{text:`${bandLabel(f)} Hz`,font:{size:11,color:'#7eb8ff'},x:0.02,xanchor:'left'},
+      template, font:{size:10},
+      title:{text:`${bandLabel(f)} Hz`,font:{size:11},x:0.02,xanchor:'left'},
       margin:{l:50,r:50,t:28,b:30},
-      xaxis:{title:'t [s]',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
-      yaxis:{title:'Pa',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.06)',linecolor:'rgba(180,200,255,.15)'},
-      yaxis2:{title:'dB',overlaying:'y',side:'right',color:'#4e5f7a',gridcolor:'rgba(180,200,255,.04)'},
+      xaxis:{title:'t [s]'},
+      yaxis:{title:'Pa'},
+      yaxis2:{title:'dB',overlaying:'y',side:'right'},
       legend:{orientation:'h',y:-0.15,bgcolor:'rgba(0,0,0,0)',font:{size:9}},
-      annotations:[{x:tmax,y:m.Lfmax,text:`${m.Lfmax.toFixed(1)} dB`,yref:'y2',showarrow:false,yshift:10,font:{size:9,color:'#fbbf24'}}]
+      annotations:[{x:tmax,y:m.Lfmax,text:`${m.Lfmax.toFixed(1)} dB`,yref:'y2',showarrow:false,yshift:10,font:{size:9}}]
     });
   }
 }

@@ -9,47 +9,259 @@
   gtag('config', 'G-HFR5WYG42Q'); // ページビュー自動送信
 </script>
 <meta charset="utf-8">
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    const changed = document.documentElement.dataset.theme !== theme;
+    document.documentElement.dataset.theme = theme;
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    if (changed) window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', apply, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button');
+    if (!button) return;
+    mode = button.dataset.acMode;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WAV Inspector — Data Chunk & Device Metadata</title>
 <style>
-  :root{
-    --bg:#f8fafc; --panel:#fff; --text:#0f172a; --muted:#475569;
-    --accent:#2563eb; --ok:#10b981; --warn:#f59e0b; --bad:#ef4444; --chip:#e2e8f0;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  }
+  :root {
+  --bg: var(--ac-bg);
+  --panel: var(--ac-surface);
+  --text: var(--ac-text);
+  --muted: var(--ac-muted);
+  --accent: var(--ac-primary);
+  --ok: var(--ac-success);
+  --warn: var(--ac-warning);
+  --bad: var(--ac-danger);
+  --chip: var(--ac-surface-alt);
+  --mono: var(--ac-mono);
+}
   *{box-sizing:border-box}
   body{margin:0;padding:24px;background:var(--bg);color:var(--text);
-       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo}
+       font-family:var(--ac-font)}
   h1{margin:0 0 16px;font-size:clamp(20px,2.4vw,30px)}
   h2{margin:18px 0 8px} h3{margin:8px 0}
   .grid{display:grid;gap:16px;grid-template-columns:repeat(12,minmax(0,1fr))}
-  .card{grid-column:span 12;background:var(--panel);border:1px solid #e5e7eb;border-radius:16px;padding:16px;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+  .card{grid-column:span 12;background:var(--panel);border:1px solid var(--ac-border);border-radius:var(--ac-radius);padding:var(--ac-space-4);box-shadow:0 8px 24px rgba(15,23,42,.05)}
   @media(min-width:1024px){.span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span12{grid-column:span 12}}
-  .drop{border:2px dashed #cbd5e1;background:#f1f5f9;border-radius:16px;padding:18px;text-align:center;cursor:pointer}
-  .btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
-  .btn.secondary{background:#111827}
-  .btn.ghost{background:#e2e8f0;color:#111827}
+  .drop{border:2px dashed var(--ac-border);background:var(--ac-surface-alt);border-radius:var(--ac-radius);padding:18px;text-align:center;cursor:pointer}
+  .btn{background:var(--accent);color:var(--ac-on-primary);border:none;padding:8px 12px;border-radius:var(--ac-radius);font-weight:600;cursor:pointer}
+  .btn.secondary{background:var(--ac-surface-alt);border:1px solid var(--ac-border);color:var(--ac-text)}
+  .btn.ghost{background:var(--ac-surface-alt);color:var(--ac-text)}
   .mono{font-family:var(--mono)} .muted{color:var(--muted)}
   .chip{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--chip);font-family:var(--mono);font-size:12px;margin-right:4px}
   table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{border-top:1px solid #e5e7eb;padding:8px 10px;vertical-align:top}
-  th{text-align:left;background:#f8fafc}
+  th,td{border-top:1px solid var(--ac-border);padding:var(--ac-space-2) var(--ac-space-3);vertical-align:top}
+  th{text-align:left;background:var(--ac-surface-alt)}
   .kv{display:grid;grid-template-columns:220px 1fr;gap:8px}
   .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-  .select,.number,.text{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
-  canvas{width:100%;height:200px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}
+  .select,.number,.text{padding:8px 10px;border:1px solid var(--ac-border);border-radius:var(--ac-radius);background:var(--ac-surface)}
+  canvas{width:100%;height:200px;border:1px solid var(--ac-border);border-radius:var(--ac-radius);background:var(--ac-surface)}
   .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
   details>summary{cursor:pointer}
-  .bar{height:14px;background:#e2e8f0;border-radius:8px;position:relative;overflow:hidden}
-  .bar .seg{position:absolute;top:0;bottom:0;background:#60a5fa}
-  .kicker{font-size:12px;color:#64748b;margin-bottom:2px}
+  .bar{height:14px;background:var(--ac-surface-alt);border-radius:var(--ac-radius);position:relative;overflow:hidden}
+  .bar .seg{position:absolute;top:0;bottom:0;background:var(--ac-primary)}
+  .kicker{font-size:12px;color:var(--ac-muted);margin-bottom:2px}
   .row{display:flex;gap:8px;flex-wrap:wrap}
-  .hex{font-family:var(--mono);font-size:12px;background:#f1f5f9;border-radius:8px;padding:8px;overflow:auto}
+  .hex{font-family:var(--mono);font-size:12px;background:var(--ac-surface-alt);border-radius:var(--ac-radius);padding:8px;overflow:auto}
   .right{float:right}
+  .select,.number,.text { font-size:16px;color:var(--ac-text); }
+  .btn:hover:not(:disabled) { background:var(--ac-primary-hover);color:var(--ac-on-primary); }
+  /* The waveform canvas is monochrome. Adapt display only, preserving its source pixels. */
+  :root[data-theme="dark"] #canvasWrap canvas { filter:invert(1) hue-rotate(180deg); }
+</style>
+<style>
+html:has(#sample-gate[open]), body:has(#sample-gate[open]) { overflow: hidden; }
+#sample-gate {
+  box-sizing: border-box; width: min(28rem, calc(100% - 2rem)); max-height: calc(100% - 2rem);
+  margin: auto; padding: 20px; overflow: auto; overscroll-behavior: contain;
+  border: 0; border-radius: 8px; background: var(--panel); color: var(--text);
+  font-family: inherit; font-size: 16px; line-height: 1.6;
+}
+#sample-gate::backdrop { background: rgba(0, 0, 0, .6); }
+#sample-gate p { margin: 0 0 16px; font-size: inherit; }
+#sample-gate form { margin: 0; text-align: right; }
+#sample-gate button {
+  min-width: 64px; min-height: 44px; padding: 6px 16px; border: 0; border-radius: 6px;
+  background: var(--accent); color: #fff; font: inherit; cursor: pointer;
+}
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
+</style>
+<style id="ac-mobile">
+@media screen and (max-width: 768px) {
+  .ac-header .ac-modes button { min-width: 44px; min-height: 44px; }
+  .ac-header .ac-home { display: inline-flex; align-items: center; min-height: 44px; }
+  body { padding: 12px; }
+  #canvasWrap { overflow-x: auto; }
+  #canvasWrap canvas { display: block; width: auto; height: auto; }
+  .card > .grid, .kv { grid-template-columns: minmax(0, 1fr); }
+  .card:has(> table), .card > .grid > div { min-width: 0; overflow-x: auto; }
+  :is(#fileInfo, #err, #summary, #validation, #firstSamples) { overflow-wrap: anywhere; }
+  .controls > label { max-width: 100%; }
+  .controls select { height: 44px; }
+  .controls :is(input, select) { max-width: 100%; }
+  .controls > label:has(input[type="checkbox"]), label.btn {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .btn, .controls select, .controls input[type="number"],
+  .controls > label:has(input[type="checkbox"]), details > summary { min-height: 44px; }
+  .controls input[type="checkbox"] { flex: none; font-size: 16px; }
+  details > summary { min-width: 44px; padding-block: 10px; }
+}
 </style>
 </head>
 <body>
-<h1>WAV Inspector — Data Chunk & Device Metadata</h1>
+<dialog id="sample-gate" lang="ja" aria-label="サンプル利用上の注意" aria-describedby="sample-gate-message">
+  <p id="sample-gate-message">このツールはサンプル（コンセプト）です。計算・測定結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <form method="dialog"><button type="submit" autofocus>OK</button></form>
+</dialog>
+<script>
+{
+  const gate = document.getElementById('sample-gate');
+  gate.addEventListener('cancel', event => event.preventDefault());
+  gate.showModal();
+}
+</script>
+<header class="ac-header"><h1>WAV Inspector — Data Chunk & Device Metadata</h1>
+    <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
+    </div>
+  </header>
 <div class="grid">
 
   <div class="card span6">
@@ -61,7 +273,7 @@
       <div class="muted" style="margin-top:6px">完全フロントエンド処理（アップロードしません）。複数選択でバッチ集計も可。</div>
     </div>
     <div id="fileInfo" class="muted" style="margin-top:8px"></div>
-    <div id="err" class="mono" style="margin-top:6px;color:#ef4444"></div>
+    <div id="err" class="mono" style="margin-top:6px;color:var(--ac-danger)"></div>
     <div class="row" style="margin-top:8px">
       <button id="exportJSON" class="btn" disabled>JSONエクスポート</button>
       <button id="exportCSV" class="btn secondary" disabled>CSVエクスポート</button>

@@ -1,34 +1,145 @@
 <!doctype html>
-<html lang="ja" data-theme="light">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
+<!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<script id="ac-theme">
+(() => {
+  const key = 'ac-tools-theme-v1';
+  const system = window.matchMedia('(prefers-color-scheme: dark)');
+  const valid = value => ['auto', 'light', 'dark', 'black'].includes(value);
+  let mode = 'auto';
+  try {
+    const saved = localStorage.getItem(key);
+    if (valid(saved)) mode = saved;
+    else if (saved === null) {
+      // Older listening tools saved their palette alongside the selected tab or sound settings.
+      for (const oldKey of ['listening-shell-v1', 'lh-listening-v4-range', 'lh-listening-v3-2khz', 'lh-listening-v2', 'lh-listening-v1', 'tl-listening-v1']) {
+        let old;
+        try { old = JSON.parse(localStorage.getItem(oldKey)); } catch { continue; }
+        if (old && ['light', 'dark', 'black'].includes(old.theme)) {
+          mode = old.theme;
+          localStorage.setItem(key, mode);
+          break;
+        }
+      }
+    }
+  } catch { /* Storage can be unavailable for a local file. */ }
+
+  function apply() {
+    const theme = mode === 'auto' ? (system.matches ? 'dark' : 'light') : (mode === 'black' ? 'dark' : mode);
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.toggleAttribute('data-ac-black', mode === 'black');
+    for (const button of document.querySelectorAll('.ac-modes button')) {
+      button.setAttribute('aria-pressed', String(button.dataset.acMode === (mode === 'black' ? 'dark' : mode)));
+    }
+    window.dispatchEvent(new Event('ac-theme-change'));
+  }
+
+  apply();
+  document.addEventListener('DOMContentLoaded', () => {
+    if (location.pathname.split('/').at(-2) === 'lhtl') {
+      document.querySelector('.ac-home').setAttribute('href', '../index.html');
+    }
+    apply();
+  }, { once: true });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.ac-modes button, #seg-theme button');
+    if (!button) return;
+    mode = button.dataset.acMode || button.dataset.theme;
+    try { localStorage.setItem(key, mode); } catch { /* Keep this tab's selection. */ }
+    apply();
+  });
+  system.addEventListener('change', () => { if (mode === 'auto') apply(); });
+  window.addEventListener('storage', event => {
+    if (event.key === key || event.key === null) {
+      mode = valid(event.newValue) ? event.newValue : 'auto';
+      apply();
+    }
+  });
+})();
+</script>
+<style id="ac-tokens">
+/* Shared appearance for the standalone acoustic tools. */
+:root {
+  --ac-font: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", Meiryo, sans-serif;
+  --ac-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 24px;
+  --ac-radius: 8px;
+}
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --ac-bg: #f4f7f7; --ac-surface: #ffffff; --ac-surface-alt: #e8eff0;
+  --ac-text: #182b32; --ac-muted: #475c64; --ac-border: #71858c;
+  --ac-primary: #135b70; --ac-primary-hover: #0c485a; --ac-on-primary: #ffffff;
+  --ac-link: #105c76; --ac-focus: #036b88;
+  --ac-danger: #9c343c; --ac-success: #216341; --ac-warning: #795205;
+  --ac-backdrop: rgb(11 21 26 / 58%);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ac-bg: #111a1e; --ac-surface: #19252a; --ac-surface-alt: #233238;
+  --ac-text: #eef5f6; --ac-muted: #b5c7cc; --ac-border: #647b83;
+  --ac-primary: #83d5e6; --ac-primary-hover: #a7e5f0; --ac-on-primary: #082731;
+  --ac-link: #91ddef; --ac-focus: #8ae3fb;
+  --ac-danger: #ff9ca3; --ac-success: #8bdfad; --ac-warning: #f1ce83;
+  --ac-backdrop: rgb(3 9 12 / 72%);
+}
+:where(body) { color: var(--ac-text); background: var(--ac-bg); font-family: var(--ac-font); }
+:where(h1, h2, h3, h4) { font-family: var(--ac-font); line-height: 1.35; }
+:where(a) { color: var(--ac-link); }
+:where(code, pre, kbd, samp) { font-family: var(--ac-mono); }
+:where(.card) {
+  padding: var(--ac-space-4); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); background: var(--ac-surface);
+}
+:where(th, td) { padding: var(--ac-space-2); border-color: var(--ac-border); }
+:where(th) { color: var(--ac-text); background: var(--ac-surface-alt); }
+:where(button, .btn) {
+  font-family: var(--ac-font); font-size: .9375rem; line-height: 1.35;
+  min-height: 36px; padding: var(--ac-space-2) var(--ac-space-3);
+  color: var(--ac-text); background: var(--ac-surface);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius); cursor: pointer;
+}
+:where(button.primary, .btn-primary) { background: var(--ac-primary); color: var(--ac-on-primary); }
+:where(button:disabled) { cursor: default; }
+:where(select, textarea, input:not([type]), input:is([type="text"], [type="number"], [type="url"], [type="search"], [type="file"])) {
+  color: var(--ac-text); background: var(--ac-surface); font-family: var(--ac-font);
+  border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+  padding: var(--ac-space-1) var(--ac-space-2);
+}
+:where(input, select) { accent-color: var(--ac-primary); }
+</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>床衝撃音・遮音の聴き比べ（LH／Dr・Rr・TL）</title>
 <meta name="description" content="重量床衝撃音のLH曲線と、Dr／Rr等級曲線・帯域別TLを音で聴き比べるローカル試聴ページ。音声はブラウザ内だけで処理します。">
 <meta name="app-version" content="2.4.0">
-<!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
 :root {
-  color-scheme: light;
-  --bg: #fff; --surface: #fff; --soft: #f5f6f8;
-  --ink: #202124; --muted: #50555d; --line: #d5d8de; --ctl: #777e89;
-  --accent: #0017c1; --fill: var(--accent); --on-fill: #fff; --tint: #eef1ff;
-  --font-ui: "Hiragino Sans", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
-  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --corner: 6px; --page: 72rem; --gutter: clamp(1rem, 3.5vw, 3rem);
-  --transport-space: 7rem;
+  --bg: var(--ac-bg); --surface: var(--ac-surface); --soft: var(--ac-surface-alt);
+  --ink: var(--ac-text); --muted: var(--ac-muted); --line: var(--ac-border); --ctl: var(--ac-muted);
+  --accent: var(--ac-link); --fill: var(--ac-primary); --on-fill: var(--ac-on-primary); --tint: var(--ac-surface-alt);
+  --font-ui: var(--ac-font); --font-num: var(--ac-mono); --corner: var(--ac-radius);
+  --page: 72rem; --gutter: clamp(1rem, 3.5vw, 3rem); --transport-space: 7rem;
 }
-:root[data-theme="dark"], :root[data-theme="black"] {
-  color-scheme: dark;
-  --bg: #1c1d20; --surface: #232428; --soft: #2b2d32; --ink: #f7f8fa;
-  --muted: #c1c5ce; --line: #4c5058; --ctl: #8e95a1;
-  --accent: #a8bbff; --on-fill: #0c122b; --tint: #30384c;
+:root[data-theme="dark"][data-ac-black] {
+  --ac-bg: #000; --ac-surface: #080808; --ac-surface-alt: #191919; --ac-border: #747474;
 }
-:root[data-theme="black"] { --bg: #000; --surface: #080808; --soft: #191919; --line: #383838; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-bottom: var(--transport-space); }
 body { margin: 0; color: var(--ink); background: var(--bg); font: 1rem/1.65 var(--font-ui); }
+html:has(#sample-notice[open]) { overflow: hidden; }
+#sample-notice {
+  width: min(28rem, calc(100% - 2rem)); padding: 1.5rem;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--corner);
+}
+#sample-notice::backdrop { background: rgb(20 25 35 / 45%); }
+#sample-notice .btn { display: block; margin: 1.25rem 0 0 auto; min-width: 5rem; }
 .wrap { max-width: calc(var(--page) + var(--gutter) * 2); margin-inline: auto;
   padding: 0 max(var(--gutter), env(safe-area-inset-right)) calc(var(--transport-space) + env(safe-area-inset-bottom))
     max(var(--gutter), env(safe-area-inset-left)); }
@@ -43,9 +154,12 @@ b,strong { font-weight: 650; }
 button,select,input,output { font: inherit; color: inherit; }
 button,summary,select,input[type="range"],input[type="checkbox"],input[type="radio"] { cursor: pointer; }
 button { touch-action: manipulation; }
-button:disabled,input:disabled { cursor: default; opacity: .65; }
+button:disabled,input:disabled {
+  cursor: default; opacity: 1; color: var(--ac-muted); -webkit-text-fill-color: currentColor;
+  background: var(--ac-surface-alt); border-color: var(--ac-border);
+}
 :is(button,input,select,summary,a,[tabindex]):focus-visible {
-  outline: 3px solid var(--accent); outline-offset: 2px; z-index: 1;
+  outline: 3px solid var(--ac-focus); outline-offset: 2px; z-index: 1;
 }
 .skip { position: absolute; z-index: 20; inset-inline-start: 1rem; top: 0; transform: translateY(-150%);
   background: var(--surface); padding: .4rem .8rem; }
@@ -92,8 +206,8 @@ input[aria-invalid="true"] { outline: 2px dashed var(--ink); outline-offset: 2px
 .btn.primary,.cmp button[aria-pressed="true"] { color: var(--on-fill); background: var(--fill); border-color: var(--fill); }
 @media (hover: hover) {
   button:not(:disabled):not([aria-pressed="true"]):not([aria-selected="true"]):hover, summary:hover { color: var(--accent); }
-  .btn.primary:not(:disabled):hover,.cell:not(:disabled):hover { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .btn.primary:not(:disabled):hover { color: var(--on-fill); }
+  .btn.primary:not(:disabled):hover,.cell:not(:disabled):hover { outline: 2px solid var(--ac-focus); outline-offset: 1px; }
+  button.btn.primary:not(:disabled):hover { color: var(--on-fill); background: var(--ac-primary-hover); }
 }
 .msg:empty { margin: 0; }
 .msg:not(:empty) { margin-block: .55rem; }
@@ -122,7 +236,8 @@ details[open] > summary::after { transform: rotate(225deg); }
 .mh.col { padding-block: .2rem; }
 .mh b { font-weight: 600; color: var(--ink); }
 .mh.sep,.cell.sep { margin-top: .4rem; }
-.cell { min-width: 0; min-height: 2.5rem; position: relative; border: 1px solid var(--line);
+.cell { --fill: color-mix(in oklab, var(--ac-primary) 55%, var(--ac-surface));
+  min-width: 0; min-height: 2.5rem; position: relative; border: 1px solid var(--line);
   border-radius: 4px; padding: .1rem; background: var(--surface); color: var(--ink);
   line-height: 1.25; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .cell.sel,.cell.playing { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
@@ -213,16 +328,89 @@ table.t tr.on { font-weight: bold; background: var(--tint); }
   button[aria-pressed="true"],button[aria-selected="true"],.cell.sel { border: 2px solid Highlight; }
   .dot.on,.cell.playing::after { forced-color-adjust: none; background: Highlight; }
 }
+button.cell:not(:disabled):not([aria-pressed="true"]):hover { color: var(--ink); }
+</style>
+<style id="ac-components">
+/* Keep shared controls legible alongside each tool's own component rules. */
+html :is(input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"], [type="color"]), select, textarea) {
+  font-size: max(16px, 1em);
+}
+html ::placeholder { color: var(--ac-muted); opacity: 1; }
+html :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ac-focus); outline-offset: 2px;
+}
+.ac-header {
+  box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--ac-space-2) var(--ac-space-4); min-height: 56px; height: auto;
+  padding: var(--ac-space-2) var(--ac-space-4);
+  border-bottom: 1px solid var(--ac-border); background: var(--ac-surface); color: var(--ac-text);
+}
+.ac-header :is(h1, .ac-title) {
+  margin: 0; color: var(--ac-text); font: 700 clamp(1.125rem, 1.6vw, 1.4rem)/1.35 var(--ac-font);
+  letter-spacing: normal; white-space: normal;
+}
+.ac-header .ac-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ac-space-3);
+  margin-inline-start: auto; font: 500 14px/1.4 var(--ac-font); white-space: nowrap;
+}
+.ac-header .ac-home { color: var(--ac-link); font: inherit; text-decoration: underline; text-underline-offset: .2em; }
+.ac-header .ac-modes {
+  display: inline-flex; align-items: stretch; gap: 0; padding: 2px;
+  background: var(--ac-surface-alt); border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+}
+.ac-header .ac-modes button {
+  box-sizing: border-box; margin: 0; padding: var(--ac-space-1) var(--ac-space-2);
+  min-height: 32px; width: auto; min-width: 0; border: 0; border-radius: calc(var(--ac-radius) - 2px);
+  background: transparent; color: var(--ac-text); font: inherit; line-height: 1.4; cursor: pointer;
+}
+.ac-header .ac-modes button:hover { text-decoration: underline; }
+.ac-header .ac-modes button[aria-pressed="true"] { background: var(--ac-primary); color: var(--ac-on-primary); }
+dialog:is(#sample-gate, #sample-notice, #gate) {
+  background: var(--ac-surface); color: var(--ac-text); border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius); padding: var(--ac-space-5); font: 400 16px/1.6 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate)::backdrop { background: var(--ac-backdrop); }
+dialog:is(#sample-gate, #sample-notice, #gate) :is(p, label, .gate-title, .gate-body) { color: var(--ac-text); }
+dialog:is(#sample-gate, #sample-notice, #gate) button {
+  min-width: 64px; min-height: 44px; padding: var(--ac-space-2) var(--ac-space-4);
+  color: var(--ac-on-primary); background: var(--ac-primary); border: 0;
+  border-radius: var(--ac-radius); font: 600 1rem/1.4 var(--ac-font);
+}
+dialog:is(#sample-gate, #sample-notice, #gate) button:hover { background: var(--ac-primary-hover); }
+@media print { .ac-header .ac-actions { display: none; } }
 </style>
 </head>
 <body>
+<dialog id="sample-notice" aria-labelledby="sample-notice-text">
+  <p id="sample-notice-text">このツールはサンプル（コンセプト）です。計算・再生結果の正確性は保証できません。実務の判断には使用しないでください。</p>
+  <button type="button" class="btn primary" id="sample-notice-ok" autofocus>OK</button>
+</dialog>
+<script>
+const sampleNoticeAccepted = new Promise(resolve => {
+  const notice = document.getElementById('sample-notice');
+  notice.addEventListener('cancel', event => event.preventDefault());
+  document.getElementById('sample-notice-ok').addEventListener('click', () => {
+    notice.close();
+    resolve();
+  }, { once: true });
+  notice.showModal();
+});
+</script>
 <a class="skip" href="#main">本文へ移動</a>
 <div class="wrap">
-  <header class="top">
+  <header class="top ac-header">
     <h1>床衝撃音・遮音の聴き比べ</h1>
     <div class="tabs" role="tablist" aria-label="試聴の種類">
       <button type="button" role="tab" id="tab-lh" aria-controls="panel-lh" aria-selected="true">床衝撃音（LH）</button>
       <button type="button" role="tab" id="tab-tl" aria-controls="panel-tl" aria-selected="false" tabindex="-1">壁の遮音（Dr／Rr・TL）</button>
+    </div>
+    <div class="ac-actions" lang="ja">
+      <a class="ac-home" href="index.html">ツール一覧</a>
+      <div class="ac-modes" role="group" aria-label="表示テーマ">
+        <button type="button" data-ac-mode="auto" aria-pressed="true" title="OSの配色に合わせる">自動</button>
+        <button type="button" data-ac-mode="light" aria-pressed="false">ライト</button>
+        <button type="button" data-ac-mode="dark" aria-pressed="false">ダーク</button>
+      </div>
     </div>
   </header>
   <p class="notice" id="app-error" role="alert" hidden></p>
@@ -278,7 +466,7 @@ table.t tr.on { font-weight: bold; background: var(--tint); }
               <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
               <select id="lh-bgband">
                 <option value="wide">広帯域</option>
-                <option value="b4">63〜500 Hz</option>
+                <option value="b4" selected>63〜500 Hz</option>
               </select>
             </div>
             <div class="row">
@@ -297,16 +485,16 @@ table.t tr.on { font-weight: bold; background: var(--tint); }
                 <div class="row">
                   <label class="lbl" for="lh-sub-delay">補正量</label>
                   <div class="controls">
-                    <input type="range" id="lh-sub-delay" min="0" max="1000" step="1" value="0" aria-describedby="lh-sub-help">
-                    <label><input type="number" id="lh-sub-ms" min="0" max="1000" step="1" value="0" required aria-label="サブウーファー補正量（ミリ秒）" aria-describedby="lh-sub-help lh-sub-msg"> ms</label>
+                    <input type="range" id="lh-sub-delay" min="-1000" max="1000" step="1" value="0" aria-describedby="lh-sub-help">
+                    <label><input type="number" id="lh-sub-ms" min="-1000" max="1000" step="1" value="0" required aria-label="サブウーファー補正量（ミリ秒）" aria-describedby="lh-sub-help lh-sub-msg"> ms</label>
                   </div>
                 </div>
                 <div class="row">
-                  <label class="lbl" for="lh-sub-boundary">遅らせる帯域</label>
+                  <label class="lbl" for="lh-sub-boundary">補正の境目</label>
                   <select id="lh-sub-boundary" aria-describedby="lh-sub-help">
-                    <option value="125" selected>125 Hz 以上（既定）</option>
-                    <option value="250">250 Hz 以上</option>
-                    <option value="63">63 Hz 以上</option>
+                    <option value="125" selected>125 Hz（既定）</option>
+                    <option value="250">250 Hz</option>
+                    <option value="63">63 Hz</option>
                   </select>
                 </div>
                 <div class="row">
@@ -315,7 +503,7 @@ table.t tr.on { font-weight: bold; background: var(--tint); }
                 </div>
               </div>
               <p class="msg" id="lh-sub-msg" role="status"></p>
-              <p class="hint" id="lh-sub-help">選んだ帯域とそれより高い帯域の衝撃音を0〜1000 ms遅らせます。境目はサブウーファーのクロスオーバー周波数に近い帯域を選んでください。</p>
+              <p class="hint" id="lh-sub-help">プラスの値では境目以上の帯域を、マイナスの値では境目未満の帯域（サブウーファー側）を、指定した時間だけ遅らせます。0 msでは遅らせません。境目にはサブウーファーのクロスオーバー周波数に近い帯域を選んでください。</p>
               <p>テストクリックでは、全帯域で同時に始まる音に、設定した補正をかけて再生します。</p>
             </div>
           </details>
@@ -1102,15 +1290,10 @@ const audio = {
 let shell = { tab: 'lh', theme: 'light' };
 function loadShell(){
   const s = store.get(SHELL_KEY) || {};
-  const legacyLh = store.get('lh-listening-v4-range') || store.get('lh-listening-v3-2khz') || store.get('lh-listening-v2') || store.get('lh-listening-v1') || {};
-  const legacyTl = store.get('tl-listening-v1') || {};
-  const themes = ['light', 'dark', 'black'];
-  let theme = [s.theme, legacyLh.theme, legacyTl.theme].find(t => themes.includes(t));
-  if (!theme) theme = 'light';
-  shell = { tab: s.tab === 'tl' ? 'tl' : 'lh', theme };   // the saved tab is only used by the two-tab build
+  shell.tab = s.tab === 'tl' ? 'tl' : 'lh';   // the saved tab is only used by the two-tab build
 }
 function applyTheme(){
-  document.documentElement.dataset.theme = shell.theme;
+  shell.theme = document.documentElement.hasAttribute('data-ac-black') ? 'black' : document.documentElement.dataset.theme;
   document.querySelectorAll('#seg-theme button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === shell.theme)));
 }
 function stopAll(){ for (const m of modules) { try { m.mod.stop(); } catch (e) { /* keep stopping the others */ } } }
@@ -1118,7 +1301,7 @@ function showTab(name, focus){
   const tabs = tabsPresent();
   if (!tabs.includes(name)) name = tabs[0];
   stopAll();
-  if (tabs.length > 1){ shell.tab = name; store.set(SHELL_KEY, shell); }
+  if (tabs.length > 1){ shell.tab = name; store.set(SHELL_KEY, { tab: shell.tab }); }
   for (const t of tabs){
     const on = t === name, tab = document.getElementById('tab-' + t);
     if (tab){ tab.setAttribute('aria-selected', String(on)); tab.tabIndex = on ? 0 : -1; if (on && focus) tab.focus(); }
@@ -1138,9 +1321,8 @@ function register(name, mod){ modules.push({ name, mod, ok: false }); api[name] 
 function start(){
   loadShell(); applyTheme();
   audio.create();
-  el('seg-theme').addEventListener('click', e => {
-    const b = e.target.closest('button[data-theme]'); if (!b) return;
-    shell.theme = b.dataset.theme; applyTheme(); store.set(SHELL_KEY, shell);
+  window.addEventListener('ac-theme-change', () => {
+    applyTheme();
     for (const m of modules) if (m.ok && m.mod.themeChanged) m.mod.themeChanged();
   });
   const tabs = tabsPresent().filter(t => document.getElementById('tab-' + t));
@@ -1211,7 +1393,7 @@ function defaults(){
   const ref50 = {}, off = {};
   BANDS.forEach((b, i) => { ref50[b.label] = REF65[i] - 15; off[b.label] = 0; });
   return { v: 6, mode: 'grade', add: { '16': false, '31.5': false, '1k': false, '2k': false }, custom4: [88, 78, 71, 65], ref50, off,
-    pattern: 'single', T: 0.7, subDelayMs: 0, subBoundaryHz: 125, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {}, synth: 'common' };
+    pattern: 'single', T: 0.7, subDelayMs: 0, subBoundaryHz: 125, slope: -5, bgBand: 'b4', nums: false, level: LEVEL_DEFAULT, cal: {}, synth: 'common' };
 }
 function sanitize(s){
   const o = defaults();
@@ -1225,7 +1407,7 @@ function sanitize(s){
     if (s.cal && isNum(s.cal[b.label]) && s.cal[b.label] >= 0 && s.cal[b.label] <= 140) o.cal[b.label] = s.cal[b.label];
   }
   if (PATTERNS.includes(s.pattern)) o.pattern = s.pattern;
-  if (isNum(s.subDelayMs)) o.subDelayMs = Math.min(1000, Math.max(0, Math.round(s.subDelayMs)));
+  if (Number.isInteger(s.subDelayMs) && Math.abs(s.subDelayMs) <= 1000) o.subDelayMs = s.subDelayMs;
   if ([125, 250, 63].includes(s.subBoundaryHz)) o.subBoundaryHz = s.subBoundaryHz;
   if (isNum(s.T)) o.T = Math.min(2, Math.max(0.2, s.T));
   if ([-3, -5, -8].includes(s.slope)) o.slope = s.slope;
@@ -1242,7 +1424,7 @@ function migrate(old){
   if (!old || typeof old !== 'object') return s;
   const range = old.range;
   s.mode = range === 'custom4' ? 'custom' : 'grade';
-  if (range === 'custom4') s.bgBand = 'b4';
+  s.bgBand = range === 'custom4' ? 'b4' : 'wide';
   s.add['1k'] = range !== 'custom4';                       // v1 - v4 always included 1 kHz in the grade modes
   s.add['31.5'] = range === 'extended' || range === 'wide';
   s.add['16'] = range === 'wide';
@@ -1476,9 +1658,13 @@ function fitBands(raw, targets, fs, bands){
   const err = Math.max(...targets.map((t, b) => Math.abs(t - band[b])));
   return { gains: g, bandFmax: band, LAF: D.fastMaxDb(D.sosFilter(sum.subarray(0, N + Math.round(0.5 * fs)), sosA), fs), err: Number.isFinite(err) ? err : Infinity };
 }
-function subDelaySamples(fs, delayMs){ return Math.round(fs * delayMs / 1000); }
+function subDelaySamples(fs, delayMs){ return Math.round(fs * Math.abs(delayMs) / 1000); }
+function impactBandOffset(band, fs, delayMs, boundaryHz){
+  const delayed = delayMs < 0 ? band.fc < boundaryHz : band.fc >= boundaryHz;
+  return delayed ? subDelaySamples(fs, delayMs) : 0;
+}
 function mixImpactBand(out, samples, gain, band, fs, delayMs, boundaryHz = 125){
-  const offset = band.fc >= boundaryHz ? subDelaySamples(fs, delayMs) : 0;
+  const offset = impactBandOffset(band, fs, delayMs, boundaryHz);
   for (let n = 0; n < samples.length; n++) out[n + offset] += gain * samples[n];
 }
 function buildImpact(){
@@ -1486,7 +1672,8 @@ function buildImpact(){
   if (bands[bands.length - 1].fc * Math.sqrt(G10) >= fs / 2 * 0.98) throw new Error('この再生サンプリング周波数（' + fs + ' Hz）では選択した帯域の上端を扱えません。');
   const raw = (source === 'wav' && wav) ? wav.bands : synthBands(fs, S.T, bands);
   const fit = fitBands(raw, bands.map(target50), fs, bands);
-  const K = calKAll(), N = raw[0].length + subDelaySamples(fs, S.subDelayMs), dig = new Float32Array(N), gds = [];
+  const tail = Math.max(...bands.map(b => impactBandOffset(b, fs, S.subDelayMs, S.subBoundaryHz)));
+  const K = calKAll(), N = raw[0].length + tail, dig = new Float32Array(N), gds = [];
   for (let j = 0; j < raw.length; j++){
     const gd = fit.gains[j] / (P0 * Math.pow(10, K[bands[j].i] / 20)), x = raw[j];
     gds.push(gd);
@@ -1499,13 +1686,16 @@ function buildImpact(){
   // How much of the digital peak is owed to the bands below 50 Hz: peaks of each such band alone and of the sound
   // without them (information only; what is played is always the whole sound).
   const lowShare = bands.map((b, j) => ({ b, j })).filter(o => o.b.fc < LOW_FC).map(({ b, j }) => {
-    const alone = new Float32Array(N), x = raw[j]; for (let n = 0; n < x.length; n++) alone[n] = gds[j] * x[n];
+    const alone = new Float32Array(N);
+    mixImpactBand(alone, raw[j], gds[j], b, fs, S.subDelayMs, S.subBoundaryHz);
     return { label: b.label, alone: peakSet(alone) };
   });
   let withoutLow = null;
   if (lowShare.length){
     const y = Float32Array.from(dig);
-    for (let j = 0; j < raw.length; j++) if (bands[j].fc < LOW_FC){ const x = raw[j]; for (let n = 0; n < x.length; n++) y[n] -= gds[j] * x[n]; }
+    for (let j = 0; j < raw.length; j++) if (bands[j].fc < LOW_FC){
+      mixImpactBand(y, raw[j], -gds[j], bands[j], fs, S.subDelayMs, S.subBoundaryHz);
+    }
     withoutLow = peakSet(y);
   }
   const LAsum = 10 * Math.log10(bands.reduce((a, b, j) => a + Math.pow(10, (fit.bandFmax[j] + D.aDb(b.fc)) / 10), 0));
@@ -2443,7 +2633,7 @@ function bind(){
     const input = e.currentTarget;
     if (!input.validity.valid){
       subNumber.setAttribute('aria-invalid', 'true');
-      say('lh-sub-msg', '補正量は0〜1000 msの整数で入力してください。');
+      say('lh-sub-msg', '補正量は−1000〜+1000 msの整数で入力してください。');
       return;
     }
     subNumber.removeAttribute('aria-invalid');
@@ -3161,7 +3351,10 @@ return {
 
 </script>
 <script>
-App.start();
+sampleNoticeAccepted.then(() => {
+  App.start();
+  document.querySelector('.tabs [aria-selected="true"]').focus({ preventScroll: true });
+});
 </script>
 </body>
 </html>
