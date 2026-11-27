@@ -9,595 +9,759 @@
 <!-- No network access of any kind from this page: nothing can be loaded from or sent to another host. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data:; media-src blob: data:; worker-src blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
-/* Colours follow NIPPON COLORS (https://nipponcolors.com): 白練 #FCFAF2, 胡粉 #FFFFFB, 墨 #1C1C1C, 黒 #080808, 呂 #0C0C0C,
-   消炭 #434343, 藍墨茶 #373C38, 白鼠 #BDC0BA, 銀鼠 #91989F, 藍 #0D5661, 浅葱 #33A6B8, 白群 #78C2C4, 山吹 #FFB11B. */
-:root{
-  color-scheme:light;
-  --bg:#FCFAF2; --surface:#FFFFFB; --ink:#1C1C1C; --muted:#434343; --line:#BDC0BA; --ctl:#434343;
-  --accent:#0D5661; --fill:#0D5661; --on-fill:#FFFFFB; --warn:#8A4B00; --warn-bg:#FFF1DB;
-  --font-ui:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo","Noto Sans JP",system-ui,sans-serif;
-  --font-num:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+:root {
+  color-scheme: light;
+  --bg: #fff; --surface: #fff; --soft: #f5f6f8;
+  --ink: #202124; --muted: #50555d; --line: #d5d8de; --ctl: #777e89;
+  --accent: #0017c1; --fill: var(--accent); --on-fill: #fff; --tint: #eef1ff;
+  --font-ui: "Hiragino Sans", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --corner: 6px; --page: 72rem; --gutter: clamp(1rem, 3.5vw, 3rem);
+  --transport-space: 7rem;
 }
-:root[data-theme="dark"]{
-  color-scheme:dark;
-  --bg:#1C1C1C; --surface:#373C38; --ink:#FFFFFB; --muted:#BDC0BA; --line:#91989F; --ctl:#BDC0BA;
-  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+:root[data-theme="dark"], :root[data-theme="black"] {
+  color-scheme: dark;
+  --bg: #1c1d20; --surface: #232428; --soft: #2b2d32; --ink: #f7f8fa;
+  --muted: #c1c5ce; --line: #4c5058; --ctl: #8e95a1;
+  --accent: #a8bbff; --on-fill: #0c122b; --tint: #30384c;
 }
-:root[data-theme="black"]{
-  color-scheme:dark;
-  --bg:#080808; --surface:#0C0C0C; --ink:#FFFFFB; --muted:#BDC0BA; --line:#434343; --ctl:#91989F;
-  --accent:#78C2C4; --fill:#33A6B8; --on-fill:#080808; --warn:#FFB11B; --warn-bg:#1C1C1C;
+:root[data-theme="black"] { --bg: #000; --surface: #080808; --soft: #191919; --line: #383838; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-bottom: var(--transport-space); }
+body { margin: 0; color: var(--ink); background: var(--bg); font: 1rem/1.65 var(--font-ui); }
+.wrap { max-width: calc(var(--page) + var(--gutter) * 2); margin-inline: auto;
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) calc(var(--transport-space) + env(safe-area-inset-bottom))
+    max(var(--gutter), env(safe-area-inset-left)); }
+[hidden] { display: none !important; }
+h1,h2,h3,p,figure,fieldset,dl,ul { margin: 0; }
+h1,h2,h3 { line-height: 1.35; }
+h1 { font-size: clamp(1.5rem, 2.7vw, 2rem); letter-spacing: .015em; }
+h2 { font-size: clamp(1.3rem, 2.1vw, 1.65rem); }
+h3 { font-size: 1.125rem; }
+a { color: var(--accent); text-underline-offset: .2em; }
+b,strong { font-weight: 650; }
+button,select,input,output { font: inherit; color: inherit; }
+button,summary,select,input[type="range"],input[type="checkbox"],input[type="radio"] { cursor: pointer; }
+button { touch-action: manipulation; }
+button:disabled,input:disabled { cursor: default; opacity: .65; }
+:is(button,input,select,summary,a,[tabindex]):focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px; z-index: 1;
 }
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.6;
-  padding:16px max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px))}
-.wrap{max-width:1180px;margin:0 auto;display:grid;gap:14px}
-h1,h2,h3{margin:0;text-wrap:balance}
-h1{font-size:1.4rem;letter-spacing:.02em}
-h2{font-size:1.02rem;display:flex;align-items:center;gap:.5rem}
-p{margin:.35rem 0}
-a{color:var(--accent)}
-sub{font-size:.72em}
-[hidden]{display:none !important}
-.num,output{font-family:var(--font-num);font-variant-numeric:tabular-nums}
-.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:var(--surface);padding:6px 10px;z-index:20}
-.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start;justify-content:space-between}
-.lead{color:var(--muted);max-width:68ch;font-size:.9rem}
-.hint{font-size:.8rem;color:var(--muted);max-width:78ch}
-.notice{font-size:.84rem;background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:6px;padding:.5rem .75rem;margin:0}
-.notice b{color:var(--warn)}
-.err{color:var(--warn);font-weight:700}
-
-/* controls */
-button,select,input{font:inherit;color:var(--ink)}
-.btn,.seg button,.tabs button,.stepper button{border:1px solid var(--ctl);background:var(--surface);color:var(--ink);cursor:pointer;touch-action:manipulation;min-height:38px}
-.btn{border-radius:999px;padding:.4rem .95rem;font-size:.9rem}
-.btn.primary{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
-.btn.stop{font-weight:700}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.seg{display:inline-flex;flex-wrap:wrap;border-radius:12px;overflow:hidden;border:1px solid var(--ctl);background:var(--surface)}
-.seg button{border:0;border-radius:0;padding:.4rem .85rem;font-size:.88rem}
-.seg button + button{border-left:1px solid var(--ctl)}
-.seg button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);font-weight:700}
-:is(button,select,input,summary,a,[tabindex]):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-input[type="number"],select{background:var(--bg);border:1px solid var(--ctl);border-radius:6px;padding:.3rem .45rem;font-size:.9rem;min-height:36px}
-input[type="number"]{font-family:var(--font-num);width:5.4rem}
-select{max-width:100%;min-width:0;text-overflow:ellipsis}
-.row > select{flex:0 1 auto}
-input[aria-invalid="true"]{border-color:var(--warn);outline:2px solid var(--warn);outline-offset:1px}
-input[type="file"]{font-size:.84rem;max-width:100%}
-input[type="checkbox"],input[type="radio"]{width:1.15rem;height:1.15rem;accent-color:var(--fill)}
-.check{display:inline-flex;gap:.4rem;align-items:center;font-size:.9rem;min-height:36px}
-.row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:.5rem 0;border:0;padding:0;min-width:0}
-.lbl{font-size:.84rem;color:var(--muted);min-width:7.2em;padding:0}
-.chipfix{font-family:var(--font-num);font-size:.84rem;border:1px solid var(--line);border-radius:6px;padding:.1rem .45rem;background:var(--bg)}
-.msg{font-size:.84rem;min-height:1.2em;margin:.25rem 0}
-
-/* tabs */
-.tabs{display:flex;gap:6px;border-bottom:2px solid var(--ctl)}
-.tabs button{border-radius:10px 10px 0 0;border-bottom:0;padding:.55rem 1rem;font-size:.95rem;margin-bottom:-2px;color:var(--muted)}
-.tabs button[aria-selected="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
-
-/* layout */
-.grid2{display:grid;gap:14px;grid-template-columns:minmax(0,1fr);align-items:start}
-@media (min-width:980px){.grid2{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}}
-.col{display:grid;gap:14px;min-width:0}
-.card,details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
-details{padding:0 16px}
-details[open]{padding-bottom:12px}
-summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:.93rem}
-details p,details li{font-size:.85rem}
-details ol,details ul{margin:.4rem 0;padding-left:1.3rem}
-.step{display:inline-grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:50%;background:var(--fill);color:var(--on-fill);font-family:var(--font-num);font-size:.85rem;flex:none}
-.bandline{font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:.45rem .65rem;background:var(--bg);margin:.6rem 0 .3rem}
-.bandline b{font-weight:700}
-.bandline span{display:block}
-
-/* LH matrix: always fits the width (no horizontal scrolling) */
-.matrix{display:grid;grid-template-columns:minmax(3.4rem,auto) repeat(7,minmax(0,1fr));gap:3px;margin-top:.5rem}
-.mrow{display:contents}
-.mh{font-size:.74rem;color:var(--muted);display:flex;flex-direction:column;justify-content:center;line-height:1.25;padding:2px 3px;min-width:0}
-.mh b{color:var(--ink);font-size:.86rem;font-family:var(--font-num)}
-.mh.col{align-items:center;text-align:center}
-.mh.span{grid-column:2 / -1;align-items:center;font-size:.8rem;border-bottom:1px solid var(--line);padding-bottom:3px}
-.mh.sep,.cell.sep{margin-top:6px}
-.cell{min-height:40px;min-width:0;border:1px solid var(--ctl);border-radius:7px;background:var(--surface);color:var(--ink);cursor:pointer;
-  font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:.84rem;padding:2px;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.cell.sel{outline:2px solid var(--ink);outline-offset:1px}
-.cell.playing{outline:3px solid var(--accent);outline-offset:1px;font-weight:700}
-.cell.playing::after{content:"";position:absolute;right:4px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--ink);animation:pulse 1s ease-in-out infinite}
-.cell.over{cursor:not-allowed;color:var(--muted);border-style:dashed;
-  background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--muted) 22%,transparent) 5px 6px),var(--bg)}
-.cell.blank{visibility:hidden}
-@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
-@media (prefers-reduced-motion:reduce){.cell.playing::after,.dot.on{animation:none}}
-@media (max-width:520px){.cell{font-size:.74rem;min-height:42px}.mh b{font-size:.78rem}.card,details{padding-left:11px;padding-right:11px}}
-
-/* readout */
-.ro-title{font-size:1.1rem;font-weight:700}
-.chart{width:100%;height:auto;display:block}
-.chart .grid{stroke:var(--line);stroke-width:1}
-.chart text{fill:var(--muted);font-family:var(--font-num);font-size:10px}
-.chart .bar-imp{fill:var(--fill)}
-.chart .bar-bg{fill:var(--muted);opacity:.55}
-.chart .curve{stroke:var(--ink);stroke-width:1.5;fill:none}
-.chart .curve.dash{stroke-dasharray:5 4}
-.chart .dot{fill:var(--ink)}
-.chart .zone{fill:var(--fill);opacity:.1}
-.nums{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;margin:.4rem 0;font-size:.86rem}
-.nums dt{color:var(--muted)}
-.nums dd{margin:0;text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
-.tbl-wrap{overflow-x:auto}
-table.t{border-collapse:collapse;width:100%;font-size:.8rem}
-table.t th,table.t td{padding:3px 5px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-table.t th:first-child,table.t td:first-child{text-align:left;color:var(--muted);font-weight:400}
-table.t td{font-family:var(--font-num);font-variant-numeric:tabular-nums}
-table.t input[type="number"]{width:4.6rem}
-table.t tr.on td,table.t tr.on th{font-weight:700;color:var(--ink)}
-.formula{font-family:var(--font-num);font-size:.8rem;background:var(--bg);border-radius:6px;padding:.4rem .55rem;overflow-wrap:anywhere;white-space:normal}
-.big{font-size:1.05rem;font-weight:700;margin:.3rem 0}
-.bands{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:8px;margin:.5rem 0}
-.bands label{display:grid;gap:2px;font-size:.8rem;color:var(--muted)}
-.bands input{width:100%}
-.bands label.outside{border-top:3px dashed var(--ctl);padding-top:3px}
-.cmp{display:flex;flex-wrap:wrap;gap:6px;margin:.5rem 0}
-.cmp button{flex:1 1 5.2rem;border-radius:10px;padding:.45rem .4rem;font-size:.86rem;line-height:1.25}
-.cmp button small{display:block;font-size:.72rem;opacity:.85;font-weight:400}
-.cmp button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill);border-color:var(--fill);font-weight:700}
-.cmp .dry{flex-basis:100%}
-
-/* sticky transport: state, level and stop are always visible */
-.transport{position:sticky;bottom:0;z-index:10;margin-top:14px;background:var(--surface);border:2px solid var(--ctl);border-bottom:0;border-radius:14px 14px 0 0;
-  padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;box-shadow:0 -4px 14px rgba(0,0,0,.18)}
-.tp-state{display:flex;gap:.55rem;align-items:center;min-width:0;flex:1 1 15rem}
-.dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--muted);flex:none}
-.dot.on{background:var(--accent);border-color:var(--accent);animation:pulse 1s ease-in-out infinite}
-.tp-kicker{font-size:.72rem;color:var(--muted);letter-spacing:.06em}
-.tp-kicker.on{color:var(--accent);font-weight:700}
-.tp-title{font-weight:700;font-size:.95rem;overflow-wrap:anywhere}
-.stepper{display:inline-flex;align-items:center;gap:6px}
-.stepper .tp-lbl{font-size:.78rem;color:var(--muted);line-height:1.2}
-.stepper .tp-lbl small{display:block;font-size:.68rem}
-.stepper button{width:40px;height:40px;border-radius:50%;font-size:1.15rem;font-weight:700;line-height:1}
-.stepper output{min-width:4.4rem;text-align:center;font-weight:700}
-.stepper .tp-cap{font-size:.72rem;color:var(--muted);line-height:1.25;max-width:9.5rem}
-.stepper .tp-cap b{color:var(--ink)}
-.tp-btns{display:flex;gap:8px}
-.busy{position:fixed;right:14px;top:14px;z-index:30;background:var(--ink);color:var(--bg);font-size:.82rem;padding:.4rem .8rem;border-radius:999px}
-footer{font-size:.78rem;color:var(--muted);padding:6px 0 0}
-
-@media (max-width:600px){
-  body{font-size:14.5px;padding-top:10px}
-  .tabs button{padding:.45rem .6rem;font-size:.86rem}
-  .transport{gap:6px 10px;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px))}
-  .tp-state{order:1;flex:1 1 7rem}
-  .tp-btns{order:2;gap:6px}
-  .tp-btns .btn{padding:.35rem .7rem}
-  .tp-btns .long{display:none}
-  .stepper{order:3;flex:1 1 100%;justify-content:flex-end}
-  .stepper .tp-lbl{margin-right:auto}
-  .stepper .tp-lbl small{display:inline;margin-left:.4em}
-  .stepper button{width:36px;height:36px}
-  .tp-title{font-size:.88rem}
+.skip { position: absolute; z-index: 20; inset-inline-start: 1rem; top: 0; transform: translateY(-150%);
+  background: var(--surface); padding: .4rem .8rem; }
+.skip:focus { transform: none; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: .8rem 2rem; padding-block: 1.45rem 1.15rem; border-bottom: 1px solid var(--line); }
+.tabs,.seg { display: inline-flex; align-items: stretch; padding: 3px; gap: 2px;
+  border: 1px solid var(--line); border-radius: var(--corner); background: var(--soft); max-width: 100%; }
+.tabs button,.seg button { flex: 1 1 auto; min-width: 0; min-height: 2.35rem; padding: .32rem .8rem;
+  border: 0; border-radius: 3px; background: transparent; font-weight: 550; line-height: 1.35; }
+.tabs button[aria-selected="true"],.seg button[aria-pressed="true"] { background: var(--fill); color: var(--on-fill); }
+.notice { margin-top: 1.25rem; padding: .2rem 0 .2rem .95rem; border-left: 3px solid var(--accent); }
+#app-error,.err,.msg:not(:empty) { overflow-wrap: anywhere; }
+#app-error { font-weight: 650; }
+main { margin-top: clamp(1.4rem, 3vw, 2.35rem); }
+.workbench { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(19rem, 1fr);
+  align-items: start; gap: clamp(1.5rem, 4vw, 3rem); }
+.workbench > *, .section { min-width: 0; }
+.section > h2,.settings > h2 { margin-bottom: .85rem; }
+.section + .section,.workbench + .section,.page-options { margin-top: clamp(1.9rem, 4vw, 3.2rem); }
+.group { border-block: 1px solid var(--line); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: .5rem 1rem; min-width: 0;
+  min-height: 3.25rem; padding: .55rem 0; border: 0; }
+.group .row + .row,.group > div:not(.row) > .row:first-child, .group > div:not(.row) + .row {
+  border-top: 1px solid var(--line);
 }
-
-/* charts: families of grade curves, targets, analysed values */
-.chart text{font-size:11px}
-.chart .fam{stroke:var(--muted);stroke-width:1;opacity:.6;fill:none}
-.chart .fam.dash{stroke-dasharray:4 3}
-.chart .fam.on{stroke:var(--ink);stroke-width:2.8;opacity:1}
-.chart .famlab{font-size:9.5px;fill:var(--muted)}
-.chart .famlab.on{fill:var(--ink);font-weight:700;font-size:11px}
-.chart .tgt{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
-.chart .ana{fill:var(--fill);stroke:var(--surface);stroke-width:.8}
-.chart .offl{stroke:var(--ink);stroke-width:1.2;stroke-dasharray:2 2}
-.legend{list-style:none;margin:.3rem 0;padding:0;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:.78rem;color:var(--muted)}
-.legend li{display:inline-block}
-.legend .lg{vertical-align:middle;margin-right:6px}
-.lg{display:inline-block;width:22px;height:0;border-top:2.8px solid var(--ink);flex:none}
-.lg-fam{border-top:1px solid var(--muted)}
-.lg-dash{border-top:1.5px dashed var(--muted)}
-.lg-tgt{width:9px;height:9px;border:1.5px solid var(--ink);transform:rotate(45deg);margin:0 6px;background:var(--surface)}
-.lg-ana{width:9px;height:9px;border:0;border-radius:50%;background:var(--fill);margin:0 6px}
-.lg-bg{width:9px;height:11px;border:0;background:var(--muted);opacity:.55;margin:0 6px}
-
-.keys{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;margin:.5rem 0;font-size:.8rem;color:var(--muted)}
-.keys dt{font-family:var(--font-num);color:var(--ink);font-weight:700;white-space:nowrap}
-.keys dd{margin:0}
-.wip{background:var(--warn);color:var(--bg);font-weight:700;border-radius:6px;padding:.5rem .75rem;margin:0;font-size:.9rem}
-
-.outpanel{border:1px solid var(--line);border-radius:10px;padding:.5rem .75rem;margin:.5rem 0}
-.outpanel input[type=number]{width:5.5rem}
-.outpanel .nums{margin:.25rem 0}
-
+.lbl { flex: 0 0 auto; font-weight: 550; }
+.row > :last-child:not(:first-child) { min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .35rem .65rem; min-width: 0; }
+.group .basic-bands { font-variant-numeric: tabular-nums; }
+.check { display: inline-flex; align-items: center; gap: .4rem; min-height: 2.4rem; }
+input[type="checkbox"],input[type="radio"] { width: 1.12rem; height: 1.12rem; margin: 0; accent-color: var(--accent); }
+input[type="range"] { accent-color: var(--accent); width: clamp(5.5rem, 18vw, 14rem); max-width: 100%; }
+input[type="file"] { min-width: 0; max-width: 100%; }
+input::file-selector-button { font: inherit; color: inherit; padding: .35rem .55rem; background: var(--soft);
+  border: 1px solid var(--ctl); border-radius: var(--corner); }
+input[type="number"],select,.btn,.stepper button {
+  max-width: 100%; min-height: 2.5rem; border: 1px solid var(--ctl); border-radius: var(--corner);
+  background: var(--surface); padding: .3rem .65rem; line-height: 1.4;
+}
+input[type="number"] { width: 5.3rem; font-variant-numeric: tabular-nums; }
+input[aria-invalid="true"] { outline: 2px dashed var(--ink); outline-offset: 2px; }
+.btn { font-weight: 550; }
+.btn.primary,.cmp button[aria-pressed="true"] { color: var(--on-fill); background: var(--fill); border-color: var(--fill); }
+@media (hover: hover) {
+  button:not(:disabled):not([aria-pressed="true"]):not([aria-selected="true"]):hover, summary:hover { color: var(--accent); }
+  .btn.primary:not(:disabled):hover,.cell:not(:disabled):hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn.primary:not(:disabled):hover { color: var(--on-fill); }
+}
+.msg:empty { margin: 0; }
+.msg:not(:empty) { margin-block: .55rem; }
+.hint,.bandline { color: var(--muted); }
+.bandline span { display: block; }
+details { min-width: 0; border-bottom: 1px solid var(--line); }
+summary { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem;
+  list-style: none; padding: .85rem .15rem; line-height: 1.5; font-weight: 600; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: ''; flex: none; align-self: center; width: .48rem; height: .48rem;
+  margin: 0 .4rem 0 auto; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+details[open] > summary { color: var(--accent); }
+details[open] > summary::after { transform: rotate(225deg); }
+.details-body { padding: .2rem 0 1.2rem; }
+.details-body > :is(p,ul,ol,dl,.bandline,.formula,.tbl-wrap) + :is(p,ul,ol,dl,.bandline,.formula,.tbl-wrap,.group,.row),
+.details-body > .group + p { margin-top: .7rem; }
+.details-body > p,.details-body > ol,.details-body > ul { max-width: 78ch; }
+.details-body ol,.details-body ul:not(.legend) { padding-inline-start: 1.55rem; }
+.details-body li + li { margin-top: .3rem; }
+.section > details:first-of-type,.page-options { border-top: 1px solid var(--line); }
+.matrix { display: grid; grid-template-columns: minmax(3.1rem,auto) repeat(7,minmax(0,1fr)); gap: .22rem; }
+.mh { display: flex; align-items: flex-start; justify-content: center; flex-direction: column;
+  min-width: 0; color: var(--muted); font-size: .9rem; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.mh.col,.mh.span { align-items: center; text-align: center; }
+.mh.span { grid-column: 2/-1; padding-block: .15rem .35rem; border-bottom: 1px solid var(--line); }
+.mh.col { padding-block: .2rem; }
+.mh b { font-weight: 600; color: var(--ink); }
+.mh.sep,.cell.sep { margin-top: .4rem; }
+.cell { min-width: 0; min-height: 2.5rem; position: relative; border: 1px solid var(--line);
+  border-radius: 4px; padding: .1rem; background: var(--surface); color: var(--ink);
+  line-height: 1.25; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.cell.sel,.cell.playing { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+.cell.playing::after { content: ''; position: absolute; right: 3px; top: 3px; width: .42rem; height: .42rem;
+  border-radius: 50%; background: var(--ink); }
+.cell[aria-disabled="true"] { border-style: dashed; color: var(--muted); }
+.cell:focus-visible { outline-offset: 1px; outline-width: 3px; }
+.cell.blank { visibility: hidden; }
+.chart { display: block; width: 100%; height: auto; margin-inline: auto; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart text { fill: var(--muted); font-family: var(--font-ui); font-size: 11px; }
+.chart .bar-imp,.chart .ana,.chart .dot { fill: var(--accent); }
+.chart .bar-bg { fill: var(--muted); opacity: .6; }
+.chart .curve,.chart .fam,.chart .offl { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.chart .curve,.chart .fam.on { stroke: var(--accent); }
+.chart .fam { stroke: var(--muted); stroke-width: 1; opacity: .65; }
+.chart .fam.on { stroke-width: 2.8; opacity: 1; }
+.chart .dash { stroke-dasharray: 4 3; }
+.chart .offl { stroke-dasharray: 2 2; }
+.chart .famlab { font-size: 9.5px; }
+.chart .famlab.on { fill: var(--accent); font-weight: bold; font-size: 11px; }
+.chart .tgt { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.chart .ana { stroke: var(--surface); stroke-width: .8; }
+.chart .zone { fill: var(--accent); opacity: .08; }
+.figure { padding: 1rem; border: 1px solid var(--line); border-radius: var(--corner); }
+.figure h3 { margin: 0 0 .6rem; font-size: 1rem; }
+.figure + .figure { margin-top: .8rem; }
+.figure:has(#tl-spec:empty) { display: none; }
+.figure + details { border-top: 0 !important; }
+.legend { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: .25rem 1.2rem;
+  padding: 0; margin: .65rem 0 0; list-style: none; color: var(--muted); font-size: .94rem; }
+.legend li { display: inline-flex; align-items: center; gap: .4rem; }
+.lg { display: inline-block; width: 1.35rem; border-top: 2.8px solid var(--accent); }
+.lg-fam { border-top: 1px solid var(--muted); }
+.lg-dash { border-top: 1.5px dashed var(--muted); }
+.lg-tgt { width: .6rem; height: .6rem; border: 1.5px solid var(--ink); transform: rotate(45deg); }
+.lg-ana,.lg-bg { width: .6rem; height: .6rem; border: 0; background: var(--accent); border-radius: 50%; }
+.lg-bg { border-radius: 0; background: var(--muted); opacity: .6; }
+.nums { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .35rem 1rem; }
+.nums dt { color: var(--muted); } .nums dd { margin: 0; text-align: right; }
+.tbl-wrap { max-width: 100%; overflow-x: auto; }
+table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+table.t th,table.t td { padding: .35rem .55rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.t :is(td,th):first-child { text-align: left; }
+table.t tr.on { font-weight: bold; background: var(--tint); }
+.formula { font-family: var(--font-num); padding: .6rem; background: var(--soft); overflow-wrap: anywhere; }
+.bands { display: grid; grid-template-columns: repeat(auto-fit,minmax(5.8rem,1fr)); gap: .6rem; margin: .8rem 0; }
+.bands label { display: grid; align-content: end; gap: .2rem; color: var(--muted); }
+.bands input { width: 100%; } .bands .outside { border-top: 1px dashed var(--ctl); }
+.cmp { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .35rem; }
+.cmp button { min-height: 3.35rem; } .cmp small { display: block; font-size: .85rem; }
+.big { font-weight: 600; }
+.transport { position: fixed; bottom: 0; inset-inline: 0; z-index: 10; background: var(--surface); border-top: 1px solid var(--ctl); }
+.transport-inner { display: flex; justify-content: space-between; align-items: center; gap: .75rem 2rem;
+  max-width: calc(var(--page) + var(--gutter) * 2); margin: auto;
+  padding: .7rem max(var(--gutter),env(safe-area-inset-right)) calc(.7rem + env(safe-area-inset-bottom)) max(var(--gutter),env(safe-area-inset-left)); }
+.tp-state,.stepper,.tp-btns { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.tp-state { flex: 1; overflow-wrap: anywhere; }
+.dot { width: .65rem; height: .65rem; border-radius: 50%; background: var(--ctl); flex: none; }
+.dot.on { background: var(--accent); } .tp-kicker { color: var(--muted); font-size: .88rem; }
+.tp-title { line-height: 1.4; font-weight: 600; } .tp-lbl { margin-right: .35rem; }
+.stepper button { width: 2.5rem; padding: .25rem; font-size: 1.2rem; }
+.stepper output { min-width: 4.15rem; text-align: center; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tp-btns .btn { min-width: 4.5rem; }
+.busy { position: fixed; z-index: 11; right: 1rem; top: .5rem; background: var(--ink); color: var(--bg); padding: .4rem .75rem; border-radius: var(--corner); }
+@media (max-width: 53rem) {
+  .workbench { grid-template-columns: minmax(0,1fr); }
+  .workbench .settings { margin-top: .5rem; }
+  .transport-inner { gap: .5rem 1rem; }
+}
+@media (max-width: 42rem) {
+  :root { --transport-space: 10rem; }
+  .top { gap: .7rem; padding: .85rem 0; } .tabs { width: 100%; }
+  .transport-inner { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .35rem .7rem; }
+  .tp-btns { grid-column: 2; grid-row: 1; } .stepper { grid-column: 1/-1; grid-row: 2; }
+  .stepper .tp-lbl { margin-right: auto; }
+  .tp-title { font-size: .94rem; } .tp-btns .btn { min-width: 0; }
+  .workbench { gap: 1.5rem; } .figure { padding: .65rem; }
+  .row { gap: .35rem .6rem; flex-wrap: wrap; }
+  .row > :last-child:not(:first-child) { margin-inline-start: auto; max-width: 100%; }
+  .matrix { gap: .15rem; grid-template-columns: minmax(2.8rem, auto) repeat(7,minmax(0,1fr)); }
+  .cell { min-height: 2.65rem; }
+  .mh,.cell { font-size: .82rem; }
+  .seg button,.tabs button { padding: .35rem .55rem; }
+  .legend { justify-content: flex-start; gap: .2rem .85rem; }
+}
+@media (forced-colors: active) {
+  button[aria-pressed="true"],button[aria-selected="true"],.cell.sel { border: 2px solid Highlight; }
+  .dot.on,.cell.playing::after { forced-color-adjust: none; background: Highlight; }
+}
 </style>
 </head>
 <body>
 <a class="skip" href="#main">本文へ移動</a>
 <div class="wrap">
   <header class="top">
-    <div>
-      <h1>床衝撃音・遮音の聴き比べ</h1>
-      <p class="lead">等級曲線や入力値どおりに整形した音を、同じ条件で切り替えて比べる参考試聴です。音声の生成・読み込み・処理はすべてこのブラウザ内で行い、外部へ送信しません。</p>
-    </div>
-    <div>
-      <div class="seg" id="seg-theme" role="group" aria-label="配色">
-        <button type="button" data-theme="light" aria-pressed="true">Light</button>
-        <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
-        <button type="button" data-theme="black" aria-pressed="false">Black</button>
-      </div>
-      <div class="hint">配色：<a href="https://nipponcolors.com/" target="_blank" rel="noopener noreferrer">NIPPON COLORS</a>（白練・墨・黒 ほか）</div>
+    <h1>床衝撃音・遮音の聴き比べ</h1>
+    <div class="tabs" role="tablist" aria-label="試聴の種類">
+      <button type="button" role="tab" id="tab-lh" aria-controls="panel-lh" aria-selected="true">床衝撃音（LH）</button>
+      <button type="button" role="tab" id="tab-tl" aria-controls="panel-tl" aria-selected="false" tabindex="-1">壁の遮音（Dr／Rr・TL）</button>
     </div>
   </header>
-
-  <div class="tabs" role="tablist" aria-label="試聴の種類">
-    <button type="button" role="tab" id="tab-lh" aria-controls="panel-lh" aria-selected="true">床衝撃音（LH）</button>
-    <button type="button" role="tab" id="tab-tl" aria-controls="panel-tl" aria-selected="false" tabindex="-1">壁の遮音（Dr／Rr・TL）</button>
-  </div>
-
   <p class="notice" id="app-error" role="alert" hidden></p>
   <p class="notice">遮音性能を聴き比べるための試聴モデルです。測定や等級判定には使えません。<br>
     画面の dB はモデル上の計算値です。耳元の大きさは端末と音量設定で決まります。<br>
     端末の音量を小さくしてから再生し、少しずつ上げてください。</p>
-
   <main id="main">
-  <!-- ======================= LH ======================= -->
-  <section id="panel-lh" role="tabpanel" aria-labelledby="tab-lh">
-    <div class="grid2">
-      <div class="col">
-        <section class="card" aria-labelledby="lh-h-1">
-          <h2 id="lh-h-1"><span class="step">1</span>衝撃音の条件と帯域を選ぶ</h2>
-          <div class="row">
-            <span class="lbl">衝撃音の条件</span>
-            <div class="seg" id="lh-seg-mode" role="group" aria-label="衝撃音の条件">
-              <button type="button" data-mode="grade" aria-pressed="true">LH等級曲線</button>
-              <button type="button" data-mode="custom" aria-pressed="false">指定値（63〜500 Hz）</button>
-            </div>
-          </div>
-          <div id="lh-grade-box">
-            <div class="row">
-              <span class="lbl">基本の帯域</span>
-              <span class="chipfix">63</span><span class="chipfix">125</span><span class="chipfix">250</span><span class="chipfix">500</span>
-              <span class="hint">Hz（重量床衝撃音の評価範囲。常に使用）</span>
-            </div>
-            <fieldset class="row" id="lh-add">
-              <legend class="lbl" style="float:left">帯域を追加（参考）</legend>
-              <label class="check"><input type="checkbox" id="lh-add-0" data-add="16"> 16 Hz</label>
-              <label class="check"><input type="checkbox" id="lh-add-1" data-add="31.5"> 31.5 Hz</label>
-              <label class="check"><input type="checkbox" id="lh-add-2" data-add="1k"> 1 kHz</label>
-              <label class="check"><input type="checkbox" id="lh-add-3" data-add="2k"> 2 kHz</label>
-            </fieldset>
-          </div>
-          <div id="lh-custom-box" hidden>
-            <div class="row" role="group" aria-label="指定値（各オクターブ帯の L Fmax）">
-              <span class="lbl">指定値 L<sub>Fmax</sub> dB</span>
-              <label class="check">63 Hz <input type="number" id="lh-c0" min="0" max="140" step="0.1" inputmode="decimal"></label>
-              <label class="check">125 Hz <input type="number" id="lh-c1" min="0" max="140" step="0.1" inputmode="decimal"></label>
-              <label class="check">250 Hz <input type="number" id="lh-c2" min="0" max="140" step="0.1" inputmode="decimal"></label>
-              <label class="check">500 Hz <input type="number" id="lh-c3" min="0" max="140" step="0.1" inputmode="decimal"></label>
-            </div>
-            <p class="hint">この4帯域だけの合成衝撃音を再生します（0〜140 dB）。下の表の「指定値」行が入力どおり、上下の行は 5 dB ずつ平行移動です。任意の入力値に LH 等級は付きません。</p>
-            <p class="msg" id="lh-custom-msg" role="status"></p>
-          </div>
-          <div class="row">
-            <span class="lbl">合成音のつくり方</span>
-            <div class="seg" id="lh-seg-synth" role="group" aria-label="合成音のつくり方">
-              <button type="button" data-synth="common" aria-pressed="true">共通加振（v2.4.0）</button>
-              <button type="button" data-synth="legacy" aria-pressed="false">旧方式（v2.3.0・比較用）</button>
-            </div>
-          </div>
-          <p class="hint" id="lh-synth-note">共通加振：全帯域に同じ時刻・同じ力波形（t·e<sup>−t/10 ms</sup>）を与え、静止状態から鳴り始める減衰振動の和です。旧方式：帯域ごとに位相がばらばらな減衰正弦波で、50 Hz 未満は 2 周期かけて立ち上がります。どちらも合成後の波形を解析して帯域ごとの L<sub>Fmax</sub> を同じ目標値に合わせ、出力レベルも共通です（切り替えても音量をそろえ直しません）。どちらも試聴用のモデルで、標準衝撃源を再現したものではありません。録音 WAV には影響しません。</p>
-          <div class="row">
-            <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
-            <select id="lh-bgband">
-              <option value="wide">広帯域（約 22 Hz〜11 kHz）</option>
-              <option value="b4">63〜500 Hz の4帯域内のみ</option>
-            </select>
-          </div>
-          <div class="row">
-            <label class="lbl" for="lh-sub-delay">サブウーファー補正</label>
-            <input type="range" id="lh-sub-delay" min="0" max="30" step="1" value="0" aria-describedby="lh-sub-help">
-            <output id="lh-sub-value" for="lh-sub-delay">0 ms</output>
-            <button type="button" class="btn" id="lh-sub-click">全帯域同時クリックを再生</button>
-          </div>
-          <p class="hint" id="lh-sub-help">衝撃音の125 Hz以上の帯域を0〜30 ms遅らせます。</p>
-          <p class="msg" id="lh-sub-msg" role="status"></p>
-          <div class="bandline" id="lh-bandline" role="status"></div>
-          <p class="hint" id="lh-rangeline" role="status"></p>
-          <p class="hint">16 Hz・31.5 Hz・1 kHz・2 kHz は規格の評価範囲外です。目標値は逆 A 特性による参考外挿で、内蔵スピーカーや多くのヘッドホンでは 16／31.5 Hz を再生できません。低音が聞こえなくても音量を上げないでください。</p>
-          <p class="hint">参考：<a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A（L 値と逆 A 特性基準曲線）</a></p>
-        </section>
-
-        <section class="card" aria-labelledby="lh-h-2">
-          <h2 id="lh-h-2"><span class="step">2</span>表のセルを押して聴き比べる</h2>
-          <div class="row">
-            <span class="lbl">打撃の回数</span>
-            <div class="seg" id="lh-seg-pattern" role="group" aria-label="打撃の回数">
-              <button type="button" data-p="single" aria-pressed="true">単発</button>
-              <button type="button" data-p="triple" aria-pressed="false">3回（1 秒間隔）</button>
-              <button type="button" data-p="run" aria-pressed="false">連続（1.9 秒間隔・停止まで）</button>
-            </div>
-          </div>
-          <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
-          <div class="outpanel" id="lh-outpanel" role="group" aria-labelledby="lh-out-lbl">
-            <div class="row">
-              <label class="lbl" id="lh-out-lbl" for="lh-level-num">出力レベル（全条件共通）</label>
-              <input type="number" id="lh-level-num" min="-40" max="60" step="5" inputmode="numeric"><span class="hint">dB（−40〜+60、5 dB 刻み）</span>
-            </div>
-            <dl class="nums" id="lh-out-nums"></dl>
-            <div class="row">
-              <button type="button" class="btn" id="lh-level-fit">この条件の上限に設定</button>
-              <button type="button" class="btn" id="lh-level-reset">共通基準の音量に戻す</button>
-            </div>
-            <p class="msg" id="lh-out-msg" role="status"></p>
-          </div>
+    <section id="panel-lh" role="tabpanel" aria-labelledby="tab-lh">
+      <div class="workbench">
+        <section class="section" aria-labelledby="lh-h-2">
+          <h2 id="lh-h-2">表のセルを押して再生</h2>
           <div class="matrix" id="lh-matrix" role="group" aria-label="衝撃音と暗騒音の組み合わせ"></div>
           <div class="msg" id="lh-over" role="status"></div>
-          <label class="check"><input type="checkbox" id="lh-nums"><span>セルに Δ（衝撃音の参考 L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>、dB）を表示</span></label>
-          <p class="hint">Δ は、衝撃音が最大値（F、125 ms）、暗騒音が時間平均なので、0 でも衝撃音は聞こえます。</p>
         </section>
-      </div>
-
-      <div class="col">
-        <section class="card" aria-labelledby="lh-ro-title">
-          <div class="hint">選択中の条件</div>
-          <div class="ro-title" id="lh-ro-title">—</div>
-          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 226" role="img" aria-label="等級曲線と帯域レベル"></svg>
-          <ul class="legend" id="lh-ro-legend">
-            <li><i class="lg lg-on"></i>選択中の曲線（基準値）</li><li><i class="lg lg-fam"></i>ほかの等級（5 dB 刻み）</li><li><i class="lg lg-dash"></i>評価範囲外（参考外挿）</li>
-            <li><i class="lg lg-tgt"></i>目標値（基準値＋オフセット）</li><li><i class="lg lg-ana"></i>生成した波形の分析値 L<sub>Fmax</sub></li><li><i class="lg lg-bg"></i>暗騒音の帯域レベル L<sub>eq</sub></li>
-          </ul>
-          <dl class="nums" id="lh-ro-nums"></dl>
-          <p class="msg err" id="lh-ro-warn" role="status"></p>
-          <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
-          <p class="hint">縦軸は 1/1 オクターブ帯域レベル（dB re 20 µPa、モデル上の値）、横軸は帯域の中心周波数です。目盛りの縮尺は、建築音響の試験報告の図と同じく 10 dB：1 オクターブ ＝ 20：15 です。◇は設定から決まる目標、●は実際に作った波形を帯域フィルタで分析した値で、両者が重なっていれば設定どおりの音です。*と破線は評価範囲外の参考外挿で、正式な等級判定には使えません。実際の音圧は端末・音量・校正で決まります。</p>
-          <details id="lh-model">
-            <summary>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</summary>
-            <dl class="nums" id="lh-model-nums"></dl>
-            <p>① は、このページが作った衝撃音<b>1 発</b>の波形（全帯域の合成）に A 特性フィルタと時間重み付け特性 F（時定数 125 ms）を掛け、その最大値を取った計算値です。② は、帯域ごとの L<sub>Fmax</sub> に A 補正値を足してエネルギー合算した値で、各帯域の最大が同時に起こると仮定した別の量です。帯域ごとの最大値の時刻や波形が違えば ① は変わるので、基準曲線だけからは ① は決まりません（この波形での値です）。</p><p>どちらも出力レベル・暗騒音・連続打撃の重なり・校正を<b>含みません</b>。規格に定める測定条件での値ではなく、LH 等級の数字とも別の量です。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
-          </details>
-        </section>
-
-        <details id="lh-d-source">
-          <summary>音源（合成音／録音 WAV）</summary>
-          <div class="row" role="radiogroup" aria-label="音源">
-            <label class="check"><input type="radio" name="lh-src" id="lh-src-synth" value="synth" checked> 合成音</label>
-            <label class="check"><input type="radio" name="lh-src" id="lh-src-wav" value="wav" disabled> 録音（WAV）</label>
-          </div>
-          <div class="row">
-            <label class="lbl" for="lh-T">減衰時間 T（60 dB 減衰・合成音）</label>
-            <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal"><span class="hint">s（0.2〜2、初期値 0.7。16 Hz を含むときは 0.5 以上）</span>
-          </div>
-          <div class="row">
-            <label class="lbl" for="lh-wav">加振音の録音を読み込む</label>
-            <input type="file" id="lh-wav" accept=".wav,audio/wav,audio/x-wav,audio/*">
-          </div>
-          <p class="hint">ファイルはこのブラウザ内でだけ処理します。再生側のサンプリング周波数に変換し、複数チャンネルは第 1 チャンネルを使い、最大の衝撃の前後 3 秒を切り出して、帯域ごとに L<sub>Fmax</sub> を目標値へ合わせ込みます。録音の暗騒音も一緒に拡大されるので S/N のよい録音を使ってください。</p>
-          <p class="msg" id="lh-src-status" role="status"></p>
-        </details>
-
-        <details id="lh-d-curve">
-          <summary>等級曲線の基準値と帯域ごとのオフセット</summary>
-          <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。<b>再生中に値を変えると、止めずに新しい音へ切り替わります</b>（入力が止まって約 0.5 秒後。止まっているときは鳴りません）。</p>
-          <div class="tbl-wrap"><table class="t" id="lh-tbl-curve"></table></div>
-          <p class="msg" id="lh-curve-msg" role="status"></p>
-          <div class="row"><button type="button" class="btn" id="lh-curve-reset">初期値に戻す</button></div>
-        </details>
-
-        <details id="lh-d-bg">
-          <summary>暗騒音（合成ノイズ／録音 WAV）</summary>
-          <div class="row" role="radiogroup" aria-label="暗騒音の音源">
-            <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-synth" value="synth" checked> 合成ノイズ</label>
-            <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-wav" value="wav" disabled> 録音（WAV）</label>
-          </div>
-          <div class="row">
-            <label class="lbl" for="lh-slope">合成ノイズの傾き</label>
-            <select id="lh-slope">
-              <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
-              <option value="-3">−3 dB/oct（ピンクノイズ）</option>
-              <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
-            </select>
-          </div>
-          <div class="row">
-            <label class="lbl" for="lh-bgwav">暗騒音の録音を読み込む</label>
-            <input type="file" id="lh-bgwav" accept=".wav,audio/wav,audio/x-wav,audio/*">
-          </div>
-          <p class="msg" id="lh-bg-status" role="status"></p>
-          <p class="hint">どちらの音源も、上で選んだ暗騒音の帯域の中で、A 特性の時間平均レベル（モデル L<sub>Aeq</sub>）が表の列の値（20〜70 dB(A)）になるよう、全体を一律に増減して鳴らします。録音は元の dBFS を使いません（録音レベルと実際の音圧の関係は校正なしでは分からないため）。スペクトルの形は録音のままなので、合成ノイズとは「同じ L<sub>Aeq</sub> で音色が違う」比較になります。</p>
-          <p class="hint">録音はこのブラウザ内でだけ処理します。2 秒以上が必要で、先頭 30 秒までを使い、モノラル化（全チャンネルの平均）、再生側のサンプリング周波数へ変換、継ぎ目をクロスフェードしてループにします。録音自体は保存しないので、ページを開き直すと合成ノイズに戻ります。</p>
-        </details>
-
-        <details id="lh-d-cal">
-          <summary>校正（騒音計がある場合）<span class="hint" id="lh-chip-cal"></span></summary>
-          <ol>
-            <li>受聴位置に騒音計を置き、端末の音量を決めます（校正後は変えません）。</li>
-            <li>帯域の「再生」で −20 dBFS のオクターブバンドノイズを流します。<b>出力レベルの設定に関係なく −20 dBFS で出ます。</b>音量を下げてから押してください。</li>
-            <li>Z 特性・1/1 オクターブの L<sub>eq</sub>（10 s 以上）を入力します。</li>
-          </ol>
-          <p class="hint">1 帯域だけでも使えます（未入力の帯域は補間、外側は端の値）。校正時は出力レベル 0 dB がモデル上の dB に対応します。出力レベルを動かすと、その分だけ校正からずれます。</p>
-          <div class="tbl-wrap"><table class="t" id="lh-tbl-cal"></table></div>
-          <p class="msg" id="lh-cal-msg" role="status"></p>
-          <div class="row"><button type="button" class="btn" id="lh-cal-clear">校正値をクリア</button></div>
-        </details>
-
-        <details id="lh-d-method">
-          <summary>計算方法と参考資料</summary>
-          <p><b>基準曲線</b>：LH-65 を 63／125／250／500 Hz で 88／78／71／65 dB とし、等級は 5 dB 刻みで平行移動します（JIS A 1419-2:2000 の L 曲線）。重量床衝撃音の評価対象はこの 4 帯域です。</p>
-          <p><b>追加帯域（参考外挿）</b>：L 曲線は逆 A 特性を整数に丸めた形なので、追加帯域も同じ規則 C(f) = 62 − A(f)（LH-65、整数に丸め）で決めます。A(f) は厳密中心周波数 f<sub>m</sub> = 1000·10<sup>0.3x</sup> Hz で評価した値（16 Hz：−56.7、31.5 Hz：−39.4、1 kHz：0、2 kHz：+1.2 dB）で、LH-65 の基準値は 16 Hz：119、31.5 Hz：101、1 kHz：62、2 kHz：61 dB です。画面の帯域名は公称中心周波数、フィルタと計算は厳密中心周波数で統一しています。これらは規格の評価値ではありません。</p>
-          <p><b>衝撃音（合成）</b>：帯域ごとに減衰正弦波（16〜2k Hz に対し 8／8／8／12／20／30／40／50 本、周波数は帯域内で乱数・種は帯域ごとに固定）を重ねます。帯域を追加しても他の帯域の波形は変わりません。全等級で同じ波形を使い、等級の違いはレベルだけです。実際の衝撃源や建物の再現ではありません。</p>
-          <div class="formula">p<sub>b</sub>(t) = Σ a<sub>k</sub> (1 − e<sup>−t/τ</sup>) e<sup>−6.91 t/T</sup> sin(2π f<sub>k</sub> t + φ<sub>k</sub>)、τ = 4 ms</div>
-          <p><b>合わせ込み</b>：合成した音を 1/1 オクターブ（Butterworth HP 36 次 × LP 36 次、帯域端は IEC 61260-1:2014 の基数 10）で分析し、時間重み付け特性 F（125 ms、IEC 61672-1:2013）の最大値 L<sub>Fmax</sub> が目標に一致するまで帯域ゲインを反復補正します。</p>
-          <p><b>音量の決め方</b>：デジタル信号 = モデル音圧 ÷ (20 µPa × 10<sup>K/20</sup>) × 出力レベル。未校正時は K = 126 dB（出力レベル 0 dB のとき、モデル上 126 dB のピークが 0 dBFS）。この換算は帯域やセルを変えても変わりません。上限 −1 dBFS を超える組み合わせは再生せず、自動で全体を下げることもしません。打撃の重なりは実際の波形を重ねてピークを求めます。</p>
-          <p><b>参考資料</b></p>
-          <ul>
-            <li><a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A：L 値と逆 A 特性基準曲線</a></li>
-            <li><a href="https://www.onosokki.co.jp/HP-WK/c_support/newreport/noise/souon_12.htm" target="_blank" rel="noopener noreferrer">小野測器：A 特性の周波数重み付け補正値</a></li>
-          </ul>
-          <p class="hint">規格の現行版と適用範囲は原典で確認してください。</p>
-        </details>
-      </div>
-    </div>
-
-    <div class="transport" id="lh-transport" role="region" aria-label="再生操作（床衝撃音）">
-      <div class="tp-state">
-        <span class="dot" id="lh-dot" aria-hidden="true"></span>
-        <div><div class="tp-kicker" id="lh-state" role="status">停止中</div><div class="tp-title" id="lh-now">—</div></div>
-      </div>
-      <div class="stepper" role="group" aria-label="出力レベル（全条件共通）">
-        <span class="tp-lbl">出力レベル<small>全条件共通</small></span>
-        <button type="button" id="lh-level-down" aria-label="出力レベルを 5 dB 下げる">−</button>
-        <output id="lh-level" aria-live="polite">0 dB</output>
-        <button type="button" id="lh-level-up" aria-label="出力レベルを 5 dB 上げる">＋</button>
-        <span class="tp-cap" id="lh-level-cap" aria-live="polite"></span>
-        <span class="tp-cap" id="lh-level-peak"></span>
-      </div>
-      <div class="tp-btns">
-        <button type="button" class="btn primary" id="lh-play">▶ <span class="long">選択中を</span>再生</button>
-        <button type="button" class="btn stop" id="lh-stop">■ 停止</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= TL ======================= -->
-  <section id="panel-tl" role="tabpanel" aria-labelledby="tab-tl" hidden>
-    <div class="grid2">
-      <div class="col">
-        <section class="card" aria-labelledby="tl-h-1">
-          <h2 id="tl-h-1"><span class="step">1</span>音源を用意する</h2>
-          <div class="row">
-            <button type="button" class="btn" id="tl-noise">ピンクノイズを使う</button>
-            <button type="button" class="btn" id="tl-traffic">道路交通騒音（模擬）</button>
-            <button type="button" class="btn" id="tl-rec5">● マイクで 5 秒録音</button>
-            <button type="button" class="btn" id="tl-rec10">● 10 秒録音</button>
-            <label class="check" for="tl-file">手元の音声ファイル</label>
-            <input type="file" id="tl-file" accept="audio/*">
-          </div>
-          <p class="msg" id="tl-src-info" role="status"></p>
-          <p class="hint">マイク録音も、ファイルと同じ扱いです（このブラウザの外には出ません。初回にマイクの使用許可を求められます）。録音の大きさは引き継がないので、自分の声が「実際に何 dB だったか」は分かりません。</p>
-          <p class="hint">ファイルはこのブラウザ内でだけ処理します。読み込み時に、先頭 30 秒まで・モノラル化（全チャンネルの平均）・ピークを −12 dBFS へ一度だけ正規化します。録音の元の絶対レベルは引き継ぎません。条件ごとの音量正規化はしません。</p>
-        </section>
-
-        <section class="card" aria-labelledby="tl-h-2">
-          <h2 id="tl-h-2"><span class="step">2</span>壁の遮音条件を決める</h2>
-          <div class="row">
-            <span class="lbl">条件の種類</span>
-            <div class="seg" id="tl-seg-mode" role="group" aria-label="条件の種類">
-              <button type="button" data-mode="ref" aria-pressed="true">Dr／Rr 等級の基準曲線</button>
-              <button type="button" data-mode="custom" aria-pressed="false">帯域別の値を入力（TL 実測値など）</button>
+        <section class="settings" aria-labelledby="lh-h-1">
+          <h2 id="lh-h-1">試聴条件</h2>
+          <div class="group">
+            <div class="row">
+              <span class="lbl">衝撃音の条件</span>
+              <div class="seg" id="lh-seg-mode" role="group" aria-label="衝撃音の条件">
+                <button type="button" data-mode="grade" aria-pressed="true">LH 等級</button>
+                <button type="button" data-mode="custom" aria-pressed="false">指定値</button>
+              </div>
+            </div>
+            <div id="lh-grade-box">
+              <div class="row">
+                <span class="lbl">基本帯域</span>
+                <span class="basic-bands">63・125・250・500 Hz</span>
+              </div>
+              <div class="row" id="lh-add" role="group" aria-labelledby="lh-add-label">
+                <span class="lbl" id="lh-add-label">追加帯域</span>
+                <div class="controls">
+                  <label class="check"><input type="checkbox" id="lh-add-0" data-add="16"> 16 Hz</label>
+                  <label class="check"><input type="checkbox" id="lh-add-1" data-add="31.5"> 31.5 Hz</label>
+                  <label class="check"><input type="checkbox" id="lh-add-2" data-add="1k"> 1 kHz</label>
+                  <label class="check"><input type="checkbox" id="lh-add-3" data-add="2k"> 2 kHz</label>
+                </div>
+              </div>
+            </div>
+            <div id="lh-custom-box" hidden>
+              <div class="row" role="group" aria-label="指定値（各オクターブ帯の L Fmax）">
+                <span class="lbl">指定値 L<sub>Fmax</sub> dB</span>
+                <div class="controls">
+                  <label class="check">63 Hz <input type="number" id="lh-c0" min="0" max="140" step="0.1" inputmode="decimal"></label>
+                  <label class="check">125 Hz <input type="number" id="lh-c1" min="0" max="140" step="0.1" inputmode="decimal"></label>
+                  <label class="check">250 Hz <input type="number" id="lh-c2" min="0" max="140" step="0.1" inputmode="decimal"></label>
+                  <label class="check">500 Hz <input type="number" id="lh-c3" min="0" max="140" step="0.1" inputmode="decimal"></label>
+                </div>
+              </div>
+              <p class="msg" id="lh-custom-msg" role="status"></p>
+            </div>
+            <div class="row">
+              <label class="lbl" for="lh-bgband">暗騒音の帯域</label>
+              <select id="lh-bgband">
+                <option value="wide">広帯域</option>
+                <option value="b4">63〜500 Hz</option>
+              </select>
+            </div>
+            <div class="row">
+              <span class="lbl">打撃の回数</span>
+              <div class="seg" id="lh-seg-pattern" role="group" aria-label="打撃の回数">
+                <button type="button" data-p="single" aria-pressed="true">単発</button>
+                <button type="button" data-p="triple" aria-pressed="false">3回</button>
+                <button type="button" data-p="run" aria-pressed="false">連続</button>
+              </div>
             </div>
           </div>
-          <div class="row" id="tl-grade-row">
-            <label class="lbl" for="tl-family">曲線の種類</label>
-            <select id="tl-family"><option value="dr">Dr／Rr 等級（壁・室間）</option><option value="t">T 等級（サッシ）</option></select>
-            <label class="lbl" for="tl-grade" style="min-width:0">等級</label>
-            <select id="tl-grade"></select>
-            <span class="hint" id="tl-grade-hint"></span>
+          <details>
+            <summary>サブウーファー補正</summary>
+            <div class="details-body">
+              <div class="group">
+                <div class="row">
+                  <label class="lbl" for="lh-sub-delay">補正量</label>
+                  <div class="controls">
+                    <input type="range" id="lh-sub-delay" min="0" max="1000" step="1" value="0" aria-describedby="lh-sub-help">
+                    <label><input type="number" id="lh-sub-ms" min="0" max="1000" step="1" value="0" required aria-label="サブウーファー補正量（ミリ秒）" aria-describedby="lh-sub-help lh-sub-msg"> ms</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <label class="lbl" for="lh-sub-boundary">遅らせる帯域</label>
+                  <select id="lh-sub-boundary" aria-describedby="lh-sub-help">
+                    <option value="125" selected>125 Hz 以上（既定）</option>
+                    <option value="250">250 Hz 以上</option>
+                    <option value="63">63 Hz 以上</option>
+                  </select>
+                </div>
+                <div class="row">
+                  <span class="lbl">テスト音</span>
+                  <button type="button" class="btn" id="lh-sub-click">テストクリック</button>
+                </div>
+              </div>
+              <p class="msg" id="lh-sub-msg" role="status"></p>
+              <p class="hint" id="lh-sub-help">選んだ帯域とそれより高い帯域の衝撃音を0〜1000 ms遅らせます。境目はサブウーファーのクロスオーバー周波数に近い帯域を選んでください。</p>
+              <p>テストクリックでは、全帯域で同時に始まる音に、設定した補正をかけて再生します。</p>
+            </div>
+          </details>
+          <details>
+            <summary>帯域の選び方と暗騒音の注意</summary>
+            <div class="details-body">
+              <p><b>衝撃音の条件</b>　LH等級曲線／指定値（63〜500 Hz）。</p>
+              <p><b>基本の帯域</b>　63・125・250・500 Hz（重量床衝撃音の評価範囲。常に使用）</p>
+              <p class="hint">この4帯域だけの合成衝撃音を再生します（0〜140 dB）。下の表の「指定値」行が入力どおり、上下の行は 5 dB ずつ平行移動です。任意の入力値に LH 等級は付きません。</p>
+              <div class="bandline" id="lh-bandline" role="status"></div>
+              <p><b>暗騒音の帯域</b>　広帯域（約 22 Hz〜11 kHz）／63〜500 Hz の4帯域内のみ。</p>
+              <p class="hint" id="lh-rangeline" role="status"></p>
+              <p class="hint">16 Hz・31.5 Hz・1 kHz・2 kHz は規格の評価範囲外です。目標値は逆 A 特性による参考外挿で、内蔵スピーカーや多くのヘッドホンでは 16／31.5 Hz を再生できません。低音が聞こえなくても音量を上げないでください。</p>
+              <p class="hint">参考：<a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A（L 値と逆 A 特性基準曲線）</a></p>
+            </div>
+          </details>
+        </section>
+      </div>
+      <section class="section" aria-labelledby="lh-graph-title">
+        <h2 id="lh-graph-title">選択した条件のグラフ</h2>
+        <figure class="figure" aria-labelledby="lh-ro-title">
+          <h3 id="lh-ro-title">選択中の条件</h3>
+          <svg class="chart" id="lh-ro-chart" viewBox="0 0 360 226" role="img" aria-label="等級曲線と帯域レベル"></svg>
+          <ul class="legend" id="lh-ro-legend">
+            <li><i class="lg lg-on" aria-hidden="true"></i>選択曲線</li>
+            <li><i class="lg lg-fam" aria-hidden="true"></i>他の等級</li>
+            <li><i class="lg lg-dash" aria-hidden="true"></i>参考外挿</li>
+            <li><i class="lg lg-tgt" aria-hidden="true"></i>目標値</li>
+            <li><i class="lg lg-ana" aria-hidden="true"></i>分析値</li>
+            <li><i class="lg lg-bg" aria-hidden="true"></i>暗騒音</li>
+          </ul>
+        </figure>
+        <p class="msg err" id="lh-ro-warn" role="status"></p>
+        <details>
+          <summary>グラフの読み方</summary>
+          <div class="details-body">
+            <ul><li>選択中の曲線（基準値）</li><li>ほかの等級（5 dB 刻み）</li><li>評価範囲外（参考外挿）</li><li>目標値（基準値＋オフセット）</li><li>生成した波形の分析値 L<sub>Fmax</sub></li><li>暗騒音の帯域レベル L<sub>eq</sub></li></ul>
+            <p class="hint">縦軸は 1/1 オクターブ帯域レベル（dB re 20 µPa、モデル上の値）、横軸は帯域の中心周波数です。目盛りの縮尺は、建築音響の試験報告の図と同じく 10 dB：1 オクターブ ＝ 20：15 です。◇は設定から決まる目標、●は実際に作った波形を帯域フィルタで分析した値で、両者が重なっていれば設定どおりの音です。*と破線は評価範囲外の参考外挿で、正式な等級判定には使えません。実際の音圧は端末・音量・校正で決まります。</p>
+            <div class="tbl-wrap"><table class="t" id="lh-ro-table"></table></div>
           </div>
-          <div class="row">
-            <label class="lbl" for="tl-range">鳴らす帯域</label>
-            <select id="tl-range">
-              <option value="125,2000">125 Hz〜2 kHz（基準曲線の定義範囲・外挿なし）</option>
-              <option value="125,4000">125 Hz〜4 kHz（2 kHz 超は水平延長・参考外挿）</option>
-              <option value="63,8000">63 Hz〜8 kHz（低域は傾きを延長・参考外挿）</option>
-              <option value="31.5,8000">31.5 Hz〜8 kHz（参考外挿）</option>
-              <option value="16,8000">16 Hz〜8 kHz（参考外挿）</option>
-            </select>
+        </details>
+        <details id="lh-model">
+          <summary>モデル上の計算値</summary>
+          <div class="details-body">
+            <dl class="nums" id="lh-ro-nums"></dl>
+            <h3>モデル上の計算値（L<sub>A,Fmax</sub> など・参考）</h3>
+            <dl class="nums" id="lh-model-nums"></dl>
+            <p>① は、このページが作った衝撃音<b>1 発</b>の波形（全帯域の合成）に A 特性フィルタと時間重み付け特性 F（時定数 125 ms）を掛け、その最大値を取った計算値です。② は、帯域ごとの L<sub>Fmax</sub> に A 補正値を足してエネルギー合算した値で、各帯域の最大が同時に起こると仮定した別の量です。帯域ごとの最大値の時刻や波形が違えば ① は変わるので、基準曲線だけからは ① は決まりません（この波形での値です）。</p><p>どちらも出力レベル・暗騒音・連続打撃の重なり・校正を<b>含みません</b>。規格に定める測定条件での値ではなく、LH 等級の数字とも別の量です。暗騒音の dB(A) もモデル上の L<sub>Aeq</sub> です。</p>
+          </div>
+        </details>
+      </section>
+      <section class="section" aria-labelledby="lh-settings-title">
+        <h2 id="lh-settings-title">詳細設定と資料</h2>
+        <details>
+          <summary>合成音のつくり方</summary>
+          <div class="details-body">
+            <div class="group">
+              <div class="row">
+                <span class="lbl">合成方式</span>
+                <div class="seg" id="lh-seg-synth" role="group" aria-label="合成音のつくり方">
+                  <button type="button" data-synth="common" aria-pressed="true">共通加振（v2.4.0）</button>
+                  <button type="button" data-synth="legacy" aria-pressed="false">旧方式（v2.3.0・比較用）</button>
+                </div>
+              </div>
+            </div>
+            <p class="hint" id="lh-synth-note">共通加振：全帯域に同じ時刻・同じ力波形（t·e<sup>−t/10 ms</sup>）を与え、静止状態から鳴り始める減衰振動の和です。旧方式：帯域ごとに位相がばらばらな減衰正弦波で、50 Hz 未満は 2 周期かけて立ち上がります。どちらも合成後の波形を解析して帯域ごとの L<sub>Fmax</sub> を同じ目標値に合わせ、出力レベルも共通です（切り替えても音量をそろえ直しません）。どちらも試聴用のモデルで、標準衝撃源を再現したものではありません。録音 WAV には影響しません。</p>
+          </div>
+        </details>
+        <details id="lh-d-source">
+          <summary>音源の詳細設定</summary>
+          <div class="details-body">
+            <div class="group">
+              <div class="row">
+                <span class="lbl">音源</span>
+                <div class="controls" role="radiogroup" aria-label="音源">
+                  <label class="check"><input type="radio" name="lh-src" id="lh-src-synth" value="synth" checked> 合成音</label>
+                  <label class="check"><input type="radio" name="lh-src" id="lh-src-wav" value="wav" disabled> 録音（WAV）</label>
+                </div>
+              </div>
+              <div class="row">
+                <label class="lbl" for="lh-T">減衰時間 T</label>
+                <div class="controls">
+                  <input type="number" id="lh-T" min="0.2" max="2" step="0.05" inputmode="decimal">
+                  <span>s</span>
+                </div>
+              </div>
+              <div class="row">
+                <label class="lbl" for="lh-wav">衝撃音の録音</label>
+                <input type="file" id="lh-wav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+              </div>
+            </div>
+            <p>減衰時間 T（60 dB 減衰・合成音）　s（0.2〜2、初期値 0.7。16 Hz を含むときは 0.5 以上）</p>
+            <p class="hint">ファイルはこのブラウザ内でだけ処理します。再生側のサンプリング周波数に変換し、複数チャンネルは第 1 チャンネルを使い、最大の衝撃の前後 3 秒を切り出して、帯域ごとに L<sub>Fmax</sub> を目標値へ合わせ込みます。録音の暗騒音も一緒に拡大されるので S/N のよい録音を使ってください。</p>
+            <p class="msg" id="lh-src-status" role="status"></p>
+          </div>
+        </details>
+        <details id="lh-d-curve">
+          <summary>等級曲線の基準値とオフセット</summary>
+          <div class="details-body">
+            <p>LH-50 の基準値（他の等級は 5 dB ずつ平行移動）と、曲線からの差（オフセット、0 以下）です。オフセットが 0 なら全帯域が曲線に接する上限側のスペクトルになります。<b>再生中に値を変えると、止めずに新しい音へ切り替わります</b>（入力が止まって約 0.5 秒後。止まっているときは鳴りません）。</p>
+            <div class="tbl-wrap"><table class="t" id="lh-tbl-curve"></table></div>
+            <p class="msg" id="lh-curve-msg" role="status"></p>
+            <div class="row"><button type="button" class="btn" id="lh-curve-reset">初期値に戻す</button></div>
+          </div>
+        </details>
+        <details id="lh-d-bg">
+          <summary>暗騒音の詳細</summary>
+          <div class="details-body">
+            <div class="group">
+              <div class="row">
+                <span class="lbl">音源</span>
+                <div class="controls" role="radiogroup" aria-label="暗騒音の音源">
+                  <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-synth" value="synth" checked> 合成ノイズ</label>
+                  <label class="check"><input type="radio" name="lh-bgsrc" id="lh-bgsrc-wav" value="wav" disabled> 録音（WAV）</label>
+                </div>
+              </div>
+              <div class="row">
+                <label class="lbl" for="lh-slope">合成ノイズの傾き</label>
+                <select id="lh-slope">
+                  <option value="-5">−5 dB/oct（空調音などの室内騒音を想定）</option>
+                  <option value="-3">−3 dB/oct（ピンクノイズ）</option>
+                  <option value="-8">−8 dB/oct（低音寄りの交通騒音を想定）</option>
+                </select>
+              </div>
+              <div class="row">
+                <label class="lbl" for="lh-bgwav">暗騒音の録音</label>
+                <input type="file" id="lh-bgwav" accept=".wav,audio/wav,audio/x-wav,audio/*">
+              </div>
+            </div>
+            <p class="msg" id="lh-bg-status" role="status"></p>
+            <p class="hint">どちらの音源も、上で選んだ暗騒音の帯域の中で、A 特性の時間平均レベル（モデル L<sub>Aeq</sub>）が表の列の値（20〜70 dB(A)）になるよう、全体を一律に増減して鳴らします。録音は元の dBFS を使いません（録音レベルと実際の音圧の関係は校正なしでは分からないため）。スペクトルの形は録音のままなので、合成ノイズとは「同じ L<sub>Aeq</sub> で音色が違う」比較になります。</p>
+            <p class="hint">録音はこのブラウザ内でだけ処理します。2 秒以上が必要で、先頭 30 秒までを使い、モノラル化（全チャンネルの平均）、再生側のサンプリング周波数へ変換、継ぎ目をクロスフェードしてループにします。録音自体は保存しないので、ページを開き直すと合成ノイズに戻ります。</p>
+          </div>
+        </details>
+        <details id="lh-d-cal">
+          <summary>校正の手順 <span class="hint" id="lh-chip-cal"></span></summary>
+          <div class="details-body">
+            <ol>
+              <li>受聴位置に騒音計を置き、端末の音量を決めます（校正後は変えません）。</li>
+              <li>帯域の「再生」で −20 dBFS のオクターブバンドノイズを流します。<b>出力レベルの設定に関係なく −20 dBFS で出ます。</b>音量を下げてから押してください。</li>
+              <li>Z 特性・1/1 オクターブの L<sub>eq</sub>（10 s 以上）を入力します。</li>
+            </ol>
+            <p class="hint">1 帯域だけでも使えます（未入力の帯域は補間、外側は端の値）。校正時は出力レベル 0 dB がモデル上の dB に対応します。出力レベルを動かすと、その分だけ校正からずれます。</p>
+            <div class="tbl-wrap"><table class="t" id="lh-tbl-cal"></table></div>
+            <p class="msg" id="lh-cal-msg" role="status"></p>
+            <div class="row"><button type="button" class="btn" id="lh-cal-clear">校正値をクリア</button></div>
+          </div>
+        </details>
+        <details>
+          <summary>表の見方と出力レベル</summary>
+          <div class="details-body">
+            <p class="hint">行＝衝撃音の大きさ、列＝暗騒音。押したセルの組み合わせをすぐ再生します。矢印キーで移動、Enter／スペースで再生、Esc で停止。「暗騒音のみ」の行は、単発・3回では 4 秒、連続では停止まで鳴ります。</p>
+            <p><b>打撃の回数</b>　単発／3回（1 秒間隔）／連続（1.9 秒間隔・停止まで）。</p>
+            <label class="check"><input type="checkbox" id="lh-nums"><span>セルに Δ（衝撃音の参考 L<sub>A,Fmax</sub> − 暗騒音 L<sub>Aeq</sub>、dB）を表示</span></label>
+            <p class="hint">Δ は、衝撃音が最大値（F、125 ms）、暗騒音が時間平均なので、0 でも衝撃音は聞こえます。</p>
+            <div class="outpanel" id="lh-outpanel" role="group" aria-labelledby="lh-out-lbl">
+              <div class="row">
+                <label class="lbl" id="lh-out-lbl" for="lh-level-num">出力レベル（全条件共通）</label>
+                <input type="number" id="lh-level-num" min="-40" max="60" step="5" inputmode="numeric"><span class="hint">dB（−40〜+60、5 dB 刻み）</span>
+              </div>
+              <dl class="nums" id="lh-out-nums"></dl>
+              <div class="row">
+                <button type="button" class="btn" id="lh-level-fit">この条件の上限に設定</button>
+                <button type="button" class="btn" id="lh-level-reset">共通基準の音量に戻す</button>
+              </div>
+              <p class="msg" id="lh-out-msg" role="status"></p>
+            </div>
+            <div class="controls">
+              <span class="tp-cap" id="lh-level-cap" aria-live="polite"></span>
+              <span class="tp-cap" id="lh-level-peak"></span>
+            </div>
+          </div>
+        </details>
+        <details id="lh-d-method">
+          <summary>計算方法と参考資料</summary>
+          <div class="details-body">
+            <p><b>基準曲線</b>：LH-65 を 63／125／250／500 Hz で 88／78／71／65 dB とし、等級は 5 dB 刻みで平行移動します（JIS A 1419-2:2000 の L 曲線）。重量床衝撃音の評価対象はこの 4 帯域です。</p>
+            <p><b>追加帯域（参考外挿）</b>：L 曲線は逆 A 特性を整数に丸めた形なので、追加帯域も同じ規則 C(f) = 62 − A(f)（LH-65、整数に丸め）で決めます。A(f) は厳密中心周波数 f<sub>m</sub> = 1000·10<sup>0.3x</sup> Hz で評価した値（16 Hz：−56.7、31.5 Hz：−39.4、1 kHz：0、2 kHz：+1.2 dB）で、LH-65 の基準値は 16 Hz：119、31.5 Hz：101、1 kHz：62、2 kHz：61 dB です。画面の帯域名は公称中心周波数、フィルタと計算は厳密中心周波数で統一しています。これらは規格の評価値ではありません。</p>
+            <p><b>衝撃音（合成）</b>：帯域ごとに減衰正弦波（16〜2k Hz に対し 8／8／8／12／20／30／40／50 本、周波数は帯域内で乱数・種は帯域ごとに固定）を重ねます。帯域を追加しても他の帯域の波形は変わりません。全等級で同じ波形を使い、等級の違いはレベルだけです。実際の衝撃源や建物の再現ではありません。</p>
+            <div class="formula">p<sub>b</sub>(t) = Σ a<sub>k</sub> (1 − e<sup>−t/τ</sup>) e<sup>−6.91 t/T</sup> sin(2π f<sub>k</sub> t + φ<sub>k</sub>)、τ = 4 ms</div>
+            <p><b>合わせ込み</b>：合成した音を 1/1 オクターブ（Butterworth HP 36 次 × LP 36 次、帯域端は IEC 61260-1:2014 の基数 10）で分析し、時間重み付け特性 F（125 ms、IEC 61672-1:2013）の最大値 L<sub>Fmax</sub> が目標に一致するまで帯域ゲインを反復補正します。</p>
+            <p><b>音量の決め方</b>：デジタル信号 = モデル音圧 ÷ (20 µPa × 10<sup>K/20</sup>) × 出力レベル。未校正時は K = 126 dB（出力レベル 0 dB のとき、モデル上 126 dB のピークが 0 dBFS）。この換算は帯域やセルを変えても変わりません。上限 −1 dBFS を超える組み合わせは再生せず、自動で全体を下げることもしません。打撃の重なりは実際の波形を重ねてピークを求めます。</p>
+            <p><b>参考資料</b></p>
+            <ul>
+              <li><a href="https://www.onzai.or.jp/pdf/new/gijutsu201903_04.pdf" target="_blank" rel="noopener noreferrer">日本音響材料協会「音響技術」No.185（2019 年 3 月）Q&amp;A：L 値と逆 A 特性基準曲線</a></li>
+              <li><a href="https://www.onosokki.co.jp/HP-WK/c_support/newreport/noise/souon_12.htm" target="_blank" rel="noopener noreferrer">小野測器：A 特性の周波数重み付け補正値</a></li>
+            </ul>
+            <p class="hint">規格の現行版と適用範囲は原典で確認してください。</p>
+          </div>
+        </details>
+      </section>
+      <div class="transport" id="lh-transport" role="region" aria-label="再生操作（床衝撃音）">
+        <div class="transport-inner">
+          <div class="tp-state">
+            <span class="dot" id="lh-dot" aria-hidden="true"></span>
+            <div><div class="tp-kicker" id="lh-state" role="status">停止中</div><div class="tp-title" id="lh-now">—</div></div>
+          </div>
+          <div class="stepper" role="group" aria-label="出力レベル（全条件共通）">
+            <span class="tp-lbl">出力レベル</span>
+            <button type="button" id="lh-level-down" aria-label="出力レベルを 5 dB 下げる">−</button>
+            <output id="lh-level" aria-live="polite">0 dB</output>
+            <button type="button" id="lh-level-up" aria-label="出力レベルを 5 dB 上げる">＋</button>
+          </div>
+          <div class="tp-btns">
+            <button type="button" class="btn primary" id="lh-play">再生</button>
+            <button type="button" class="btn stop" id="lh-stop">停止</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="panel-tl" role="tabpanel" aria-labelledby="tab-tl" hidden>
+      <div class="workbench">
+        <div>
+          <section class="section" aria-labelledby="tl-h-1">
+            <h2 id="tl-h-1">音源</h2>
+            <div class="group">
+              <div class="row">
+                <span class="lbl">合成音</span>
+                <div class="controls">
+                  <button type="button" class="btn" id="tl-noise">ピンクノイズ</button>
+                  <button type="button" class="btn" id="tl-traffic">道路交通騒音（模擬）</button>
+                </div>
+              </div>
+            </div>
+            <details>
+              <summary>録音・ファイルを使う</summary>
+              <div class="details-body">
+                <div class="group">
+                  <div class="row">
+                    <span class="lbl">マイク録音</span>
+                    <div class="controls">
+                      <button type="button" class="btn" id="tl-rec5">5秒録音</button>
+                      <button type="button" class="btn" id="tl-rec10">10秒録音</button>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <label class="lbl" for="tl-file">音声ファイル</label>
+                    <input type="file" id="tl-file" accept="audio/*">
+                  </div>
+                </div>
+                <p class="hint">マイク録音も、ファイルと同じ扱いです（このブラウザの外には出ません。初回にマイクの使用許可を求められます）。録音の大きさは引き継がないので、自分の声が「実際に何 dB だったか」は分かりません。</p>
+                <p class="hint">ファイルはこのブラウザ内でだけ処理します。読み込み時に、先頭 30 秒まで・モノラル化（全チャンネルの平均）・ピークを −12 dBFS へ一度だけ正規化します。録音の元の絶対レベルは引き継ぎません。条件ごとの音量正規化はしません。</p>
+              </div>
+            </details>
+            <p class="msg" id="tl-src-info" role="status"></p>
+          </section>
+          <section class="section" aria-labelledby="tl-h-3">
+            <h2 id="tl-h-3">条件を切り替えて聴く</h2>
+            <div class="cmp" id="tl-cmp" role="group" aria-label="聴く条件">
+              <button type="button" class="btn dry" data-cond="dry" aria-pressed="false">原音（壁なし）</button>
+              <button type="button" class="btn" data-cond="-10" aria-pressed="false"></button>
+              <button type="button" class="btn" data-cond="-5" aria-pressed="false"></button>
+              <button type="button" class="btn" data-cond="0" aria-pressed="true"></button>
+              <button type="button" class="btn" data-cond="5" aria-pressed="false"></button>
+              <button type="button" class="btn" data-cond="10" aria-pressed="false"></button>
+            </div>
+            <p class="msg" id="tl-status" role="status"></p>
+          </section>
+        </div>
+        <section class="section" aria-labelledby="tl-h-2">
+          <h2 id="tl-h-2">遮音条件</h2>
+          <div class="group">
+            <div class="row">
+              <span class="lbl">条件の種類</span>
+              <div class="seg" id="tl-seg-mode" role="group" aria-label="条件の種類">
+                <button type="button" data-mode="ref" aria-pressed="true">等級曲線</button>
+                <button type="button" data-mode="custom" aria-pressed="false">帯域別の値</button>
+              </div>
+            </div>
+            <div id="tl-grade-row">
+              <div class="row">
+                <label class="lbl" for="tl-family">曲線の種類</label>
+                <select id="tl-family"><option value="dr">Dr／Rr 等級（壁・室間）</option><option value="t">T 等級（サッシ）</option></select>
+              </div>
+              <div class="row">
+                <label class="lbl" for="tl-grade">等級</label>
+                <select id="tl-grade"></select>
+              </div>
+            </div>
+            <div class="row">
+              <label class="lbl" for="tl-range">再生帯域</label>
+              <select id="tl-range">
+                <option value="125,2000">125 Hz〜2 kHz</option>
+                <option value="125,4000">125 Hz〜4 kHz</option>
+                <option value="63,8000">63 Hz〜8 kHz</option>
+                <option value="31.5,8000">31.5 Hz〜8 kHz</option>
+                <option value="16,8000">16 Hz〜8 kHz</option>
+              </select>
+            </div>
           </div>
           <div class="bands" id="tl-bands" role="group" aria-label="帯域別の減衰量 dB"></div>
           <div class="row" id="tl-fill-row" hidden><button type="button" class="btn" id="tl-fill">基準曲線の値を入力欄に写す</button></div>
           <p class="msg" id="tl-band-msg" role="status"></p>
+        </section>
+      </div>
+      <section class="section" aria-labelledby="tl-graph-title">
+        <h2 id="tl-graph-title">遮音と音のグラフ</h2>
+        <figure class="figure" aria-labelledby="tl-curve-heading">
+          <h3 id="tl-curve-heading">壁の減衰量</h3>
           <svg class="chart" id="tl-chart" viewBox="0 0 520 220" role="img" aria-label="適用する減衰量の曲線"></svg>
-          <ul class="legend"><li><i class="lg lg-on"></i>いま適用する減衰量（選択中の条件）</li><li><i class="lg lg-fam"></i>等級の基準曲線 30〜70（5 刻み）</li><li><i class="lg lg-dash"></i>定義範囲外（参考外挿）</li></ul>
-          <p class="hint" id="tl-curve-note"></p>
-          <p class="hint">上のグラフは<b>壁の条件</b>（縦軸：減衰量 dB、大きいほど遮音が大きい。縮尺は 10 dB：1 オクターブ ＝ 20：15）です。下のグラフは<b>音そのもの</b>の帯域レベルで、別の量です。</p>
+          <ul class="legend">
+            <li><i class="lg lg-on" aria-hidden="true"></i>適用曲線</li>
+            <li><i class="lg lg-fam" aria-hidden="true"></i>等級曲線</li>
+            <li><i class="lg lg-dash" aria-hidden="true"></i>参考外挿</li>
+          </ul>
+        </figure>
+        <figure class="figure" aria-labelledby="tl-spec-heading">
+          <h3 id="tl-spec-heading">音の帯域レベル</h3>
           <svg class="chart" id="tl-spec" viewBox="0 0 520 220" role="img" aria-label="音のスペクトル"></svg>
-          <p class="hint" id="tl-spec-note"></p>
-          <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
-          <details id="tl-d-room">
-            <summary>室条件で換算する（任意）：D = R + 10 log<sub>10</sub>(A/S)</summary>
+        </figure>
+        <details>
+          <summary>グラフの読み方</summary>
+          <div class="details-body">
+            <ul><li>いま適用する減衰量（選択中の条件）</li><li>等級の基準曲線 30〜70（5 刻み）</li><li>定義範囲外（参考外挿）</li></ul>
+            <p><b>条件の種類</b>　Dr／Rr 等級の基準曲線／帯域別の値を入力（TL 実測値など）。</p>
+            <span class="hint" id="tl-grade-hint"></span>
+            <p class="hint" id="tl-curve-note"></p>
+            <p class="hint">上のグラフは<b>壁の条件</b>（縦軸：減衰量 dB、大きいほど遮音が大きい。縮尺は 10 dB：1 オクターブ ＝ 20：15）です。下のグラフは<b>音そのもの</b>の帯域レベルで、別の量です。</p>
+            <p class="hint" id="tl-spec-note"></p>
+            <p class="hint">選んだ帯域の外側は、原音・遮音後の両方から同じように取り除きます（帯域端から 1/4 オクターブで減衰）。帯域を変えると原音の音色も変わるので、帯域をまたいだ比較はできません。</p>
+            <p><b>再生帯域</b>　125 Hz〜2 kHz（基準曲線の定義範囲・外挿なし）／125 Hz〜4 kHz（2 kHz 超は水平延長・参考外挿）／63 Hz〜8 kHz（低域は傾きを延長・参考外挿）／31.5 Hz〜8 kHz（参考外挿）／16 Hz〜8 kHz（参考外挿）。</p>
+          </div>
+        </details>
+        <details>
+          <summary>比較結果と計算値</summary>
+          <div class="details-body">
+            <p class="big" id="tl-result" role="status">音源を用意して再生してください。</p>
+            <div class="tbl-wrap"><table class="t" id="tl-stats"></table></div>
+            <p class="hint">「低下量」は、いまの音源・帯域で、原音に対して遮音後の音が全体で何 dB 小さくなるかの計算値です（10 dB 小さいと、およそ半分の大きさに感じるのが目安）。条件ごとの自動音量調整はしていないので、聞こえる差がそのまま低下量です。</p>
+            <p class="msg" id="tl-est" role="status"></p>
+            <p class="hint">暗騒音はピンクノイズで、音源を上の想定レベルとみなしたときの相対的な大きさで重ねます（原音・遮音後のどちらを聴いていても同じ大きさで鳴り続けます）。</p>
+            <p class="msg" id="tl-level-note"></p>
+          </div>
+        </details>
+      </section>
+      <section class="section" aria-labelledby="tl-settings-title">
+        <h2 id="tl-settings-title">詳細設定と資料</h2>
+        <details>
+          <summary>試聴レベルと暗騒音</summary>
+          <div class="details-body">
+            <div class="group">
+              <div class="row">
+                <label class="lbl" for="tl-srclevel">音源の大きさ（想定）</label>
+                <select id="tl-srclevel"><option value="60">60 dB(A)：ふつうの会話</option><option value="70">70 dB(A)：大きめの声・テレビ</option><option value="80">80 dB(A)：大声・交通量の多い道路沿い</option><option value="90">90 dB(A)：ピアノなどの楽器</option></select>
+              </div>
+              <div class="row">
+                <label class="lbl" for="tl-bg">受音側の暗騒音</label>
+                <select id="tl-bg"><option value="0">なし</option><option value="20">20 dB(A)</option><option value="30">30 dB(A)</option><option value="40">40 dB(A)</option><option value="50">50 dB(A)</option></select>
+              </div>
+              <div class="row">
+                <label class="lbl" for="tl-pad">原音の再生レベル</label>
+                <select id="tl-pad">
+                  <option value="0">実際の差のまま（0 dB）</option>
+                  <option value="-10">原音だけ 10 dB 下げる</option>
+                  <option value="-20">原音だけ 20 dB 下げる</option>
+                  <option value="-30">原音だけ 30 dB 下げる</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint">下の「▶ 再生」で停止までループします。ボタンで条件を切り替えても再生位置は変わりません。数値が大きいほど遮音が大きく、音は小さくなります。</p>
+            <p>原音（壁なし）　選んだ帯域に制限した元の音</p>
+            <p class="hint">条件の切り替えは約 0.02 秒で終わります（同じ再生位置のまま、10 ms のクロスフェード）。原音に戻すと実際の差の分だけ一気に大きくなるので、遮音後の音に合わせて端末の音量を上げないでください。心配なときは「原音だけ下げる」を使えます。その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
+          </div>
+        </details>
+        <details id="tl-d-room">
+          <summary>室条件による換算</summary>
+          <div class="details-body">
+            <p>室条件で換算する（任意）：D = R + 10 log<sub>10</sub>(A/S)</p>
             <p>入力値が部材の音響透過損失 R（TL）のとき、受音室の等価吸音面積 A と壁の面積 S から室間音圧レベル差 D の目安へ換算します。全帯域に同じ補正を加える簡易換算で、側路伝搬・隙間・A の周波数特性は含みません。使わないときは A/S = 1（D = R）として、入力値をそのまま減衰量にします。</p>
-            <div class="row">
-              <label class="check"><input type="checkbox" id="tl-room-on"> 換算する</label>
-              <label class="check">壁の面積 S <input type="number" id="tl-room-S" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
-              <label class="check">等価吸音面積 A <input type="number" id="tl-room-A" min="1" max="200" step="0.1" inputmode="decimal"> m²</label>
+            <div class="group">
+              <div class="row">
+                <span class="lbl">室条件</span>
+                <label class="check"><input type="checkbox" id="tl-room-on"> 換算する</label>
+              </div>
+              <div class="row">
+                <label class="lbl" for="tl-room-S">壁の面積 S</label>
+                <div class="controls">
+                  <input type="number" id="tl-room-S" min="1" max="200" step="0.1" inputmode="decimal">
+                  <span>m²</span>
+                </div>
+              </div>
+              <div class="row">
+                <label class="lbl" for="tl-room-A">等価吸音面積 A</label>
+                <div class="controls">
+                  <input type="number" id="tl-room-A" min="1" max="200" step="0.1" inputmode="decimal">
+                  <span>m²</span>
+                </div>
+              </div>
             </div>
             <p class="msg" id="tl-room-out" role="status"></p>
-          </details>
-        </section>
-      </div>
-
-      <div class="col">
-        <section class="card" aria-labelledby="tl-h-3">
-          <h2 id="tl-h-3"><span class="step">3</span>同じ位置で切り替えて聴く</h2>
-          <p class="hint">下の「▶ 再生」で停止までループします。ボタンで条件を切り替えても再生位置は変わりません。数値が大きいほど遮音が大きく、音は小さくなります。</p>
-          <div class="cmp" id="tl-cmp" role="group" aria-label="聴く条件">
-            <button type="button" class="btn dry" data-cond="dry" aria-pressed="false">原音（壁なし）<small>選んだ帯域に制限した元の音</small></button>
-            <button type="button" class="btn" data-cond="-10" aria-pressed="false"></button>
-            <button type="button" class="btn" data-cond="-5" aria-pressed="false"></button>
-            <button type="button" class="btn" data-cond="0" aria-pressed="true"></button>
-            <button type="button" class="btn" data-cond="5" aria-pressed="false"></button>
-            <button type="button" class="btn" data-cond="10" aria-pressed="false"></button>
           </div>
-          <p class="big" id="tl-result" role="status">音源を用意して再生してください。</p>
-          <div class="tbl-wrap"><table class="t" id="tl-stats"></table></div>
-          <p class="hint">「低下量」は、いまの音源・帯域で、原音に対して遮音後の音が全体で何 dB 小さくなるかの計算値です（10 dB 小さいと、およそ半分の大きさに感じるのが目安）。条件ごとの自動音量調整はしていないので、聞こえる差がそのまま低下量です。</p>
-          <div class="row">
-            <label class="lbl" for="tl-srclevel">音源の大きさ（想定）</label>
-            <select id="tl-srclevel"><option value="60">60 dB(A)：ふつうの会話</option><option value="70">70 dB(A)：大きめの声・テレビ</option><option value="80">80 dB(A)：大声・交通量の多い道路沿い</option><option value="90">90 dB(A)：ピアノなどの楽器</option></select>
-            <label class="lbl" for="tl-bg" style="min-width:0">受音側の暗騒音</label>
-            <select id="tl-bg"><option value="0">なし</option><option value="20">20 dB(A)</option><option value="30">30 dB(A)</option><option value="40">40 dB(A)</option><option value="50">50 dB(A)</option></select>
-          </div>
-          <p class="msg" id="tl-est" role="status"></p>
-          <p class="hint">暗騒音はピンクノイズで、音源を上の想定レベルとみなしたときの相対的な大きさで重ねます（原音・遮音後のどちらを聴いていても同じ大きさで鳴り続けます）。</p>
-          <div class="row">
-            <label class="lbl" for="tl-pad">原音の再生レベル</label>
-            <select id="tl-pad">
-              <option value="0">実際の差のまま（0 dB）</option>
-              <option value="-10">原音だけ 10 dB 下げる</option>
-              <option value="-20">原音だけ 20 dB 下げる</option>
-              <option value="-30">原音だけ 30 dB 下げる</option>
-            </select>
-          </div>
-          <p class="hint">条件の切り替えは約 0.02 秒で終わります（同じ再生位置のまま、10 ms のクロスフェード）。原音に戻すと実際の差の分だけ一気に大きくなるので、遮音後の音に合わせて端末の音量を上げないでください。心配なときは「原音だけ下げる」を使えます。その分だけ聞こえる差が実際より小さくなります（画面に表示します）。</p>
-          <p class="msg" id="tl-status" role="status"></p>
-        </section>
-
-        <details id="tl-d-method">
-          <summary>根拠・試聴モデル・参考資料</summary>
-          <p><b>基準曲線</b>：Dr（室間音圧レベル差等級）と Rr（音響透過損失等級）の基準曲線は共通ですが、評価する対象が違います。このページは曲線や入力値の数値を、振幅倍率 10<sup>−値/20</sup> としてそのまま音に掛けます。実測の空間平均値や規格の等級を保証するものではありません。</p>
-          <p><b>外挿</b>：基準曲線の定義範囲は 125 Hz〜2 kHz です。それより低い側は 500 Hz 以下と同じ 7.5 dB/oct の傾きを延長、高い側は 2 kHz の値を水平に延長した参考値で、実際の壁の性能予測ではありません（実際の壁は共鳴透過やコインシデンスで大きく変わります）。</p>
-          <p><b>TL と室間音圧レベル差</b>：R（TL）と D は同じ量ではありません。換算を使わない場合は A/S = 1 の直接透過だけを仮定しています。実際の建物では側路伝搬や隙間により、室間音圧レベル差は部材の値より 1〜2 ランク（5〜10 dB）程度下がるのが一般的とされています。</p>
-          <p><b>周波数</b>：画面の帯域名は公称中心周波数（16、31.5、63 Hz …）、計算には 1 kHz から正確に 1 オクターブずつ離れた周波数（15.625、31.25、62.5 Hz …）を使います。このため 125 Hz より下は 1 オクターブごとに正確に 7.5 dB 下がります。</p>
-          <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは、旧音と新音の開始・終了を揃えた 10 ms のクロスフェード（相補的な二乗余弦）です。すべての条件は同じ信号をゼロ位相で整形したものなので、切り替え中の音量は一方からもう一方へ単調に移り、一時的な低下や超過は起きません。再生開始時だけ、原音は 0.2 秒かけて立ち上げます。</p>
-          <ul>
-            <li><a href="https://www.chiyoda-ute.co.jp/data/syaon_rank.html" target="_blank" rel="noopener noreferrer">チヨダウーテ：遮音等級 Dr・Rr と基準曲線</a></li>
-            <li><a href="https://www.jtccm.or.jp/sites/default/files/books_pdf/2008/Vol44,No6,2008.pdf#page=43" target="_blank" rel="noopener noreferrer">建材試験センター：Dr／Rr の説明（p.41）</a></li>
-            <li><a href="https://www.melcoairtec.co.jp/info/interception/index.html" target="_blank" rel="noopener noreferrer">透過損失と室間音圧レベル差の関係</a></li>
-          </ul>
         </details>
+        <details id="tl-d-method">
+          <summary>計算方法と参考資料</summary>
+          <div class="details-body">
+            <p><b>基準曲線</b>：Dr（室間音圧レベル差等級）と Rr（音響透過損失等級）の基準曲線は共通ですが、評価する対象が違います。このページは曲線や入力値の数値を、振幅倍率 10<sup>−値/20</sup> としてそのまま音に掛けます。実測の空間平均値や規格の等級を保証するものではありません。</p>
+            <p><b>外挿</b>：基準曲線の定義範囲は 125 Hz〜2 kHz です。それより低い側は 500 Hz 以下と同じ 7.5 dB/oct の傾きを延長、高い側は 2 kHz の値を水平に延長した参考値で、実際の壁の性能予測ではありません（実際の壁は共鳴透過やコインシデンスで大きく変わります）。</p>
+            <p><b>TL と室間音圧レベル差</b>：R（TL）と D は同じ量ではありません。換算を使わない場合は A/S = 1 の直接透過だけを仮定しています。実際の建物では側路伝搬や隙間により、室間音圧レベル差は部材の値より 1〜2 ランク（5〜10 dB）程度下がるのが一般的とされています。</p>
+            <p><b>周波数</b>：画面の帯域名は公称中心周波数（16、31.5、63 Hz …）、計算には 1 kHz から正確に 1 オクターブずつ離れた周波数（15.625、31.25、62.5 Hz …）を使います。このため 125 Hz より下は 1 オクターブごとに正確に 7.5 dB 下がります。</p>
+            <p><b>処理</b>：FFT によるゼロ位相の振幅整形です。帯域値の間は対数周波数軸で直線補間し、両端の帯域では帯域端までその値を据え置きます。位相・時間応答・部材固有の共振は再現しません。条件の切り替えは、旧音と新音の開始・終了を揃えた 10 ms のクロスフェード（相補的な二乗余弦）です。すべての条件は同じ信号をゼロ位相で整形したものなので、切り替え中の音量は一方からもう一方へ単調に移り、一時的な低下や超過は起きません。再生開始時だけ、原音は 0.2 秒かけて立ち上げます。</p>
+            <ul>
+              <li><a href="https://www.chiyoda-ute.co.jp/data/syaon_rank.html" target="_blank" rel="noopener noreferrer">チヨダウーテ：遮音等級 Dr・Rr と基準曲線</a></li>
+              <li><a href="https://www.jtccm.or.jp/sites/default/files/books_pdf/2008/Vol44,No6,2008.pdf#page=43" target="_blank" rel="noopener noreferrer">建材試験センター：Dr／Rr の説明（p.41）</a></li>
+              <li><a href="https://www.melcoairtec.co.jp/info/interception/index.html" target="_blank" rel="noopener noreferrer">透過損失と室間音圧レベル差の関係</a></li>
+            </ul>
+          </div>
+        </details>
+      </section>
+      <div class="transport" id="tl-transport" role="region" aria-label="再生操作（遮音）">
+        <div class="transport-inner">
+          <div class="tp-state">
+            <span class="dot" id="tl-dot" aria-hidden="true"></span>
+            <div><div class="tp-kicker" id="tl-state" role="status">停止中</div><div class="tp-title" id="tl-now">—</div></div>
+          </div>
+          <div class="stepper" role="group" aria-label="音量（全条件共通）">
+            <span class="tp-lbl">音量</span>
+            <button type="button" id="tl-vol-down" aria-label="音量を 5 dB 下げる">−</button>
+            <output id="tl-vol" aria-live="polite">−10 dB</output>
+            <button type="button" id="tl-vol-up" aria-label="音量を 5 dB 上げる">＋</button>
+          </div>
+          <div class="tp-btns">
+            <button type="button" class="btn primary" id="tl-play">再生</button>
+            <button type="button" class="btn stop" id="tl-stop">停止</button>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <div class="transport" id="tl-transport" role="region" aria-label="再生操作（遮音）">
-      <div class="tp-state">
-        <span class="dot" id="tl-dot" aria-hidden="true"></span>
-        <div><div class="tp-kicker" id="tl-state" role="status">停止中</div><div class="tp-title" id="tl-now">—</div></div>
-      </div>
-      <div class="stepper" role="group" aria-label="音量（全条件共通）">
-        <span class="tp-lbl">音量<small>全条件共通</small></span>
-        <button type="button" id="tl-vol-down" aria-label="音量を 5 dB 下げる">−</button>
-        <output id="tl-vol" aria-live="polite">−10 dB</output>
-        <button type="button" id="tl-vol-up" aria-label="音量を 5 dB 上げる">＋</button>
-      </div>
-      <div class="tp-btns">
-        <button type="button" class="btn primary" id="tl-play">▶ 再生</button>
-        <button type="button" class="btn stop" id="tl-stop">■ 停止</button>
-      </div>
-    </div>
-  </section>
+    </section>
   </main>
-  <footer>v2.4.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</footer>
+  <footer class="page-options">
+    <details>
+      <summary>このページについて</summary>
+      <div class="details-body">
+        <p class="lead">等級曲線や入力値どおりに整形した音を、同じ条件で切り替えて比べる参考試聴です。音声の生成・読み込み・処理はすべてこのブラウザ内で行い、外部へ送信しません。</p>
+        <div class="row">
+          <span class="lbl">配色</span>
+          <div class="seg" id="seg-theme" role="group" aria-label="配色">
+            <button type="button" data-theme="light" aria-pressed="true">白</button>
+            <button type="button" data-theme="dark" aria-pressed="false">ダーク</button>
+            <button type="button" data-theme="black" aria-pressed="false">黒</button>
+          </div>
+        </div>
+        <div class="hint">v2 の配色：<a href="https://nipponcolors.com/" target="_blank" rel="noopener noreferrer">NIPPON COLORS</a>（白練・墨・黒 ほか）</div>
+        <p>v2.4.0 ・ 試聴用モデル（実際の遮音性能・音圧を保証するものではありません）・ 設定（音源以外）だけをこのブラウザに保存します。音声・測定データの送信や利用状況の収集は行いません。</p>
+      </div>
+    </details>
+  </footer>
 </div>
 <div class="busy" id="busy" role="status" hidden>計算中…</div>
 
@@ -942,7 +1106,7 @@ function loadShell(){
   const legacyTl = store.get('tl-listening-v1') || {};
   const themes = ['light', 'dark', 'black'];
   let theme = [s.theme, legacyLh.theme, legacyTl.theme].find(t => themes.includes(t));
-  if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  if (!theme) theme = 'light';
   shell = { tab: s.tab === 'tl' ? 'tl' : 'lh', theme };   // the saved tab is only used by the two-tab build
 }
 function applyTheme(){
@@ -1047,7 +1211,7 @@ function defaults(){
   const ref50 = {}, off = {};
   BANDS.forEach((b, i) => { ref50[b.label] = REF65[i] - 15; off[b.label] = 0; });
   return { v: 6, mode: 'grade', add: { '16': false, '31.5': false, '1k': false, '2k': false }, custom4: [88, 78, 71, 65], ref50, off,
-    pattern: 'single', T: 0.7, subDelayMs: 0, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {}, synth: 'common' };
+    pattern: 'single', T: 0.7, subDelayMs: 0, subBoundaryHz: 125, slope: -5, bgBand: 'wide', nums: false, level: LEVEL_DEFAULT, cal: {}, synth: 'common' };
 }
 function sanitize(s){
   const o = defaults();
@@ -1061,7 +1225,8 @@ function sanitize(s){
     if (s.cal && isNum(s.cal[b.label]) && s.cal[b.label] >= 0 && s.cal[b.label] <= 140) o.cal[b.label] = s.cal[b.label];
   }
   if (PATTERNS.includes(s.pattern)) o.pattern = s.pattern;
-  if (isNum(s.subDelayMs)) o.subDelayMs = Math.min(30, Math.max(0, Math.round(s.subDelayMs)));
+  if (isNum(s.subDelayMs)) o.subDelayMs = Math.min(1000, Math.max(0, Math.round(s.subDelayMs)));
+  if ([125, 250, 63].includes(s.subBoundaryHz)) o.subBoundaryHz = s.subBoundaryHz;
   if (isNum(s.T)) o.T = Math.min(2, Math.max(0.2, s.T));
   if ([-3, -5, -8].includes(s.slope)) o.slope = s.slope;
   if (s.bgBand === 'b4' || s.bgBand === 'wide') o.bgBand = s.bgBand;
@@ -1312,8 +1477,8 @@ function fitBands(raw, targets, fs, bands){
   return { gains: g, bandFmax: band, LAF: D.fastMaxDb(D.sosFilter(sum.subarray(0, N + Math.round(0.5 * fs)), sosA), fs), err: Number.isFinite(err) ? err : Infinity };
 }
 function subDelaySamples(fs, delayMs){ return Math.round(fs * delayMs / 1000); }
-function mixImpactBand(out, samples, gain, band, fs, delayMs){
-  const offset = band.fc >= 125 ? subDelaySamples(fs, delayMs) : 0;
+function mixImpactBand(out, samples, gain, band, fs, delayMs, boundaryHz = 125){
+  const offset = band.fc >= boundaryHz ? subDelaySamples(fs, delayMs) : 0;
   for (let n = 0; n < samples.length; n++) out[n + offset] += gain * samples[n];
 }
 function buildImpact(){
@@ -1325,7 +1490,7 @@ function buildImpact(){
   for (let j = 0; j < raw.length; j++){
     const gd = fit.gains[j] / (P0 * Math.pow(10, K[bands[j].i] / 20)), x = raw[j];
     gds.push(gd);
-    mixImpactBand(dig, x, gd, bands[j], fs, S.subDelayMs);
+    mixImpactBand(dig, x, gd, bands[j], fs, S.subDelayMs, S.subBoundaryHz);
   }
   const runCount = Math.ceil(N / fs / RUN_INTERVAL) + 1;
   const offs = { single: [0], triple: TRIPLE_OFFSETS.map(o => Math.round(o * fs)), run: Array.from({ length: runCount }, (_, i) => Math.round(i * RUN_INTERVAL * fs)) };
@@ -1559,7 +1724,7 @@ function startImpactAt(g, t, gl, buffer = impact.buffer, destination = g.master)
   src.start(t);
 }
 // A short burst in every octave, with identical onset before the subwoofer correction.
-function buildSubClick(fs, delayMs){
+function buildSubClick(fs, delayMs, boundaryHz){
   const lengths = BANDS.map(b => Math.ceil(4 * fs / b.fc));
   const out = new Float32Array(Math.max(...lengths) + subDelaySamples(fs, delayMs));
   const gain = 0.15 / BANDS.length;
@@ -1569,7 +1734,7 @@ function buildSubClick(fs, delayMs){
       const envelope = (1 - n / pulse.length) ** 3;
       pulse[n] = Math.sin(2 * Math.PI * band.fc * n / fs) * envelope;
     }
-    mixImpactBand(out, pulse, gain, band, fs, delayMs);
+    mixImpactBand(out, pulse, gain, band, fs, delayMs, boundaryHz);
   });
   return out;
 }
@@ -1578,7 +1743,7 @@ async function playSubClick(){
   const token = playToken, ready = await App.audio.ensureRunning();
   if (token !== playToken) return;
   if (!ready){ say('lh-sub-msg', '音声を開始できませんでした。'); return; }
-  const g = getGraph(), buffer = App.audio.newBuffer(buildSubClick(g.ctx.sampleRate, S.subDelayMs));
+  const g = getGraph(), buffer = App.audio.newBuffer(buildSubClick(g.ctx.sampleRate, S.subDelayMs, S.subBoundaryHz));
   say('lh-sub-msg', '');
   startImpactAt(g, g.ctx.currentTime + App.audio.startDelay, 1, buffer, g.limiter);
 }
@@ -2081,7 +2246,8 @@ function syncInputs(){
   document.querySelectorAll('#lh-add input[data-add]').forEach(c => { c.checked = !!S.add[c.dataset.add]; });
   for (let i = 0; i < 4; i++) setVal(el('lh-c' + i), S.custom4[i]);
   el('lh-sub-delay').value = String(S.subDelayMs);
-  el('lh-sub-value').value = S.subDelayMs + ' ms';
+  setVal(el('lh-sub-ms'), S.subDelayMs);
+  el('lh-sub-boundary').value = String(S.subBoundaryHz);
   el('lh-bgband').value = S.bgBand;
   document.querySelectorAll('#lh-seg-pattern button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === S.pattern)));
   el('lh-nums').checked = S.nums;
@@ -2272,9 +2438,32 @@ function bind(){
     App.bindNumber(el('lh-c' + i), { min: 0, max: 140, label: BANDS[i + 2].label + ' Hz の指定値', msg: el('lh-custom-msg'), get: () => S.custom4[i],
       set: v => { S.custom4[i] = v; intentEpoch++; save(); requestRebuild(TYPING_MS, false, true); } });
   }
-  el('lh-sub-delay').addEventListener('input', e => {
-    S.subDelayMs = Number(e.target.value);
-    el('lh-sub-value').value = S.subDelayMs + ' ms';
+  const subRange = el('lh-sub-delay'), subNumber = el('lh-sub-ms');
+  const updateDelay = e => {
+    const input = e.currentTarget;
+    if (!input.validity.valid){
+      subNumber.setAttribute('aria-invalid', 'true');
+      say('lh-sub-msg', '補正量は0〜1000 msの整数で入力してください。');
+      return;
+    }
+    subNumber.removeAttribute('aria-invalid');
+    say('lh-sub-msg', '');
+    if (input === subRange) subNumber.value = input.value;
+    else subRange.value = input.value;
+    if (S.subDelayMs === input.valueAsNumber) return;
+    S.subDelayMs = input.valueAsNumber;
+    save(); requestRebuild(120, false, true);
+  };
+  subRange.addEventListener('input', updateDelay);
+  subNumber.addEventListener('input', updateDelay);
+  subNumber.addEventListener('blur', () => {
+    if (subNumber.validity.valid) return;
+    subNumber.value = String(S.subDelayMs);
+    subNumber.removeAttribute('aria-invalid');
+    say('lh-sub-msg', '');
+  });
+  el('lh-sub-boundary').addEventListener('change', e => {
+    S.subBoundaryHz = Number(e.target.value);
     save(); requestRebuild(120, false, true);
   });
   el('lh-sub-click').addEventListener('click', playSubClick);
@@ -2837,7 +3026,8 @@ function renderResult(){
   if (S.pad) note += '原音だけ ' + (-S.pad) + ' dB 下げて再生する設定です。聞こえる差は、実際より ' + (-S.pad) + ' dB 小さくなります。';
   if (proc.safe < 1) note += '全条件共通のピーク保護 ' + fmt(db(proc.safe)) + ' dB を掛けています（条件間の差は変わりません）。';
   res.textContent = t;
-  say('tl-status', note);
+  say('tl-level-note', note);
+  say('tl-status', '');
   const lv = S.srcLevel - (cond === 'dry' ? 0 : proc.stats[String(cond)].dA);
   el('tl-est').textContent = '想定：音源が A 特性で ' + S.srcLevel + ' dB のとき、' + (cond === 'dry' ? '壁がなければ約 ' : 'この条件の向こう側では約 ') + fmt(lv, 0) + ' dB(A)。' + (S.bg ? '暗騒音 ' + S.bg + ' dB(A) より ' + fmt(Math.abs(lv - S.bg), 0) + ' dB ' + (lv >= S.bg ? '大きい（聞こえる目安）。' : '小さい（暗騒音に埋もれやすい目安）。') : '') + '音源の大きさは想定値で、実際の音圧ではありません。';
 }

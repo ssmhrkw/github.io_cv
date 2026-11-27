@@ -114,7 +114,7 @@
   const OCT_CENTER = ['16 Hz','31.5 Hz','63 Hz','125 Hz','250 Hz','500 Hz','1 kHz','2 kHz','4 kHz','8 kHz','16 kHz'];
   const THIRDOCT_CENTER = ['12.5 Hz','16 Hz','20 Hz','25 Hz','31.5 Hz','40 Hz','50 Hz','63 Hz','80 Hz','100 Hz','125 Hz','160 Hz','200 Hz','250 Hz','315 Hz','400 Hz','500 Hz','630 Hz','800 Hz','1 kHz','1.25 kHz','1.6 kHz','2 kHz','2.5 kHz','3.15 kHz','4 kHz','5 kHz','6.3 kHz','8 kHz','10 kHz','12.5 kHz','16 kHz','20 kHz'];
 
-  const groups = Array.from({length:GROUP_COUNT}, ()=>({files:[],data:[]})); // data: [{fileName,oct,thirdoct}]
+  const groups = Array.from({length:GROUP_COUNT}, ()=>({data:[]})); // data: [{fileName,oct,thirdoct}]
   let activeBandTab='rating';
   let activeSeries='Lmax';
 
@@ -127,12 +127,15 @@
         <strong>Group ${idx}</strong>
         <label class="btn">追加<input class="hiddenInput" id="fileInput${idx}" type="file" accept=".rnd,.RND,.csv,.CSV,.txt" multiple></label>
       </div>
-      <div class="hint">ドラッグ＆ドロップ（RND/CSV/Shift-JIS）</div>
-      <div class="files" id="files${idx}"></div>`;
+      <div class="hint">ドラッグ＆ドロップ（RND/CSV、UTF-8・Shift_JIS）</div>
+      <div class="files"><span id="files${idx}"></span><div id="fileErrors${idx}"></div></div>`;
     ['dragenter','dragover'].forEach(ev=>box.addEventListener(ev,e=>{e.preventDefault();box.classList.add('drag');}));
     ['dragleave','drop'].forEach(ev=>box.addEventListener(ev,e=>{e.preventDefault();box.classList.remove('drag');}));
     box.addEventListener('drop', e=>handleFiles(g, e.dataTransfer.files));
-    box.querySelector(`#fileInput${idx}`).addEventListener('change', e=>handleFiles(g, e.target.files));
+    box.querySelector(`#fileInput${idx}`).addEventListener('change', e=>{
+      handleFiles(g, e.target.files);
+      e.target.value='';
+    });
     dropRow.appendChild(box);
   }
   const status=document.getElementById('status');
@@ -155,6 +158,7 @@
   // ===== 暗騒音補正 UI =====
   let noiseMode='none';
   let noiseData={oct:null,thirdoct:null};
+  let noiseSelection=0;
   const noiseRadios=document.getElementsByName('noiseCorrection');
   const noiseFileControls=document.getElementById('noiseFileControls');
   const noiseFileInput=document.getElementById('noiseFileInput');
@@ -164,52 +168,116 @@
     r.addEventListener('change',()=>{
       noiseMode=document.querySelector('input[name="noiseCorrection"]:checked').value;
       noiseFileControls.style.display=(noiseMode==='apply')?'':'none';
-      if(activeBandTab==='rating'){ if(anyData()) calcAndDrawRating(); } else { renderBand(activeBandTab); }
+      redrawCurrentTab();
     });
   });
   noiseFileInput.addEventListener('change', async e=>{
-    const f=e.target.files?.[0];
-    if(!f){ noiseData={oct:null,thirdoct:null}; noiseFileName.textContent=''; return; }
-    const d=await readRND(f);
-    noiseData.oct = d ? {freqs:d.oct.freqs, Lb:(d.oct.series['Lmax']||[]).slice()} : null;
-    noiseData.thirdoct = d ? {freqs:d.thirdoct.freqs, Lb:(d.thirdoct.series['Lmax']||[]).slice()} : null;
-    noiseFileName.innerHTML = d ? `<span class="badge">${escapeHtml(f.name)}</span>` : '読込失敗';
-    if(activeBandTab==='rating'){ if(anyData()) calcAndDrawRating(); } else { renderBand(activeBandTab); }
+    const f=e.target.files?.[0], selection=++noiseSelection;
+    const hadNoise=Boolean(noiseData.oct);
+    noiseData={oct:null,thirdoct:null};
+    noiseFileName.textContent=f ? `${f.name} を読み込み中` : '';
+    if(hadNoise) redrawCurrentTab();
+    if(!f) return;
+    try{
+      const d=await readRND(f);
+      if(selection!==noiseSelection) return;
+      const hasLmax=['oct','thirdoct'].some(kind=>filterFreqsFor(kind,d[kind].freqs).indices
+        .some(i=>Number.isFinite(d[kind].series.Lmax[i])));
+      if(!hasLmax) throw new Error('暗騒音のLmax帯域値がありません');
+      noiseData={
+        oct:{freqs:d.oct.freqs, Lb:d.oct.series.Lmax},
+        thirdoct:{freqs:d.thirdoct.freqs, Lb:d.thirdoct.series.Lmax}
+      };
+    }catch(err){
+      if(selection!==noiseSelection) return;
+      noiseFileName.textContent=`${f.name} の読込失敗：${err.message}`;
+      noiseFileInput.value='';
+      return;
+    }
+    noiseFileName.innerHTML=`<span class="badge">${escapeHtml(f.name)}</span>`;
+    redrawCurrentTab();
   });
 
   // ===== RND/CSV 読み込み =====
   async function readRND(file){
-    const buf=await file.arrayBuffer();
-    let text=''; try{ text=new TextDecoder('shift_jis').decode(buf); } catch{ text=new TextDecoder('utf-8').decode(buf); }
+    let bytes;
+    try{ bytes=new Uint8Array(await file.arrayBuffer()); }
+    catch{ throw new Error('ファイルを読み取れません'); }
+    const bom=bytes[0]===0xef && bytes[1]===0xbb && bytes[2]===0xbf;
+    const encodings=bom ? ['utf-8'] : ['utf-8','shift_jis'];
+    let best=null, previousText;
+    for(const encoding of encodings){
+      let text;
+      try{ text=new TextDecoder(encoding,{fatal:true}).decode(bytes); }
+      catch{ continue; }
+      if(text===previousText) continue;
+      previousText=text;
+      const candidate=parseRND(text,file.name);
+      // 同じ見出し数なら先に試したUTF-8を使う。
+      if(candidate && (!best || candidate.score>best.score)) best=candidate;
+    }
+    if(best) return best.data;
+    if(previousText===undefined) throw new Error(bom ? 'UTF-8 BOM以降の文字コードが不正です' : 'UTF-8・Shift_JISで復号できません');
+    throw new Error('RND/CSVの行構成・周波数見出し・系列行を確認してください');
+  }
+
+  function parseRND(text,fileName){
     const rows=text.replace(/\r\n?/g,'\n').split('\n').map(r=>r.split(','));
     if(rows.length<21) return null;
     const headOct=rows[7].slice(1,14).map(s=>s.trim());
     const head13=rows[7].slice(14,47).map(s=>s.trim());
+    const bandColumns=filterFreqsFor('oct',headOct).indices.map(i=>i+1)
+      .concat(filterFreqsFor('thirdoct',head13).indices.map(i=>i+14));
+    if(!bandColumns.length) return null;
     const seriesOct={}, series13={}; for(const k of SERIES_ORDER){ seriesOct[k]=[]; series13[k]=[]; }
+    let matchedRows=0;
     for(let r=9;r<=20 && r<rows.length;r++){
       const labelRaw=(rows[r][0]||'').trim();
       if(EXCLUDE_ROWS.has(labelRaw)) continue;
       if(!LABEL_ROW_MAP.has(labelRaw)) continue;
       const k=LABEL_ROW_MAP.get(labelRaw);
+      if(bandColumns.some(col=>{
+        const cell=rows[r][col]?.trim();
+        return cell==='-' || cell==='-----' || Number.isFinite(toNum(cell));
+      })) matchedRows++;
       seriesOct[k]=rows[r].slice(1,14).map(toNum);
       series13[k]=rows[r].slice(14,47).map(toNum);
     }
-    return {fileName:file.name, oct:{freqs:headOct,series:seriesOct}, thirdoct:{freqs:head13,series:series13}};
+    if(!matchedRows) return null;
+    const data={fileName, oct:{freqs:headOct,series:seriesOct}, thirdoct:{freqs:head13,series:series13}};
+    return {data,score:bandColumns.length+matchedRows};
   }
-  const toNum=s=>{const t=(s||'').trim(); if(!t||t==='-'||t==='-----') return NaN; const v=Number(t.replace(/[^0-9.+-]/g,'')); return Number.isFinite(v)?v:NaN;};
+  function toNum(s){
+    const numberText=(s||'').replace(/[^0-9.+-]/g,'');
+    if(!numberText) return NaN;
+    const value=Number(numberText);
+    return Number.isFinite(value) ? value : NaN;
+  }
 
-  function handleFiles(groupIndex, filesLike){
+  async function handleFiles(groupIndex, filesLike){
     const arr=[...filesLike||[]];
     if(!arr.length) return;
-    groups[groupIndex].files.push(...arr);
-    Promise.all(arr.map(readRND)).then(res=>{
-      groups[groupIndex].data.push(...res.filter(Boolean));
-      document.getElementById(`files${groupIndex+1}`).innerHTML =
-        groups[groupIndex].data.map((d,i)=>`<span class="badge">G${groupIndex+1}-${i+1} ${escapeHtml(d.fileName)}</span>`).join('');
-      const info=groups.map((gp,i)=>`G${i+1}:${gp.data.length}`).join('  ');
-      status.textContent=`読み込み済みファイル数 → ${info}`;
-      if(activeBandTab==='rating') calcAndDrawRating(); else renderBand(activeBandTab);
+    const group=groups[groupIndex], idx=groupIndex+1;
+    const errors=document.getElementById(`fileErrors${idx}`);
+    errors.textContent='';
+    const results=await Promise.allSettled(arr.map(readRND));
+    results.forEach((result,i)=>{
+      if(result.status==='fulfilled') group.data.push(result.value);
+      else {
+        const message=document.createElement('div');
+        message.textContent=`${arr[i].name} の読込失敗：${result.reason.message}`;
+        errors.appendChild(message);
+      }
     });
+    document.getElementById(`files${idx}`).innerHTML =
+      group.data.map((d,i)=>`<span class="badge">G${idx}-${i+1} ${escapeHtml(d.fileName)}</span>`).join('');
+    const info=groups.map((gp,i)=>`G${i+1}:${gp.data.length}`).join('  ');
+    status.textContent=`読み込み済みファイル数 → ${info}`;
+    redrawCurrentTab();
+  }
+
+  function redrawCurrentTab(){
+    if(activeBandTab==='rating'){ if(anyData()) calcAndDrawRating(); } else { renderBand(activeBandTab); }
   }
 
   const escapeHtml=s=>s.replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m]));

@@ -232,9 +232,8 @@ svg text{font-family:"BIZ UDPGothic",system-ui,sans-serif}
         <summary>詳細設定</summary>
         <div class="inner">
           <label class="field">判定に使う L-50 基準曲線
-            <select id="base">
+            <select id="base" disabled>
               <option value="reference">公開資料の値（73/63/56/50 dB）</option>
-              <option value="original">元の計算コードの値（88/76/69/62 dB・比較用）</option>
             </select>
           </label>
           <label class="field">加振点間の平均
@@ -318,9 +317,9 @@ svg text{font-family:"BIZ UDPGothic",system-ui,sans-serif}
           <li>部屋がスラブより広い方向では、加振するスラブ1枚を放射面とし、隣のスラブからの放射は考慮しません（危険側）。部屋とスラブが一部だけ重なる配置は対象外です。</li>
           <li>部屋の位置が未定のときは、スラブの両端と中央に寄せた配置（最大9通り）を計算し、各厚さで最も大きい予測値を使います。</li>
           <li>梁が未定の辺は、大ばり・小ばり・梁なしの3種類すべてを組み合わせて計算します（4辺とも未定なら81通り）。答えは安全側（すべての組合せで満たす厚さ）で、分布と「梁なしが何辺までなら何 mm」も示します。</li>
-          <li>材料のプリセットのヤング率は、日本建築学会 RC 規準の式 E = 3.35×10⁴ (γ/24)² (Fc/60)^1/3 [N/mm²] による代表値です（Fc36 相当は元の計算コードの値 2.6×10¹⁰ N/m²）。</li>
+          <li>普通コンクリートの標準は Fc36 相当で、元の計算コードの E = 2.6×10¹⁰ N/m²、ρ = 2300 kg/m³ を使います。他の材料プリセットのヤング率は、日本建築学会 RC 規準の式 E = 3.35×10⁴ (γ/24)² (Fc/60)^1/3 [N/mm²] で求めた代表値です。</li>
           <li>必要な厚さは「それ以上なら探索範囲内のどの厚さでも目標を満たす最小値」です。放射係数がコインシデンス周波数で 1 に切り替わるため、厚くすると一時的に悪化する区間があります。</li>
-          <li>L-50 基準曲線の既定値は<a href="https://www.takemura.co.jp/products/productslist/dsidf/justfloor/pdf/l60_l40.pdf" target="_blank" rel="noopener">公開測定資料</a>の 73・63・56・50 dB（63〜500 Hz）です。各帯域 2 dB の扱いは<a href="https://www.mlit.go.jp/toshi/city/sigaiti/content/001889416.pdf#page=61" target="_blank" rel="noopener">国交省ガイドブック本文60頁</a>によります。</li>
+          <li>L-50 基準曲線は<a href="https://www.takemura.co.jp/products/productslist/dsidf/justfloor/pdf/l60_l40.pdf" target="_blank" rel="noopener">公開測定資料</a>の 73・63・56・50 dB（順に 63・125・250・500 Hz）です。各帯域 2 dB の扱いは<a href="https://www.mlit.go.jp/toshi/city/sigaiti/content/001889416.pdf#page=61" target="_blank" rel="noopener">国交省ガイドブック本文60頁</a>によります。</li>
           <li>規格原本との照合と予測式の検証は完了していません。結果は設計の目安であり、性能を保証するものではありません。計算はすべてブラウザ内で行い、入力値は送信しません。</li>
         </ul>
       </section>
@@ -361,7 +360,7 @@ svg text{font-family:"BIZ UDPGothic",system-ui,sans-serif}
     '63': {63: -12, 125: -9, 250: -6, 500: -3},
     '125': {63: -9, 125: -6, 250: -3, 500: 0}
   };
-  const BASES = {reference: [73, 63, 56, 50], original: [88, 76, 69, 62]};
+  const BASES = {reference: [73, 63, 56, 50]};
   const C_AIR = 340, F_THETA = 25, NU2 = 0.04, K_CONST = 152;
   const F0_COEF = 0.8 * Math.PI / (4 * Math.sqrt(3));
   const DOM_LIMITS = [44.7, 89.1];
@@ -850,7 +849,7 @@ function readConfig() {
     same, posMode: same ? 'fixed' : posMode, ox: same ? 0 : (insideX ? v.ox : 0), oy: same ? 0 : (insideY ? v.oy : 0), insideX, insideY,
     edgeChoice: {top: $('eTop').value, btm: $('eBtm').value, left: $('eLeft').value, right: $('eRight').value},
     target: Number($('target').value), tol: $('tol').checked ? 2 : 0,
-    baseName: $('base').value, base: BASES[$('base').value], avg: $('avg').value, hmin, hmax
+    base: BASES.reference, avg: $('avg').value, hmin, hmax
   };
 }
 
@@ -1281,7 +1280,7 @@ function renderSheet() {
   s += `</tbody></table></div>`;
   s += `<p class="help">ΔL<sub>x</sub> = max(ΔL(<var>d</var><sub>左</sub>/<var>λ</var><sub>θ</sub>), ΔL(<var>d</var><sub>右</sub>/<var>λ</var><sub>θ</sub>))。大ばり：ΔL(<var>r</var>) = 15.37 − 68.86<var>r</var> + 98.65<var>r</var>² − 45.36<var>r</var>³（<var>r</var> ≤ 0.6）、小ばり：10.93 − 55.86<var>r</var> + 92.57<var>r</var>² − 49.72<var>r</var>³（<var>r</var> ≤ 0.5）、負の値は 0。加振点は放射面の 1/4・1/2・3/4 の位置の5点。</p>`;
   s += `<h3>判定</h3><div class="scroll"><table class="calc"><thead><tr><th>番号</th><th>項目</th><th>式</th>${BANDS.map(f => `<th>${f} Hz</th>`).join('')}</tr></thead><tbody>`;
-  s += row('(14)', 'L-50 基準曲線', `<var>L</var><sub>ref,50</sub>（${c.baseName === 'reference' ? '公開資料' : '元コード'}）`, bandCells(f => num(c.base[BANDS.indexOf(f)], 0)));
+  s += row('(14)', 'L-50 基準曲線', '<var>L</var><sub>ref,50</sub>（公開資料）', bandCells(f => num(c.base[BANDS.indexOf(f)], 0)));
   s += row('(15)', '基準曲線からの超過', `(13) − (14) − ${c.tol} dB`, BANDS.map(f => { const v = r.spectrum[f] - c.base[BANDS.indexOf(f)] - c.tol; return `<td class="${f === a.gov ? 'gov' : ''}">${sgn(v, 2)}</td>`; }).join(''));
   s += row('(16)', '予測 L 値（連続値）', '50 + max(15)', scalar(`${num(a.cg, 2)} → 5 dB 刻みに切り上げて LH-${a.grade}`), 'total');
   s += row('(17)', '目標との比較', `(16) ≤ ${c.target}`, scalar(a.pass ? `満たす（余裕 ${num(c.target - a.cg, 2)}）` : `満たさない（超過 ${num(a.cg - c.target, 2)}）`));
@@ -1299,7 +1298,7 @@ function renderTitleBlock() {
     ['下の部屋', `${fmtM(c.rx)} × ${fmtM(c.ry)} × H ${fmtM(c.H)} m, T ${c.T} s`],
     ['部屋の位置', c.same ? 'スラブと同じ' : (c.posMode === 'unknown' ? '未定（厳しい配置で評価）' : `左 ${fmtM(c.ox)} m, 下 ${fmtM(c.oy)} m`)],
     ['目標', `LH-${c.target}${c.tol ? '（各帯域 2 dB 許容）' : ''}`],
-    ['基準曲線・平均', `${c.baseName === 'reference' ? '公開資料' : '元コード'}・${c.avg === 'arith' ? '算術平均' : 'エネルギー平均'}`],
+    ['基準曲線・平均', `公開資料・${c.avg === 'arith' ? '算術平均' : 'エネルギー平均'}`],
     ['必要な等価厚（安全側）', req.req !== null ? `${req.req} mm` : `${c.hmax} mm 超`]
   ];
   $('titleblock').innerHTML = cells.map(([k, v]) => `<div><b>${k}</b>${esc(v)}</div>`).join('');

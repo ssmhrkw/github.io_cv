@@ -98,7 +98,7 @@
         </div>
 
         <div class="row"><label for="material">材料プリセット</label><select id="material"></select></div>
-        <div class="row"><label for="E">E [Pa]</label><input id="E" type="text" value="2.1e10" placeholder="例) 2.1e10 / 70GPa"/></div>
+        <div class="row"><label for="E">E [Pa]</label><input id="E" type="text" value="2.6e10" placeholder="例) 2.6e10 / 70GPa"/></div>
         <div class="row"><label for="rho">ρ [kg/m³]</label><input id="rho" type="number" step="1" min="10" value="2300"/></div>
         <div class="row"><label for="nu">ポアソン比 ν [-]</label><input id="nu" type="number" step="0.01" min="0.0" max="0.49" value="0.20"/></div>
         <div class="row"><label for="eta">損失係数 η [%]</label><input id="eta" type="number" step="0.01" min="0.0001" value="0.50"/></div>
@@ -327,7 +327,7 @@
     // ═══════════════════════════════════════════════════
 
     const MAT={
-      "コンクリート":{rho:2.3e3,E:2.1e10,eta:0.005,nu:0.20},
+      "コンクリート":{rho:2.3e3,E:2.6e10,eta:0.005,nu:0.20},
       "軽量コンクリート":{rho:1.5e3,E:0.5e10,eta:0.005,nu:0.20},
       "発泡コンクリート":{rho:0.6e3,E:0.16e10,eta:0.005,nu:0.20},
       "石こうボード":{rho:0.8e3,E:0.18e10,eta:0.005,nu:0.30},
@@ -345,7 +345,7 @@
     const OCT=[16,31.5,63,125,250,500,1000,2000], BF=Math.SQRT2;
 
     const S={
-      E:2.1e10, rho:2300, nu:0.20, eta:0.005, h:0.200,
+      ...MAT["コンクリート"], h:0.200,
       Lx:3.6, Ly:2.7, x0mm:1800, y0mm:1350,
       Nx:3, Ny:3, avgMode:"linear",
       fmin:10, fmax:2000, mx:30, ny:30,
@@ -608,11 +608,14 @@
       sel.value="コンクリート";
     })();
 
+    function applyMaterial(name){
+      const p=MAT[name];
+      if(!p || name==="手動入力")return;
+      $("E").value=toExp(p.E,3); $("rho").value=p.rho; $("nu").value=p.nu; $("eta").value=(p.eta*100).toFixed(2);
+    }
+
     $("material").addEventListener("change",function(){
-      const p=MAT[this.value]; if(!p)return;
-      if(this.value!=="手動入力"){
-        $("E").value=toExp(p.E,3); $("rho").value=p.rho; $("nu").value=p.nu; $("eta").value=(p.eta*100).toFixed(2);
-      }
+      applyMaterial(this.value);
       pullFromUI();
     });
 
@@ -637,7 +640,7 @@
     $("reset").addEventListener("click",()=>{
       S.bcLeft='S';S.bcRight='S';S.bcBottom='S';S.bcTop='S'; syncBC();
       $("material").value="コンクリート";
-      $("E").value="2.1e10";$("rho").value=2300;$("nu").value=0.20;$("eta").value=0.50;
+      applyMaterial($("material").value);
       $("thick").value=200;$("Lx").value=3.6;$("Ly").value=2.7;
       $("x0mm").value=1800;$("y0mm").value=1350;
       $("fmin").value=10;$("fmax").value=2000;$("mx").value=30;$("ny").value=30;

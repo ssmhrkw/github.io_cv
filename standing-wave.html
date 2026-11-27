@@ -32,14 +32,14 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
       <div class="row">
         <label>材料プリセット</label>
         <select id="material">
-          <option value="concrete">Concrete (E=30e9, ν=0.2, ρ=2400)</option>
+          <option value="concrete">Concrete (E=2.6e10, ν=0.2, ρ=2300)</option>
           <option value="custom">カスタム</option>
         </select>
       </div>
       <div class="row control-row">
         <div style="flex:1">
           <label>E [Pa]</label>
-          <input id="E" type="number" value="30000000000">
+          <input id="E" type="number" value="26000000000">
         </div>
         <div style="flex:1">
           <label>ν</label>
@@ -49,7 +49,7 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
       <div class="row control-row">
         <div style="flex:1">
           <label>ρ [kg/m³]</label>
-          <input id="rho" type="number" value="2400">
+          <input id="rho" type="number" value="2300">
         </div>
         <div style="flex:1">
           <label>h [m]</label>
@@ -84,12 +84,17 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
         <label>加振点プリセット</label>
         <select id="sourcePreset">
           <option value="center">中心 (Lx/2, Ly/2)</option>
+          <option value="manual">手動</option>
           <option value="dice5">サイコロ5の目 (中心＋4)</option>
           <option value="diag1">対角1 (0.0,0.0)</option>
           <option value="diag2">対角2 (Lx,0.0)</option>
           <option value="diag3">対角3 (0.0,Ly)</option>
           <option value="diag4">対角4 (Lx,Ly)</option>
         </select>
+        <div id="dicePointRow" hidden>
+          <label for="dicePoint">表示する加振点 [m]</label>
+          <select id="dicePoint"></select>
+        </div>
         <div class="small">プロットをクリックして加振点をセットできます（2D モード時）。</div>
       </div>
 
@@ -131,7 +136,7 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
         <div class="inline">
           <button id="modePlay" class="btn">再生</button>
           <button id="modePause">停止</button>
-          <label style="margin-left:8px"><input type="checkbox" id="animShowVel"> 速度を着色（瞬時速度）</label>
+          <label style="margin-left:8px"><input type="checkbox" id="animShowVel" disabled> 瞬時速度の着色は未対応（モード変位を表示）</label>
         </div>
       </div>
 
@@ -330,11 +335,34 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 
   function stopAnim(){ if(animId){ cancelAnimationFrame(animId); animId=null; } }
 
+  function sourcePoints(preset,Lx,Ly){
+    const center = [Lx/2,Ly/2];
+    switch(preset){
+      case 'dice5': return [center, [Lx/3,Ly/3], [2*Lx/3,Ly/3], [Lx/3,2*Ly/3], [2*Lx/3,2*Ly/3]];
+      case 'diag1': return [[0,0]];
+      case 'diag2': return [[Lx,0]];
+      case 'diag3': return [[0,Ly]];
+      case 'diag4': return [[Lx,Ly]];
+      case 'manual': return [[clamp(Number($('x0').value),0,Lx), clamp(Number($('y0').value),0,Ly)]];
+      default: return [center];
+    }
+  }
+
+  function setSourceFromClick(evt){
+    const point = evt.points?.[0];
+    if(point?.data?.type !== 'heatmap' || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+    $('sourcePreset').value = 'manual';
+    $('x0').value = point.x;
+    $('y0').value = point.y;
+    render();
+  }
+
   // main render
   function render(){
-    stopAnim();
     const material = $('material').value;
-    if(material==='concrete'){ $('E').value=30000000000; $('nu').value=0.20; $('rho').value=2400; }
+    if(material==='concrete'){
+      for(const id of ['E','nu','rho']) $(id).value=$(id).defaultValue;
+    }
     const E = parseFloat($('E').value), nu=parseFloat($('nu').value), rho=parseFloat($('rho').value);
     const h = parseFloat($('h').value), Lx=parseFloat($('Lx').value), Ly=parseFloat($('Ly').value);
     const mmax = parseInt($('mmax').value), nmax=parseInt($('nmax').value);
@@ -345,51 +373,51 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
     // if freq blank set to first
     if(!$('freq').value || $('freq').value.trim()==='') $('freq').value = modes[0].f.toFixed(6);
     const freq = parseFloat($('freq').value);
-    // presets
     const preset=$('sourcePreset').value;
-    if(preset==='center'){ $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3);}
-    else if(preset==='dice5'){ const xs=[Lx/3,2*Lx/3]; const ys=[Ly/3,2*Ly/3]; $('x0').value=(Lx/2).toFixed(3); $('y0').value=(Ly/2).toFixed(3);}
-    else if(preset==='diag1'){ $('x0').value=(0).toFixed(3); $('y0').value=(0).toFixed(3);}
-    else if(preset==='diag2'){ $('x0').value=(Lx).toFixed(3); $('y0').value=(0).toFixed(3);}
-    else if(preset==='diag3'){ $('x0').value=(0).toFixed(3); $('y0').value=(Ly).toFixed(3);}
-    else if(preset==='diag4'){ $('x0').value=(Lx).toFixed(3); $('y0').value=(Ly).toFixed(3);}
-
-    const x0 = clamp(parseFloat($('x0').value),0,Lx), y0 = clamp(parseFloat($('y0').value),0,Ly);
+    const points = sourcePoints(preset,Lx,Ly);
+    const diceMenu = $('dicePoint');
+    $('dicePointRow').hidden = preset !== 'dice5';
+    let selected = 0;
+    if(preset === 'dice5'){
+      selected = Math.max(0,diceMenu.selectedIndex);
+      const names = ['中心', 'x 1/3・y 1/3', 'x 2/3・y 1/3', 'x 1/3・y 2/3', 'x 2/3・y 2/3'];
+      diceMenu.replaceChildren(...points.map(([x,y],i) =>
+        new Option(`${names[i]} (${x.toFixed(3)}, ${y.toFixed(3)}) m`)));
+      diceMenu.selectedIndex = selected;
+    }
     const displayChoice = $('displayChoice').value;
     const useDb = $('useDb').checked;
     const show2d = $('show2d').checked, show3d = $('show3d').checked;
 
-    // compute static map
-    const field = computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb});
-    const z2d = to2D(field.Z,Ngrid,Ngrid);
-    const zmin = Math.min(...field.Z), zmax = Math.max(...field.Z);
-    const heatmap = {z:z2d,x:field.xs,y:field.ys,type:'heatmap',colorscale:'Viridis',zmin:zmin,zmax:zmax,colorbar:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}};
-    const surface = {z:z2d,x:field.xs,y:field.ys,type:'surface',opacity:0.95,colorscale:'Viridis',showscale:false};
-    const traces = [];
-    if(show2d) traces.push(heatmap);
-    else if(show3d) traces.push(surface);
-    else traces.push(heatmap);
+    const fields = points.map(([x0,y0]) =>
+      computeStaticField({Lx,Ly,E,nu,rho,h,modes,mmax,nmax,freq,x0,y0,Ngrid,displayChoice,useDb}));
+    function showPoint(index){
+      stopAnim();
+      const [x0,y0] = points[index];
+      $('x0').value = x0;
+      $('y0').value = y0;
+      const field = fields[index];
+      const z2d = to2D(field.Z,Ngrid,Ngrid);
+      const zmin = Math.min(...field.Z), zmax = Math.max(...field.Z);
+      const heatmap = {z:z2d,x:field.xs,y:field.ys,type:'heatmap',colorscale:'Viridis',zmin:zmin,zmax:zmax,colorbar:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}};
+      const surface = {z:z2d,x:field.xs,y:field.ys,type:'surface',opacity:0.95,colorscale:'Viridis',showscale:false};
+      const traces = [];
+      if(show2d) traces.push(heatmap);
+      else if(show3d) traces.push(surface);
+      else traces.push(heatmap);
 
-    const layout2d = {margin:{l:60,r:10,t:30,b:60}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]},
-                      annotations:[{text:`f=${freq.toFixed(3)} Hz source=(${x0.toFixed(2)},${y0.toFixed(2)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
-    const layout3d = {margin:{l:60,r:10,t:30,b:60}, scene:{xaxis:{title:'x [m]'},yaxis:{title:'y [m]'},zaxis:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}}, annotations:layout2d.annotations};
+      const layout2d = {margin:{l:60,r:10,t:30,b:60}, xaxis:{title:'x [m]',range:[0,Lx]}, yaxis:{title:'y [m]',autorange:'reversed',range:[0,Ly]},
+                        annotations:[{text:`f=${freq.toFixed(3)} Hz source=(${x0.toFixed(3)},${y0.toFixed(3)})`,xref:'paper',yref:'paper',x:0.02,y:1.02,showarrow:false}]};
+      const layout3d = {margin:{l:60,r:10,t:30,b:60}, scene:{xaxis:{title:'x [m]'},yaxis:{title:'y [m]'},zaxis:{title: useDb ? 'dB' : (displayChoice==='v_over_F' ? 'm/s per N' : 'N per (m/s)')}}, annotations:layout2d.annotations};
 
-    if(show3d && !show2d){
-      Plotly.newPlot('plot', traces, layout3d, {responsive:true,displaylogo:false});
-    }else{
-      Plotly.newPlot('plot', traces, layout2d, {responsive:true,displaylogo:false});
+      const plotEl = $('plot');
+      Plotly.react(plotEl, traces, show3d && !show2d ? layout3d : layout2d, {responsive:true,displaylogo:false}).then(()=>{
+        plotEl.removeListener('plotly_click', setSourceFromClick);
+        plotEl.on('plotly_click', setSourceFromClick);
+      });
     }
-
-    // attach click handler to set source (only for 2D heatmap)
-    const plotEl = document.getElementById('plot');
-    plotEl.on('plotly_click', function(evt){
-      if(!evt.points || !evt.points[0]) return;
-      const pt = evt.points[0];
-      const cx = pt.x, cy = pt.y;
-      $('x0').value = clamp(cx,0,Lx).toFixed(3);
-      $('y0').value = clamp(cy,0,Ly).toFixed(3);
-      render();
-    });
+    diceMenu.onchange = preset === 'dice5' ? () => showPoint(diceMenu.selectedIndex) : null;
+    showPoint(selected);
 
     // store modes for animation control
     window._slab_modes = modes;
@@ -400,8 +428,12 @@ input,select,button{width:100%;padding:8px;border-radius:8px;border:1px solid #e
 
   // wiring
   $('material').addEventListener('change', render);
-  ['E','nu','rho','h','Lx','Ly','mmax','nmax','freq','x0','y0','Ngrid','displayChoice','useDb','show2d','show3d','sourcePreset'].forEach(id=>{
-    $(id).addEventListener('change', ()=>{ if(id==='sourcePreset') render(); else {} });
+  $('sourcePreset').addEventListener('change', render);
+  ['x0','y0'].forEach(id=>{
+    $(id).addEventListener('input', ()=>{
+      $('sourcePreset').value = 'manual';
+      $('dicePointRow').hidden = true;
+    });
   });
   $('renderBtn').addEventListener('click', render);
   $('snapBtn').addEventListener('click', ()=> {

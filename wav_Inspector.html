@@ -202,16 +202,30 @@
   const INPUT_RANGE = {2:'0.01 V (−40 dB)',4:'0.1 V (−20 dB)',6:'1 V (0 dB)',8:'10 V (+20 dB)'};
 
   // ====== Parsers ======
+  function readChunk(dv, off, end, parent){
+    if(end-off<8) throw new Error(`${parent} のチャンクヘッダが途中で終わっています`);
+    const id=fourCC(dv,off), size=dv.getUint32(off+4,true), dataOffset=off+8;
+    const dataEnd=dataOffset+size, next=dataEnd+(size%2);
+    if(dataEnd>end) throw new Error(`${id} のデータが ${parent} の境界を超えています`);
+    if(next>end) throw new Error(`${id} の奇数長パディングがありません`);
+    return {id,size,dataOffset,next};
+  }
+  function requireSize(id, size, min){
+    if(size<min) throw new Error(`${id} のデータが不足しています（必要 ${min} バイト、実際 ${size} バイト）`);
+  }
   function parseTYPE(dv, off){
     const csize=dv.getUint32(off+4,true); const dataOff=off+8;
+    requireSize('TYPE',csize,10);
     return {id:'TYPE', size:csize, dataOffset:dataOff, fileType: readStr(dv,dataOff,8), fileRev: dv.getUint16(dataOff+8,true)};
   }
   function parseWSET(dv, off){
     const csize=dv.getUint32(off+4,true); const dataOff=off+8;
+    requireSize('WSET',csize,4);
     return {id:'WSET', size:csize, dataOffset:dataOff, pretime: dv.getInt16(dataOff+2, true)};
   }
   function parseCSET(dv, off){
     const csize=dv.getUint32(off+4,true); const dataOff=off+8; let p=dataOff;
+    requireSize('CSET',csize,204);
     const common={};
     common.productType = readStr(dv,p,12); p+=12;
     common.repeatSerial = dv.getUint16(p,true); p+=2;
@@ -236,7 +250,7 @@
     p+=2; p+=4; // reserved
     common.triggerSlope = dv.getInt16(p,true); p+=2;
     common.triggerStartDateTime = getI64(dv,p); p+=8;
-    common.triggerStopDateTime  = getI64(dv,p+8); p+=8;
+    common.triggerStopDateTime  = getI64(dv,p); p+=8;
     p+=16;
     common.triggerIntervalSec = dv.getInt32(p,true); p+=4;
     common.measureFreqRangeCode = dv.getInt16(p,true); p+=2;
@@ -246,7 +260,8 @@
 
     const chBlockSize=114;
     const remain=csize-(p-dataOff);
-    const nCh=Math.max(0, Math.floor(remain/chBlockSize));
+    if(remain%chBlockSize!==0) throw new Error('CSET のチャンネル設定が途中で終わっています');
+    const nCh=remain/chBlockSize;
     const channels=[];
     for(let i=0;i<nCh;i++){
       let q=p+i*chBlockSize;
@@ -275,7 +290,9 @@
   }
   function parseCUE(dv, off){
     const size=dv.getUint32(off+4,true); const dataOff=off+8;
+    requireSize('cue',size,4);
     const num=dv.getUint32(dataOff,true);
+    requireSize('cue',size,4+num*24);
     const points=[]; let p=dataOff+4;
     for(let i=0;i<num;i++){
       const id=dv.getUint32(p,true); const pos=dv.getUint32(p+4,true);
@@ -285,33 +302,45 @@
   }
   function parseLIST_ADTL(dv, off){
     const size=dv.getUint32(off+4,true); const dataOff=off+8;
+    requireSize('LIST',size,4);
     const listType = fourCC(dv,dataOff);
     const items=[];
-    if(listType!=='adtl') return {id:'LIST', size, dataOffset:dataOff, items};
+    const end=dataOff+size;
     let p=dataOff+4;
-    while(p+8 <= off+8+size){
-      const subId=fourCC(dv,p); const subSize=dv.getUint32(p+4,true); const subOff=p+8;
-      if(subId==='labl' || subId==='note'){
+    while(p<end){
+      const {id:subId,size:subSize,dataOffset:subOff,next}=readChunk(dv,p,end,'LIST');
+      if(listType==='adtl' && (subId==='labl' || subId==='note')){
+        requireSize(subId,subSize,4);
         const cuePointId=dv.getUint32(subOff,true);
         const txt=readStr(dv, subOff+4, subSize-4);
         items.push({type:subId, cuePointId, text:txt});
       }
-      p = subOff + subSize + (subSize%2);
+      p=next;
     }
     return {id:'LIST', size, dataOffset:dataOff, items};
   }
 
   function parseWav(buf){
     const dv=new DataView(buf); const bytes=dv.byteLength;
+    requireSize('RIFF/WAVE ヘッダ',bytes,12);
     const header={riff:fourCC(dv,0), size:dv.getUint32(4,true), wave:fourCC(dv,8)};
+    if(header.riff!=='RIFF' || header.wave!=='WAVE') throw new Error('RIFF/WAVE ヘッダを識別できません');
+    requireSize('RIFF',header.size,4);
+    const end=8+header.size;
+    if(end>bytes) throw new Error('RIFF の宣言サイズがファイル末尾を超えています');
     let off=12;
     const skipped=[]; let fmt=null, data=null, type=null, wset=null, cset=null, cue=null, adtl=null;
-    while(off+8<=bytes){
-      const id=fourCC(dv,off); const size=dv.getUint32(off+4,true); const dataOffset=off+8;
+    while(off<end){
+      const {id,size,dataOffset,next}=readChunk(dv,off,end,'RIFF');
       if(id==='fmt '){
+        requireSize('fmt',size,16);
         const wFormatTag=dv.getUint16(dataOffset,true), nChannels=dv.getUint16(dataOffset+2,true);
         const nSamplesPerSec=dv.getUint32(dataOffset+4,true), nAvgBytesPerSec=dv.getUint32(dataOffset+8,true);
         const nBlockAlign=dv.getUint16(dataOffset+12,true), wBitsPerSample=dv.getUint16(dataOffset+14,true);
+        if(!nBlockAlign || !nChannels ||
+           ((wFormatTag===1 || wFormatTag===3) && nBlockAlign<nChannels*Math.ceil(wBitsPerSample/8))){
+          throw new Error('fmt のチャンネル数またはフレーム長が不正です');
+        }
         fmt={id,size,dataOffset,wFormatTag,nChannels,nSamplesPerSec,nAvgBytesPerSec,nBlockAlign,wBitsPerSample};
       }else if(id==='data'){
         data={id,size,dataOffset};
@@ -323,7 +352,7 @@
       }else{
         skipped.push({id,size,dataOffset, head:Array.from(new Uint8Array(dv.buffer, dataOffset, Math.min(64, size)))});
       }
-      off = dataOffset + size + (size%2);
+      off=next;
     }
     return {header, fmt, data, type, wset, cset, cue, adtl, skipped, dv};
   }
@@ -350,14 +379,18 @@
     const mid=height/2; ctx.beginPath(); ctx.moveTo(0,mid); ctx.lineTo(width,mid); ctx.stroke();
 
     const bytesPerSample=fmt.wBitsPerSample/8, blockAlign=fmt.nBlockAlign, frames=Math.floor(data.size/blockAlign);
-    const fmtTag=fmt.wFormatTag, samplesPerPx=Math.max(1,Math.floor(frames/width)); const ch=channelIndex;
+    const fmtTag=fmt.wFormatTag, ch=channelIndex;
     const bits=fmt.wBitsPerSample;
     const chMeta = (cset && cset.channels && cset.channels[ch]) ? cset.channels[ch] : null;
 
+    const euAxis=eu && fmtTag===0x0001;
+    const columns=Math.min(frames,width), ranges=[];
+    let peak=0;
     let frame=0;
-    for(let x=0;x<width;x++){
-      let sMin=1e9,sMax=-1e9;
-      for(let i=0;i<samplesPerPx && frame<frames;i++,frame++){
+    for(let x=0;x<columns;x++){
+      const endFrame=Math.floor((x+1)*frames/columns);
+      let sMin=Infinity,sMax=-Infinity;
+      for(;frame<endFrame;frame++){
         const off=data.dataOffset + frame*blockAlign + ch*bytesPerSample;
         let v=0;
         if(fmtTag===0x0001){
@@ -369,10 +402,29 @@
         }else if(fmtTag===0x0003){
           v = (bytesPerSample===4) ? dv.getFloat32(off,true) : (bytesPerSample===8? dv.getFloat64(off,true) : 0);
         }
+        if(!Number.isFinite(v)) continue;
         if(v<sMin) sMin=v; if(v>sMax) sMax=v;
       }
-      const y1=mid - sMax*(height*0.48), y2=mid - sMin*(height*0.48);
-      ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke();
+      if(sMin===Infinity) continue;
+      ranges[x]=[sMin,sMax];
+      if(euAxis) peak=Math.max(peak,Math.abs(sMin),Math.abs(sMax));
+    }
+    const scale=euAxis && peak>0 ? peak : 1;
+    ranges.forEach(([sMin,sMax],x)=>{
+      if(sMin===0 && sMax===0) return; // ゼロ線は描画済み
+      const y1=mid - (sMax/scale)*(height*0.48), y2=mid - (sMin/scale)*(height*0.48);
+      ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(sMin===sMax ? x+1 : x,y2); ctx.stroke();
+    });
+    if(euAxis){
+      const unit=chMeta?.unit || 'EU';
+      ctx.fillStyle='#334155';
+      if(peak>0){
+        const limit=Number(peak.toPrecision(6));
+        ctx.fillText(`+${limit} ${unit}`,4,12);
+        ctx.fillText(`−${limit} ${unit}`,4,height-4);
+      }else if(ranges.length){
+        ctx.fillText(`0 ${unit}`,4,mid-4);
+      }
     }
     return canvas;
   }
@@ -418,9 +470,9 @@
   function renderAll(p){
     // RIFF / fmt / data
     setTable(riffTbl,[
-      ['Chunk ID', `<span class="mono">${p.header.riff}</span>`],
+      ['Chunk ID', `<span class="mono">${esc(p.header.riff)}</span>`],
       ['Chunk Size', `${fmtNum(p.header.size)} bytes`],
-      ['riffType', `<span class="mono">${p.header.wave}</span>`],
+      ['riffType', `<span class="mono">${esc(p.header.wave)}</span>`],
     ]);
     if(p.fmt){
       const f=p.fmt;
@@ -641,45 +693,65 @@
   }
   function downloadText(name, text){
     const blob = new Blob([text], {type:'text/plain'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 1000);
   }
 
   // ====== Handlers ======
+  let loadId=0;
   async function handleFiles(files){
-    try{
-      errBox.textContent='';
-      parsedBatch=[]; batchTbl.innerHTML='';
-      if(!files || files.length===0) return;
-      if(files.length===1){
-        await handleFile(files[0]);
-      } else {
-        fileInfo.textContent = `${files.length} ファイルを読み込み中…`;
-        for(const f of files){
-          const buf=await f.arrayBuffer(); const p=parseWav(buf);
-          parsedBatch.push({name:f.name, parsed:p});
-          const row = toCSVRow(p, f.name);
-          const tr=document.createElement('tr'); tr.innerHTML = `<td class="mono">${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td><td class="mono">${row[6]}</td><td class="mono">${row[7]}</td>`;
-          batchTbl.appendChild(tr);
+    if(!files || files.length===0) return;
+    const id=++loadId, batch=files.length>1, errors=[];
+    parsed=null; parsedBatch=[]; currentFileName='';
+    for(const node of [errBox,batchTbl,summary,validation,riffTbl,fmtTbl,dataTbl,typeTbl,wsetTbl,
+                       deviceTbl,timeTbl,csetCommon,csetCh,markerTbl,skipTbl,chSelect,canvasWrap,firstSamplesPre]){
+      node.textContent='';
+    }
+    timeSeg.style.width='0%';
+    exportJSON.disabled=exportCSV.disabled=drawBtn.disabled=drawAllBtn.disabled=true;
+    fileInfo.textContent = batch ? `${files.length} ファイルを読み込み中…` : `${files[0].name}（${fmtNum(files[0].size)} bytes）読み込み中…`;
+    for(const f of files){
+      try{
+        const buf=await f.arrayBuffer();
+        if(id!==loadId) return;
+        const p=parseWav(buf);
+        const row=batch ? toCSVRow(p, f.name) : null;
+        if(!parsed){
+          renderAll(p);
+          parsed=p;
+          currentFileName=f.name;
         }
-        currentFileName = files[0].name;
-        parsed = parsedBatch[0].parsed;
-        renderAll(parsed);
-        exportJSON.disabled=false; exportCSV.disabled=false;
-        fileInfo.textContent = `最初の1件を詳細表示中：${files[0].name}`;
+        if(row){
+          const tr=document.createElement('tr');
+          row.forEach((value, i) => {
+            const td = tr.insertCell();
+            td.textContent = String(value ?? '');
+            if (i === 0 || i === 6 || i === 7) td.className = 'mono';
+          });
+          batchTbl.appendChild(tr);
+          parsedBatch.push({name:f.name, parsed:p});
+        }
+      }catch(e){
+        if(id!==loadId) return;
+        errors.push(`${f.name}：${e.message || String(e)}`);
       }
-    }catch(e){ showErr(e); }
-  }
-  async function handleFile(file){
-    try{
-      errBox.textContent='';
-      currentFileName = file.name;
-      fileInfo.textContent = `${file.name}（${fmtNum(file.size)} bytes）読み込み中…`;
-      const buf = await file.arrayBuffer();
-      parsed = parseWav(buf);
-      renderAll(parsed);
-      exportJSON.disabled=false; exportCSV.disabled=false;
-      fileInfo.textContent = `${file.name} を解析しました。`;
-    }catch(e){ showErr(e); }
+    }
+    errBox.textContent=errors.join(' ／ ');
+    exportJSON.disabled=exportCSV.disabled=!parsed;
+    if(!parsed) fileInfo.textContent=`${files.length} 件中 0 件を解析しました。`;
+    else if(batch){
+      const count=errors.length ? `${parsedBatch.length} / ${files.length} 件を解析しました。` : '';
+      fileInfo.textContent=`${count}最初の1件を詳細表示中：${currentFileName}`;
+    }
+    else fileInfo.textContent=`${currentFileName} を解析しました。`;
   }
 
   // Draw buttons

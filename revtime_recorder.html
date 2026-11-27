@@ -431,9 +431,9 @@ document.getElementById('btnEN').onclick = () => applyLang('en');
 
 /* ── state ── */
 let lastBuffer    = null;   // {fs, data: Float32Array}
-let savedTakes    = [];
-let latestResults = [];
-let mediaStream   = null, recorder = null, recChunks = [];
+const savedTakes = [];
+let inputId = 0, currentSingle = null, displayed = null;
+let activeTake = null;
 
 /* ── helpers ── */
 const db10 = x => 10 * Math.log10(Math.max(1e-24, x));
@@ -458,7 +458,8 @@ function updateDots(){
     dots.appendChild(d);
   }
   document.getElementById('btnAvg').disabled    = savedTakes.length < 2;
-  document.getElementById('btnCommit').disabled = !lastBuffer || savedTakes.length >= n;
+  document.getElementById('btnCommit').disabled = !currentSingle || displayed !== currentSingle ||
+    currentSingle.inputId !== inputId || savedTakes.length >= n;
 }
 document.getElementById('measCount').onchange = updateDots;
 updateDots();
@@ -473,65 +474,135 @@ function pickMime(){
 /* ── decode blob → mono Float32 @ 48kHz ── */
 async function decodeToMono(blob){
   const ac = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 48000});
-  const buf = await ac.decodeAudioData(await blob.arrayBuffer());
-  const fs = buf.sampleRate;
-  const data = Float32Array.from(buf.getChannelData(0));
-  await ac.close();
-  return {fs, data};
+  try {
+    const buf = await ac.decodeAudioData(await blob.arrayBuffer());
+    return {fs:buf.sampleRate, data:Float32Array.from(buf.getChannelData(0))};
+  } finally { await ac.close(); }
+}
+
+function clearPlots(){
+  document.getElementById('detailBand').innerHTML = '';
+  const plot = document.getElementById('decayPlot');
+  if(plot.data) Plotly.purge(plot);
+  const wave = document.getElementById('wave');
+  wave.getContext('2d').clearRect(0, 0, wave.width, wave.height);
+  document.getElementById('manualPanel').classList.remove('vis');
+  document.getElementById('manualT20Start').value = '';
+  document.getElementById('manualT20End').value = '';
+  document.getElementById('manualT20Result').textContent = '—';
+}
+
+function clearResults(){
+  currentSingle = displayed = null;
+  document.getElementById('resultBody').innerHTML = '';
+  const judge = document.getElementById('overallJudge');
+  judge.textContent = '—'; judge.className = 'overall-val ng';
+  document.getElementById('overallNote').textContent = '';
+  document.getElementById('btnDownloadCsv').disabled = true;
+  clearPlots();
+  updateDots();
+}
+
+function beginInput(){
+  inputId++;
+  lastBuffer = null;
+  clearResults();
+  document.getElementById('btnAnalyze').disabled = true;
+  const player = document.getElementById('player');
+  if(player.hasAttribute('src')){
+    URL.revokeObjectURL(player.src);
+    player.removeAttribute('src'); player.load();
+  }
+  player.style.display = 'none';
+  return inputId;
+}
+
+async function loadInput(blob, id, label){
+  if(id !== inputId) return;
+  setState('decoding…', 'active');
+  try {
+    const buf = await decodeToMono(blob);
+    if(id !== inputId) return;
+    lastBuffer = buf;
+    const player = document.getElementById('player');
+    player.src = URL.createObjectURL(blob);
+    player.style.display = 'block';
+    document.getElementById('btnAnalyze').disabled = false;
+    setState(`${label} · ${buf.fs} Hz · ${(buf.data.length/buf.fs).toFixed(1)} s`);
+  } catch(e){
+    if(id === inputId) setState('Decode error: '+e.message, 'ng');
+  }
 }
 
 /* ── recording ── */
+function releaseTake(take){
+  clearTimeout(take.timer);
+  take.stream?.getTracks().forEach(track => track.stop());
+  take.stream = null;
+  if(activeTake !== take) return;
+  activeTake = null;
+  const btn = document.getElementById('btnRecord');
+  btn.disabled = false; btn.className = 'primary'; btn.textContent = LANG[curLang].recStart;
+  document.getElementById('btnStop').disabled = true;
+}
+
+function stopTake(take){
+  if(!take || take !== activeTake) return;
+  clearTimeout(take.timer);
+  if(take.recorder?.state === 'recording') take.recorder.stop();
+  document.getElementById('btnStop').disabled = true;
+}
+
 async function startRecording(){
+  if(activeTake) return;
   const sec = Math.max(2, Math.min(30, parseInt(document.getElementById('recSec').value) || 5));
+  const take = {id:beginInput(), stream:null, recorder:null, timer:null};
+  activeTake = take;
+  const recBtn = document.getElementById('btnRecord');
+  recBtn.disabled = true;
+  setState('requesting mic…', 'active');
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
+    take.stream = await navigator.mediaDevices.getUserMedia({
       audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}
     });
-  } catch(e){ setState('Mic error: '+e.message, 'ng'); return; }
-
-  const mime = pickMime();
-  recorder = new MediaRecorder(mediaStream, mime ? {mimeType:mime} : undefined);
-  recChunks = [];
-  recorder.ondataavailable = e => { if(e.data?.size > 0) recChunks.push(e.data); };
-  recorder.onstop = async () => {
-    stopStream();
-    const blob = new Blob(recChunks, {type: mime || recChunks[0]?.type || 'audio/mp4'});
-    const playerEl = document.getElementById('player');
-    playerEl.src = URL.createObjectURL(blob);
-    playerEl.style.display = 'block';
-    lastBuffer = await decodeToMono(blob);
-    setState(`recorded · ${lastBuffer.fs} Hz · ${(lastBuffer.data.length/lastBuffer.fs).toFixed(1)} s`);
-    document.getElementById('btnAnalyze').disabled = false;
-    const recBtn = document.getElementById('btnRecord');
-    recBtn.className = 'primary';
-    recBtn.textContent = LANG[curLang].recStart;
-    document.getElementById('btnStop').disabled = true;
-    updateDots();
-  };
-  recorder.start();
-  const recBtn = document.getElementById('btnRecord');
-  recBtn.className = 'recording'; recBtn.textContent = '● REC';
-  document.getElementById('btnStop').disabled = false;
-  setState('recording…', 'active');
-  setTimeout(() => { if(recorder?.state === 'recording') stopRecording(); }, sec * 1000);
+    if(take.id !== inputId){ releaseTake(take); return; }
+    const mime = pickMime(), chunks = [];
+    const recorder = take.recorder = new MediaRecorder(take.stream, mime ? {mimeType:mime} : undefined);
+    recorder.ondataavailable = e => { if(e.data?.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      releaseTake(take);
+      if(take.id === inputId)
+        return loadInput(new Blob(chunks, {type:mime || chunks[0]?.type || 'audio/mp4'}), take.id, 'recorded');
+    };
+    recorder.onerror = e => {
+      recorder.onstop = null;
+      releaseTake(take);
+      if(take.id === inputId) setState('Mic error: '+(e.error?.message || 'recording failed'), 'ng');
+    };
+    recorder.start();
+    recBtn.className = 'recording'; recBtn.textContent = '● REC';
+    document.getElementById('btnStop').disabled = false;
+    setState('recording…', 'active');
+    take.timer = setTimeout(() => stopTake(take), sec * 1000);
+  } catch(e){
+    releaseTake(take);
+    if(take.id === inputId) setState('Mic error: '+e.message, 'ng');
+  }
 }
-function stopStream(){ mediaStream?.getTracks().forEach(t => t.stop()); mediaStream = null; }
-function stopRecording(){ if(recorder?.state === 'recording') recorder.stop(); else stopStream(); document.getElementById('btnStop').disabled = true; }
 
 document.getElementById('btnRecord').onclick = startRecording;
-document.getElementById('btnStop').onclick   = stopRecording;
+document.getElementById('btnStop').onclick = () => stopTake(activeTake);
 
 /* ── file load ── */
 document.getElementById('fileInput').onchange = async e => {
   const f = e.target.files?.[0]; if(!f) return;
-  setState('decoding…', 'active');
-  lastBuffer = await decodeToMono(f);
-  const playerEl = document.getElementById('player');
-  playerEl.src = URL.createObjectURL(f);
-  playerEl.style.display = 'block';
-  setState(`loaded · ${lastBuffer.fs} Hz · ${(lastBuffer.data.length/lastBuffer.fs).toFixed(1)} s`);
-  document.getElementById('btnAnalyze').disabled = false;
-  updateDots();
+  const id = beginInput();
+  if(activeTake){
+    const take = activeTake;
+    stopTake(take);
+    releaseTake(take);
+  }
+  await loadInput(f, id, 'loaded');
 };
 
 /* ── DSP (acoustics-core.js 経由) ── */
@@ -693,6 +764,7 @@ function manualFit(r, fs, t0, t1){
 /* ── ANALYZE ── */
 async function analyze(){
   if(!lastBuffer){ setState('no audio','ng'); return; }
+  clearResults();
   const {fs, data:x} = lastBuffer;
   const clap = detectClap(x);
   if(clap.peakDb < -40){
@@ -747,7 +819,7 @@ async function analyze(){
       T20_manual: NaN
     });
   }
-  latestResults = results;
+  displayed = currentSingle = {inputId, kind, rows:results};
 
   renderTable();
   renderOverall();
@@ -755,42 +827,55 @@ async function analyze(){
   drawWave(x, fs, pi, preStart, preEnd, postN, anaStart);
 
   document.getElementById('manualPanel').classList.toggle('vis', document.getElementById('manualRegress').checked);
-  document.getElementById('btnCommit').disabled = savedTakes.length >= (parseInt(document.getElementById('measCount').value)||1);
+  updateDots();
   document.getElementById('btnDownloadCsv').disabled = false;
   document.getElementById('btnAnalyze').disabled = false;
   setState('解析完了');
 }
 document.getElementById('btnAnalyze').onclick = analyze;
+for(const id of ['bandType', 'noiseComp', 'snrInclude63']){
+  document.getElementById(id).onchange = () => {
+    clearResults();
+    if(lastBuffer) setState(curLang === 'jp' ? '設定変更・再解析してください' : 'Settings changed · analyze again');
+  };
+}
 
 /* ── TABLE ── */
+function inManualMode(){
+  return currentSingle && displayed === currentSingle && document.getElementById('manualRegress').checked;
+}
+
+function displayedRows(){
+  if(!displayed || (displayed.inputId != null && displayed.inputId !== inputId)) return [];
+  if(!inManualMode()) return displayed.rows;
+  return displayed.rows.map(r => ({...r, EDT:NaN, T10:NaN, T20:r.T20_manual, T30:NaN, R2:''}));
+}
+
 function renderTable(){
   const tbody   = document.getElementById('resultBody'); tbody.innerHTML = '';
-  const manMode = document.getElementById('manualRegress').checked;
-  for(const r of latestResults){
+  const manMode = inManualMode();
+  for(const r of displayedRows()){
     const rts   = [r.T10, r.T20, r.T30].filter(isFinite);
     const star  = rts.length>=2 && rts.every(t=>t<=1.0) && (Math.max(...rts)-Math.min(...rts))>=0.3;
     const bang  = (rts.length>=2 && (Math.max(...rts)-Math.min(...rts))>=0.1*Math.min(...rts)) || rts.some(t=>t>=10);
     function fmtT(v, warn){
       if(!isFinite(v)) return `<span style="color:var(--dim)">—</span>`;
       let s = v.toFixed(3);
-      if(warn && bang) s += `<span class="wm" title="reliability warning">!!</span>`;
-      if(warn && star) s += `<span class="wm" title="short-RT inconsistency">※</span>`;
+      if(warn && !displayed.count && bang) s += `<span class="wm" title="reliability warning">!!</span>`;
+      if(warn && !displayed.count && star) s += `<span class="wm" title="short-RT inconsistency">※</span>`;
       return s;
     }
-    const t20 = manMode
-      ? (isFinite(r.T20_manual) ? `${r.T20_manual.toFixed(3)} <span style="color:var(--ok);font-size:.62rem">(M)</span>` : `<span style="color:var(--dim)">—</span>`)
-      : fmtT(r.T20, true);
+    const t20 = fmtT(r.T20, !manMode) + (manMode && isFinite(r.T20) ? ' <span style="color:var(--ok);font-size:.62rem">(M)</span>' : '');
     const jc = r.judge==='OK'?'j-ok':r.judge==='NG'?'j-ng':'j-na';
-    const dash = `<span style="color:var(--dim)">—</span>`;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${r.fc}</td>
-      <td>${manMode ? dash : fmtT(r.EDT, false)}</td>
-      <td>${manMode ? dash : fmtT(r.T10, true)}</td>
+      <td>${fmtT(r.EDT, false)}</td>
+      <td>${fmtT(r.T10, true)}</td>
       <td>${t20}</td>
-      <td>${manMode ? dash : fmtT(r.T30, true)}</td>
-      <td style="color:var(--dim)">${manMode ? '' : r.R2}</td>
-      <td>${r.SNR.toFixed(1)}</td>
+      <td>${fmtT(r.T30, true)}</td>
+      <td style="color:var(--dim)">${displayed.count ? (curLang === 'jp' ? '自動平均×' : 'auto avg×')+displayed.count : r.R2}</td>
+      <td>${isFinite(r.SNR) ? r.SNR.toFixed(1) : '—'}</td>
       <td>${isFinite(r.DR) ? r.DR.toFixed(1) : '—'}${isFinite(r.BT) && r.BT < 16 ? `<span class="wm" title="B·T = ${r.BT.toFixed(1)} < 16: filter ringing may lengthen T">BT</span>` : ''}</td>
       <td class="${jc}">${r.judge}</td>`;
     tbody.appendChild(tr);
@@ -798,16 +883,16 @@ function renderTable(){
 }
 
 document.getElementById('manualRegress').onchange = () => {
+  if(!displayed || displayed !== currentSingle) return;
   document.getElementById('manualPanel').classList.toggle('vis', document.getElementById('manualRegress').checked);
   renderTable();
-  if(latestResults.length)
-    Plotly.relayout('decayPlot', {dragmode: document.getElementById('manualRegress').checked ? 'select' : 'zoom'});
+  Plotly.relayout('decayPlot', {dragmode: inManualMode() ? 'select' : 'zoom'});
 };
 
 /* ── OVERALL ── */
 function renderOverall(){
   const inc63 = document.getElementById('snrInclude63').checked;
-  const valid  = latestResults.filter(r => inc63 || r.fc !== 63);
+  const valid  = displayed.rows.filter(r => inc63 || r.fc !== 63);
   const okN    = valid.filter(r => r.DR >= DR_MIN.T20).length;
   const ok     = okN >= Math.ceil(valid.length * 0.6);
   const el     = document.getElementById('overallJudge');
@@ -821,14 +906,15 @@ function renderDecayInit(){
   const fs = lastBuffer?.fs || 48000;
   const detailBand = document.getElementById('detailBand');
   detailBand.innerHTML = '';
-  for(const r of latestResults){
+  for(const r of currentSingle.rows){
     const o = document.createElement('option');
     o.value = String(r.fc); o.textContent = r.fc + ' Hz';
     detailBand.appendChild(o);
   }
-  if(latestResults[0]){
-    detailBand.value = String(latestResults[0].fc);
-    document.getElementById('zoomEnd').value = (latestResults[0].decay.length/fs * 0.75).toFixed(2);
+  const first = currentSingle.rows[0];
+  if(first){
+    detailBand.value = String(first.fc);
+    document.getElementById('zoomEnd').value = (first.decay.length/fs * 0.75).toFixed(2);
   }
   const render = () => renderDecay(fs);
   detailBand.onchange = render;
@@ -837,8 +923,9 @@ function renderDecayInit(){
 }
 
 function renderDecay(fs){
+  if(!currentSingle || displayed !== currentSingle) return;
   const fc = parseFloat(document.getElementById('detailBand').value);
-  const r  = latestResults.find(v => v.fc === fc) || latestResults[0];
+  const r  = currentSingle.rows.find(v => v.fc === fc) || currentSingle.rows[0];
   if(!r) return;
   const N = r.decay.length;
   const t = Array.from({length:N}, (_,i) => i/fs);
@@ -881,7 +968,7 @@ function renderDecay(fs){
   const gd = document.getElementById('decayPlot');
   gd.removeAllListeners?.('plotly_selected');
   gd.on('plotly_selected', ev => {
-    if(!document.getElementById('manualRegress').checked || !ev?.range?.x) return;
+    if(!inManualMode() || !ev?.range?.x) return;
     document.getElementById('manualT20Start').value = Math.max(0, ev.range.x[0]).toFixed(3);
     document.getElementById('manualT20End').value   = Math.max(0, ev.range.x[1]).toFixed(3);
   });
@@ -889,8 +976,9 @@ function renderDecay(fs){
 
 /* ── MANUAL T20 ── */
 document.getElementById('btnManualT20Regress').onclick = () => {
+  if(!inManualMode()) return;
   const fc = parseFloat(document.getElementById('detailBand').value);
-  const r  = latestResults.find(v => v.fc === fc);
+  const r  = currentSingle.rows.find(v => v.fc === fc);
   if(!r){ document.getElementById('manualT20Result').textContent = '—'; return; }
   const t0 = parseFloat(document.getElementById('manualT20Start').value);
   const t1 = parseFloat(document.getElementById('manualT20End').value);
@@ -936,54 +1024,60 @@ function drawWave(x, fs, pi, preStart, preEnd, postN, anaStart){
 
 /* ── COMMIT / AVERAGE ── */
 document.getElementById('btnCommit').onclick = () => {
-  if(!latestResults.length) return;
-  savedTakes.push(latestResults.map(r => ({...r})));
+  const n = parseInt(document.getElementById('measCount').value) || 1;
+  if(!currentSingle || displayed !== currentSingle || currentSingle.inputId !== inputId || savedTakes.length >= n) return;
+  const {kind, rows} = currentSingle;
+  const rowsByHz = new Map(rows.map(r => [r.fc, r]));
+  const first = savedTakes[0];
+  if(first && (kind !== first.kind || rowsByHz.size !== first.rowsByHz.size ||
+      [...first.rowsByHz.keys()].some(fc => !rowsByHz.has(fc)))){
+    setState(curLang === 'jp' ? '保存済みの測定と帯域が異なります' : 'Band settings differ from saved takes', 'ng');
+    return;
+  }
+  savedTakes.push({kind, rowsByHz});
   updateDots(); setState(`${savedTakes.length}点保存済み`);
 };
 document.getElementById('btnAvg').onclick = () => {
   if(savedTakes.length < 2) return;
-  const fcs = savedTakes[0].map(r => r.fc);
-  const tbody = document.getElementById('resultBody'); tbody.innerHTML = '';
-  fcs.forEach((fc, bi) => {
-    const g  = savedTakes.map(t => t[bi]);
-    const av = arr => { const a=arr.filter(isFinite); return a.length ? a.reduce((x,y)=>x+y)/a.length : NaN; };
-    const snrA = av(g.map(r => r.SNR)), drA = av(g.map(r => r.DR));
-    const fmt  = v => isFinite(v) ? v.toFixed(3) : `<span style="color:var(--dim)">—</span>`;
-    const jc   = drA >= DR_MIN.T20 ? 'j-ok' : 'j-ng';
-    const tr   = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${fc}</td>
-      <td>${fmt(av(g.map(r=>r.EDT)))}</td>
-      <td>${fmt(av(g.map(r=>r.T10)))}</td>
-      <td>${fmt(av(g.map(r=>r.T20)))}</td>
-      <td>${fmt(av(g.map(r=>r.T30)))}</td>
-      <td style="color:var(--dim)">avg×${savedTakes.length}</td>
-      <td>${snrA.toFixed(1)}</td>
-      <td>${isFinite(drA) ? drA.toFixed(1) : '—'}</td>
-      <td class="${jc}">${drA>=DR_MIN.T20?'OK':'NG'}</td>`;
-    tbody.appendChild(tr);
-  });
-  setState(`${savedTakes.length}点平均表示中`);
+  const inc63 = document.getElementById('snrInclude63').checked;
+  const rows = [];
+  for(const fc of savedTakes[0].rowsByHz.keys()){
+    const group = savedTakes.map(take => take.rowsByHz.get(fc));
+    const row = {fc, R2:'', BT:NaN};
+    for(const key of ['EDT','T10','T20','T30','SNR','DR']){
+      const values = group.map(r => r[key]).filter(Number.isFinite);
+      row[key] = values.length ? meanOf(values) : NaN;
+    }
+    row.judge = !inc63 && fc === 63 ? '—' : (row.DR >= DR_MIN.T20 ? 'OK' : 'NG');
+    rows.push(row);
+  }
+  displayed = {rows, count:savedTakes.length};
+  clearPlots();
+  renderTable();
+  renderOverall();
+  updateDots();
+  document.getElementById('btnDownloadCsv').disabled = false;
+  setState(curLang === 'jp' ? `${displayed.count}点平均（自動回帰値）` : `Average of ${displayed.count} takes (automatic fits)`);
 };
 
 /* ── CSV ── */
 document.getElementById('btnDownloadCsv').onclick = () => {
-  if(!latestResults.length) return;
+  const rows = displayedRows();
+  if(!rows.length) return;
   const h = ['fc_Hz','EDT_s','T10_s','T20_s','T30_s','R2','SNR_dB','DR_dB','BT','Judge'];
   const lines = [h.join(',')];
-  for(const r of latestResults){
-    const t20 = isFinite(r.T20_manual) ? r.T20_manual : r.T20;
+  for(const r of rows){
     lines.push([
       r.fc, isFinite(r.EDT)?r.EDT.toFixed(3):'',
       isFinite(r.T10)?r.T10.toFixed(3):'',
-      isFinite(t20)?t20.toFixed(3):'',
+      isFinite(r.T20)?r.T20.toFixed(3):'',
       isFinite(r.T30)?r.T30.toFixed(3):'',
-      r.R2, r.SNR.toFixed(1), isFinite(r.DR)?r.DR.toFixed(1):'', isFinite(r.BT)?r.BT.toFixed(1):'', r.judge
+      r.R2, isFinite(r.SNR)?r.SNR.toFixed(1):'', isFinite(r.DR)?r.DR.toFixed(1):'', isFinite(r.BT)?r.BT.toFixed(1):'', r.judge
     ].join(','));
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([lines.join('\n')], {type:'text/csv'}));
-  a.download = `RT_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `RT_${displayed.count ? 'avg'+displayed.count : 'single'}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 };
 

@@ -149,7 +149,7 @@
     ['Lp','Lp'],['Lp Over','Lp Over'],['Lp Under','Lp Under']
   ]);
 
-  const state = { files: [], data: [] };
+  const state = { data: [], errors: [], pendingBatches: 0 };
   const drop = document.getElementById('drop');
   const fileInput = document.getElementById('fileInput');
   const fileList = document.getElementById('fileList');
@@ -171,57 +171,94 @@
     drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('drag');});
   });
   drop.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
-  fileInput.addEventListener('change', e => handleFiles(e.target.files));
+  fileInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    e.target.value = ''; // 同じファイルも再選択できる
+  });
 
-  function handleFiles(fileListLike){
+  async function handleFiles(fileListLike){
     const arr = Array.from(fileListLike || []);
     if(arr.length===0) return;
-    state.files.push(...arr);
-    renderFileList();
-    Promise.allSettled(arr.map(readRND)).then(results=>{
-      const bad=[];
-      results.forEach((r,i)=>{ if(r.status==='fulfilled' && r.value) state.data.push(r.value); else bad.push(arr[i].name); });
-      renderAll();
-      if(bad.length) fileList.insertAdjacentHTML('beforeend', `<div style="color:#b91c1c;margin-top:6px">読み込めなかったファイル：${bad.map(escapeHtml).join('、')}（RND の形式ではないか、行が足りません）</div>`);
+    if(!state.pendingBatches) state.errors = [];
+    state.pendingBatches++;
+    const results = await Promise.allSettled(arr.map(readRND));
+    state.pendingBatches--;
+    results.forEach((result, i) => {
+      if(result.status === 'fulfilled') state.data.push(result.value);
+      else state.errors.push(`${arr[i].name}（${result.reason.message}）`);
     });
+    renderFileList();
+    renderAll();
   }
 
   function renderFileList(){
-    if(state.files.length===0){ fileList.textContent = ''; return; }
-    fileList.innerHTML = '<span>読み込み済み：</span>' + state.files.map(f=>`<span class="badge">${escapeHtml(f.name)}</span>`).join('');
+    fileList.innerHTML = state.data.length
+      ? '<span>読み込み済み：</span>' + state.data.map(d=>`<span class="badge">${escapeHtml(d.fileName)}</span>`).join('')
+      : '';
+    if(state.errors.length) fileList.insertAdjacentHTML('beforeend', `<div style="color:#b91c1c;margin-top:6px">読み込めなかったファイル：${state.errors.map(escapeHtml).join('、')}</div>`);
   }
 
   async function readRND(file){
-    const buf = await file.arrayBuffer();
-    let text = '';
-    try{ text = new TextDecoder('shift_jis').decode(buf); }
-    catch{ text = new TextDecoder('utf-8').decode(buf); }
+    let buf;
+    try { buf = await file.arrayBuffer(); }
+    catch { throw new Error('ファイルを読み取れません'); }
+    const bytes = new Uint8Array(buf);
+    const bom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+    let previousText, best;
+    for(const encoding of (bom ? ['utf-8'] : ['utf-8', 'shift_jis'])){
+      let text;
+      try { text = new TextDecoder(encoding, {fatal:true}).decode(bytes); }
+      catch { continue; }
+      if(text === previousText) continue;
+      previousText = text;
+      const candidate = parseRND(file.name, text);
+      // 周波数・系列の見出しが多く一致する候補を採用。同点では先の UTF-8 を保つ。
+      if(candidate && (!best || candidate.score > best.score)) best = candidate;
+    }
+    if(best) return best.data;
+    if(previousText === undefined) throw new Error(bom ? 'UTF-8 BOM 以降の文字コードが不正です' : 'UTF-8・Shift_JIS で復号できません');
+    throw new Error('RND の行数、周波数見出し、または系列行が合いません');
+  }
+
+  function parseRND(fileName, text){
     const rows = text.replace(/\r\n?/g,'\n').split('\n').map(r=>r.split(','));
-    if(rows.length < 21 || !rows[7]) return null;   // same layout check as NA28_FIC.html
+    if(rows.length < 21) return null;
     const headOct = rows[7].slice(1,14).map(s=>s.trim());
     const head13  = rows[7].slice(14,47).map(s=>s.trim());
+    const bandColumns = [];
+    rows[7].slice(1,47).forEach((s,i) => {
+      if(Number.isFinite(parseHz(s))) bandColumns.push(i+1);
+    });
+    if(!bandColumns.length) return null;
 
     const wanted = new Set(SERIES_ORDER);
     const seriesOct = {}, series13 = {};
     for(const k of SERIES_ORDER){ seriesOct[k]=[], series13[k]=[]; }
 
+    let matchingRows = 0;
     for(let r=9;r<=20 && r<rows.length;r++){
       const labelRaw = (rows[r][0]||'').trim();
       const label = LABEL_ROW_MAP.get(labelRaw) || labelRaw;
       if(EXCLUDE_ROWS.has(label)) continue;
       if(!wanted.has(label)) continue;
+      if(bandColumns.some(col => {
+        const cell = rows[r][col]?.trim();
+        return cell === '-' || cell === '-----' || Number.isFinite(toNumOrNaN(cell));
+      })) matchingRows++;
       const octVals = rows[r].slice(1,14).map(toNumOrNaN);
       const thVals  = rows[r].slice(14,47).map(toNumOrNaN);
       seriesOct[label] = octVals;
       series13[label]  = thVals;
     }
-    return { fileName: file.name, oct: { freqs: headOct, series: seriesOct }, thirdoct: { freqs: head13, series: series13 } };
+    if(!matchingRows) return null;
+    const data = { fileName, oct: { freqs: headOct, series: seriesOct }, thirdoct: { freqs: head13, series: series13 } };
+    return { data, score:bandColumns.length + matchingRows };
   }
 
   function toNumOrNaN(s){
-    const t = (s||'').trim();
-    if(!t || t==='-' || t==='-----') return NaN;
-    const v = Number(t.replace(/[^0-9.+-]/g,''));
+    const numeric = (s||'').trim().replace(/[^0-9.+-]/g,'');
+    if(!numeric) return NaN;
+    const v = Number(numeric);
     return Number.isFinite(v) ? v : NaN;
   }
 

@@ -272,6 +272,7 @@ function attachPlot(canvas){
   }
 
   canvas.addEventListener('wheel', (ev)=>{
+    if(!xRange || !yRange) return;
     ev.preventDefault();
     const factor = ev.deltaY<0 ? 0.9 : 1.1;
     const midx=(xRange[0]+xRange[1])/2, midy=(yRange[0]+yRange[1])/2;
@@ -282,8 +283,12 @@ function attachPlot(canvas){
 
   let lastDist=null;
   const dist=(a,b)=>Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
-  canvas.addEventListener('touchstart', (e)=>{ if(e.touches.length===2) lastDist=dist(e.touches[0],e.touches[1]); }, {passive:false});
+  canvas.addEventListener('touchstart', (e)=>{
+    if(!xRange || !yRange) return;
+    if(e.touches.length===2) lastDist=dist(e.touches[0],e.touches[1]);
+  }, {passive:false});
   canvas.addEventListener('touchmove', (e)=>{
+    if(!xRange || !yRange) return;
     if(e.touches.length===2 && lastDist){
       e.preventDefault();
       const d=dist(e.touches[0],e.touches[1]);

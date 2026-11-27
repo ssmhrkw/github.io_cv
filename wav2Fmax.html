@@ -144,6 +144,7 @@ th.fc-head:hover{color:var(--accent)}
         <div style="font-family:var(--mono);font-size:0.65rem;color:var(--dim)">Drop WAV / CSV here<br>or click to select</div>
         <div id="fileName" class="file-name"></div>
       </div>
+      <select id="fileSelect" aria-label="設定・結果を表示するファイル" hidden></select>
       <div class="ctrl-row" style="margin-top:10px">
         <button id="loadBtn" disabled class="primary" style="flex:1">Load</button>
         <label class="check-row" style="margin:0"><input type="checkbox" id="hasHeader" checked><span>header row</span></label>
@@ -254,11 +255,7 @@ window.addEventListener('error', e => setStatus('JS error: '+(e.message||e)));
 window.addEventListener('unhandledrejection', e => setStatus('Promise error: '+(e.reason?.message||String(e.reason))));
 
 /* ── global state ── */
-let g = {
-  files:[], audio:null,
-  csv:{rows:[], headerTokens:[], headerLike:false},
-  srCSV:25600, setup:[], results:null
-};
+let jobs=[], activeJob=null, busy=false;
 
 /* ── CSV parse ── */
 function splitCSV(line){
@@ -338,6 +335,7 @@ function parseCSET(dv, off, size){
 }
 function decodePCM(buf){
   const h=readWavHeader(buf);
+  if(!h.blockAlign || !h.numChannels || !h.sampleRate || h.dataOffset<0) throw new Error('Invalid WAV header');
   const v=new DataView(buf,h.dataOffset,h.dataLength);
   const frames=Math.floor(h.dataLength/h.blockAlign);
   const out=Array.from({length:h.numChannels},()=>new Float32Array(frames));
@@ -362,47 +360,48 @@ function decodePCM(buf){
 }
 
 /* ── band UI ── */
+function defaultBand(list,nominal){
+  return list.find(f=>window.preferredLabel(f)===nominal) ?? list[0];
+}
 function refreshBandUI(){
   const type=document.getElementById('bandType').value;
   const lo=document.getElementById('bandLo'), hi=document.getElementById('bandHi');
   if(!window.fullCenters) return;            // filled in once acoustics-core.js has loaded
   const list=window.fullCenters(type);
   lo.innerHTML=hi.innerHTML=list.map(f=>`<option value="${f}">${bandLabel(f)}</option>`).join('');
-  const pick=(nom)=>list.find(f=>window.preferredLabel(f)===nom) ?? list[0];
-  lo.value=pick(31.5); hi.value=pick(8000);
+  lo.value=defaultBand(list,31.5); hi.value=defaultBand(list,8000);
 }
 function bandLabel(f){ return window.preferredLabel ? String(window.preferredLabel(f)) : String(Math.round(f)); }
 
 /* ── channel setup UI ── */
-function csetChannels(nch){
-  const cs=g.audio?.cset?.channels; if(!cs||!cs.length||g.audio.audioFormat!==1) return null;
+function csetChannels(audio,nch){
+  const cs=audio?.cset?.channels; if(!cs||!cs.length||audio.audioFormat!==1) return null;
   const list=cs.length===nch?cs:cs.filter(c=>c.enabled);
   return list.length===nch?list:null;
 }
-function ensureSetup(nch, colNames=[], fresh=false){
-  const root=document.getElementById('setupBody');
-  document.getElementById('setupCard').style.display='block';
-  const cal=csetChannels(nch);
-  if(fresh||g.setup.length!==nch){
-    g.setup=[];
-    for(let i=0;i<nch;i++){
-      const cn=(colNames[i]||'').toLowerCase();
-      let role='Microphone', gain=1.0, unit='';
-      if(cn.includes('fh')||cn.includes('force')) role='Force hammer';
-      else if(cn.includes('acc')) role='Accelerometer';
-      const c=cal?.[i];
-      if(c && Number.isFinite(c.valuePerBit) && c.valuePerBit>0){
-        // decodePCM scales integers by 1/2^(bits-1); multiply back and apply the unit per bit.
-        gain=c.valuePerBit*Math.pow(2,g.audio.bitsPerSample-1); unit=c.unit;
-        if(c.sensorType===3) role='Accelerometer';
-      }
-      g.setup.push({use:i===0,role,gain,unit});
+function initialSetup(audio,nch,colNames){
+  const cal=csetChannels(audio,nch);
+  return Array.from({length:nch},(_,i)=>{
+    const cn=(colNames[i]||'').toLowerCase();
+    let role='Microphone', gain=1.0, unit='';
+    if(cn.includes('fh')||cn.includes('force')) role='Force hammer';
+    else if(cn.includes('acc')) role='Accelerometer';
+    const c=cal?.[i];
+    if(c && Number.isFinite(c.valuePerBit) && c.valuePerBit>0){
+      // decodePCM scales integers by 1/2^(bits-1); multiply back and apply the unit per bit.
+      gain=c.valuePerBit*Math.pow(2,audio.bitsPerSample-1); unit=c.unit;
+      if(c.sensorType===3) role='Accelerometer';
     }
-  }
+    return {use:i===0,role,gain,unit};
+  });
+}
+function renderSetup(job){
+  const root=document.getElementById('setupBody');
+  const nch=job.setup.length, cal=csetChannels(job.audio,nch);
   let html=(cal?`<div class="hint" style="margin-bottom:6px">DA-20 の校正値（CSET の value/bit）からゲインを入れました。単位：${cal.map(c=>c.unit||'—').join(' / ')}</div>`:'')+
     '<table class="setup-table"><thead><tr><th>Use</th><th>CH</th><th>Role</th><th>Gain ×</th></tr></thead><tbody>';
   for(let i=0;i<nch;i++){
-    const st=g.setup[i];
+    const st=job.setup[i];
     html+=`<tr>
       <td style="text-align:center"><input type="checkbox" data-k="${i}" class="ck-use" ${st.use?'checked':''}></td>
       <td style="font-family:var(--mono);font-size:.62rem;color:var(--accent2)">CH${i+1}</td>
@@ -412,128 +411,213 @@ function ensureSetup(nch, colNames=[], fresh=false){
   }
   html+='</tbody></table>';
   root.innerHTML=html;
-  root.querySelectorAll('.ck-use').forEach(el=>el.addEventListener('change',ev=>{g.setup[+ev.target.dataset.k].use=ev.target.checked;buildTabs(nch,colNames);}));
-  root.querySelectorAll('.sel-role').forEach(el=>el.addEventListener('change',ev=>{g.setup[+ev.target.dataset.k].role=ev.target.value;}));
-  root.querySelectorAll('.num-gain').forEach(el=>el.addEventListener('input',ev=>{const v=parseFloat(ev.target.value);g.setup[+ev.target.dataset.k].gain=isFinite(v)?v:1.0;}));
+  root.querySelectorAll('.ck-use').forEach(el=>el.addEventListener('change',()=>{
+    job.setup[+el.dataset.k].use=el.checked; invalidate(job);
+  }));
+  root.querySelectorAll('.sel-role').forEach(el=>el.addEventListener('change',()=>{
+    job.setup[+el.dataset.k].role=el.value; invalidate(job);
+  }));
+  root.querySelectorAll('.num-gain').forEach(el=>el.addEventListener('input',()=>{
+    const v=parseFloat(el.value); job.setup[+el.dataset.k].gain=isFinite(v)?v:1.0; invalidate(job);
+  }));
 }
 
 /* ── tabs ── */
-function buildTabs(nch, colNames=[]){
+function buildTabs(job){
+  const nch=job.setup.length, colNames=job.colNames;
   const tabsEl=document.getElementById('tabs');
   tabsEl.innerHTML=''; tabsEl.style.display='flex';
+  function selectTab(tab){
+    tabsEl.querySelector('.active')?.classList.remove('active');
+    tab.classList.add('active'); job.channel=+tab.dataset.ch;
+    try{renderChannel(job,job.channel);}
+    catch(e){setStatus(`${job.file.name} — 表示エラー: ${e.message||e}`);}
+  }
   for(let ch=0;ch<nch;ch++){
-    if(!g.setup[ch]?.use) continue;
+    if(!job.setup[ch].use) continue;
     const d=document.createElement('div'); d.className='tab';
-    if(!tabsEl.children.length) d.classList.add('active');
+    if(job.channel===ch) d.classList.add('active');
     const cn=colNames[ch]?colNames[ch].trim():('CH'+(ch+1));
-    d.textContent=`${cn} (${g.setup[ch].role})`;
+    d.textContent=`${cn} (${job.setup[ch].role})`;
     d.dataset.ch=ch;
-    d.addEventListener('click',()=>{
-      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-      d.classList.add('active'); renderChannel(ch);
-    });
+    d.addEventListener('click',()=>selectTab(d));
     tabsEl.appendChild(d);
   }
-  const first=tabsEl.querySelector('.tab');
-  if(first) renderChannel(+first.dataset.ch);
-  else { document.getElementById('tableWrap').innerHTML=''; document.getElementById('plotsWrap').innerHTML=''; }
+  const tab=tabsEl.querySelector('.active') || tabsEl.querySelector('.tab');
+  if(tab) selectTab(tab);
 }
 
-/* ── file input ── */
-const fileZone=document.getElementById('fileZone');
-const fileInput=document.getElementById('fileInput');
-const loadBtn=document.getElementById('loadBtn');
+const fileZone=document.getElementById('fileZone'), fileInput=document.getElementById('fileInput');
+const fileSelect=document.getElementById('fileSelect'), loadBtn=document.getElementById('loadBtn');
+const processBtn=document.getElementById('processBtn'), csvSr=document.getElementById('csvSr');
+const hasHeader=document.getElementById('hasHeader');
+const settingIds=['bandType','bandLo','bandHi','timeWeight','leqWin'];
 
-fileInput.addEventListener('change',e=>{
-  const files=Array.from(e.target.files||[]); if(!files.length) return;
-  g.files=files;
-  document.getElementById('fileName').textContent=files.map(f=>f.name).join(', ');
-  loadBtn.disabled=false;
-});
+function clearResults(){
+  document.getElementById('summaryTitle').textContent='Summary';
+  document.getElementById('tableWrap').innerHTML='';
+  document.getElementById('plotsWrap').innerHTML='';
+}
+function updateOption(job){
+  if(jobs.length>1) fileSelect.options[job.index].textContent=`${job.index+1}. ${job.file.name} — ${job.status}`;
+}
+function invalidate(job){
+  if(!job.loaded) return;
+  job.results=null; job.status='解析待ち'; updateOption(job);
+  document.getElementById('statusEl').textContent=jobs.length===1?job.status:`${job.file.name} — ${job.status}`;
+  clearResults(); buildTabs(job);
+}
+function syncControls(){
+  fileSelect.disabled=hasHeader.disabled=csvSr.disabled=busy;
+  loadBtn.disabled=busy;
+  processBtn.disabled=busy || !jobs.some(j=>j.loaded);
+  document.getElementById('setupCard').inert=busy;
+  document.getElementById('configCard').inert=busy;
+}
+function renderJob(){
+  const job=activeJob;
+  syncControls();
+  document.getElementById('setupCard').style.display=job.loaded?'block':'none';
+  document.getElementById('configCard').style.display=jobs.some(j=>j.loaded)?'block':'none';
+  // A failed file has no settings, but Process still applies to the successful files.
+  for(const group of document.querySelectorAll('#configCard > .ctrl-g, #configCard > .ctrl-row')){
+    group.style.display=job.loaded?'':'none';
+  }
+  hasHeader.checked=job.hasHeader;
+  csvSr.value=job.audio?.sampleRate ?? job.csvSrInput;
+  document.getElementById('bandType').value=job.settings.bandType;
+  refreshBandUI();
+  for(const id of settingIds.slice(1)){
+    if((id==='bandLo' || id==='bandHi') && !job.settings[id]) continue;
+    document.getElementById(id).value=job.settings[id];
+  }
+  clearResults();
+  const tabs=document.getElementById('tabs');
+  tabs.innerHTML=''; tabs.style.display=job.loaded?'flex':'none';
+  if(job.loaded){renderSetup(job); buildTabs(job);}
+}
+function selectFiles(files){
+  if(!files.length) return;
+  const defaults=Object.fromEntries(settingIds.map(id=>[id,document.getElementById(id).value]));
+  defaults.bandLo=defaults.bandHi='';  // Load starts with the standard band range.
+  // Single-file loads retain the last detected CSV rate and same-width channel setup.
+  const previousSingle=files.length===1 && jobs.length===1?jobs[0]:null;
+  jobs=Array.from(files,(file,index)=>({
+    file,index,format:['csv','txt'].includes(file.name.toLowerCase().split('.').pop())?'CSV':'WAV',
+    audio:null,csv:null,srCSV:previousSingle?.srCSV ?? 25600,csvSrInput:csvSr.value,hasHeader:hasHeader.checked,
+    colNames:[],setup:previousSingle?previousSingle.setup.map(channel=>({...channel})):[],settings:{...defaults},
+    results:null,channel:0,loaded:false,status:'未読込'
+  }));
+  fileInput.value='';  // Allow the same file to be picked again after a drop.
+  activeJob=jobs[0]; busy=false;
+  hideOverlay(); processBtn.classList.remove('processing'); processBtn.textContent='Process';
+  fileSelect.replaceChildren(); fileSelect.hidden=jobs.length===1;
+  if(!fileSelect.hidden){
+    for(const job of jobs){
+      const opt=document.createElement('option'); opt.value=job.index; fileSelect.appendChild(opt); updateOption(job);
+    }
+    fileSelect.value='0';
+  }
+  document.getElementById('fileName').textContent=jobs.map(j=>j.file.name).join(', ');
+  document.getElementById('statusEl').textContent='Ready';
+  renderJob();
+}
+fileInput.addEventListener('change',e=>selectFiles(e.target.files));
+fileSelect.addEventListener('change',()=>{activeJob=jobs[Number(fileSelect.value)]; renderJob();});
 ['dragover','dragenter'].forEach(ev=>fileZone.addEventListener(ev,e=>{e.preventDefault();fileZone.classList.add('drag');}));
 ['dragleave','drop'].forEach(ev=>fileZone.addEventListener(ev,e=>{e.preventDefault();fileZone.classList.remove('drag');
-  if(ev==='drop'&&e.dataTransfer?.files?.length){
-    g.files=Array.from(e.dataTransfer.files);
-    document.getElementById('fileName').textContent=g.files.map(f=>f.name).join(', ');
-    loadBtn.disabled=false;
-  }
+  if(ev==='drop' && e.dataTransfer?.files) selectFiles(e.dataTransfer.files);
 }));
+csvSr.addEventListener('input',()=>{
+  if(!activeJob || activeJob.audio) return;
+  activeJob.csvSrInput=csvSr.value; invalidate(activeJob);
+});
+hasHeader.addEventListener('change',()=>{
+  if(!activeJob) return;
+  activeJob.hasHeader=hasHeader.checked;
+  if(activeJob.csv){
+    activeJob.csv=null; activeJob.loaded=false; activeJob.results=null;
+    activeJob.status='要再読込'; updateOption(activeJob); renderJob();
+    setStatus(`${activeJob.file.name} — ${activeJob.status}`);
+  }
+});
+for(const id of settingIds){
+  document.getElementById(id).addEventListener(id==='leqWin'?'input':'change',()=>{
+    if(id==='bandType') refreshBandUI();
+    if(!activeJob) return;
+    for(const key of settingIds) activeJob.settings[key]=document.getElementById(key).value;
+    invalidate(activeJob);
+  });
+}
 
 /* ── load ── */
-loadBtn.addEventListener('click', async()=>{
-  if(!g.files.length){return;}
-  const f=g.files[0];
-  const ext=f.name.toLowerCase().split('.').pop();
-  setStatus('Loading '+f.name+' …');
-  document.getElementById('configCard').style.display='none';
-  document.getElementById('processBtn').disabled=true;
-
-  if(ext==='csv'||ext==='txt'){
-    try{
-      const hasHeader=document.getElementById('hasHeader').checked;
-      g.csv=await parseCSV(f,hasHeader); g.audio=null;
-      // auto-detect SR from timestamps
-      if(g.csv.rows.length>4){
-        const t=g.csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
-        if(t.length>4){
-          const dt=[]; for(let i=1;i<t.length;i++){const d=t[i]-t[i-1];if(isFinite(d)&&d>0)dt.push(d);}
-          if(dt.length){const s=Float64Array.from(dt).sort();const m=s[Math.floor(s.length/2)];if(m>0){g.srCSV=1/m;document.getElementById('csvSr').value=Math.round(g.srCSV);}}
+async function loadOne(job,isBatch){
+  const f=job.file;
+  let message;
+  if(job.format==='CSV'){
+    const csv=await parseCSV(f,job.hasHeader);
+    // auto-detect SR from timestamps
+    if(csv.rows.length>4){
+      const t=csv.rows.map(r=>r[0]).filter(v=>isFinite(v));
+      if(t.length>4){
+        const dt=[]; for(let i=1;i<t.length;i++){const d=t[i]-t[i-1];if(isFinite(d)&&d>0)dt.push(d);}
+        if(dt.length){
+          const sorted=Float64Array.from(dt).sort(), m=sorted[Math.floor(sorted.length/2)];
+          if(m>0){job.srCSV=1/m; job.csvSrInput=Math.round(job.srCSV);}
         }
       }
-      const nch=g.csv.headerLike?Math.max(0,g.csv.headerTokens.length-1):(g.csv.rows[0]?.length-1||0);
-      const cols=g.csv.headerLike?g.csv.headerTokens.slice(1):[];
-      ensureSetup(nch,cols); buildTabs(nch,cols); refreshBandUI();
-      document.getElementById('configCard').style.display='block';
-      document.getElementById('processBtn').disabled=false;
-      setStatus(`CSV: ${g.csv.rows.length} rows · ${nch} ch · SR≈${Math.round(g.srCSV)} Hz`);
-    }catch(e){setStatus('CSV error: '+(e.message||e));}
+    }
+    const nch=csv.headerLike?Math.max(0,csv.headerTokens.length-1):(csv.rows[0]?.length-1||0);
+    if(isBatch && (!csv.rows.length || !nch)) throw new Error('No channel data');
+    job.csv=csv; job.colNames=csv.headerLike?csv.headerTokens.slice(1):[];
+    if(job.setup.length!==nch) job.setup=initialSetup(null,nch,job.colNames);
+    message=`CSV: ${csv.rows.length} rows · ${nch} ch · SR≈${Number(job.csvSrInput)||job.srCSV} Hz`;
   } else {
-    const fr=new FileReader();
-    fr.onload=()=>{
-      try{
-        g.audio=decodePCM(fr.result); g.csv={rows:[],headerTokens:[],headerLike:false};
-        document.getElementById('csvSr').value=g.audio.sampleRate;
-        ensureSetup(g.audio.numberOfChannels,[],true); buildTabs(g.audio.numberOfChannels,[]); refreshBandUI();
-        document.getElementById('configCard').style.display='block';
-        document.getElementById('processBtn').disabled=false;
-        setStatus(`WAV: ${g.audio.numberOfChannels} ch · ${g.audio.sampleRate} Hz · ${g.audio.length} frames`);
-      }catch(e){setStatus('WAV error: '+(e.message||e));}
-    };
-    fr.readAsArrayBuffer(f);
+    const audio=decodePCM(await f.arrayBuffer());
+    job.audio=audio; job.setup=initialSetup(audio,audio.numberOfChannels,[]);
+    message=`WAV: ${audio.numberOfChannels} ch · ${audio.sampleRate} Hz · ${audio.length} frames`;
   }
+  job.settings.bandLo=job.settings.bandHi='';
+  job.loaded=true; job.status=message;
+}
+loadBtn.addEventListener('click', async()=>{
+  if(busy || !jobs.length) return;
+  const batch=jobs;
+  busy=true; syncControls();
+  for(const job of batch){
+    if(batch.length>1 && job.loaded) continue;
+    setStatus('Loading '+job.file.name+' …');
+    job.loaded=false; job.results=null;
+    try{await loadOne(job,batch.length>1);}
+    catch(e){job.status=job.format+' error: '+(e.message||e);}
+    if(batch!==jobs) return;
+    updateOption(job);
+    setStatus(batch.length===1?job.status:`${job.index+1}. ${job.file.name}: ${job.status}`);
+  }
+  if(batch.length>1) setStatus(`Load: ${batch.filter(j=>j.loaded).length}/${batch.length} 件成功`);
+  busy=false; renderJob();
 });
 
 /* ── process ── */
-document.getElementById('processBtn').addEventListener('click', async()=>{
-  const btn=document.getElementById('processBtn');
-  try{
-    btn.classList.add('processing'); btn.textContent='処理中…'; btn.disabled=true;
-    showOverlay();
-    document.getElementById('tableWrap').innerHTML='';
-    document.getElementById('plotsWrap').innerHTML='';
-    setStatus('Processing…');
-    await new Promise(r=>setTimeout(r,20));
-
-    const bandType=document.getElementById('bandType').value;
+function processOne(job){
+    const {bandType,bandLo,bandHi,timeWeight:timeMode}=job.settings;
     if(!window.fullCenters) throw new Error('acoustics-core.js の読み込みを待っています。少し待ってから再実行してください。');
     const bw=bandType==='oct'?1:3;
     const centersAll=window.fullCenters(bandType);
-    const lo=Number(document.getElementById('bandLo').value)||centersAll[0];
-    const hi=Number(document.getElementById('bandHi').value)||centersAll[centersAll.length-1];
-    const timeMode=document.getElementById('timeWeight').value;
-    const leqWin=Math.max(1e-3,Number(document.getElementById('leqWin').value)||1);
+    const lo=Number(bandLo)||defaultBand(centersAll,31.5);
+    const hi=Number(bandHi)||defaultBand(centersAll,8000);
+    const leqWin=Math.max(1e-3,Number(job.settings.leqWin)||1);
     const N=36;
 
-    let sr, nch, getData;
-    if(g.audio){
-      sr=g.audio.sampleRate; nch=g.audio.numberOfChannels; getData=i=>g.audio.getChannelData(i);
+    let sr, getData;
+    if(job.audio){
+      sr=job.audio.sampleRate; getData=i=>job.audio.getChannelData(i);
     } else {
-      sr=Number(document.getElementById('csvSr').value)||g.srCSV||25600;
-      nch=g.setup.length;
+      sr=Number(job.csvSrInput)||job.srCSV;
       getData=i=>{
         const ci=i+1;
-        const arr=new Float32Array(g.csv.rows.length);
-        for(let r=0;r<g.csv.rows.length;r++){const v=Number(g.csv.rows[r][ci]);arr[r]=isFinite(v)?v:0;}
+        const arr=new Float32Array(job.csv.rows.length);
+        for(let r=0;r<job.csv.rows.length;r++){const v=Number(job.csv.rows[r][ci]);arr[r]=isFinite(v)?v:0;}
         return arr;
       };
     }
@@ -541,11 +625,11 @@ document.getElementById('processBtn').addEventListener('click', async()=>{
     const inRange=centersAll.filter(f=>f>=lo-1e-6&&f<=hi+1e-6);
     const centers=inRange.filter(f=>window.bandEdges(f,bw)[1]<0.45*sr);
     if(centers.length<inRange.length) logln(`Fs=${sr} Hz のため ${inRange.length-centers.length} 帯域（上端がナイキスト付近）を除外`);
-    const usedIdx=g.setup.map((s,i)=>s.use?i:-1).filter(i=>i>=0);
+    const usedIdx=job.setup.map((s,i)=>s.use?i:-1).filter(i=>i>=0);
     const results=[];
 
     for(const ch of usedIdx){
-      const cfg=g.setup[ch];
+      const cfg=job.setup[ch];
       let x=getData(ch);
       if(!x||!x.length){setStatus(`CH${ch+1}: データなし`);continue;}
       if(cfg.gain!==1){const xx=new Float32Array(x.length);for(let i=0;i<x.length;i++)xx[i]=x[i]*cfg.gain;x=xx;}
@@ -572,26 +656,46 @@ document.getElementById('processBtn').addEventListener('click', async()=>{
       }
       results.push({channelIndex:ch,role:cfg.role,byBand,centers,sr});
     }
-    g.results={results,centers,sr};
-    setStatus('Done');
-    const active=document.querySelector('#tabs .tab.active');
-    if(active) renderChannel(+active.dataset.ch);
-  }catch(e){
-    setStatus('Process error: '+(e.message||e));
+    return {results,centers,sr};
+}
+
+processBtn.addEventListener('click', async()=>{
+  if(busy || !jobs.some(j=>j.loaded)) return;
+  const batch=jobs;
+  busy=true;
+  processBtn.classList.add('processing'); processBtn.textContent='処理中…';
+  syncControls(); clearResults(); showOverlay(); setStatus('Processing…');
+  try{
+    for(const job of batch){
+      if(!job.loaded || (batch.length>1 && job.results)) continue;
+      await new Promise(r=>setTimeout(r,20));
+      if(batch!==jobs) return;
+      try{
+        const result=processOne(job);
+        if(batch.length>1 && !result.results.length) throw new Error('データのあるチャンネルを選択してください');
+        if(batch.length>1 && !result.centers.length) throw new Error('指定範囲に解析できる帯域がありません');
+        job.results=result; job.status='Done';
+      }catch(e){job.results=null; job.status='Process error: '+(e.message||e);}
+      updateOption(job);
+      setStatus(batch.length===1?job.status:`${job.index+1}. ${job.file.name}: ${job.status}`);
+    }
+    if(batch.length>1) setStatus(`Process: ${batch.filter(j=>j.results).length}/${batch.length} 件成功`);
   }finally{
-    hideOverlay();
-    btn.classList.remove('processing'); btn.textContent='Process'; btn.disabled=false;
+    if(batch===jobs){
+      busy=false; hideOverlay(); processBtn.classList.remove('processing'); processBtn.textContent='Process';
+      renderJob();
+    }
   }
 });
 
 /* ── render channel ── */
-function renderChannel(ch){
-  if(!g.results){return;}
-  const rec=g.results.results.find(r=>r.channelIndex===ch);
-  if(!rec){document.getElementById('tableWrap').innerHTML='';document.getElementById('plotsWrap').innerHTML='';return;}
-  const isCSV=!g.audio&&g.csv.headerLike;
-  const chName=(isCSV&&g.csv.headerTokens[ch+1])?g.csv.headerTokens[ch+1].trim():('CH'+(ch+1));
-  document.getElementById('summaryTitle').textContent=`CH: ${chName} (${rec.role}) — ${document.getElementById('bandType').value==='oct'?'1/1':'1/3'} octave`;
+function renderChannel(job,ch){
+  if(!job.results){return;}
+  const rec=job.results.results.find(r=>r.channelIndex===ch);
+  if(!rec){clearResults();return;}
+  const isCSV=job.csv?.headerLike;
+  const chName=(isCSV&&job.csv.headerTokens[ch+1])?job.csv.headerTokens[ch+1].trim():('CH'+(ch+1));
+  document.getElementById('summaryTitle').textContent=`CH: ${chName} (${rec.role}) — ${job.settings.bandType==='oct'?'1/1':'1/3'} octave`;
 
   const centers=rec.centers;
   const metrics=[
@@ -657,7 +761,6 @@ function renderChannel(ch){
   }
 }
 
-document.getElementById('bandType').addEventListener('change', refreshBandUI);
 if(window._acousticsCoreReady) refreshBandUI(); else window.addEventListener('acoustics-ready', refreshBandUI, {once:true});
 </script>
 </body>

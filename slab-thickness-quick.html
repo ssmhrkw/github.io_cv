@@ -170,7 +170,7 @@ svg text{font-family:"BIZ UDPGothic",system-ui,sans-serif}
     '63': {63: -12, 125: -9, 250: -6, 500: -3},
     '125': {63: -9, 125: -6, 250: -3, 500: 0}
   };
-  const BASES = {reference: [73, 63, 56, 50], original: [88, 76, 69, 62]};
+  const BASES = {reference: [73, 63, 56, 50]};
   const C_AIR = 340, F_THETA = 25, NU2 = 0.04, K_CONST = 152;
   const F0_COEF = 0.8 * Math.PI / (4 * Math.sqrt(3));
   const DOM_LIMITS = [44.7, 89.1];
@@ -840,7 +840,7 @@ function renderResult(c) {
       <button type="button" class="btn" id="restart">最初からやり直す</button>
     </div>`);
   s.push(`<div class="notes"><h2 style="font-size:15px;color:var(--ink)">この結果について</h2><ul>
-      <li>判定は公開資料の L-50 基準曲線（73・63・56・50 dB）と厳密に比べています（各帯域 2 dB の許容なし）。許容や基準曲線は詳細入力版で変えられます。</li>
+      <li>判定は公開資料の L-50 基準曲線（73・63・56・50 dB）と厳密に比べています。詳細入力版では、各帯域で 2 dB までの超過を認める設定も選べます。</li>
       <li>衝撃源はタイヤ（バングマシン）。加振点は5点、加振点間は算術平均です。受音側は室内平均として扱います。</li>
       <li>「必要な等価厚」は、それ以上ならどの厚さでも目標を満たす最小値です（${c.hmin}〜${c.hmax} mm を 1 mm 刻みで計算）。</li>
       <li>予測式の検証と規格原本との照合は完了していません。設計の目安としてお使いください。式と前提は詳細入力版の計算書にあります。</li>
